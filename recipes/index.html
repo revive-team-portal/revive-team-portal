@@ -30,7 +30,7 @@
   <!-- ==================== LOADING / GATE ==================== -->
   <div v-if="!user" class="min-h-screen flex items-center justify-center bg-stone-100">
     <div class="text-center">
-      <div class="text-4xl mb-3">🍃</div>
+      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" alt="Revive Cafe" class="w-14 h-14 mx-auto mb-3">
       <p v-if="!gateError" class="text-stone-500 text-sm">Loading Recipe Manager…</p>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
         <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
@@ -45,7 +45,7 @@
     <!-- NAV -->
     <nav class="bg-stone-800 text-white px-6 py-3 flex items-center justify-between no-print sticky top-0 z-50 shadow-md">
       <div class="flex items-center gap-5">
-        <span class="font-bold text-amber-400 text-lg select-none">🍃 Revive Cafe</span>
+        <span class="font-bold text-amber-400 text-lg select-none inline-flex items-center gap-2"><img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" alt="" class="w-7 h-7 rounded-full">Revive Cafe</span>
         <button @click="goToList" class="text-sm transition"
           :class="currentView==='list'?'text-amber-400 font-semibold':'text-stone-300 hover:text-white'">Recipes</button>
         <button @click="goToMeals" class="text-sm transition"
