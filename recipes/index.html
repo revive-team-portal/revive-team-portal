@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revive Cafe — Recipe Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    [v-cloak] { display: none; }
+    @media print { .no-print { display: none !important; } body { background: white; } }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  </style>
+</head>
+<body class="bg-stone-50 font-sans text-stone-900">
+
+<script>
+  const SUPABASE_URL      = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
+  const USDA_API_KEY      = 'Sd0kl3J2dobXzVli2TE9ZXTtqBSji4twOHaDElls';
+  // Single sign-on via the Revive Portal project (used only to confirm you're logged in).
+  const PORTAL_URL        = 'https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+  // Anthropic key removed from the browser — AI now runs through a secure serverless function.
+</script>
+
+<div id="app" v-cloak>
+
+  <!-- ==================== LOADING / GATE ==================== -->
+  <div v-if="!user" class="min-h-screen flex items-center justify-center bg-stone-100">
+    <div class="text-center">
+      <div class="text-4xl mb-3">🍃</div>
+      <p v-if="!gateError" class="text-stone-500 text-sm">Loading Recipe Manager…</p>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
+        <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
+        <a href="/" class="text-amber-700 underline text-sm">← Back to portal</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN APP ==================== -->
+  <div v-else class="min-h-screen flex flex-col">
+
+    <!-- NAV -->
+    <nav class="bg-stone-800 text-white px-6 py-3 flex items-center justify-between no-print sticky top-0 z-50 shadow-md">
+      <div class="flex items-center gap-5">
+        <span class="font-bold text-amber-400 text-lg select-none">🍃 Revive Cafe</span>
+        <button @click="goToList" class="text-sm transition"
+          :class="currentView==='list'?'text-amber-400 font-semibold':'text-stone-300 hover:text-white'">Recipes</button>
+        <button @click="goToMeals" class="text-sm transition"
+          :class="currentView==='meals'||currentView==='meal-view'||currentView==='meal-edit'?'text-amber-400 font-semibold':'text-stone-300 hover:text-white'">Meals</button>
+        <button @click="currentView='ingredients'" class="text-sm transition"
+          :class="currentView==='ingredients'?'text-amber-400 font-semibold':'text-stone-300 hover:text-white'">Ingredients</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button @click="startImport"
+          class="text-stone-300 hover:text-white border border-stone-600 hover:border-stone-400 text-xs font-medium px-3 py-1.5 rounded-lg transition no-print">
+          ↑ Import Recipe
+        </button>
+        <button @click="startNewRecipe"
+          class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition no-print">
+          + New Recipe
+        </button>
+        <button @click="logout" class="text-stone-400 hover:text-white text-xs transition ml-1 no-print">Logout</button>
+      </div>
+    </nav>
+
+    <!-- ============ RECIPE LIST ============ -->
+    <div v-if="currentView === 'list'" class="flex-1 max-w-7xl mx-auto px-6 py-8 w-full">
+      <div class="flex gap-8">
+        <aside class="w-44 shrink-0">
+          <p class="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">Categories</p>
+          <div class="space-y-0.5">
+            <button @click="selectedCategory=''"
+              class="w-full text-left px-3 py-2 rounded-lg text-sm transition"
+              :class="selectedCategory===''?'bg-amber-100 text-amber-800 font-semibold':'text-stone-600 hover:bg-stone-100'">
+              All Recipes
+            </button>
+            <button v-for="cat in allCategories" :key="cat" @click="selectedCategory=cat"
+              class="w-full text-left px-3 py-2 rounded-lg text-sm transition"
+              :class="selectedCategory===cat?'bg-amber-100 text-amber-800 font-semibold':'text-stone-600 hover:bg-stone-100'">
+              {{ cat }}
+            </button>
+          </div>
+        </aside>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3 mb-6">
+            <input v-model="searchQuery" type="text" placeholder="Search recipes…"
+              class="flex-1 border border-stone-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            <span class="text-stone-400 text-sm shrink-0">{{ filteredRecipes.length }} recipe{{ filteredRecipes.length!==1?'s':'' }}</span>
+          </div>
+          <div v-if="loadingRecipes" class="text-center text-stone-400 py-24 text-sm">Loading…</div>
+          <div v-else-if="filteredRecipes.length===0" class="text-center py-24">
+            <p class="text-stone-400 text-lg mb-3">No recipes found</p>
+            <button @click="startNewRecipe" class="text-amber-600 hover:text-amber-700 font-medium text-sm">+ Create your first recipe</button>
+          </div>
+          <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-for="recipe in filteredRecipes" :key="recipe.id"
+              @click="viewRecipe(recipe)"
+              class="bg-white rounded-xl border border-stone-200 p-5 cursor-pointer hover:shadow-md hover:border-amber-300 transition group">
+              <div class="flex items-start justify-between mb-3">
+                <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">{{ recipe.category||'Uncategorised' }}</span>
+                <span class="text-xs text-stone-400 group-hover:text-amber-600 transition font-medium">v{{ recipe.version }}</span>
+              </div>
+              <h3 class="font-bold text-stone-800 text-base leading-snug mb-1">{{ recipe.name }}</h3>
+              <p v-if="recipe.description" class="text-stone-500 text-xs line-clamp-2 mb-4">{{ recipe.description }}</p>
+              <div class="pt-3 border-t border-stone-100 flex items-center gap-4 text-xs text-stone-400">
+                <span v-if="recipe.serve_weight_g&&recipe._totalWeight">{{ Math.round(recipe._totalWeight/recipe.serve_weight_g*10)/10 }} serves</span>
+                <span v-if="recipe._totalWeight">{{ recipe._totalWeight.toFixed(0) }}g total</span>
+                <span v-if="recipe._cost>0">${{ recipe._cost.toFixed(2) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ RECIPE VIEW ============ -->
+    <div v-if="currentView==='view'&&currentRecipe" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
+      <div class="flex items-center justify-between mb-6 no-print">
+        <button @click="goToList" class="text-amber-600 hover:text-amber-700 text-sm font-medium">← Back</button>
+        <div class="flex gap-2">
+          <button @click="startEditRecipe(currentRecipe)" class="bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium px-4 py-2 rounded-lg transition">Edit</button>
+          <button @click="startNewVersion(currentRecipe)" class="bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium px-4 py-2 rounded-lg transition">New Version</button>
+          <button @click="printRecipe" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Print / PDF</button>
+          <button @click="confirmDeleteRecipe(currentRecipe)" class="bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium px-4 py-2 rounded-lg transition">Delete</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-stone-200 p-8 mb-5">
+        <div class="flex flex-wrap gap-2 items-center mb-3">
+          <span class="text-sm font-medium px-3 py-1 rounded-full bg-amber-100 text-amber-800">{{ currentRecipe.category||'Uncategorised' }}</span>
+          <span class="text-stone-400 text-sm">Version {{ currentRecipe.version }}</span>
+        </div>
+        <h1 class="text-3xl font-bold text-stone-800 leading-tight">{{ currentRecipe.name }}</h1>
+        <p v-if="currentRecipe.description" class="text-stone-500 mt-2">{{ currentRecipe.description }}</p>
+        <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Total Yield</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ viewTotalWeight.toFixed(0) }}g</p>
+            <p class="text-xs text-stone-400">{{ (viewTotalWeight/1000).toFixed(3) }}kg</p>
+          </div>
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Serve Size</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ currentRecipe.serve_weight_g }}g</p>
+          </div>
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">No. of Serves</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ currentRecipe.serve_weight_g?(viewTotalWeight/currentRecipe.serve_weight_g).toFixed(1):'—' }}</p>
+          </div>
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Serve</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">
+              <span v-if="viewTotalCost>0&&currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/(viewTotalWeight/currentRecipe.serve_weight_g)).toFixed(3) }}</span>
+              <span v-else class="text-stone-400">—</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- General ingredients -->
+      <div v-if="viewUnassignedIngredients.length>0" class="bg-white rounded-2xl border border-stone-200 p-6 mb-5">
+        <h2 class="font-bold text-stone-800 text-lg mb-4">General Ingredients</h2>
+        <table class="w-full text-sm">
+          <thead><tr class="text-xs font-semibold text-stone-400 uppercase tracking-wider border-b border-stone-100 text-left">
+            <th class="pb-2">Ingredient</th><th class="pb-2 text-right">Weight</th><th class="pb-2 text-right">Volumetric</th><th class="pb-2 text-right">Cost</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="ri in viewUnassignedIngredients" :key="ri.id" class="border-b border-stone-50 last:border-0">
+              <td class="py-2.5 font-medium text-stone-700">
+                {{ ri.ingredient?.name }}
+                <span v-if="ri.ingredient?.state==='cooked'" class="text-xs text-blue-500 ml-1">(cooked)</span>
+              </td>
+              <td class="py-2.5 text-right text-stone-600">{{ ri.weight_g }}g</td>
+              <td class="py-2.5 text-right text-stone-400 text-xs">{{ ri.volumetric_note||'—' }}</td>
+              <td class="py-2.5 text-right text-stone-500">${{ calcIngCost(ri.ingredient, ri.weight_g).toFixed(3) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Method steps -->
+      <div v-if="viewSteps.length>0" class="mb-5">
+        <h2 class="text-xl font-bold text-stone-800 mb-3">Method</h2>
+        <div v-for="(step,idx) in viewSteps" :key="step.id" class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-3">
+          <div class="flex">
+            <div class="flex-1 p-6">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="bg-amber-600 text-white text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center shrink-0">{{ idx+1 }}</span>
+                <h3 class="font-bold text-stone-800">{{ step.title||'Step '+(idx+1) }}</h3>
+              </div>
+              <p class="text-stone-600 leading-relaxed">{{ step.description }}</p>
+            </div>
+            <div v-if="viewIngredientsForStep(step.id).length>0" class="bg-amber-50 border-l border-amber-100 p-4 w-52 shrink-0">
+              <p class="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3">Ingredients</p>
+              <div v-for="ri in viewIngredientsForStep(step.id)" :key="ri.id" class="mb-3 last:mb-0">
+                <p class="text-sm font-semibold text-stone-800">{{ ri.ingredient?.name }}</p>
+                <p class="text-xs text-stone-500">{{ ri.weight_g }}g<span v-if="ri.volumetric_note"> · {{ ri.volumetric_note }}</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div v-if="currentRecipe.notes" class="bg-amber-50 border border-amber-100 rounded-2xl p-6 mb-5">
+        <h2 class="font-bold text-stone-800 mb-2">Notes</h2>
+        <p class="text-stone-600 text-sm leading-relaxed">{{ currentRecipe.notes }}</p>
+      </div>
+
+      <!-- Nutritional Panel -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-8 mb-5">
+        <h2 class="text-xl font-bold text-stone-800 mb-6">Nutritional Information</h2>
+        <div v-if="viewTotalWeight===0" class="text-stone-400 text-sm text-center py-4">Add ingredients with nutritional data to see the panel.</div>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div class="border-2 border-stone-800 rounded-xl overflow-hidden">
+            <div class="bg-stone-800 text-white px-5 py-3">
+              <p class="font-black text-sm tracking-wide">NUTRITION INFORMATION</p>
+              <p class="text-xs text-stone-400 mt-0.5">Servings per package: {{ currentRecipe.serve_weight_g?(viewTotalWeight/currentRecipe.serve_weight_g).toFixed(1):'—' }}</p>
+              <p class="text-xs text-stone-400">Serving size: {{ currentRecipe.serve_weight_g }}g</p>
+            </div>
+            <div class="px-1">
+              <table class="w-full text-sm">
+                <thead><tr class="border-b-4 border-stone-800"><th class="text-left px-4 py-2 text-xs font-bold text-stone-600">Per 100g</th><th class="text-right px-4 py-2 text-xs font-bold text-stone-600">Avg Qty</th></tr></thead>
+                <tbody>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Energy</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.energy_kj.toFixed(0) }}kJ</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Protein</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.protein_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Fat, Total</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.fat_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Saturated</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ nutrition100g.saturated_fat_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Carbohydrate</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.carbohydrate_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Sugars</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ nutrition100g.sugars_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Dietary Fibre</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.dietary_fibre_g.toFixed(1) }}g</td></tr>
+                  <tr><td class="px-4 py-2 text-stone-700">Sodium</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.sodium_mg.toFixed(0) }}mg</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="border-2 border-stone-800 rounded-xl overflow-hidden">
+            <div class="bg-stone-800 text-white px-5 py-3">
+              <p class="font-black text-sm tracking-wide">NUTRITION INFORMATION</p>
+              <p class="text-xs text-stone-400 mt-0.5">Per serve ({{ currentRecipe.serve_weight_g }}g)</p>
+              <p class="text-xs text-stone-400">&nbsp;</p>
+            </div>
+            <div class="px-1">
+              <table class="w-full text-sm">
+                <thead><tr class="border-b-4 border-stone-800"><th class="text-left px-4 py-2 text-xs font-bold text-stone-600">Per Serve</th><th class="text-right px-4 py-2 text-xs font-bold text-stone-600">Avg Qty</th></tr></thead>
+                <tbody>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Energy</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.energy_kj.toFixed(0) }}kJ</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Protein</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.protein_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Fat, Total</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.fat_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Saturated</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ nutritionPerServe.saturated_fat_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Carbohydrate</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.carbohydrate_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Sugars</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ nutritionPerServe.sugars_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Dietary Fibre</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.dietary_fibre_g.toFixed(1) }}g</td></tr>
+                  <tr><td class="px-4 py-2 text-stone-700">Sodium</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.sodium_mg.toFixed(0) }}mg</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-stone-400 mt-4">* Values calculated from ingredient data. Verify against lab analysis for commercial labelling.</p>
+      </div>
+
+      <!-- Cost Breakdown -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-8">
+        <h2 class="text-xl font-bold text-stone-800 mb-5">Cost Breakdown</h2>
+        <table class="w-full text-sm">
+          <thead><tr class="text-xs font-semibold text-stone-400 uppercase tracking-wider border-b-2 border-stone-200 text-left">
+            <th class="pb-3">Ingredient</th><th class="pb-3 text-right">Weight</th><th class="pb-3 text-right">$/kg source</th><th class="pb-3 text-right">Cost</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="ri in viewIngredients" :key="ri.id" class="border-b border-stone-50">
+              <td class="py-2.5 text-stone-700 font-medium">
+                {{ ri.ingredient?.name }}
+                <span v-if="ri.ingredient?.state==='cooked'&&ri.ingredient?.raw_ingredient_id" class="text-xs text-blue-500 ml-1">
+                  (cooked · {{ (ri.weight_g/ri.ingredient.cook_ratio).toFixed(0) }}g raw)
+                </span>
+              </td>
+              <td class="py-2.5 text-right text-stone-600">{{ ri.weight_g }}g</td>
+              <td class="py-2.5 text-right text-stone-400 text-xs">{{ viewCostSourceLabel(ri.ingredient) }}</td>
+              <td class="py-2.5 text-right font-semibold text-stone-700">${{ calcIngCost(ri.ingredient, ri.weight_g).toFixed(3) }}</td>
+            </tr>
+          </tbody>
+          <tfoot class="border-t-2 border-stone-800">
+            <tr><td colspan="3" class="pt-3 font-bold text-stone-800">Total Recipe Cost</td><td class="pt-3 text-right font-bold text-stone-800">${{ viewTotalCost.toFixed(2) }}</td></tr>
+            <tr v-if="currentRecipe.serve_weight_g&&viewTotalWeight>0">
+              <td colspan="3" class="pt-1 text-xs text-stone-400">Cost per serve ({{ currentRecipe.serve_weight_g }}g)</td>
+              <td class="pt-1 text-right text-xs text-stone-500 font-semibold">${{ (viewTotalCost/(viewTotalWeight/currentRecipe.serve_weight_g)).toFixed(3) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ RECIPE EDIT ============ -->
+    <div v-if="currentView==='edit'" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
+      <div class="flex items-center justify-between mb-6">
+        <button @click="cancelEdit" class="text-stone-500 hover:text-stone-700 text-sm font-medium">✕ Cancel</button>
+        <h1 class="text-lg font-bold text-stone-800">{{ editForm.id?'Edit Recipe':'New Recipe' }}</h1>
+        <button @click="saveRecipe" :disabled="savingRecipe"
+          class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2 rounded-lg transition disabled:opacity-50 text-sm">
+          {{ savingRecipe?'Saving…':'Save Recipe' }}
+        </button>
+      </div>
+      <div v-if="saveError" class="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 mb-4 text-sm">{{ saveError }}</div>
+
+      <!-- Basic details -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-6 mb-4">
+        <h2 class="font-bold text-stone-800 mb-4">Recipe Details</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Recipe Name *</label>
+            <input v-model="editForm.name" type="text"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              placeholder="e.g. Bircher Muesli Blend">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Category</label>
+            <input v-model="editForm.category" type="text" list="cat-list"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              placeholder="e.g. Meals &amp; Savoury">
+            <datalist id="cat-list"><option v-for="c in allCategories" :key="c" :value="c"/></datalist>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Version</label>
+            <input v-model.number="editForm.version" type="number" min="1"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Serve Size (grams) *</label>
+            <input v-model.number="editForm.serve_weight_g" type="number" min="1" step="any"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 150">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Description</label>
+            <textarea v-model="editForm.description" rows="2"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              placeholder="Brief description"></textarea>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Notes</label>
+            <textarea v-model="editForm.notes" rows="2"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              placeholder="Storage, allergens, tips…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Method Steps -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-6 mb-4">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-bold text-stone-800">Method Steps</h2>
+          <button @click="addStep" class="text-amber-600 hover:text-amber-700 text-sm font-semibold">+ Add Step</button>
+        </div>
+        <p v-if="editForm.steps.length===0" class="text-stone-400 text-sm text-center py-4">No steps yet.</p>
+        <div v-for="(step,idx) in editForm.steps" :key="step.tempId" class="border border-stone-200 rounded-xl p-4 mb-3">
+          <div class="flex items-center justify-between mb-3">
+            <span class="flex items-center gap-2 font-semibold text-stone-700 text-sm">
+              <span class="bg-amber-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">{{ idx+1 }}</span>
+              Step {{ idx+1 }}
+            </span>
+            <div class="flex items-center gap-3 text-xs">
+              <button v-if="idx>0" @click="moveStepUp(idx)" class="text-stone-400 hover:text-stone-700">↑ Up</button>
+              <button v-if="idx<editForm.steps.length-1" @click="moveStepDown(idx)" class="text-stone-400 hover:text-stone-700">↓ Down</button>
+              <button @click="removeStep(idx)" class="text-red-400 hover:text-red-600">Remove</button>
+            </div>
+          </div>
+          <div class="space-y-2 mb-3">
+            <input v-model="step.title" type="text"
+              class="w-full border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="Step title (optional)">
+            <textarea v-model="step.description" rows="2"
+              class="w-full border border-stone-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="Describe what to do…"></textarea>
+          </div>
+          <!-- Ingredients for this step -->
+          <div class="bg-amber-50 rounded-xl p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">Ingredients for this step</span>
+              <button @click="addIngredientToStep(step.tempId)" class="text-xs font-semibold text-amber-600 hover:text-amber-700">+ Add</button>
+            </div>
+            <p v-if="editStepIngredients(step.tempId).length===0" class="text-amber-600 text-xs opacity-50 py-1">None assigned yet</p>
+            <div v-for="ri in editStepIngredients(step.tempId)" :key="ri.tempId" class="flex items-center gap-1.5 mb-2 flex-wrap">
+              <select v-model="ri.ingredient_id"
+                class="flex-1 min-w-32 border border-amber-200 bg-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <option value="">{{ ri._importName?'⚠ '+ri._importName+' (select)':'Select ingredient…' }}</option>
+                <option v-for="ing in ingredients" :key="ing.id" :value="ing.id">{{ ing.name }}{{ ing.state==='cooked'?' (cooked)':'' }}</option>
+              </select>
+              <input v-model.number="ri.weight_g" type="number" min="0" step="any"
+                class="w-16 border border-amber-200 bg-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="g">
+              <input v-model="ri.volumetric_note" type="text"
+                class="w-24 border border-amber-200 bg-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. 2 cups">
+              <button @click="convertVolumetricToGrams(ri)" :disabled="ri._convLoading||!ri.volumetric_note"
+                title="Convert volumetric to grams using AI"
+                class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1.5 rounded-lg transition disabled:opacity-40 whitespace-nowrap">
+                {{ ri._convLoading?'…':'→g' }}
+              </button>
+              <button @click="removeEditIngredient(ri.tempId)" class="text-red-400 hover:text-red-600 text-base leading-none">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- General Ingredients -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-6 mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <div>
+            <h2 class="font-bold text-stone-800">General Ingredients</h2>
+            <p class="text-xs text-stone-400 mt-0.5">Not assigned to a specific step</p>
+          </div>
+          <button @click="addGeneralIngredient" class="text-amber-600 hover:text-amber-700 text-sm font-semibold">+ Add</button>
+        </div>
+        <p v-if="editGeneralIngredients.length===0" class="text-stone-400 text-sm text-center py-4">None added</p>
+        <div v-for="ri in editGeneralIngredients" :key="ri.tempId" class="flex items-center gap-1.5 mt-3 flex-wrap">
+          <select v-model="ri.ingredient_id"
+            class="flex-1 min-w-40 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            <option value="">{{ ri._importName?'⚠ '+ri._importName+' (select)':'Select ingredient…' }}</option>
+            <option v-for="ing in ingredients" :key="ing.id" :value="ing.id">{{ ing.name }}{{ ing.state==='cooked'?' (cooked)':'' }}</option>
+          </select>
+          <input v-model.number="ri.weight_g" type="number" min="0" step="any"
+            class="w-24 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="grams">
+          <input v-model="ri.volumetric_note" type="text"
+            class="w-28 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 2 cups">
+          <button @click="convertVolumetricToGrams(ri)" :disabled="ri._convLoading||!ri.volumetric_note"
+            title="Convert volumetric to grams using AI"
+            class="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg transition disabled:opacity-40">
+            {{ ri._convLoading?'…':'→g' }}
+          </button>
+          <button @click="removeEditIngredient(ri.tempId)" class="text-red-400 hover:text-red-600">✕</button>
+        </div>
+      </div>
+
+      <!-- Live Summary -->
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+        <h2 class="font-bold text-stone-800 mb-4">Live Summary</h2>
+        <div class="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p class="text-xs text-stone-500 uppercase tracking-wider font-medium">Total Weight</p>
+            <p class="text-2xl font-bold text-stone-800 mt-1">{{ editTotalWeight.toFixed(0) }}g</p>
+            <p class="text-xs text-stone-400">{{ (editTotalWeight/1000).toFixed(3) }}kg</p>
+          </div>
+          <div>
+            <p class="text-xs text-stone-500 uppercase tracking-wider font-medium">No. Serves</p>
+            <p class="text-2xl font-bold text-stone-800 mt-1">
+              {{ editForm.serve_weight_g&&editTotalWeight>0?(editTotalWeight/editForm.serve_weight_g).toFixed(1):'—' }}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-stone-500 uppercase tracking-wider font-medium">Total Cost</p>
+            <p class="text-2xl font-bold text-stone-800 mt-1">${{ editTotalCost.toFixed(2) }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ INGREDIENT MANAGER ============ -->
+    <div v-if="currentView==='ingredients'" class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-stone-800">Ingredient Database</h1>
+        <button @click="openIngredientModal(null)"
+          class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-2 rounded-lg transition text-sm">+ Add Ingredient</button>
+      </div>
+      <input v-model="ingSearchQuery" type="text" placeholder="Search ingredients…"
+        class="w-full border border-stone-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4">
+      <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[700px]">
+            <thead class="bg-stone-50 border-b border-stone-200">
+              <tr class="text-xs font-semibold text-stone-500 uppercase tracking-wider text-left">
+                <th class="px-5 py-3">Name</th>
+                <th class="px-5 py-3">State</th>
+                <th class="px-5 py-3 text-right">$/kg</th>
+                <th class="px-5 py-3 text-right">kJ/100g</th>
+                <th class="px-5 py-3 text-right">Protein</th>
+                <th class="px-5 py-3 text-right">Carbs</th>
+                <th class="px-5 py-3 text-right">Sodium</th>
+                <th class="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="ing in filteredIngredients" :key="ing.id" class="border-b border-stone-100 hover:bg-stone-50 transition">
+                <td class="px-5 py-3 font-medium text-stone-800">
+                  {{ ing.name }}<span v-if="ing.brand" class="text-xs text-stone-400 font-normal ml-1">({{ ing.brand }})</span>
+                </td>
+                <td class="px-5 py-3">
+                  <span v-if="ing.state==='cooked'" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">cooked</span>
+                  <span v-else class="text-xs text-stone-400">raw</span>
+                </td>
+                <td class="px-5 py-3 text-right text-stone-600">{{ ing.cost_per_kg?'$'+Number(ing.cost_per_kg).toFixed(2):(ing.raw_ingredient_id?'calc':'—') }}</td>
+                <td class="px-5 py-3 text-right text-stone-500">{{ ing.energy_kj?Number(ing.energy_kj).toFixed(0):'—' }}</td>
+                <td class="px-5 py-3 text-right text-stone-500">{{ ing.protein_g?Number(ing.protein_g).toFixed(1)+'g':'—' }}</td>
+                <td class="px-5 py-3 text-right text-stone-500">{{ ing.carbohydrate_g?Number(ing.carbohydrate_g).toFixed(1)+'g':'—' }}</td>
+                <td class="px-5 py-3 text-right text-stone-500">{{ ing.sodium_mg?Number(ing.sodium_mg).toFixed(0)+'mg':'—' }}</td>
+                <td class="px-5 py-3 text-right whitespace-nowrap">
+                  <button @click="openIngredientModal(ing)" class="text-amber-600 hover:text-amber-700 text-xs font-semibold mr-3">Edit</button>
+                  <button @click="confirmDeleteIngredient(ing)" class="text-red-400 hover:text-red-600 text-xs">Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="filteredIngredients.length===0" class="text-center text-stone-400 py-16 text-sm">
+          <p class="mb-2">No ingredients yet</p>
+          <button @click="openIngredientModal(null)" class="text-amber-600 hover:text-amber-700 font-medium">+ Add your first ingredient</button>
+        </div>
+      </div>
+      <p class="text-xs text-stone-400 mt-3">{{ ingredients.length }} ingredients in database</p>
+    </div>
+
+    <!-- ============ MEALS LIST ============ -->
+    <div v-if="currentView==='meals'" class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-stone-800">Meals</h1>
+          <p class="text-stone-500 text-sm mt-1">Combine recipes and ingredients to get combined nutritional panels and costs</p>
+        </div>
+        <button @click="startNewMeal" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-2 rounded-lg transition text-sm">+ New Meal</button>
+      </div>
+      <div v-if="loadingMeals" class="text-center text-stone-400 py-24 text-sm">Loading…</div>
+      <div v-else-if="meals.length===0" class="text-center py-24">
+        <p class="text-stone-400 text-lg mb-2">No meals yet</p>
+        <p class="text-stone-400 text-sm mb-4">Create a meal by combining recipes and ingredients to get a combined nutritional panel.</p>
+        <button @click="startNewMeal" class="text-amber-600 hover:text-amber-700 font-medium text-sm">+ Create your first meal</button>
+      </div>
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-for="meal in meals" :key="meal.id"
+          @click="viewMeal(meal)"
+          class="bg-white rounded-xl border border-stone-200 p-5 cursor-pointer hover:shadow-md hover:border-amber-300 transition group">
+          <h3 class="font-bold text-stone-800 text-base leading-snug mb-1">{{ meal.name }}</h3>
+          <p v-if="meal.description" class="text-stone-500 text-xs line-clamp-2 mb-3">{{ meal.description }}</p>
+          <div class="pt-3 border-t border-stone-100 text-xs text-stone-400">
+            <span>Serve: {{ meal.serve_weight_g }}g</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ MEAL VIEW ============ -->
+    <div v-if="currentView==='meal-view'&&currentMeal" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
+      <div class="flex items-center justify-between mb-6 no-print">
+        <button @click="currentView='meals'" class="text-amber-600 hover:text-amber-700 text-sm font-medium">← Back to Meals</button>
+        <div class="flex gap-2">
+          <button @click="startEditMeal(currentMeal)" class="bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium px-4 py-2 rounded-lg transition">Edit</button>
+          <button @click="printRecipe" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Print / PDF</button>
+          <button @click="confirmDeleteMeal(currentMeal)" class="bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium px-4 py-2 rounded-lg transition">Delete</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-stone-200 p-8 mb-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-sm font-medium px-3 py-1 rounded-full bg-green-100 text-green-800">Meal</span>
+        </div>
+        <h1 class="text-3xl font-bold text-stone-800">{{ currentMeal.name }}</h1>
+        <p v-if="currentMeal.description" class="text-stone-500 mt-2">{{ currentMeal.description }}</p>
+        <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Total Weight</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ mealTotalWeight.toFixed(0) }}g</p>
+          </div>
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Serve Size</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ currentMeal.serve_weight_g }}g</p>
+          </div>
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">No. Serves</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ currentMeal.serve_weight_g&&mealTotalWeight>0?(mealTotalWeight/currentMeal.serve_weight_g).toFixed(1):'—' }}</p>
+          </div>
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Serve</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">
+              <span v-if="mealTotalCost>0&&currentMeal.serve_weight_g&&mealTotalWeight>0">${{ (mealTotalCost/(mealTotalWeight/currentMeal.serve_weight_g)).toFixed(3) }}</span>
+              <span v-else class="text-stone-400">—</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meal components -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-6 mb-5">
+        <h2 class="font-bold text-stone-800 text-lg mb-4">Components</h2>
+        <table class="w-full text-sm">
+          <thead><tr class="text-xs font-semibold text-stone-400 uppercase tracking-wider border-b border-stone-100 text-left">
+            <th class="pb-2">Component</th><th class="pb-2">Type</th><th class="pb-2 text-right">Weight</th><th class="pb-2 text-right">Cost</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="comp in currentMealComponents" :key="comp.id" class="border-b border-stone-50 last:border-0">
+              <td class="py-2.5 font-medium text-stone-700">{{ comp.type==='recipe'?comp._recipe?.name:comp._ingredient?.name }}</td>
+              <td class="py-2.5"><span :class="comp.type==='recipe'?'bg-amber-100 text-amber-700':'bg-blue-100 text-blue-700'" class="text-xs px-2 py-0.5 rounded-full">{{ comp.type }}</span></td>
+              <td class="py-2.5 text-right text-stone-600">{{ comp.weight_g }}g</td>
+              <td class="py-2.5 text-right text-stone-500">${{ calcMealCompCost(comp).toFixed(3) }}</td>
+            </tr>
+          </tbody>
+          <tfoot class="border-t-2 border-stone-800">
+            <tr><td colspan="3" class="pt-3 font-bold text-stone-800">Total Cost</td><td class="pt-3 text-right font-bold text-stone-800">${{ mealTotalCost.toFixed(2) }}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Meal Nutritional Panel -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-8 mb-5">
+        <h2 class="text-xl font-bold text-stone-800 mb-6">Combined Nutritional Information</h2>
+        <div v-if="mealTotalWeight===0" class="text-stone-400 text-sm text-center py-4">No components added.</div>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div class="border-2 border-stone-800 rounded-xl overflow-hidden">
+            <div class="bg-stone-800 text-white px-5 py-3">
+              <p class="font-black text-sm tracking-wide">NUTRITION INFORMATION</p>
+              <p class="text-xs text-stone-400 mt-0.5">Servings: {{ currentMeal.serve_weight_g?(mealTotalWeight/currentMeal.serve_weight_g).toFixed(1):'—' }}</p>
+              <p class="text-xs text-stone-400">Serving size: {{ currentMeal.serve_weight_g }}g</p>
+            </div>
+            <div class="px-1">
+              <table class="w-full text-sm">
+                <thead><tr class="border-b-4 border-stone-800"><th class="text-left px-4 py-2 text-xs font-bold text-stone-600">Per 100g</th><th class="text-right px-4 py-2 text-xs font-bold text-stone-600">Avg Qty</th></tr></thead>
+                <tbody>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Energy</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutrition100g.energy_kj.toFixed(0) }}kJ</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Protein</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutrition100g.protein_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Fat, Total</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutrition100g.fat_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Saturated</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ mealNutrition100g.saturated_fat_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Carbohydrate</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutrition100g.carbohydrate_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Sugars</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ mealNutrition100g.sugars_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Dietary Fibre</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutrition100g.dietary_fibre_g.toFixed(1) }}g</td></tr>
+                  <tr><td class="px-4 py-2 text-stone-700">Sodium</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutrition100g.sodium_mg.toFixed(0) }}mg</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="border-2 border-stone-800 rounded-xl overflow-hidden">
+            <div class="bg-stone-800 text-white px-5 py-3">
+              <p class="font-black text-sm tracking-wide">NUTRITION INFORMATION</p>
+              <p class="text-xs text-stone-400 mt-0.5">Per serve ({{ currentMeal.serve_weight_g }}g)</p>
+              <p class="text-xs text-stone-400">&nbsp;</p>
+            </div>
+            <div class="px-1">
+              <table class="w-full text-sm">
+                <thead><tr class="border-b-4 border-stone-800"><th class="text-left px-4 py-2 text-xs font-bold text-stone-600">Per Serve</th><th class="text-right px-4 py-2 text-xs font-bold text-stone-600">Avg Qty</th></tr></thead>
+                <tbody>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Energy</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutritionPerServe.energy_kj.toFixed(0) }}kJ</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Protein</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutritionPerServe.protein_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Fat, Total</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutritionPerServe.fat_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Saturated</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ mealNutritionPerServe.saturated_fat_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Carbohydrate</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutritionPerServe.carbohydrate_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Sugars</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ mealNutritionPerServe.sugars_g.toFixed(1) }}g</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Dietary Fibre</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutritionPerServe.dietary_fibre_g.toFixed(1) }}g</td></tr>
+                  <tr><td class="px-4 py-2 text-stone-700">Sodium</td><td class="px-4 py-2 text-right font-semibold">{{ mealNutritionPerServe.sodium_mg.toFixed(0) }}mg</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="currentMeal.notes" class="bg-amber-50 border border-amber-100 rounded-2xl p-6">
+        <h2 class="font-bold text-stone-800 mb-2">Notes</h2>
+        <p class="text-stone-600 text-sm leading-relaxed">{{ currentMeal.notes }}</p>
+      </div>
+    </div>
+
+    <!-- ============ MEAL EDIT ============ -->
+    <div v-if="currentView==='meal-edit'" class="flex-1 max-w-3xl mx-auto px-6 py-8 w-full">
+      <div class="flex items-center justify-between mb-6">
+        <button @click="cancelMealEdit" class="text-stone-500 hover:text-stone-700 text-sm font-medium">✕ Cancel</button>
+        <h1 class="text-lg font-bold text-stone-800">{{ editMeal.id?'Edit Meal':'New Meal' }}</h1>
+        <button @click="saveMeal" :disabled="savingMeal"
+          class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2 rounded-lg transition disabled:opacity-50 text-sm">
+          {{ savingMeal?'Saving…':'Save Meal' }}
+        </button>
+      </div>
+      <div v-if="mealError" class="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 mb-4 text-sm">{{ mealError }}</div>
+
+      <div class="bg-white rounded-2xl border border-stone-200 p-6 mb-4">
+        <h2 class="font-bold text-stone-800 mb-4">Meal Details</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Meal Name *</label>
+            <input v-model="editMeal.name" type="text"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              placeholder="e.g. Chickpea Hotpot with Rice">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Serve Size (grams) *</label>
+            <input v-model.number="editMeal.serve_weight_g" type="number" min="1" step="any"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 400">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Description</label>
+            <textarea v-model="editMeal.description" rows="2"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              placeholder="Brief description"></textarea>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Notes</label>
+            <textarea v-model="editMeal.notes" rows="2"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              placeholder="Notes…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Components list -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-6 mb-4">
+        <h2 class="font-bold text-stone-800 mb-4">Components</h2>
+        <p v-if="editMeal.components.length===0" class="text-stone-400 text-sm text-center py-4">No components yet — add recipes or ingredients below.</p>
+        <div v-else>
+          <div v-for="(comp,idx) in editMeal.components" :key="comp._tempId" class="flex items-center gap-3 py-2.5 border-b border-stone-100 last:border-0">
+            <span :class="comp.type==='recipe'?'bg-amber-100 text-amber-700':'bg-blue-100 text-blue-700'" class="text-xs px-2 py-0.5 rounded-full shrink-0">{{ comp.type }}</span>
+            <span class="flex-1 text-sm font-medium text-stone-700">{{ comp.type==='recipe'?comp._recipe?.name:comp._ingredient?.name }}</span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <input v-model.number="comp.weight_g" type="number" min="1" step="any"
+                class="w-20 border border-stone-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <span class="text-stone-400 text-sm">g</span>
+              <button @click="removeMealComponent(idx)" class="text-red-400 hover:text-red-600 ml-2">✕</button>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-stone-200 text-sm text-stone-500">
+            Total: <strong>{{ editMeal.components.reduce((s,c)=>s+(Number(c.weight_g)||0),0).toFixed(0) }}g</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add component -->
+      <div class="bg-stone-50 border border-stone-200 rounded-2xl p-6">
+        <h2 class="font-bold text-stone-800 mb-4">Add Component</h2>
+        <div class="flex gap-3 mb-3">
+          <button @click="mealAddType='recipe'" :class="mealAddType==='recipe'?'bg-amber-600 text-white':'bg-white text-stone-600 border border-stone-300'"
+            class="flex-1 py-2 rounded-lg text-sm font-medium transition">Recipe</button>
+          <button @click="mealAddType='ingredient'" :class="mealAddType==='ingredient'?'bg-blue-600 text-white':'bg-white text-stone-600 border border-stone-300'"
+            class="flex-1 py-2 rounded-lg text-sm font-medium transition">Ingredient</button>
+        </div>
+        <div class="flex gap-2">
+          <select v-model="mealAddId" class="flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            <option value="">Select {{ mealAddType }}…</option>
+            <option v-if="mealAddType==='recipe'" v-for="r in recipes" :key="r.id" :value="r.id">{{ r.name }}</option>
+            <option v-if="mealAddType==='ingredient'" v-for="i in ingredients" :key="i.id" :value="i.id">{{ i.name }}{{ i.state==='cooked'?' (cooked)':'' }}</option>
+          </select>
+          <input v-model.number="mealAddWeight" type="number" min="1" step="any"
+            class="w-24 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="g">
+          <button @click="addMealComponent"
+            class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-2 rounded-lg transition text-sm">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ IMPORT VIEW ============ -->
+    <div v-if="currentView==='import'" class="flex-1 max-w-3xl mx-auto px-6 py-8 w-full">
+      <div class="flex items-center gap-4 mb-6">
+        <button @click="goToList" class="text-amber-600 hover:text-amber-700 text-sm font-medium">← Back</button>
+        <h1 class="text-2xl font-bold text-stone-800">Import Recipe</h1>
+      </div>
+      <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6">
+        <p class="text-sm text-blue-800 font-medium mb-1">🤖 Powered by Claude AI</p>
+        <p class="text-xs text-blue-600">Paste your rough recipe notes or upload a photo — Claude will read it and fill in the recipe editor automatically. You can review and adjust everything before saving.</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex border-b border-stone-200 mb-6">
+        <button @click="importTab='text'" :class="importTab==='text'?'border-b-2 border-amber-600 text-amber-700 font-semibold':'text-stone-500 hover:text-stone-700'"
+          class="px-6 py-3 text-sm transition">📝 Paste Text</button>
+        <button @click="importTab='photo'" :class="importTab==='photo'?'border-b-2 border-amber-600 text-amber-700 font-semibold':'text-stone-500 hover:text-stone-700'"
+          class="px-6 py-3 text-sm transition">📷 Upload Photo</button>
+      </div>
+
+      <div v-if="importError" class="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 mb-4 text-sm">{{ importError }}</div>
+
+      <!-- Text tab -->
+      <div v-if="importTab==='text'">
+        <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-2">Paste your recipe text</label>
+        <textarea v-model="importText" rows="12"
+          class="w-full border border-stone-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+          placeholder="Paste your recipe here — any format works. e.g:
+
+Chickpea Hotpot
+Serves 8
+
+Ingredients:
+400g dried chickpeas (soaked overnight)
+2 tins chopped tomatoes (800g)
+3 cups vegetable stock
+1 large onion, diced
+...
+
+Method:
+1. Soak chickpeas overnight..."></textarea>
+        <button @click="parseImportText" :disabled="importLoading||!importText.trim()"
+          class="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 text-sm">
+          {{ importLoading?'Reading recipe…':'Parse Recipe with AI →' }}
+        </button>
+      </div>
+
+      <!-- Photo tab -->
+      <div v-if="importTab==='photo'">
+        <div v-if="!importImageData"
+          class="border-2 border-dashed border-stone-300 rounded-xl p-12 text-center cursor-pointer hover:border-amber-400 transition"
+          @click="$refs.photoInput.click()" @dragover.prevent @drop.prevent="handlePhotoDrop($event)">
+          <div class="text-4xl mb-3">📷</div>
+          <p class="text-stone-600 font-medium mb-1">Click to upload or drag &amp; drop</p>
+          <p class="text-stone-400 text-sm">JPG, PNG, HEIC — photo of a recipe card or printed recipe</p>
+          <input ref="photoInput" type="file" accept="image/*" class="hidden" @change="handlePhotoSelect">
+        </div>
+        <div v-else class="relative">
+          <img :src="'data:'+importImageType+';base64,'+importImageData" class="w-full max-h-80 object-contain rounded-xl border border-stone-200">
+          <button @click="clearImportPhoto" class="absolute top-2 right-2 bg-white border border-stone-200 text-stone-600 hover:text-red-600 rounded-full w-8 h-8 flex items-center justify-center shadow text-sm">✕</button>
+        </div>
+        <button @click="parseImportPhoto" :disabled="importLoading||!importImageData"
+          class="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 text-sm">
+          {{ importLoading?'Reading recipe…':'Read Recipe with AI →' }}
+        </button>
+      </div>
+    </div>
+
+  </div><!-- end main app -->
+
+  <!-- ============ INGREDIENT MODAL ============ -->
+  <div v-if="showIngModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showIngModal=false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-stone-200 sticky top-0 bg-white rounded-t-2xl">
+        <h2 class="font-bold text-stone-800">{{ ingForm.id?'Edit Ingredient':'Add Ingredient' }}</h2>
+        <button @click="showIngModal=false" class="text-stone-400 hover:text-stone-600 text-lg leading-none">✕</button>
+      </div>
+      <div class="p-6 space-y-5">
+
+        <!-- USDA Lookup -->
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+          <p class="text-sm font-bold text-blue-800 mb-1">🔍 Auto-fill from USDA Database</p>
+          <p class="text-xs text-blue-600 mb-3">Search to auto-fill nutritional values.</p>
+          <div class="flex gap-2">
+            <input v-model="usdaQuery" type="text"
+              class="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="e.g. chickpeas, rolled oats, olive oil" @keyup.enter="searchUSDA">
+            <button @click="searchUSDA" :disabled="usdaLoading"
+              class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50">{{ usdaLoading?'…':'Search' }}</button>
+          </div>
+          <p v-if="usdaError" class="text-red-500 text-xs mt-2">{{ usdaError }}</p>
+          <div v-if="usdaResults.length>0" class="mt-3 space-y-1.5 max-h-52 overflow-y-auto">
+            <button v-for="food in usdaResults" :key="food.fdcId" @click="selectUSDAFood(food)"
+              class="w-full text-left bg-white border border-blue-100 hover:border-blue-400 hover:bg-blue-50 rounded-lg px-3 py-2 text-sm transition">
+              <span class="font-medium text-stone-800">{{ food.description }}</span>
+              <span v-if="food.brandOwner" class="text-stone-400 text-xs ml-2">{{ food.brandOwner }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Name, Brand, State -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Ingredient Name *</label>
+            <input v-model="ingForm.name" type="text"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Brand</label>
+            <input v-model="ingForm.brand" type="text"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="Optional">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">State</label>
+            <select v-model="ingForm.state"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <option value="raw">Raw / As purchased</option>
+              <option value="cooked">Cooked / Processed</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Cooked-from fields (only when state = cooked) -->
+        <div v-if="ingForm.state==='cooked'" class="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
+          <p class="text-xs font-bold text-blue-800 uppercase tracking-wider">Cooked From (for cost calculation)</p>
+          <p class="text-xs text-blue-600">If you cook this in-house from a raw ingredient, link it here. Cost will be calculated from the raw ingredient's price.</p>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Cooked from ingredient (raw)</label>
+            <select v-model="ingForm.raw_ingredient_id"
+              class="w-full border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              <option :value="null">None (use direct cost below)</option>
+              <option v-for="ing in rawIngredients" :key="ing.id" :value="ing.id">{{ ing.name }}</option>
+            </select>
+          </div>
+          <div v-if="ingForm.raw_ingredient_id">
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Cook ratio (cooked ÷ raw weight)</label>
+            <div class="flex gap-2 items-center">
+              <input v-model.number="ingForm.cook_ratio" type="number" step="0.01" min="0.1"
+                class="flex-1 border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                placeholder="e.g. 2.33 for chickpeas">
+              <button @click="estimateCookRatio" :disabled="aiLoading"
+                class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition disabled:opacity-50 whitespace-nowrap">
+                {{ aiLoading?'…':'AI Estimate' }}
+              </button>
+            </div>
+            <p class="text-xs text-stone-400 mt-1">e.g. 1kg dried chickpeas → 2.33kg cooked = ratio 2.33</p>
+            <p v-if="ingForm.raw_ingredient_id&&ingForm.cook_ratio" class="text-xs text-blue-700 mt-1 font-medium">
+              Effective cost: ~${{ effectiveCookedCostPerKg.toFixed(2) }}/kg cooked
+            </p>
+          </div>
+        </div>
+
+        <!-- Cost per kg -->
+        <div>
+          <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">
+            {{ ingForm.state==='cooked'&&ingForm.raw_ingredient_id?'Direct cost/kg (leave blank if using cook ratio above)':'Cost per kg (NZD $) *' }}
+          </label>
+          <input v-model.number="ingForm.cost_per_kg" type="number" step="0.01" min="0"
+            :placeholder="ingForm.state==='cooked'&&ingForm.raw_ingredient_id?'Auto-calculated from raw ingredient':'0.00'"
+            class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+        </div>
+
+        <!-- Nutritional Values -->
+        <div>
+          <p class="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3 border-t border-stone-100 pt-4">
+            Nutritional Values — per 100g {{ ingForm.state==='cooked'?'(cooked state)':'(as purchased)' }}
+          </p>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-stone-600 mb-1">Energy (kJ)</label>
+              <input v-model.number="ingForm.energy_kj" type="number" step="0.1" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
+            <div><label class="block text-xs text-stone-600 mb-1">Protein (g)</label>
+              <input v-model.number="ingForm.protein_g" type="number" step="0.01" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
+            <div><label class="block text-xs text-stone-600 mb-1">Fat, Total (g)</label>
+              <input v-model.number="ingForm.fat_g" type="number" step="0.01" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
+            <div><label class="block text-xs text-stone-600 mb-1">Saturated Fat (g)</label>
+              <input v-model.number="ingForm.saturated_fat_g" type="number" step="0.01" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
+            <div><label class="block text-xs text-stone-600 mb-1">Carbohydrate (g)</label>
+              <input v-model.number="ingForm.carbohydrate_g" type="number" step="0.01" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
+            <div><label class="block text-xs text-stone-600 mb-1">Sugars (g)</label>
+              <input v-model.number="ingForm.sugars_g" type="number" step="0.01" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
+            <div><label class="block text-xs text-stone-600 mb-1">Dietary Fibre (g)</label>
+              <input v-model.number="ingForm.dietary_fibre_g" type="number" step="0.01" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
+            <div><label class="block text-xs text-stone-600 mb-1">Sodium (mg)</label>
+              <input v-model.number="ingForm.sodium_mg" type="number" step="0.1" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 px-6 py-4 border-t border-stone-200 bg-stone-50 rounded-b-2xl">
+        <button @click="showIngModal=false" class="px-4 py-2 text-sm text-stone-600 hover:text-stone-800">Cancel</button>
+        <button @click="saveIngredient" :disabled="savingIngredient"
+          class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2 rounded-lg transition text-sm disabled:opacity-50">
+          {{ savingIngredient?'Saving…':'Save Ingredient' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end #app -->
+
+<script>
+(function() {
+  const { createApp, ref, computed, onMounted } = Vue;
+  const { createClient } = supabase;
+
+  const isConfigured = true;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { db: { schema: 'recipes' } });
+  const portal = createClient(PORTAL_URL, PORTAL_ANON_KEY);
+  const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+  // ---- Nutrition helpers ----
+  const zeroNutrition = () => ({ energy_kj:0, protein_g:0, fat_g:0, saturated_fat_g:0, carbohydrate_g:0, sugars_g:0, dietary_fibre_g:0, sodium_mg:0 });
+  function sumNutrition(riList) {
+    return riList.reduce((n, ri) => {
+      const ing = ri.ingredient;
+      if (!ing) return n;
+      const w = Number(ri.weight_g)||0;
+      return {
+        energy_kj:       n.energy_kj       + (Number(ing.energy_kj)||0)*w/100,
+        protein_g:       n.protein_g       + (Number(ing.protein_g)||0)*w/100,
+        fat_g:           n.fat_g           + (Number(ing.fat_g)||0)*w/100,
+        saturated_fat_g: n.saturated_fat_g + (Number(ing.saturated_fat_g)||0)*w/100,
+        carbohydrate_g:  n.carbohydrate_g  + (Number(ing.carbohydrate_g)||0)*w/100,
+        sugars_g:        n.sugars_g        + (Number(ing.sugars_g)||0)*w/100,
+        dietary_fibre_g: n.dietary_fibre_g + (Number(ing.dietary_fibre_g)||0)*w/100,
+        sodium_mg:       n.sodium_mg       + (Number(ing.sodium_mg)||0)*w/100,
+      };
+    }, zeroNutrition());
+  }
+  function scaleNutrition(n, f) { return Object.fromEntries(Object.entries(n).map(([k,v])=>[k,v*f])); }
+
+  // ---- USDA ----
+  const USDA_IDS = { energy_kcal:1008, energy_kj:1062, protein_g:1003, fat_g:1004, saturated_fat_g:1258, carbohydrate_g:1005, sugars_g:2000, sugars_g_alt:1063, dietary_fibre_g:1079, sodium_mg:1093 };
+  function extractUSDANutrients(foodNutrients) {
+    const get = id => { const n=foodNutrients.find(n=>n.nutrientId===id); return n?Number(n.value):null; };
+    let energy_kj = get(USDA_IDS.energy_kj);
+    if (!energy_kj) { const kcal=get(USDA_IDS.energy_kcal); if(kcal) energy_kj=Math.round(kcal*4.184*10)/10; }
+    return { energy_kj, protein_g:get(USDA_IDS.protein_g), fat_g:get(USDA_IDS.fat_g), saturated_fat_g:get(USDA_IDS.saturated_fat_g), carbohydrate_g:get(USDA_IDS.carbohydrate_g), sugars_g:get(USDA_IDS.sugars_g)??get(USDA_IDS.sugars_g_alt), dietary_fibre_g:get(USDA_IDS.dietary_fibre_g), sodium_mg:get(USDA_IDS.sodium_mg) };
+  }
+
+  // ---- Claude API ----
+  async function callClaude(messages) {
+    const { data:{ session } } = await portal.auth.getSession();
+    const res = await fetch('/.netlify/functions/ai-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+(session?session.access_token:'') },
+      body: JSON.stringify({ max_tokens: 2048, messages })
+    });
+    if (!res.ok) { const t=await res.text(); throw new Error('AI error '+res.status+': '+t.slice(0,200)); }
+    const data = await res.json();
+    return data.text;
+  }
+
+  createApp({
+    setup() {
+      const notConfigured = ref(!isConfigured);
+      const user = ref(null);
+      const loginEmail = ref(''); const loginPassword = ref(''); const authLoading = ref(false); const authError = ref(''); const gateError = ref('');
+      const currentView = ref('list');
+      const recipes = ref([]); const ingredients = ref([]); const loadingRecipes = ref(false);
+      const currentRecipe = ref(null); const viewSteps = ref([]); const viewIngredients = ref([]);
+      const searchQuery = ref(''); const selectedCategory = ref(''); const ingSearchQuery = ref('');
+      const editForm = ref({ id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,notes:'',parent_recipe_id:null,steps:[],allIngredients:[] });
+      const savingRecipe = ref(false); const saveError = ref('');
+      const showIngModal = ref(false);
+      const ingForm = ref({});
+      const savingIngredient = ref(false);
+      const usdaQuery = ref(''); const usdaResults = ref([]); const usdaLoading = ref(false); const usdaError = ref('');
+      const aiLoading = ref(false);
+      // Meals
+      const meals = ref([]); const loadingMeals = ref(false); const currentMeal = ref(null); const currentMealComponents = ref([]);
+      const editMeal = ref({ id:null,name:'',description:'',serve_weight_g:300,notes:'',components:[] });
+      const mealAddType = ref('recipe'); const mealAddId = ref(''); const mealAddWeight = ref(null);
+      const savingMeal = ref(false); const mealError = ref('');
+      // Import
+      const importTab = ref('text'); const importText = ref(''); const importImageData = ref(null); const importImageType = ref('image/jpeg');
+      const importLoading = ref(false); const importError = ref('');
+
+      // ---- COMPUTED ----
+      const allCategories = computed(()=>[...new Set(recipes.value.map(r=>r.category).filter(Boolean))].sort());
+      const filteredRecipes = computed(()=>recipes.value.filter(r=>{
+        const mc=!selectedCategory.value||r.category===selectedCategory.value;
+        const ms=!searchQuery.value||r.name.toLowerCase().includes(searchQuery.value.toLowerCase());
+        return mc&&ms;
+      }));
+      const filteredIngredients = computed(()=>{
+        if(!ingSearchQuery.value) return ingredients.value;
+        const q=ingSearchQuery.value.toLowerCase();
+        return ingredients.value.filter(i=>i.name.toLowerCase().includes(q)||(i.brand||'').toLowerCase().includes(q));
+      });
+      const rawIngredients = computed(()=>ingredients.value.filter(i=>!i.state||i.state==='raw'));
+      const viewTotalWeight = computed(()=>viewIngredients.value.reduce((s,ri)=>s+(Number(ri.weight_g)||0),0));
+      const viewTotalCost = computed(()=>viewIngredients.value.reduce((s,ri)=>s+calcIngCost(ri.ingredient,ri.weight_g),0));
+      const viewUnassignedIngredients = computed(()=>viewIngredients.value.filter(ri=>!ri.step_id));
+      const nutrition100g = computed(()=>{
+        const tw=viewTotalWeight.value; if(tw===0) return zeroNutrition();
+        return scaleNutrition(sumNutrition(viewIngredients.value),100/tw);
+      });
+      const nutritionPerServe = computed(()=>scaleNutrition(nutrition100g.value,(Number(currentRecipe.value?.serve_weight_g)||100)/100));
+      const editGeneralIngredients = computed(()=>editForm.value.allIngredients.filter(ri=>!ri.step_tempId));
+      const editTotalWeight = computed(()=>editForm.value.allIngredients.reduce((s,ri)=>s+(Number(ri.weight_g)||0),0));
+      const editTotalCost = computed(()=>{
+        const ingMap=Object.fromEntries(ingredients.value.map(i=>[i.id,i]));
+        return editForm.value.allIngredients.reduce((s,ri)=>s+calcIngCost(ingMap[ri.ingredient_id],ri.weight_g),0);
+      });
+      // Meal computed
+      const mealTotalWeight = computed(()=>currentMealComponents.value.reduce((s,c)=>s+(Number(c.weight_g)||0),0));
+      const mealTotalCost = computed(()=>currentMealComponents.value.reduce((s,c)=>s+calcMealCompCost(c),0));
+      const mealNutritionTotals = computed(()=>{
+        const totals=zeroNutrition();
+        for(const comp of currentMealComponents.value){
+          if(comp.type==='recipe'&&comp._recipeIngredients){
+            const rw=comp._recipeIngredients.reduce((s,ri)=>s+(Number(ri.weight_g)||0),0);
+            if(rw>0){const rn=sumNutrition(comp._recipeIngredients);const sc=Number(comp.weight_g)/rw;for(const k of Object.keys(totals)) totals[k]+=rn[k]*sc;}
+          } else if(comp.type==='ingredient'&&comp._ingredient){
+            const ing=comp._ingredient;const sc=Number(comp.weight_g)/100;
+            totals.energy_kj+=(Number(ing.energy_kj)||0)*sc;totals.protein_g+=(Number(ing.protein_g)||0)*sc;totals.fat_g+=(Number(ing.fat_g)||0)*sc;
+            totals.saturated_fat_g+=(Number(ing.saturated_fat_g)||0)*sc;totals.carbohydrate_g+=(Number(ing.carbohydrate_g)||0)*sc;
+            totals.sugars_g+=(Number(ing.sugars_g)||0)*sc;totals.dietary_fibre_g+=(Number(ing.dietary_fibre_g)||0)*sc;totals.sodium_mg+=(Number(ing.sodium_mg)||0)*sc;
+          }
+        }
+        return totals;
+      });
+      const mealNutrition100g = computed(()=>{const tw=mealTotalWeight.value;if(tw===0)return zeroNutrition();return scaleNutrition(mealNutritionTotals.value,100/tw);});
+      const mealNutritionPerServe = computed(()=>scaleNutrition(mealNutrition100g.value,(Number(currentMeal.value?.serve_weight_g)||100)/100));
+      const effectiveCookedCostPerKg = computed(()=>{
+        if(!ingForm.value.raw_ingredient_id||!ingForm.value.cook_ratio) return 0;
+        const rawIng=ingredients.value.find(i=>i.id===ingForm.value.raw_ingredient_id);
+        if(!rawIng?.cost_per_kg) return 0;
+        return Number(rawIng.cost_per_kg)/Number(ingForm.value.cook_ratio);
+      });
+
+      // ---- HELPERS ----
+      function viewIngredientsForStep(stepId){return viewIngredients.value.filter(ri=>ri.step_id===stepId);}
+      function editStepIngredients(stepTempId){return editForm.value.allIngredients.filter(ri=>ri.step_tempId===stepTempId);}
+      function calcIngCost(ing, weightG) {
+        if(!ing||!weightG) return 0;
+        const w=Number(weightG);
+        if(ing.raw_ingredient_id&&ing.cook_ratio&&Number(ing.cook_ratio)>0){
+          const rawIng=ingredients.value.find(i=>i.id===ing.raw_ingredient_id);
+          if(rawIng?.cost_per_kg) return (w/Number(ing.cook_ratio))*Number(rawIng.cost_per_kg)/1000;
+        }
+        if(ing.cost_per_kg) return w*Number(ing.cost_per_kg)/1000;
+        return 0;
+      }
+      function viewCostSourceLabel(ing) {
+        if(!ing) return '—';
+        if(ing.raw_ingredient_id&&ing.cook_ratio){
+          const rawIng=ingredients.value.find(i=>i.id===ing.raw_ingredient_id);
+          return rawIng?'$'+Number(rawIng.cost_per_kg).toFixed(2)+'/kg raw':'—';
+        }
+        return ing.cost_per_kg?'$'+Number(ing.cost_per_kg).toFixed(2)+'/kg':'—';
+      }
+      function calcMealCompCost(comp) {
+        if(!comp) return 0;
+        if(comp.type==='recipe'&&comp._recipeIngredients){
+          return comp._recipeIngredients.reduce((s,ri)=>s+calcIngCost(ri.ingredient,ri.weight_g),0)*(Number(comp.weight_g)||0)/Math.max(1,comp._recipeIngredients.reduce((s,ri)=>s+(Number(ri.weight_g)||0),0));
+        }
+        if(comp.type==='ingredient'&&comp._ingredient) return calcIngCost(comp._ingredient,comp.weight_g);
+        return 0;
+      }
+      function blankIngForm(){return{id:null,name:'',brand:'',cost_per_kg:null,state:'raw',raw_ingredient_id:null,cook_ratio:null,energy_kj:null,protein_g:null,fat_g:null,saturated_fat_g:null,carbohydrate_g:null,sugars_g:null,dietary_fibre_g:null,sodium_mg:null};}
+      function blankEditForm(){return{id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,notes:'',parent_recipe_id:null,steps:[],allIngredients:[]};}
+      function newIngRow(stepTempId=null){return{tempId:uid(),id:null,ingredient_id:'',weight_g:null,volumetric_note:'',step_tempId:stepTempId,_convLoading:false,_importName:''};}
+
+      // ---- AUTH (single sign-on via the portal) ----
+      async function login(){ window.location.href='/'; }
+      async function logout(){ try{await sb.auth.signOut();}catch(e){} try{await portal.auth.signOut();}catch(e){} window.location.href='/'; }
+
+      // ---- DATA LOADING ----
+      async function loadData(){loadingRecipes.value=true;await Promise.all([loadRecipes(),loadIngredients(),loadMeals()]);loadingRecipes.value=false;}
+      async function loadRecipes(){
+        const{data,error}=await sb.from('recipes').select('*,recipe_ingredients(weight_g,ingredient:ingredients(cost_per_kg,raw_ingredient_id,cook_ratio))').order('name');
+        if(error){console.error(error);return;}
+        recipes.value=(data||[]).map(r=>{
+          const ris=r.recipe_ingredients||[];
+          const _totalWeight=ris.reduce((s,ri)=>s+(Number(ri.weight_g)||0),0);
+          const _cost=ris.reduce((s,ri)=>s+calcIngCost(ri.ingredient,ri.weight_g),0);
+          return{...r,_totalWeight,_cost};
+        });
+      }
+      async function loadIngredients(){const{data,error}=await sb.from('ingredients').select('*').order('name');if(error){console.error(error);return;}ingredients.value=data||[];}
+      async function loadMeals(){loadingMeals.value=true;const{data,error}=await sb.from('meals').select('*').order('name');if(error){console.error(error);}meals.value=data||[];loadingMeals.value=false;}
+
+      // ---- NAVIGATION ----
+      function goToList(){currentView.value='list';currentRecipe.value=null;}
+      function goToMeals(){loadMeals();currentView.value='meals';}
+      async function viewRecipe(recipe){
+        currentRecipe.value=recipe;
+        const[sr,ir]=await Promise.all([
+          sb.from('recipe_steps').select('*').eq('recipe_id',recipe.id).order('step_order'),
+          sb.from('recipe_ingredients').select('*,ingredient:ingredients(*)').eq('recipe_id',recipe.id)
+        ]);
+        viewSteps.value=sr.data||[];viewIngredients.value=ir.data||[];currentView.value='view';
+      }
+      function startNewRecipe(){editForm.value=blankEditForm();saveError.value='';currentView.value='edit';}
+      function startImport(){importText.value='';importImageData.value=null;importError.value='';currentView.value='import';}
+      function startEditRecipe(recipe){
+        const steps=(recipe.recipe_steps||[]).sort((a,b)=>a.step_order-b.step_order).map(s=>({...s,tempId:s.id||uid()}));
+        const allIngredients=(recipe._rawIngredients||viewIngredients.value).map(ri=>({...newIngRow(),id:ri.id,ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',step_tempId:ri.step_id?(steps.find(s=>s.id===ri.step_id)?.tempId||null):null}));
+        editForm.value={id:recipe.id,name:recipe.name,category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,steps,allIngredients};
+        saveError.value='';currentView.value='edit';
+      }
+      function startNewVersion(recipe){
+        const steps=viewSteps.value.map(s=>({...s,id:null,tempId:uid()}));
+        const stepOldToNew={};viewSteps.value.forEach((s,i)=>{stepOldToNew[s.id]=steps[i].tempId;});
+        const allIngredients=viewIngredients.value.map(ri=>({...newIngRow(),ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',step_tempId:ri.step_id?(stepOldToNew[ri.step_id]||null):null}));
+        editForm.value={id:null,name:recipe.name,category:recipe.category||'',version:(recipe.version||1)+1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,notes:recipe.notes||'',parent_recipe_id:recipe.id,steps,allIngredients};
+        saveError.value='';currentView.value='edit';
+      }
+      function cancelEdit(){currentRecipe.value?currentView.value='view':goToList();}
+
+      // ---- EDIT RECIPE HELPERS ----
+      function addStep(){editForm.value.steps.push({tempId:uid(),id:null,title:'',description:'',step_order:editForm.value.steps.length+1});}
+      function removeStep(idx){const step=editForm.value.steps[idx];editForm.value.allIngredients=editForm.value.allIngredients.filter(ri=>ri.step_tempId!==step.tempId);editForm.value.steps.splice(idx,1);}
+      function moveStepUp(idx){const s=editForm.value.steps;[s[idx-1],s[idx]]=[s[idx],s[idx-1]];}
+      function moveStepDown(idx){const s=editForm.value.steps;[s[idx],s[idx+1]]=[s[idx+1],s[idx]];}
+      function addIngredientToStep(stepTempId){editForm.value.allIngredients.push(newIngRow(stepTempId));}
+      function addGeneralIngredient(){editForm.value.allIngredients.push(newIngRow(null));}
+      function removeEditIngredient(tempId){editForm.value.allIngredients=editForm.value.allIngredients.filter(ri=>ri.tempId!==tempId);}
+
+      // ---- VOLUMETRIC CONVERSION ----
+      async function convertVolumetricToGrams(ri) {
+        const note=(ri.volumetric_note||'').trim();
+        if(!note){alert('Type a volumetric amount in the notes field first (e.g. "4 cups cooked chickpeas").');return;}
+        ri._convLoading=true;
+        try{
+          const text=await callClaude([{role:'user',content:'Convert this recipe measurement to grams: "'+note+'"\n\nReply with ONLY a JSON object:\n{"grams": NUMBER, "explanation": "brief note"}\n\nNo other text.'}]);
+          const match=text.match(/\{[\s\S]*?\}/);
+          if(match){const p=JSON.parse(match[0]);if(p.grams&&Number(p.grams)>0){ri.weight_g=Math.round(Number(p.grams));}}
+        }catch(e){alert('Conversion failed: '+e.message);}
+        finally{ri._convLoading=false;}
+      }
+
+      // ---- SAVE RECIPE ----
+      async function saveRecipe(){
+        if(!editForm.value.name.trim()){saveError.value='Recipe name is required.';return;}
+        if(!editForm.value.serve_weight_g||editForm.value.serve_weight_g<=0){saveError.value='Serve size must be >0.';return;}
+        savingRecipe.value=true;saveError.value='';
+        try{
+          const payload={name:editForm.value.name.trim(),category:editForm.value.category||null,version:editForm.value.version,description:editForm.value.description||null,serve_weight_g:editForm.value.serve_weight_g,notes:editForm.value.notes||null};
+          if(editForm.value.parent_recipe_id) payload.parent_recipe_id=editForm.value.parent_recipe_id;
+          let recipeId;
+          if(editForm.value.id){
+            recipeId=editForm.value.id;
+            const{error}=await sb.from('recipes').update({...payload,updated_at:new Date().toISOString()}).eq('id',recipeId);
+            if(error)throw error;
+            await sb.from('recipe_ingredients').delete().eq('recipe_id',recipeId);
+            await sb.from('recipe_steps').delete().eq('recipe_id',recipeId);
+          }else{
+            const{data,error}=await sb.from('recipes').insert(payload).select().single();
+            if(error)throw error;recipeId=data.id;
+          }
+          const stepIdMap={};
+          if(editForm.value.steps.length>0){
+            const sp=editForm.value.steps.map((s,i)=>({recipe_id:recipeId,step_order:i+1,title:s.title||null,description:s.description||''}));
+            const{data:ss,error:se}=await sb.from('recipe_steps').insert(sp).select();
+            if(se)throw se;ss.forEach((s,i)=>{stepIdMap[editForm.value.steps[i].tempId]=s.id;});
+          }
+          const valid=editForm.value.allIngredients.filter(ri=>ri.ingredient_id&&Number(ri.weight_g)>0);
+          if(valid.length>0){
+            const ip=valid.map(ri=>({recipe_id:recipeId,ingredient_id:ri.ingredient_id,step_id:ri.step_tempId?(stepIdMap[ri.step_tempId]||null):null,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||null}));
+            const{error:ie}=await sb.from('recipe_ingredients').insert(ip);if(ie)throw ie;
+          }
+          await loadRecipes();goToList();
+        }catch(err){saveError.value=err.message||'Failed to save.';}
+        finally{savingRecipe.value=false;}
+      }
+      async function confirmDeleteRecipe(recipe){
+        if(!confirm('Delete "'+recipe.name+'" (v'+recipe.version+')? Cannot be undone.'))return;
+        await sb.from('recipes').delete().eq('id',recipe.id);await loadRecipes();goToList();
+      }
+      function printRecipe(){window.print();}
+
+      // ---- INGREDIENT MANAGER ----
+      function openIngredientModal(ing){
+        ingForm.value=ing?{...ing,state:ing.state||'raw',raw_ingredient_id:ing.raw_ingredient_id||null,cook_ratio:ing.cook_ratio||null}:blankIngForm();
+        usdaQuery.value='';usdaResults.value=[];usdaError.value='';showIngModal.value=true;
+      }
+      async function saveIngredient(){
+        if(!ingForm.value.name?.trim())return;
+        savingIngredient.value=true;
+        const payload={name:ingForm.value.name.trim(),brand:ingForm.value.brand||null,cost_per_kg:ingForm.value.cost_per_kg||null,state:ingForm.value.state||'raw',raw_ingredient_id:ingForm.value.raw_ingredient_id||null,cook_ratio:ingForm.value.cook_ratio||null,energy_kj:ingForm.value.energy_kj||null,protein_g:ingForm.value.protein_g||null,fat_g:ingForm.value.fat_g||null,saturated_fat_g:ingForm.value.saturated_fat_g||null,carbohydrate_g:ingForm.value.carbohydrate_g||null,sugars_g:ingForm.value.sugars_g||null,dietary_fibre_g:ingForm.value.dietary_fibre_g||null,sodium_mg:ingForm.value.sodium_mg||null};
+        if(ingForm.value.id){await sb.from('ingredients').update(payload).eq('id',ingForm.value.id);}
+        else{await sb.from('ingredients').insert(payload);}
+        savingIngredient.value=false;showIngModal.value=false;await loadIngredients();
+      }
+      async function confirmDeleteIngredient(ing){
+        if(!confirm('Delete "'+ing.name+'"? It will be removed from all recipes.'))return;
+        await sb.from('ingredients').delete().eq('id',ing.id);await loadIngredients();
+      }
+      async function estimateCookRatio(){
+        const name=ingForm.value.name?.trim()||'this ingredient';
+        aiLoading.value=true;
+        try{
+          const text=await callClaude([{role:'user',content:'What is the typical cook ratio for '+name+' (cooked weight ÷ raw weight)? E.g. dried chickpeas to cooked = 2.33. Reply with ONLY JSON: {"ratio": NUMBER, "note": "brief explanation"}'}]);
+          const match=text.match(/\{[\s\S]*?\}/);
+          if(match){const p=JSON.parse(match[0]);if(p.ratio&&Number(p.ratio)>0)ingForm.value.cook_ratio=Math.round(Number(p.ratio)*100)/100;}
+        }catch(e){alert('AI estimate failed: '+e.message);}
+        finally{aiLoading.value=false;}
+      }
+
+      // ---- USDA ----
+      async function searchUSDA(){
+        if(!usdaQuery.value.trim())return;usdaLoading.value=true;usdaError.value='';usdaResults.value=[];
+        try{
+          const url='https://api.nal.usda.gov/fdc/v1/foods/search?query='+encodeURIComponent(usdaQuery.value)+'&pageSize=12&api_key='+USDA_API_KEY;
+          const res=await fetch(url);if(!res.ok)throw new Error('HTTP '+res.status);
+          const json=await res.json();usdaResults.value=json.foods||[];
+          if(usdaResults.value.length===0)usdaError.value='No results. Try different terms.';
+        }catch(e){usdaError.value='Search failed: '+e.message;}
+        finally{usdaLoading.value=false;}
+      }
+      function selectUSDAFood(food){
+        const n=extractUSDANutrients(food.foodNutrients||[]);
+        ingForm.value.name=food.description;ingForm.value.brand=food.brandOwner||'';
+        ingForm.value.energy_kj=n.energy_kj;ingForm.value.protein_g=n.protein_g;ingForm.value.fat_g=n.fat_g;ingForm.value.saturated_fat_g=n.saturated_fat_g;ingForm.value.carbohydrate_g=n.carbohydrate_g;ingForm.value.sugars_g=n.sugars_g;ingForm.value.dietary_fibre_g=n.dietary_fibre_g;ingForm.value.sodium_mg=n.sodium_mg;
+        usdaResults.value=[];
+      }
+
+      // ---- MEALS ----
+      function startNewMeal(){editMeal.value={id:null,name:'',description:'',serve_weight_g:300,notes:'',components:[]};mealError.value='';mealAddId.value='';mealAddWeight.value=null;currentView.value='meal-edit';}
+      async function startEditMeal(meal){
+        const{data:comps}=await sb.from('meal_components').select('*').eq('meal_id',meal.id).order('sort_order');
+        const components=(comps||[]).map(c=>({
+          _tempId:uid(),id:c.id,type:c.type,recipe_id:c.recipe_id,ingredient_id:c.ingredient_id,weight_g:c.weight_g,
+          _recipe:recipes.value.find(r=>r.id===c.recipe_id)||null,
+          _ingredient:ingredients.value.find(i=>i.id===c.ingredient_id)||null,
+        }));
+        editMeal.value={id:meal.id,name:meal.name,description:meal.description||'',serve_weight_g:meal.serve_weight_g||300,notes:meal.notes||'',components};
+        mealError.value='';mealAddId.value='';mealAddWeight.value=null;currentView.value='meal-edit';
+      }
+      function cancelMealEdit(){currentMeal.value?currentView.value='meal-view':currentView.value='meals';}
+      function addMealComponent(){
+        if(!mealAddId.value||!mealAddWeight.value||Number(mealAddWeight.value)<=0){mealError.value='Select an item and enter a weight.';return;}
+        mealError.value='';
+        if(mealAddType.value==='recipe'){
+          const r=recipes.value.find(r=>r.id===mealAddId.value);
+          editMeal.value.components.push({_tempId:uid(),id:null,type:'recipe',recipe_id:mealAddId.value,ingredient_id:null,weight_g:Number(mealAddWeight.value),_recipe:r,_ingredient:null});
+        }else{
+          const i=ingredients.value.find(i=>i.id===mealAddId.value);
+          editMeal.value.components.push({_tempId:uid(),id:null,type:'ingredient',recipe_id:null,ingredient_id:mealAddId.value,weight_g:Number(mealAddWeight.value),_recipe:null,_ingredient:i});
+        }
+        mealAddId.value='';mealAddWeight.value=null;
+      }
+      function removeMealComponent(idx){editMeal.value.components.splice(idx,1);}
+      async function saveMeal(){
+        if(!editMeal.value.name.trim()){mealError.value='Meal name is required.';return;}
+        savingMeal.value=true;mealError.value='';
+        try{
+          const payload={name:editMeal.value.name.trim(),description:editMeal.value.description||null,serve_weight_g:editMeal.value.serve_weight_g||300,notes:editMeal.value.notes||null};
+          let mealId;
+          if(editMeal.value.id){
+            mealId=editMeal.value.id;
+            await sb.from('meals').update(payload).eq('id',mealId);
+            await sb.from('meal_components').delete().eq('meal_id',mealId);
+          }else{
+            const{data,error}=await sb.from('meals').insert(payload).select().single();
+            if(error)throw error;mealId=data.id;
+          }
+          if(editMeal.value.components.length>0){
+            const cp=editMeal.value.components.map((c,i)=>({meal_id:mealId,type:c.type,recipe_id:c.recipe_id||null,ingredient_id:c.ingredient_id||null,weight_g:c.weight_g,sort_order:i}));
+            const{error}=await sb.from('meal_components').insert(cp);if(error)throw error;
+          }
+          await loadMeals();currentView.value='meals';
+        }catch(err){mealError.value=err.message||'Failed to save.';}
+        finally{savingMeal.value=false;}
+      }
+      async function viewMeal(meal){
+        currentMeal.value=meal;
+        const{data:comps}=await sb.from('meal_components').select('*').eq('meal_id',meal.id).order('sort_order');
+        const enriched=[];
+        for(const comp of(comps||[])){
+          if(comp.type==='recipe'){
+            const{data:ri}=await sb.from('recipe_ingredients').select('*,ingredient:ingredients(*)').eq('recipe_id',comp.recipe_id);
+            enriched.push({...comp,_recipe:recipes.value.find(r=>r.id===comp.recipe_id),_recipeIngredients:ri||[]});
+          }else{
+            enriched.push({...comp,_ingredient:ingredients.value.find(i=>i.id===comp.ingredient_id)});
+          }
+        }
+        currentMealComponents.value=enriched;currentView.value='meal-view';
+      }
+      async function confirmDeleteMeal(meal){
+        if(!confirm('Delete "'+meal.name+'"? Cannot be undone.'))return;
+        await sb.from('meals').delete().eq('id',meal.id);await loadMeals();currentView.value='meals';
+      }
+
+      // ---- IMPORT ----
+      async function parseImportText(){
+        if(!importText.value.trim()){importError.value='Paste some recipe text first.';return;}
+        importLoading.value=true;importError.value='';
+        try{
+          const prompt='Parse this recipe and return ONLY valid JSON (no other text).\n\nFormat:\n{"name":"Recipe Name","category":"Category","description":"Brief description","serve_weight_g":150,"notes":"Notes","steps":[{"title":"Step title or null","description":"What to do","ingredients":[{"name":"Ingredient","weight_g":200,"volumetric_note":"original measure if volumetric"}]}]}\n\nRules:\n- If weight is given volumetrically (cups/tbsp/etc), estimate grams and put original measure in volumetric_note\n- serve_weight_g is serving size in grams\n- If no clear steps, put all ingredients in one step\n\nRecipe:\n'+importText.value;
+          const text=await callClaude([{role:'user',content:prompt}]);
+          const match=text.match(/\{[\s\S]*\}/);
+          if(!match)throw new Error('Could not parse AI response. Try again or use a more structured recipe format.');
+          applyImportedRecipe(JSON.parse(match[0]));
+        }catch(e){importError.value='Import failed: '+e.message;}
+        finally{importLoading.value=false;}
+      }
+      async function parseImportPhoto(){
+        if(!importImageData.value){importError.value='Upload a photo first.';return;}
+        importLoading.value=true;importError.value='';
+        try{
+          const prompt='Extract recipe from this image. Return ONLY valid JSON:\n{"name":"Recipe Name","category":"Category","description":"Brief description","serve_weight_g":150,"notes":"Notes","steps":[{"title":"Step title","description":"What to do","ingredients":[{"name":"Ingredient","weight_g":200,"volumetric_note":"original measure"}]}]}';
+          const text=await callClaude([{role:'user',content:[{type:'image',source:{type:'base64',media_type:importImageType.value,data:importImageData.value}},{type:'text',text:prompt}]}]);
+          const match=text.match(/\{[\s\S]*\}/);
+          if(!match)throw new Error('Could not parse AI response.');
+          applyImportedRecipe(JSON.parse(match[0]));
+        }catch(e){importError.value='Import failed: '+e.message;}
+        finally{importLoading.value=false;}
+      }
+      function applyImportedRecipe(parsed){
+        const steps=(parsed.steps||[]).map(s=>({tempId:uid(),id:null,title:s.title||'',description:s.description||''}));
+        const stepsWithIngs=(parsed.steps||[]).map((s,i)=>({...s,_tempId:steps[i].tempId}));
+        const allIngredients=[];
+        for(const step of stepsWithIngs){
+          for(const pi of(step.ingredients||[])){
+            const matched=ingredients.value.find(i=>i.name.toLowerCase()===pi.name.toLowerCase()||i.name.toLowerCase().includes(pi.name.toLowerCase().slice(0,6)));
+            allIngredients.push({tempId:uid(),id:null,ingredient_id:matched?.id||'',weight_g:pi.weight_g||null,volumetric_note:pi.volumetric_note||'',step_tempId:step._tempId,_convLoading:false,_importName:matched?'':pi.name});
+          }
+        }
+        editForm.value={id:null,name:parsed.name||'Imported Recipe',category:parsed.category||'',version:1,description:parsed.description||'',serve_weight_g:parsed.serve_weight_g||100,notes:parsed.notes||'',parent_recipe_id:null,steps,allIngredients};
+        saveError.value='';currentView.value='edit';
+      }
+      function handlePhotoSelect(e){const f=e.target.files[0];if(f)readImageFile(f);}
+      function handlePhotoDrop(e){const f=e.dataTransfer.files[0];if(f)readImageFile(f);}
+      function readImageFile(file){
+        importImageType.value=file.type||'image/jpeg';
+        const reader=new FileReader();
+        reader.onload=()=>{importImageData.value=reader.result.split(',')[1];};
+        reader.readAsDataURL(file);
+      }
+      function clearImportPhoto(){importImageData.value=null;}
+
+      // ---- INIT (portal gate -> shared recipe session) ----
+      onMounted(async()=>{
+        const { data:{ session: pSession } } = await portal.auth.getSession();
+        if(!pSession){ window.location.href='/'; return; }
+        let allowed=false;
+        try{
+          const { data:prof } = await portal.from('profiles').select('is_admin').eq('id',pSession.user.id).single();
+          if(prof && prof.is_admin){ allowed=true; }
+          else{
+            const { data:acc } = await portal.from('user_app_access').select('app_id').eq('user_id',pSession.user.id).eq('app_id','recipes');
+            allowed = !!(acc && acc.length);
+          }
+        }catch(e){ allowed=false; }
+        if(!allowed){ window.location.href='/?denied=recipes'; return; }
+        try{
+          const r = await fetch('/.netlify/functions/recipes-session',{ method:'POST', headers:{ 'Authorization':'Bearer '+pSession.access_token } });
+          if(!r.ok) throw new Error('session');
+          const sess = await r.json();
+          await sb.auth.setSession({ access_token:sess.access_token, refresh_token:sess.refresh_token });
+        }catch(e){ gateError.value='Could not open the recipe database. Please reload.'; return; }
+        user.value = pSession.user;
+        await loadData();
+      });
+
+      return {
+        notConfigured, user, loginEmail, loginPassword, authLoading, authError, gateError,
+        currentView, recipes, ingredients, loadingRecipes,
+        currentRecipe, viewSteps, viewIngredients,
+        searchQuery, selectedCategory, ingSearchQuery,
+        allCategories, filteredRecipes, filteredIngredients, rawIngredients,
+        editForm, savingRecipe, saveError,
+        editGeneralIngredients, editTotalWeight, editTotalCost,
+        viewTotalWeight, viewTotalCost, viewUnassignedIngredients, nutrition100g, nutritionPerServe,
+        showIngModal, ingForm, savingIngredient, usdaQuery, usdaResults, usdaLoading, usdaError, aiLoading,
+        effectiveCookedCostPerKg,
+        meals, loadingMeals, currentMeal, currentMealComponents, editMeal,
+        mealAddType, mealAddId, mealAddWeight, savingMeal, mealError,
+        mealTotalWeight, mealTotalCost, mealNutrition100g, mealNutritionPerServe,
+        importTab, importText, importImageData, importImageType, importLoading, importError,
+        // methods
+        login, logout, goToList, goToMeals, viewRecipe,
+        startNewRecipe, startEditRecipe, startNewVersion, cancelEdit, startImport,
+        addStep, removeStep, moveStepUp, moveStepDown,
+        addIngredientToStep, addGeneralIngredient, removeEditIngredient,
+        convertVolumetricToGrams,
+        saveRecipe, confirmDeleteRecipe, printRecipe,
+        openIngredientModal, saveIngredient, confirmDeleteIngredient, estimateCookRatio,
+        searchUSDA, selectUSDAFood,
+        startNewMeal, startEditMeal, cancelMealEdit, addMealComponent, removeMealComponent, saveMeal, viewMeal, confirmDeleteMeal,
+        parseImportText, parseImportPhoto, handlePhotoSelect, handlePhotoDrop, clearImportPhoto,
+        viewIngredientsForStep, editStepIngredients, calcIngCost, viewCostSourceLabel, calcMealCompCost,
+      };
+    }
+  }).mount('#app');
+})();
+</script>
+</body>
+</html>
