@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Revive Team Portal</title>
+<style>
+  :root{
+    --green:#1f6f54; --green-d:#16543f; --green-l:#2f8a6a;
+    --cream:#faf7f0; --ink:#243029; --muted:#6b7b72;
+    --line:#e6e0d4; --card:#ffffff; --danger:#c0392b; --danger-d:#962d22;
+    --amber:#b7791f;
+    --shadow:0 1px 3px rgba(20,40,30,.08),0 6px 18px rgba(20,40,30,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--cream); color:var(--ink); -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  button{font-family:inherit;cursor:pointer}
+  input{font-family:inherit}
+  .hidden{display:none !important}
+
+  /* ---------- LOGIN ---------- */
+  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .login-card{
+    background:var(--card);border:1px solid var(--line);border-radius:18px;
+    box-shadow:var(--shadow);width:100%;max-width:400px;padding:38px 34px;
+  }
+  .brand{display:flex;flex-direction:column;align-items:center;margin-bottom:26px;text-align:center}
+  .brand .mark{
+    width:58px;height:58px;border-radius:16px;background:var(--green);
+    display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:14px;
+  }
+  .brand h1{font-size:21px;margin:0;font-weight:700}
+  .brand p{margin:4px 0 0;color:var(--muted);font-size:13.5px}
+  label{display:block;font-size:13px;font-weight:600;margin:0 0 6px;color:var(--ink)}
+  .field{margin-bottom:16px}
+  input[type=email],input[type=password],input[type=text]{
+    width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:10px;
+    font-size:15px;background:#fff;color:var(--ink);transition:border-color .15s,box-shadow .15s;
+  }
+  input:focus{outline:none;border-color:var(--green-l);box-shadow:0 0 0 3px rgba(47,138,106,.15)}
+  .btn{
+    width:100%;padding:12px;border:none;border-radius:10px;background:var(--green);
+    color:#fff;font-size:15px;font-weight:600;transition:background .15s;
+  }
+  .btn:hover{background:var(--green-d)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn-sm{width:auto;padding:8px 14px;font-size:13.5px;border-radius:8px}
+  .btn-ghost{background:transparent;color:var(--green);border:1px solid var(--line)}
+  .btn-ghost:hover{background:#f1ede3}
+  .btn-danger{background:var(--danger)}
+  .btn-danger:hover{background:var(--danger-d)}
+  .msg{font-size:13.5px;padding:10px 12px;border-radius:9px;margin-bottom:14px}
+  .msg-error{background:#fdecea;color:var(--danger-d);border:1px solid #f3c9c3}
+  .msg-ok{background:#eaf6f0;color:var(--green-d);border:1px solid #c5e6d7}
+
+  /* ---------- APP CHROME ---------- */
+  .topbar{
+    background:#fff;border-bottom:1px solid var(--line);padding:0 22px;
+    display:flex;align-items:center;justify-content:space-between;height:62px;position:sticky;top:0;z-index:10;
+  }
+  .topbar .left{display:flex;align-items:center;gap:11px}
+  .topbar .mark{width:34px;height:34px;border-radius:9px;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:18px}
+  .topbar .title{font-weight:700;font-size:16px}
+  .topbar .right{display:flex;align-items:center;gap:10px}
+  .who{font-size:13px;color:var(--muted);margin-right:4px}
+  .wrap{max-width:980px;margin:0 auto;padding:30px 22px 60px}
+  .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .page-head h2{font-size:23px;margin:0}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 26px}
+
+  /* ---------- TILES ---------- */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
+  .tile{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;
+    box-shadow:var(--shadow);transition:transform .12s,box-shadow .12s;position:relative;
+    display:flex;flex-direction:column;gap:4px;min-height:150px;
+  }
+  .tile.live{cursor:pointer}
+  .tile.live:hover{transform:translateY(-3px);box-shadow:0 4px 10px rgba(20,40,30,.1),0 14px 30px rgba(20,40,30,.1)}
+  .tile.soon{opacity:.72}
+  .tile .ic{font-size:34px;margin-bottom:8px}
+  .tile h3{margin:0;font-size:17px}
+  .tile p{margin:2px 0 0;color:var(--muted);font-size:13.5px;line-height:1.45}
+  .badge{position:absolute;top:14px;right:14px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;letter-spacing:.02em}
+  .badge.soon{background:#fbf1dc;color:var(--amber)}
+  .badge.live{background:#eaf6f0;color:var(--green-d)}
+  .empty{background:#fff;border:1px dashed var(--line);border-radius:14px;padding:40px;text-align:center;color:var(--muted)}
+
+  /* ---------- ADMIN TABLE ---------- */
+  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:13px 16px;font-size:14px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{background:#f6f2e9;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:14px;background:#eef1ef;color:var(--muted);margin:1px 3px 1px 0}
+  .pill.admin{background:#efe7fb;color:#6b3fa0}
+  .pill.app{background:#eaf6f0;color:var(--green-d)}
+  .pill.off{background:#fdecea;color:var(--danger-d)}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .tiny{font-size:12.5px;padding:6px 10px}
+
+  /* ---------- MODAL ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(20,30,25,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow:auto}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:460px;padding:26px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal h3{margin:0 0 4px;font-size:19px}
+  .modal .sub{margin-bottom:18px}
+  .check-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #f1ede3}
+  .check-row:last-child{border-bottom:none}
+  .check-row input{width:17px;height:17px;accent-color:var(--green);margin:0}
+  .check-row label{margin:0;font-weight:500;font-size:14px;display:flex;flex-direction:column}
+  .check-row label small{color:var(--muted);font-weight:400;font-size:12px}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+  .modal-actions .btn{width:auto;padding:10px 18px}
+  .hint{font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:14px}
+  .section-label{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin:18px 0 6px}
+
+  /* ---------- TOAST + LOADER ---------- */
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:100}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .loader{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:7px}
+  .loader.dark{border-color:rgba(31,111,84,.25);border-top-color:var(--green)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #bootScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- BOOT -->
+<div id="bootScreen"><span class="loader dark"></span>&nbsp;Loading portal…</div>
+
+<!-- LOGIN -->
+<div id="loginView" class="hidden">
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <div class="brand">
+      <div class="mark">🌿</div>
+      <h1>Revive Team Portal</h1>
+      <p>Sign in to access your apps</p>
+    </div>
+    <div id="loginMsg"></div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required placeholder="you@revive.co.nz" />
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••" />
+    </div>
+    <button class="btn" id="loginBtn" type="submit">Sign in</button>
+  </form>
+</div>
+
+<!-- APP (dashboard + admin) -->
+<div id="appView" class="hidden">
+  <div class="topbar">
+    <div class="left">
+      <div class="mark">🌿</div>
+      <div class="title">Revive Team Portal</div>
+    </div>
+    <div class="right">
+      <span class="who" id="whoami"></span>
+      <button class="btn btn-ghost btn-sm hidden" id="adminBtn">Admin</button>
+      <button class="btn btn-ghost btn-sm hidden" id="backBtn">← Dashboard</button>
+      <button class="btn btn-ghost btn-sm" id="signoutBtn">Sign out</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="wrap" id="dashboardView">
+    <div class="page-head"><h2>Your apps</h2></div>
+    <p class="sub" id="dashSub">Choose an app to get started.</p>
+    <div class="tiles" id="tiles"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="wrap hidden" id="adminView">
+    <div class="page-head">
+      <h2>Team & access</h2>
+      <button class="btn btn-sm" id="addUserBtn" style="width:auto">+ Add team member</button>
+    </div>
+    <p class="sub">Add team members, set their password, and tick which apps they can use.</p>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Name / Email</th><th>Role</th><th>App access</th><th style="text-align:right">Actions</th></tr></thead>
+        <tbody id="userRows"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px"><span class="loader dark"></span> Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- USER MODAL -->
+<div id="userModal" class="overlay hidden">
+  <form class="modal" id="userForm">
+    <h3 id="modalTitle">Add team member</h3>
+    <p class="sub" id="modalSub">They'll sign in with this email and password.</p>
+    <div id="modalMsg"></div>
+    <div class="field">
+      <label for="mName">Full name</label>
+      <input id="mName" type="text" placeholder="Jane Smith" />
+    </div>
+    <div class="field">
+      <label for="mEmail">Email</label>
+      <input id="mEmail" type="email" required placeholder="jane@revive.co.nz" />
+    </div>
+    <div class="field">
+      <label for="mPassword" id="mPwLabel">Password</label>
+      <input id="mPassword" type="text" placeholder="At least 6 characters" />
+      <div class="hint" id="mPwHint">They can change this later. Minimum 6 characters.</div>
+    </div>
+
+    <div class="section-label">App access</div>
+    <div id="appChecks"></div>
+
+    <div class="section-label">Permissions</div>
+    <div class="check-row">
+      <input type="checkbox" id="mAdmin" />
+      <label for="mAdmin">Administrator <small>Can manage team members and access (this panel)</small></label>
+    </div>
+    <div class="check-row">
+      <input type="checkbox" id="mActive" checked />
+      <label for="mActive">Active <small>Uncheck to suspend sign-in without deleting</small></label>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="cancelModal" style="width:auto">Cancel</button>
+      <button type="submit" class="btn" id="saveUser" style="width:auto">Save</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+/* ===== CONFIG (public keys — safe in browser) ===== */
+const SUPABASE_URL = 'https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ===== STATE ===== */
+let me = null;          // profile row
+let allApps = [];       // apps catalog
+let editingUserId = null;
+
+/* ===== EL ===== */
+const $ = id => document.getElementById(id);
+const boot=$('bootScreen'), loginView=$('loginView'), appView=$('appView');
+const dashboardView=$('dashboardView'), adminView=$('adminView');
+
+/* ===== HELPERS ===== */
+function show(el){el.classList.remove('hidden')}
+function hide(el){el.classList.add('hidden')}
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2600)}
+function msg(box,text,type){box.innerHTML = text ? `<div class="msg msg-${type}">${text}</div>` : ''}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ===== AUTH BOOTSTRAP ===== */
+async function start(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){ await enterApp(); } else { showLogin(); }
+}
+function showLogin(){ hide(boot); hide(appView); show(loginView); }
+
+async function enterApp(){
+  hide(boot); hide(loginView); show(appView);
+  // load my profile
+  const { data:{ user } } = await sb.auth.getUser();
+  const { data:prof, error } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  if(error || !prof){ toast('Could not load your profile'); return signOut(); }
+  if(prof.active === false){ alert('Your account has been suspended. Please contact an administrator.'); return signOut(); }
+  me = prof;
+  $('whoami').textContent = prof.full_name ? `${prof.full_name}` : prof.email;
+  if(prof.is_admin){ show($('adminBtn')); } else { hide($('adminBtn')); }
+  await loadDashboard();
+  goDashboard();
+}
+
+/* ===== DASHBOARD ===== */
+async function loadDashboard(){
+  const { data:apps } = await sb.from('apps').select('*').order('sort_order');
+  allApps = apps || [];
+  let visible;
+  if(me.is_admin){
+    visible = allApps;
+  }else{
+    const { data:access } = await sb.from('user_app_access').select('app_id').eq('user_id', me.id);
+    const ids = new Set((access||[]).map(a=>a.app_id));
+    visible = allApps.filter(a=>ids.has(a.id));
+  }
+  renderTiles(visible);
+}
+function renderTiles(apps){
+  const wrap=$('tiles');
+  if(!apps.length){
+    wrap.innerHTML = `<div class="empty" style="grid-column:1/-1">No apps assigned to you yet.<br>Ask an administrator to grant access.</div>`;
+    return;
+  }
+  wrap.innerHTML = apps.map(a=>{
+    const live = a.status==='live';
+    const badge = live ? `<span class="badge live">Live</span>` : `<span class="badge soon">Coming soon</span>`;
+    return `<div class="tile ${live?'live':'soon'}" data-app="${esc(a.id)}" data-url="${esc(a.url)}" data-status="${a.status}">
+      ${badge}
+      <div class="ic">${a.icon||'📦'}</div>
+      <h3>${esc(a.name)}</h3>
+      <p>${esc(a.description)}</p>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.tile').forEach(t=>{
+    t.addEventListener('click',()=>{
+      if(t.dataset.status!=='live'){ toast('This app is being wired into the portal — coming soon.'); return; }
+      const url=t.dataset.url;
+      if(url) window.location.href=url; else toast('No link set for this app yet.');
+    });
+  });
+}
+
+/* ===== VIEW SWITCH ===== */
+function goDashboard(){ show(dashboardView); hide(adminView); hide($('backBtn')); if(me.is_admin) show($('adminBtn')); }
+function goAdmin(){ hide(dashboardView); show(adminView); show($('backBtn')); hide($('adminBtn')); loadUsers(); }
+
+/* ===== ADMIN: list users ===== */
+async function loadUsers(){
+  const rows=$('userRows');
+  const [{data:profiles}, {data:access}] = await Promise.all([
+    sb.from('profiles').select('*').order('created_at'),
+    sb.from('user_app_access').select('user_id,app_id')
+  ]);
+  const appName = Object.fromEntries(allApps.map(a=>[a.id,a.name]));
+  const byUser = {};
+  (access||[]).forEach(r=>{ (byUser[r.user_id]=byUser[r.user_id]||[]).push(r.app_id); });
+  if(!profiles||!profiles.length){ rows.innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No team members yet.</td></tr>`; return; }
+  rows.innerHTML = profiles.map(p=>{
+    const apps=(byUser[p.id]||[]).map(id=>`<span class="pill app">${esc(appName[id]||id)}</span>`).join('') || '<span class="pill">none</span>';
+    const role = p.is_admin ? '<span class="pill admin">Admin</span>' : '<span class="pill">Staff</span>';
+    const suspended = p.active===false ? '<span class="pill off">Suspended</span>' : '';
+    const self = p.id===me.id;
+    return `<tr>
+      <td><strong>${esc(p.full_name||'—')}</strong><br><span style="color:var(--muted);font-size:12.5px">${esc(p.email)}</span></td>
+      <td>${role} ${suspended}</td>
+      <td>${apps}</td>
+      <td><div class="row-actions" style="justify-content:flex-end">
+        <button class="btn btn-ghost tiny" data-edit="${p.id}">Edit</button>
+        ${self?'':`<button class="btn btn-danger tiny" data-del="${p.id}" data-email="${esc(p.email)}">Delete</button>`}
+      </div></td>
+    </tr>`;
+  }).join('');
+  rows.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.edit, profiles, byUser)));
+  rows.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>delUser(b.dataset.del, b.dataset.email)));
+}
+
+/* ===== ADMIN: modal ===== */
+function appCheckHTML(checkedIds){
+  return allApps.map(a=>`<div class="check-row">
+    <input type="checkbox" class="appChk" id="chk_${a.id}" value="${a.id}" ${checkedIds.has(a.id)?'checked':''}/>
+    <label for="chk_${a.id}">${a.icon||''} ${esc(a.name)} <small>${esc(a.description)}</small></label>
+  </div>`).join('');
+}
+function openAdd(){
+  editingUserId=null;
+  $('modalTitle').textContent='Add team member';
+  $('modalSub').textContent="They'll sign in with this email and password.";
+  $('mName').value=''; $('mEmail').value=''; $('mEmail').disabled=false;
+  $('mPassword').value=''; $('mPwLabel').textContent='Password';
+  $('mPwHint').textContent='They can change this later. Minimum 6 characters.';
+  $('mAdmin').checked=false; $('mActive').checked=true;
+  $('appChecks').innerHTML=appCheckHTML(new Set());
+  msg($('modalMsg'),'','');
+  show($('userModal'));
+}
+function openEdit(id, profiles, byUser){
+  const p=profiles.find(x=>x.id===id); if(!p) return;
+  editingUserId=id;
+  $('modalTitle').textContent='Edit team member';
+  $('modalSub').textContent='Update access or reset their password.';
+  $('mName').value=p.full_name||''; $('mEmail').value=p.email; $('mEmail').disabled=true;
+  $('mPassword').value=''; $('mPwLabel').textContent='Reset password (optional)';
+  $('mPwHint').textContent='Leave blank to keep current password. Minimum 6 characters.';
+  $('mAdmin').checked=!!p.is_admin; $('mActive').checked=p.active!==false;
+  $('appChecks').innerHTML=appCheckHTML(new Set(byUser[id]||[]));
+  msg($('modalMsg'),'','');
+  show($('userModal'));
+}
+function closeModal(){ hide($('userModal')); }
+
+async function callFn(name, body){
+  const { data:{ session } } = await sb.auth.getSession();
+  const res = await fetch('/.netlify/functions/'+name,{
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token },
+    body: JSON.stringify(body)
+  });
+  const json = await res.json().catch(()=>({error:'Unexpected server response'}));
+  if(!res.ok) throw new Error(json.error||('Request failed ('+res.status+')'));
+  return json;
+}
+
+async function submitUser(e){
+  e.preventDefault();
+  const btn=$('saveUser'); btn.disabled=true; const orig=btn.textContent; btn.innerHTML='<span class="loader"></span>Saving…';
+  msg($('modalMsg'),'','');
+  const apps=[...document.querySelectorAll('.appChk:checked')].map(c=>c.value);
+  const payload={
+    full_name:$('mName').value.trim(),
+    email:$('mEmail').value.trim(),
+    password:$('mPassword').value,
+    is_admin:$('mAdmin').checked,
+    active:$('mActive').checked,
+    apps
+  };
+  try{
+    if(editingUserId){ payload.user_id=editingUserId; await callFn('admin-update-user',payload); toast('Team member updated'); }
+    else{
+      if(!payload.password || payload.password.length<6) throw new Error('Please set a password of at least 6 characters.');
+      await callFn('admin-create-user',payload); toast('Team member added');
+    }
+    closeModal(); await loadUsers();
+  }catch(err){ msg($('modalMsg'),esc(err.message),'error'); }
+  finally{ btn.disabled=false; btn.textContent=orig; }
+}
+
+async function delUser(id, email){
+  if(!confirm(`Delete ${email}? This permanently removes their login and access. This cannot be undone.`)) return;
+  try{ await callFn('admin-delete-user',{user_id:id}); toast('Team member deleted'); await loadUsers(); }
+  catch(err){ alert(err.message); }
+}
+
+/* ===== LOGIN / LOGOUT ===== */
+async function doLogin(e){
+  e.preventDefault();
+  const btn=$('loginBtn'); btn.disabled=true; const orig=btn.textContent; btn.innerHTML='<span class="loader"></span>Signing in…';
+  msg($('loginMsg'),'','');
+  const email=$('email').value.trim(), password=$('password').value;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ msg($('loginMsg'), error.message.includes('Invalid')?'Wrong email or password.':esc(error.message),'error'); btn.disabled=false; btn.textContent=orig; return; }
+  await enterApp();
+  btn.disabled=false; btn.textContent=orig;
+}
+async function signOut(){ await sb.auth.signOut(); me=null; location.reload(); }
+
+/* ===== WIRE UP ===== */
+$('loginForm').addEventListener('submit', doLogin);
+$('signoutBtn').addEventListener('click', signOut);
+$('adminBtn').addEventListener('click', goAdmin);
+$('backBtn').addEventListener('click', goDashboard);
+$('addUserBtn').addEventListener('click', openAdd);
+$('cancelModal').addEventListener('click', closeModal);
+$('userForm').addEventListener('submit', submitUser);
+$('userModal').addEventListener('click', e=>{ if(e.target===$('userModal')) closeModal(); });
+
+start();
+</script>
+</body>
+</html>
