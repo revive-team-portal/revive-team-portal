@@ -42,7 +42,7 @@
     <nav class="bg-stone-800 text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow">
       <div class="flex items-center gap-2">
         <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="w-7 h-7 rounded-full" alt="">
-        <span class="font-bold text-amber-400">Revivealicious</span>
+        <span class="font-bold text-amber-400">Revivealicious Foods</span>
         <span class="text-stone-400 text-sm hidden sm:inline">Sales CRM</span>
       </div>
       <div class="flex items-center gap-2">
@@ -102,8 +102,22 @@
         <span class="text-stone-400 text-sm">{{ filteredStores.length }} shown</span>
       </div>
 
+      <!-- ===== BULK ACTION BAR ===== -->
+      <div v-if="selectedIds.length" class="bg-stone-800 text-white rounded-xl px-4 py-2.5 mb-3 flex flex-wrap items-center gap-2 text-sm">
+        <span class="font-semibold">{{ selectedIds.length }} selected</span>
+        <select v-model="bulk.status" class="text-stone-800 rounded px-2 py-1">
+          <option value="">Set status…</option>
+          <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
+        </select>
+        <input type="date" v-model="bulk.next" class="text-stone-800 rounded px-2 py-1" title="Set next contact date">
+        <input v-model="bulk.tag" placeholder="Add tag" class="text-stone-800 rounded px-2 py-1 w-28">
+        <button @click="applyBulk" class="bg-amber-600 hover:bg-amber-700 px-3 py-1 rounded font-semibold">Apply</button>
+        <button @click="bulkDelete" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">Delete</button>
+        <button @click="clearSel" class="text-stone-300 hover:text-white ml-auto">Clear</button>
+      </div>
+
       <!-- ===== STORE TABLE ===== -->
-      <div class="bg-white rounded-xl border border-stone-200 overflow-hidden">
+      <div class="bg-white rounded-xl border border-stone-200 overflow-x-auto">
         <div v-if="loading" class="text-center text-stone-400 py-16 text-sm">Loading…</div>
         <div v-else-if="!filteredStores.length" class="text-center py-16">
           <p class="text-stone-400 mb-2">No stores match.</p>
@@ -112,32 +126,52 @@
         <table v-else class="w-full text-sm">
           <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wide">
             <tr>
-              <th class="text-left font-semibold px-4 py-2.5">Store</th>
+              <th class="px-3 py-2.5"><input type="checkbox" :checked="allShownSelected" @change="toggleAll"></th>
+              <th class="text-left font-semibold px-3 py-2.5">Store</th>
               <th class="text-left font-semibold px-3 py-2.5 hidden md:table-cell">Area</th>
               <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell">Contact</th>
+              <th class="text-left font-semibold px-3 py-2.5 hidden xl:table-cell">Phone</th>
               <th class="text-left font-semibold px-3 py-2.5">Status</th>
-              <th class="text-left font-semibold px-3 py-2.5 hidden sm:table-cell">Next</th>
-              <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell">Last activity</th>
+              <th class="text-left font-semibold px-3 py-2.5">Next contact</th>
+              <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell">Last</th>
+              <th class="text-center font-semibold px-3 py-2.5 hidden sm:table-cell">Orders</th>
               <th class="text-right font-semibold px-4 py-2.5">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="s in filteredStores" :key="s.id" class="border-t border-stone-100 hover:bg-amber-50/40">
-              <td class="px-4 py-2.5 cursor-pointer" @click="openStore(s)">
+            <tr v-for="s in filteredStores" :key="s.id" class="border-t border-stone-100 hover:bg-amber-50/40" :class="selectedIds.includes(s.id)?'bg-amber-50':''">
+              <td class="px-3 py-2.5 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)"></td>
+              <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
                 <p class="font-semibold text-stone-800">{{ s.store_name }}</p>
                 <p class="text-xs text-stone-400">{{ s.store_type }}</p>
+                <p v-if="s.tags && s.tags.length" class="mt-1 flex flex-wrap gap-1">
+                  <span v-for="t in s.tags" :key="t" class="text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">{{ t }}</span>
+                </p>
               </td>
-              <td class="px-3 py-2.5 hidden md:table-cell text-stone-600">{{ s.area }}</td>
-              <td class="px-3 py-2.5 hidden lg:table-cell text-stone-600">
+              <td class="px-3 py-2.5 hidden md:table-cell align-top">
+                <input v-model="s.area" @change="quickSave(s,{area:s.area})" class="w-24 bg-transparent text-stone-600 hover:bg-stone-100 focus:bg-stone-100 rounded px-1 py-0.5 focus:outline-none">
+              </td>
+              <td class="px-3 py-2.5 hidden lg:table-cell text-stone-600 align-top">
                 <p>{{ s.contact_name }}</p><p class="text-xs text-stone-400">{{ s.contact_email }}</p>
               </td>
-              <td class="px-3 py-2.5"><span class="text-xs font-medium px-2 py-0.5 rounded-full" :class="badge(s.status)">{{ label(s.status) }}</span></td>
-              <td class="px-3 py-2.5 hidden sm:table-cell">
-                <span v-if="s.next_contact_date" class="text-xs" :class="isOverdue(s)?'text-red-600 font-semibold':'text-stone-500'">{{ fmtDate(s.next_contact_date) }}</span>
+              <td class="px-3 py-2.5 hidden xl:table-cell text-stone-600 align-top">{{ s.store_phone }}</td>
+              <td class="px-3 py-2.5 align-top">
+                <select v-model="s.status" @change="quickSave(s,{status:s.status})"
+                  class="text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400" :class="badge(s.status)">
+                  <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
+                </select>
+              </td>
+              <td class="px-3 py-2.5 align-top">
+                <input type="date" v-model="s.next_contact_date" @change="quickSave(s,{next_contact_date:s.next_contact_date})"
+                  class="text-xs rounded px-1 py-1 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  :class="isOverdue(s)?'text-red-600 font-semibold border-red-300':'text-stone-500'">
+              </td>
+              <td class="px-3 py-2.5 hidden lg:table-cell text-xs text-stone-500 align-top">{{ lastActivity(s.id) }}</td>
+              <td class="px-3 py-2.5 hidden sm:table-cell text-center align-top">
+                <span v-if="orderCount(s.id)" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{{ orderCount(s.id) }}</span>
                 <span v-else class="text-stone-300 text-xs">—</span>
               </td>
-              <td class="px-3 py-2.5 hidden lg:table-cell text-xs text-stone-500">{{ lastActivity(s.id) }}</td>
-              <td class="px-4 py-2.5">
+              <td class="px-4 py-2.5 align-top">
                 <div class="flex items-center justify-end gap-1">
                   <button @click="openStore(s,'compose')" title="Draft email" class="p-1.5 rounded hover:bg-stone-200 text-stone-600">✉️</button>
                   <button @click="openStore(s,'log')" title="Log activity" class="p-1.5 rounded hover:bg-stone-200 text-stone-600">📝</button>
@@ -429,6 +463,7 @@
       const orderForm=reactive({order_date:todayStr(),amount:'',notes:''});
       const email=reactive({to:'',subject:'',body:''});
       const selectedTemplate=ref(''), aiIntent=ref(''), aiBusy=ref(false);
+      const selectedIds=ref([]); const bulk=reactive({status:'',next:'',tag:''});
 
       // ---- modals ----
       const showImport=ref(false), showDocs=ref(false), showAdmin=ref(false);
@@ -485,6 +520,16 @@
 
       const curActivities=computed(()=> cur.value? activities.value.filter(a=>a.store_id===cur.value.id):[]);
       const curOrders=computed(()=> cur.value? orders.value.filter(o=>o.store_id===cur.value.id):[]);
+
+      // ===== inline editing + multi-select bulk =====
+      const orderCount=(id)=> orders.value.filter(o=>o.store_id===id).length;
+      const allShownSelected=computed(()=> filteredStores.value.length>0 && filteredStores.value.every(s=>selectedIds.value.includes(s.id)));
+      function toggleSel(id){ const i=selectedIds.value.indexOf(id); if(i<0) selectedIds.value.push(id); else selectedIds.value.splice(i,1); }
+      function toggleAll(){ selectedIds.value = allShownSelected.value? [] : filteredStores.value.map(s=>s.id); }
+      function clearSel(){ selectedIds.value=[]; }
+      async function quickSave(s,patch){ patch.updated_at=new Date().toISOString(); if('next_contact_date' in patch && !patch.next_contact_date) patch.next_contact_date=null; const { error }=await sb.from('stores').update(patch).eq('id',s.id); if(error){ flash('Save failed: '+error.message); return; } Object.assign(s,patch); flash('Saved'); }
+      async function applyBulk(){ const tagAdd=bulk.tag.trim(); if(!bulk.status && !bulk.next && !tagAdd){ flash('Pick a change to apply'); return; } const ids=selectedIds.value.slice(); for(const id of ids){ const s=stores.value.find(x=>x.id===id); if(!s) continue; const p={updated_at:new Date().toISOString()}; if(bulk.status) p.status=bulk.status; if(bulk.next) p.next_contact_date=bulk.next; if(tagAdd){ const tags=Array.isArray(s.tags)?s.tags.slice():[]; if(!tags.includes(tagAdd)) tags.push(tagAdd); p.tags=tags; } await sb.from('stores').update(p).eq('id',id); } bulk.status=''; bulk.next=''; bulk.tag=''; await loadAll(); flash('Updated '+ids.length+' stores'); }
+      async function bulkDelete(){ const n=selectedIds.value.length; if(!confirm('Delete '+n+' stores and all their activity?')) return; await sb.from('stores').delete().in('id',selectedIds.value); selectedIds.value=[]; await loadAll(); flash('Deleted '+n+' stores'); }
 
       // ===== data load =====
       async function loadAll(){
@@ -680,7 +725,8 @@
       return { ready,gateError,me,isAdmin,loading,STATUSES,
         stores,activities,orders,templates,documents,settings,
         search,areaFilter,sortBy,quick,quickFilters,filteredStores,allAreas,
-        dueCount,totalRevenue,countBy,
+        dueCount,totalRevenue,countBy,orderCount,
+        selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
         cur,tab,saving,tagText,actForm,orderForm,email,selectedTemplate,aiIntent,aiBusy,
         curActivities,curOrders,
