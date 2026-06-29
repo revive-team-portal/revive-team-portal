@@ -367,7 +367,7 @@
         <hr>
         <div class="space-y-2">
           <p class="font-semibold text-sm">Canned email templates</p>
-          <p class="text-xs text-stone-500">Use <code>{{ '{{store_name}}' }}</code> and <code>{{ '{{contact_name}}' }}</code> as merge fields.</p>
+          <p class="text-xs text-stone-500">Use <code v-pre>{{store_name}}</code> and <code v-pre>{{contact_name}}</code> as merge fields.</p>
           <div v-for="t in templates" :key="t.id" class="border border-stone-200 rounded-lg p-3 space-y-2">
             <div class="flex gap-2">
               <input v-model="t.name" class="inp flex-1" placeholder="Template name">
