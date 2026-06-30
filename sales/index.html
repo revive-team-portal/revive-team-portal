@@ -75,7 +75,7 @@
           <p class="text-2xl font-bold text-emerald-600">{{ countBy('ordered_1')+countBy('ordered_2') }}</p><p class="text-xs text-stone-500">Customers</p>
         </div>
         <div class="bg-white rounded-xl border border-stone-200 px-4 py-3">
-          <p class="text-2xl font-bold">${{ totalRevenue.toLocaleString() }}</p><p class="text-xs text-stone-500">Total orders</p>
+          <p class="text-2xl font-bold text-green-600">{{ countBy('ordered_2') }}</p><p class="text-xs text-stone-500">Repeat customers</p>
         </div>
       </div>
 
@@ -129,12 +129,10 @@
               <th class="px-3 py-2.5"><input type="checkbox" :checked="allShownSelected" @change="toggleAll"></th>
               <th class="text-left font-semibold px-3 py-2.5">Store</th>
               <th class="text-left font-semibold px-3 py-2.5 hidden md:table-cell">Area</th>
-              <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell">Contact</th>
-              <th class="text-left font-semibold px-3 py-2.5 hidden xl:table-cell">Phone</th>
               <th class="text-left font-semibold px-3 py-2.5">Status</th>
               <th class="text-left font-semibold px-3 py-2.5">Next contact</th>
-              <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell">Last</th>
-              <th class="text-center font-semibold px-3 py-2.5 hidden sm:table-cell">Orders</th>
+              <th class="text-left font-semibold px-3 py-2.5 hidden sm:table-cell">Days since</th>
+              <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">Recent notes</th>
               <th class="text-right font-semibold px-4 py-2.5">Actions</th>
             </tr>
           </thead>
@@ -143,7 +141,8 @@
               <td class="px-3 py-2.5 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)"></td>
               <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
                 <p class="font-semibold text-stone-800">{{ s.store_name }}</p>
-                <p class="text-xs text-stone-400">{{ s.store_type }}</p>
+                <p class="text-xs text-stone-400">{{ s.store_type }}<span v-if="s.contact_name"> · {{ s.contact_name }}</span></p>
+                <p v-if="s.contact_email" class="text-xs text-stone-400">{{ s.contact_email }}</p>
                 <p v-if="s.tags && s.tags.length" class="mt-1 flex flex-wrap gap-1">
                   <span v-for="t in s.tags" :key="t" class="text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">{{ t }}</span>
                 </p>
@@ -151,10 +150,6 @@
               <td class="px-3 py-2.5 hidden md:table-cell align-top">
                 <input v-model="s.area" @change="quickSave(s,{area:s.area})" class="w-24 bg-transparent text-stone-600 hover:bg-stone-100 focus:bg-stone-100 rounded px-1 py-0.5 focus:outline-none">
               </td>
-              <td class="px-3 py-2.5 hidden lg:table-cell text-stone-600 align-top">
-                <p>{{ s.contact_name }}</p><p class="text-xs text-stone-400">{{ s.contact_email }}</p>
-              </td>
-              <td class="px-3 py-2.5 hidden xl:table-cell text-stone-600 align-top">{{ s.store_phone }}</td>
               <td class="px-3 py-2.5 align-top">
                 <select v-model="s.status" @change="quickSave(s,{status:s.status})"
                   class="text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400" :class="badge(s.status)">
@@ -166,10 +161,17 @@
                   class="text-xs rounded px-1 py-1 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
                   :class="isOverdue(s)?'text-red-600 font-semibold border-red-300':'text-stone-500'">
               </td>
-              <td class="px-3 py-2.5 hidden lg:table-cell text-xs text-stone-500 align-top">{{ lastActivity(s.id) }}</td>
-              <td class="px-3 py-2.5 hidden sm:table-cell text-center align-top">
-                <span v-if="orderCount(s.id)" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{{ orderCount(s.id) }}</span>
-                <span v-else class="text-stone-300 text-xs">—</span>
+              <td class="px-3 py-2.5 hidden sm:table-cell align-top">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs" :class="(daysSince(s)!==null && daysSince(s)>=30)?'text-amber-600 font-semibold':'text-stone-500'">{{ daysLabel(s) }}</span>
+                  <span v-if="isRepeat(s)" title="Repeat customer" class="text-emerald-600 font-bold">✓</span>
+                </div>
+              </td>
+              <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs text-stone-500">
+                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-md" :title="a.subject || a.result">
+                  <span class="text-stone-400">{{ typeIcon(a.type) }}</span> {{ a.subject || a.result || cap(a.type) }}
+                </p>
+                <span v-if="!recentNotes(s.id).length" class="text-stone-300">—</span>
               </td>
               <td class="px-4 py-2.5 align-top">
                 <div class="flex items-center justify-end gap-1">
@@ -188,7 +190,7 @@
   <!-- ================= STORE DETAIL DRAWER ================= -->
   <div v-if="cur" class="fixed inset-0 z-50 flex">
     <div class="flex-1 bg-black/30" @click="closeStore"></div>
-    <div class="w-full max-w-2xl bg-stone-50 h-full overflow-y-auto shadow-2xl">
+    <div class="w-full max-w-4xl bg-stone-50 h-full overflow-y-auto shadow-2xl">
       <div class="sticky top-0 bg-white border-b border-stone-200 px-5 py-3 flex items-center justify-between z-10">
         <div>
           <input v-model="cur.store_name" class="font-bold text-lg bg-transparent focus:outline-none focus:bg-stone-100 rounded px-1">
@@ -200,119 +202,95 @@
         </div>
       </div>
 
-      <!-- tabs -->
-      <div class="flex gap-1 px-5 pt-3 text-sm border-b border-stone-200 bg-white">
-        <button v-for="t in ['details','timeline','orders','compose']" :key="t" @click="tab=t"
-          class="px-3 py-2 -mb-px border-b-2 capitalize" :class="tab===t?'border-amber-600 text-amber-700 font-semibold':'border-transparent text-stone-500'">{{ t }}</button>
-      </div>
-
       <!-- DETAILS -->
-      <div v-show="tab==='details'" class="p-5 space-y-4">
-        <div class="grid grid-cols-2 gap-3">
+      <div class="p-5 space-y-4 border-b border-stone-200">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
           <label class="block"><span class="lbl">Store type</span><input v-model="cur.store_type" class="inp"></label>
           <label class="block"><span class="lbl">Area</span><input v-model="cur.area" class="inp"></label>
-          <label class="block col-span-2"><span class="lbl">Address</span><input v-model="cur.address" class="inp"></label>
+          <label class="block"><span class="lbl">Store phone</span><input v-model="cur.store_phone" class="inp"></label>
+          <label class="block col-span-2 md:col-span-3"><span class="lbl">Address</span><input v-model="cur.address" class="inp"></label>
           <label class="block"><span class="lbl">Contact name</span><input v-model="cur.contact_name" class="inp"></label>
           <label class="block"><span class="lbl">Contact email</span><input v-model="cur.contact_email" class="inp"></label>
-          <label class="block"><span class="lbl">Store phone</span><input v-model="cur.store_phone" class="inp"></label>
           <label class="block"><span class="lbl">Store email</span><input v-model="cur.store_email" class="inp"></label>
-          <label class="block col-span-2"><span class="lbl">Website</span><input v-model="cur.website" class="inp"></label>
+          <label class="block col-span-2 md:col-span-3"><span class="lbl">Website</span><input v-model="cur.website" class="inp"></label>
         </div>
 
-        <div class="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
-          <p class="font-semibold text-sm">Pipeline</p>
-          <div class="flex items-center gap-2">
-            <select v-model="cur.status" @change="onStatusChange" class="inp flex-1">
+        <div class="bg-white rounded-xl border border-stone-200 p-4 grid sm:grid-cols-3 gap-3">
+          <label class="block"><span class="lbl">Status</span>
+            <select v-model="cur.status" @change="onStatusChange" class="inp">
               <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
             </select>
-          </div>
+          </label>
           <label class="block"><span class="lbl">Next contact date</span><input type="date" v-model="cur.next_contact_date" class="inp"></label>
-          <label v-if="cur.status==='no_permanent'" class="block"><span class="lbl">Reason (permanent no)</span><input v-model="cur.no_reason" class="inp"></label>
-          <label class="block"><span class="lbl">Tags (comma separated)</span><input v-model="tagText" class="inp" placeholder="organic, high potential, south island"></label>
+          <label class="block"><span class="lbl">Tags (comma separated)</span><input v-model="tagText" class="inp" placeholder="organic, high potential"></label>
+          <label v-if="cur.status==='no_permanent'" class="block sm:col-span-3"><span class="lbl">Reason (permanent no)</span><input v-model="cur.no_reason" class="inp"></label>
         </div>
-
-        <label class="block"><span class="lbl">Notes</span><textarea v-model="cur.notes" rows="4" class="inp"></textarea></label>
         <button @click="deleteStore" class="text-red-500 text-xs hover:underline">Delete this store</button>
       </div>
 
-      <!-- TIMELINE -->
-      <div v-show="tab==='timeline'" class="p-5">
-        <div class="bg-white rounded-xl border border-stone-200 p-4 mb-4 space-y-2">
-          <p class="font-semibold text-sm">Log an activity</p>
-          <div class="flex gap-2">
-            <select v-model="actForm.type" class="inp w-32">
-              <option value="call">Call</option><option value="email">Email</option><option value="note">Note</option>
-              <option value="meeting">Meeting</option><option value="sample">Sample</option><option value="other">Other</option>
-            </select>
-            <input v-model="actForm.subject" placeholder="Subject (optional)" class="inp flex-1">
-          </div>
-          <textarea v-model="actForm.result" rows="2" placeholder="What happened / result…" class="inp"></textarea>
-          <div class="flex justify-end"><button @click="addActivity" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Add</button></div>
-        </div>
-        <div v-if="!curActivities.length" class="text-stone-400 text-sm text-center py-6">No activity yet.</div>
-        <div v-for="a in curActivities" :key="a.id" class="flex gap-3 mb-3">
-          <div class="text-lg">{{ typeIcon(a.type) }}</div>
-          <div class="flex-1 bg-white rounded-lg border border-stone-200 px-3 py-2">
-            <div class="flex justify-between items-start">
-              <p class="text-sm font-medium">{{ a.subject || cap(a.type) }}</p>
-              <button @click="delActivity(a)" class="text-stone-300 hover:text-red-500 text-xs">✕</button>
-            </div>
-            <p v-if="a.result" class="text-sm text-stone-600 whitespace-pre-wrap">{{ a.result }}</p>
-            <p class="text-xs text-stone-400 mt-1">{{ fmtDateTime(a.occurred_at) }} · {{ a.created_by || '—' }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- ORDERS -->
-      <div v-show="tab==='orders'" class="p-5">
-        <div class="bg-white rounded-xl border border-stone-200 p-4 mb-4 space-y-2">
-          <p class="font-semibold text-sm">Add an order</p>
-          <div class="flex gap-2">
-            <input type="date" v-model="orderForm.order_date" class="inp w-40">
-            <input type="number" v-model="orderForm.amount" placeholder="Amount $" class="inp w-32">
-            <input v-model="orderForm.notes" placeholder="Notes" class="inp flex-1">
-          </div>
-          <div class="flex justify-end"><button @click="addOrder" class="bg-emerald-600 text-white text-sm px-3 py-1.5 rounded-lg">Add order</button></div>
-        </div>
-        <div v-if="!curOrders.length" class="text-stone-400 text-sm text-center py-6">No orders logged.</div>
-        <table v-else class="w-full text-sm bg-white rounded-xl border border-stone-200 overflow-hidden">
-          <tr v-for="o in curOrders" :key="o.id" class="border-b border-stone-100 last:border-0">
-            <td class="px-3 py-2">{{ fmtDate(o.order_date) }}</td>
-            <td class="px-3 py-2 font-medium">${{ Number(o.amount||0).toLocaleString() }}</td>
-            <td class="px-3 py-2 text-stone-500">{{ o.notes }}</td>
-            <td class="px-3 py-2 text-right"><button @click="delOrder(o)" class="text-stone-300 hover:text-red-500 text-xs">✕</button></td>
-          </tr>
-        </table>
-      </div>
-
-      <!-- COMPOSE -->
-      <div v-show="tab==='compose'" class="p-5 space-y-3">
-        <div class="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+      <!-- COMPOSE + TIMELINE side by side -->
+      <div class="grid lg:grid-cols-2">
+        <!-- COMPOSE -->
+        <div class="p-5 space-y-3 lg:border-r border-stone-200 border-b lg:border-b-0">
+          <p class="font-semibold text-sm">Compose email</p>
           <div class="flex flex-wrap gap-2 items-center">
-            <select v-model="selectedTemplate" @change="applyTemplate" class="inp flex-1 min-w-[160px]">
+            <select v-model="selectedTemplate" @change="applyTemplate" class="inp flex-1 min-w-[140px]">
               <option value="">— Canned response —</option>
               <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
             <button @click="aiDraft" :disabled="aiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-sm px-3 py-1.5 rounded-lg disabled:opacity-50">{{ aiBusy?'Thinking…':'✨ AI draft' }}</button>
           </div>
-          <input v-model="aiIntent" placeholder="Optional: tell the AI the goal (e.g. follow up after sample, no reply in 2 weeks)" class="inp text-sm">
+          <input v-model="aiIntent" placeholder="Optional: the goal (e.g. follow up after sample)" class="inp text-sm">
           <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
           <label class="block"><span class="lbl">Subject</span><input v-model="email.subject" class="inp"></label>
-          <label class="block"><span class="lbl">Body</span><textarea v-model="email.body" rows="10" class="inp font-mono text-xs"></textarea></label>
+          <label class="block"><span class="lbl">Body</span><textarea v-model="email.body" rows="9" class="inp font-mono text-xs"></textarea></label>
+          <label class="block"><span class="lbl">P.S. (added to the end of every email)</span>
+            <select v-model="email.ps" class="inp text-sm">
+              <option value="">— No P.S. —</option>
+              <option v-for="(p,i) in psList" :key="i" :value="p">{{ p.length>70? p.slice(0,70)+'…' : p }}</option>
+            </select>
+          </label>
+          <p v-if="email.ps" class="text-xs text-stone-500 italic">P.S. {{ email.ps }}</p>
 
           <div v-if="documents.length" class="text-xs text-stone-500">
-            <p class="mb-1">Attach (Gmail can't auto-attach — download then drag into the email):</p>
+            <p class="mb-1">Attach (download, then drag into Gmail):</p>
             <div class="flex flex-wrap gap-2">
               <button v-for="d in documents" :key="d.id" @click="downloadDoc(d)" class="border border-stone-300 rounded px-2 py-1 hover:bg-stone-100">⬇ {{ d.name }}</button>
             </div>
           </div>
-
           <div class="flex flex-wrap gap-2 pt-1">
             <button @click="openGmail" class="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">Open in Gmail</button>
             <button @click="copyEmail" class="border border-stone-300 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-100">Copy</button>
-            <button @click="logEmail" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Mark as sent &amp; log</button>
+            <button @click="logEmail" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Mark sent &amp; log</button>
           </div>
-          <p class="text-xs text-stone-400">Opening Gmail composes the message in your own account. After sending, hit “Mark as sent &amp; log” to record it on the timeline.</p>
+        </div>
+
+        <!-- TIMELINE & NOTES -->
+        <div class="p-5">
+          <p class="font-semibold text-sm mb-2">Timeline &amp; notes</p>
+          <div class="bg-white rounded-xl border border-stone-200 p-4 mb-4 space-y-2">
+            <div class="flex gap-2">
+              <select v-model="actForm.type" class="inp w-28">
+                <option value="note">Note</option><option value="call">Call</option><option value="email">Email</option>
+                <option value="meeting">Meeting</option><option value="sample">Sample</option><option value="other">Other</option>
+              </select>
+              <input v-model="actForm.subject" placeholder="Subject (optional)" class="inp flex-1">
+            </div>
+            <textarea v-model="actForm.result" rows="2" placeholder="What happened / note…" class="inp"></textarea>
+            <div class="flex justify-end"><button @click="addActivity" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Add</button></div>
+          </div>
+          <div v-if="!curActivities.length" class="text-stone-400 text-sm text-center py-6">No activity yet.</div>
+          <div v-for="a in curActivities" :key="a.id" class="flex gap-3 mb-3">
+            <div class="text-lg">{{ typeIcon(a.type) }}</div>
+            <div class="flex-1 bg-white rounded-lg border border-stone-200 px-3 py-2">
+              <div class="flex justify-between items-start">
+                <p class="text-sm font-medium">{{ a.subject || cap(a.type) }}</p>
+                <button @click="delActivity(a)" class="text-stone-300 hover:text-red-500 text-xs">✕</button>
+              </div>
+              <p v-if="a.result" class="text-sm text-stone-600 whitespace-pre-wrap">{{ a.result }}</p>
+              <p class="text-xs text-stone-400 mt-1">{{ fmtDateTime(a.occurred_at) }} · {{ a.created_by || '—' }}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -396,6 +374,9 @@
             <label class="block"><span class="lbl">Email signature</span><textarea v-model="settings.email_signature" rows="2" class="inp text-xs"></textarea></label>
             <label class="block"><span class="lbl">Sender name</span><input v-model="settings.sender_name" class="inp"></label>
           </div>
+          <label class="block"><span class="lbl">P.S. options (one per line — pick one when composing)</span>
+            <textarea v-model="settings.ps_list" rows="5" class="inp text-xs" placeholder="One P.S. line per line"></textarea>
+          </label>
           <button @click="saveSettings" class="bg-amber-600 text-white text-sm px-3 py-1.5 rounded-lg">Save settings</button>
         </div>
         <hr>
@@ -439,7 +420,7 @@
     {key:'connected',label:'Connected',cls:'bg-indigo-100 text-indigo-700'},
     {key:'sent_sample',label:'Sent Sample/Details',cls:'bg-violet-100 text-violet-700'},
     {key:'ordered_1',label:'First Order',cls:'bg-emerald-100 text-emerald-700'},
-    {key:'ordered_2',label:'Second Order',cls:'bg-green-100 text-green-700'},
+    {key:'ordered_2',label:'Repeat Customer',cls:'bg-green-100 text-green-700'},
     {key:'no_temp',label:'No — Reconnect',cls:'bg-amber-100 text-amber-700'},
     {key:'no_permanent',label:'No — Permanent',cls:'bg-red-100 text-red-700'},
   ];
@@ -451,7 +432,7 @@
       const ready=ref(false), gateError=ref(''), me=ref(''), isAdmin=ref(false);
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), orders=ref([]), templates=ref([]), documents=ref([]);
-      const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:''});
+      const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:'',ps_list:''});
       const search=ref(''), areaFilter=ref(''), sortBy=ref('updated'), quick=ref('all');
       const toast=ref('');
       let toastT=null;
@@ -461,7 +442,8 @@
       const cur=ref(null), tab=ref('details'), saving=ref(false), tagText=ref('');
       const actForm=reactive({type:'call',subject:'',result:''});
       const orderForm=reactive({order_date:todayStr(),amount:'',notes:''});
-      const email=reactive({to:'',subject:'',body:''});
+      const email=reactive({to:'',subject:'',body:'',ps:''});
+      const psList=computed(()=> (settings.ps_list||'').split('\n').map(s=>s.trim()).filter(Boolean));
       const selectedTemplate=ref(''), aiIntent=ref(''), aiBusy=ref(false);
       const selectedIds=ref([]); const bulk=reactive({status:'',next:'',tag:''});
 
@@ -479,6 +461,11 @@
       const isOverdue=(s)=> s.next_contact_date && s.next_contact_date <= todayStr() && s.status!=='no_permanent';
       const countBy=(k)=> stores.value.filter(s=>s.status===k).length;
       const lastActivity=(id)=>{ const a=activities.value.filter(x=>x.store_id===id); if(!a.length) return '—'; return fmtDate(a[0].occurred_at.slice(0,10)); };
+      const recentNotes=(id)=> activities.value.filter(x=>x.store_id===id).slice(0,3);
+      const isRepeat=(s)=> s.status==='ordered_2';
+      function lastChangeISO(s){ const a=activities.value.filter(x=>x.store_id===s.id)[0]; return a? a.occurred_at : s.updated_at; }
+      function daysSince(s){ const d=lastChangeISO(s); if(!d) return null; return Math.floor((Date.now()-new Date(d).getTime())/86400000); }
+      function daysLabel(s){ const n=daysSince(s); if(n===null) return '—'; if(n<=0) return 'Today'; if(n===1) return '1 day'; return n+' days'; }
 
       const dueCount=computed(()=> stores.value.filter(isOverdue).length);
       const totalRevenue=computed(()=> Math.round(orders.value.reduce((n,o)=>n+Number(o.amount||0),0)));
@@ -551,7 +538,7 @@
       // ===== store CRUD =====
       function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; tab.value='details'; }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); tab.value=t||'details'; email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; selectedTemplate.value=''; aiIntent.value=''; }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); tab.value=t||'details'; email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
@@ -607,9 +594,10 @@
       // ===== email =====
       function merge(str){ if(!str) return ''; return str.replace(/\{\{\s*store_name\s*\}\}/g,cur.value.store_name||'').replace(/\{\{\s*contact_name\s*\}\}/g,cur.value.contact_name||'there').replace(/\{\{\s*area\s*\}\}/g,cur.value.area||''); }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=merge(t.subject); email.body=merge(t.body); }
-      function openGmail(){ const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email.to)+'&su='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(email.body); window.open(u,'_blank'); }
-      async function copyEmail(){ await navigator.clipboard.writeText('Subject: '+email.subject+'\n\n'+email.body); flash('Copied'); }
-      async function logEmail(){ if(!email.subject && !email.body){ flash('Nothing to log'); return; } await sb.from('activities').insert({store_id:cur.value.id,type:'email',subject:email.subject,result:email.body,created_by:me.value,occurred_at:new Date().toISOString()}); if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; } await loadAll(); tab.value='timeline'; flash('Email logged'); }
+      function finalBody(){ return email.body + (email.ps? '\n\nP.S. '+email.ps : ''); }
+      function openGmail(){ const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email.to)+'&su='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(finalBody()); window.open(u,'_blank'); }
+      async function copyEmail(){ await navigator.clipboard.writeText('Subject: '+email.subject+'\n\n'+finalBody()); flash('Copied'); }
+      async function logEmail(){ if(!email.subject && !email.body){ flash('Nothing to log'); return; } await sb.from('activities').insert({store_id:cur.value.id,type:'email',subject:email.subject,result:finalBody(),created_by:me.value,occurred_at:new Date().toISOString()}); if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; } await loadAll(); flash('Email logged'); }
 
       async function callAI(messages, opts={}){
         const { data:{ session } } = await portal.auth.getSession();
@@ -622,7 +610,7 @@
       async function aiDraft(){
         aiBusy.value=true;
         try{
-          const sys=(settings.ai_master_prompt||'')+'\n\nReturn ONLY a JSON object {"subject":"...","body":"..."}. The body must be plain text ready to send and end with this signature:\n'+(settings.email_signature||'');
+          const sys=(settings.ai_master_prompt||'')+'\n\nReturn ONLY a JSON object {"subject":"...","body":"..."}. The body must be plain text ready to send and end with this signature:\n'+(settings.email_signature||'')+'\n\nDo NOT add a P.S. line — a P.S. is appended separately.';
           const ctx={store:cur.value.store_name,type:cur.value.store_type,area:cur.value.area,contact:cur.value.contact_name,status:label(cur.value.status),recent:curActivities.value.slice(0,3).map(a=>a.type+': '+(a.subject||a.result||''))};
           const goal=aiIntent.value.trim()|| ('Write an appropriate next email given the store is at stage: '+label(cur.value.status));
           const txt=await callAI([{role:'user',content:'Store context:\n'+JSON.stringify(ctx)+'\n\nGoal: '+goal}],{model:'sonnet',max_tokens:1200,system:sys});
@@ -695,7 +683,7 @@
 
       // ===== admin =====
       function openAdmin(){ showAdmin.value=true; }
-      async function saveSettings(){ for(const k of ['ai_master_prompt','email_signature','sender_name']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
+      async function saveSettings(){ for(const k of ['ai_master_prompt','email_signature','sender_name','ps_list']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
       async function newTemplate(){ const r=await sb.from('email_templates').insert({name:'New template',subject:'',body:'',sort_order:templates.value.length+1}).select().single(); if(r.data) templates.value.push(r.data); }
       async function saveTemplate(t){ await sb.from('email_templates').update({name:t.name,subject:t.subject,body:t.body}).eq('id',t.id); flash('Template saved'); }
       async function delTemplate(t){ if(!confirm('Delete template?')) return; await sb.from('email_templates').delete().eq('id',t.id); templates.value=templates.value.filter(x=>x.id!==t.id); }
@@ -728,6 +716,7 @@
         dueCount,totalRevenue,countBy,orderCount,
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
+        recentNotes,isRepeat,daysSince,daysLabel,psList,
         cur,tab,saving,tagText,actForm,orderForm,email,selectedTemplate,aiIntent,aiBusy,
         curActivities,curOrders,
         openNewStore,openStore,closeStore,onStatusChange,saveStore,deleteStore,
