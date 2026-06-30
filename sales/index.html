@@ -28,7 +28,7 @@
   <!-- ============ GATE ============ -->
   <div v-if="!ready" class="min-h-screen flex items-center justify-center">
     <div class="text-center">
-      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="w-14 h-14 mx-auto mb-3" alt="Revive">
+      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="w-14 h-14 mx-auto mb-3" style="mix-blend-mode:multiply" alt="Revive">
       <p v-if="!gateError" class="text-stone-500 text-sm">Loading Sales CRM…</p>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
         <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
@@ -93,13 +93,7 @@
           <option value="">All areas</option>
           <option v-for="a in allAreas" :key="a" :value="a">{{ a }}</option>
         </select>
-        <select v-model="sortBy" class="border border-stone-300 rounded-lg px-2 py-2 text-sm bg-white">
-          <option value="updated">Recently updated</option>
-          <option value="name">Name A–Z</option>
-          <option value="next">Next contact date</option>
-          <option value="status">Status</option>
-        </select>
-        <span class="text-stone-400 text-sm">{{ filteredStores.length }} shown</span>
+        <span class="text-stone-400 text-sm">{{ filteredStores.length }} shown · click a column to sort</span>
       </div>
 
       <!-- ===== BULK ACTION BAR ===== -->
@@ -127,20 +121,19 @@
           <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wide">
             <tr>
               <th class="px-3 py-2.5"><input type="checkbox" :checked="allShownSelected" @change="toggleAll"></th>
-              <th class="text-left font-semibold px-3 py-2.5">Store</th>
-              <th class="text-left font-semibold px-3 py-2.5 hidden md:table-cell">Area</th>
-              <th class="text-left font-semibold px-3 py-2.5">Status</th>
-              <th class="text-left font-semibold px-3 py-2.5">Next contact</th>
-              <th class="text-left font-semibold px-3 py-2.5 hidden sm:table-cell">Days since</th>
+              <th @click="setSort('name')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Store<span class="text-amber-600">{{ sortArrow('name') }}</span></th>
+              <th @click="setSort('area')" class="text-left font-semibold px-3 py-2.5 hidden md:table-cell cursor-pointer select-none hover:text-stone-700">Area<span class="text-amber-600">{{ sortArrow('area') }}</span></th>
+              <th @click="setSort('status')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Status<span class="text-amber-600">{{ sortArrow('status') }}</span></th>
+              <th @click="setSort('next')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Next contact<span class="text-amber-600">{{ sortArrow('next') }}</span></th>
+              <th @click="setSort('days')" class="text-left font-semibold px-3 py-2.5 hidden sm:table-cell cursor-pointer select-none hover:text-stone-700">Days since<span class="text-amber-600">{{ sortArrow('days') }}</span></th>
               <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">Recent notes</th>
-              <th class="text-right font-semibold px-4 py-2.5">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="s in filteredStores" :key="s.id" class="border-t border-stone-100 hover:bg-amber-50/40" :class="selectedIds.includes(s.id)?'bg-amber-50':''">
               <td class="px-3 py-2.5 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)"></td>
               <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
-                <p class="font-semibold text-stone-800">{{ s.store_name }}</p>
+                <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}</p>
                 <p class="text-xs text-stone-400">{{ s.store_type }}<span v-if="s.contact_name"> · {{ s.contact_name }}</span></p>
                 <p v-if="s.contact_email" class="text-xs text-stone-400">{{ s.contact_email }}</p>
                 <p v-if="s.tags && s.tags.length" class="mt-1 flex flex-wrap gap-1">
@@ -172,13 +165,6 @@
                   <span class="text-stone-400">{{ typeIcon(a.type) }}</span> {{ a.subject || a.result || cap(a.type) }}
                 </p>
                 <span v-if="!recentNotes(s.id).length" class="text-stone-300">—</span>
-              </td>
-              <td class="px-4 py-2.5 align-top">
-                <div class="flex items-center justify-end gap-1">
-                  <button @click="openStore(s,'compose')" title="Draft email" class="p-1.5 rounded hover:bg-stone-200 text-stone-600">✉️</button>
-                  <button @click="openStore(s,'log')" title="Log activity" class="p-1.5 rounded hover:bg-stone-200 text-stone-600">📝</button>
-                  <button @click="openStore(s)" title="Open" class="p-1.5 rounded hover:bg-stone-200 text-stone-600">→</button>
-                </div>
               </td>
             </tr>
           </tbody>
@@ -269,13 +255,14 @@
         <div class="p-5">
           <p class="font-semibold text-sm mb-2">Timeline &amp; notes</p>
           <div class="bg-white rounded-xl border border-stone-200 p-4 mb-4 space-y-2">
-            <div class="flex gap-2">
-              <select v-model="actForm.type" class="inp w-28">
-                <option value="note">Note</option><option value="call">Call</option><option value="email">Email</option>
-                <option value="meeting">Meeting</option><option value="sample">Sample</option><option value="other">Other</option>
-              </select>
-              <input v-model="actForm.subject" placeholder="Subject (optional)" class="inp flex-1">
+            <div class="flex flex-wrap gap-1.5">
+              <button v-for="t in ['note','call','email','meeting','sample','other']" :key="t" @click="actForm.type=t"
+                class="text-xs px-2.5 py-1 rounded-full border capitalize transition"
+                :class="actForm.type===t?'bg-stone-800 text-white border-stone-800':'bg-white text-stone-600 border-stone-300 hover:border-stone-400'">
+                {{ typeIcon(t) }} {{ t }}
+              </button>
             </div>
+            <input v-model="actForm.subject" placeholder="Subject (optional)" class="inp">
             <textarea v-model="actForm.result" rows="2" placeholder="What happened / note…" class="inp"></textarea>
             <div class="flex justify-end"><button @click="addActivity" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Add</button></div>
           </div>
@@ -433,7 +420,9 @@
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), orders=ref([]), templates=ref([]), documents=ref([]);
       const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:'',ps_list:''});
-      const search=ref(''), areaFilter=ref(''), sortBy=ref('updated'), quick=ref('all');
+      const search=ref(''), areaFilter=ref(''), sortKey=ref('name'), sortDir=ref('asc'), quick=ref('all');
+      function setSort(k){ if(sortKey.value===k){ sortDir.value = sortDir.value==='asc'?'desc':'asc'; } else { sortKey.value=k; sortDir.value='asc'; } }
+      const sortArrow=(k)=> sortKey.value!==k ? ' ↕' : (sortDir.value==='asc'?' ▲':' ▼');
       const toast=ref('');
       let toastT=null;
       const flash=(m)=>{ toast.value=m; clearTimeout(toastT); toastT=setTimeout(()=>toast.value='',2500); };
@@ -495,12 +484,15 @@
         else if(k==='sample') list=list.filter(s=>s.status==='sent_sample');
         else if(k==='customers') list=list.filter(s=>s.status==='ordered_1'||s.status==='ordered_2');
         else if(k==='no') list=list.filter(s=>s.status==='no_temp'||s.status==='no_permanent');
-        const sOrder=STATUSES.map(s=>s.key);
+        const sOrder=STATUSES.map(s=>s.key), k2=sortKey.value;
         list.sort((a,b)=>{
-          if(sortBy.value==='name') return a.store_name.localeCompare(b.store_name);
-          if(sortBy.value==='status') return sOrder.indexOf(a.status)-sOrder.indexOf(b.status);
-          if(sortBy.value==='next') return (a.next_contact_date||'9999').localeCompare(b.next_contact_date||'9999');
-          return (b.updated_at||'').localeCompare(a.updated_at||'');
+          let r=0;
+          if(k2==='name') r=(a.store_name||'').localeCompare(b.store_name||'');
+          else if(k2==='area') r=(a.area||'').localeCompare(b.area||'');
+          else if(k2==='status') r=sOrder.indexOf(a.status)-sOrder.indexOf(b.status);
+          else if(k2==='next') r=(a.next_contact_date||'9999-99-99').localeCompare(b.next_contact_date||'9999-99-99');
+          else if(k2==='days'){ const da=daysSince(a), db=daysSince(b); r=(da===null?1e9:da)-(db===null?1e9:db); }
+          return sortDir.value==='asc'? r : -r;
         });
         return list;
       });
@@ -692,9 +684,10 @@
       onMounted(async()=>{
         const { data:{ session:p } } = await portal.auth.getSession();
         if(!p){ window.location.href='/'; return; }
-        let allowed=false;
+        let allowed=false, myName='';
         try{
-          const { data:prof }=await portal.from('profiles').select('is_admin').eq('id',p.user.id).single();
+          const { data:prof }=await portal.from('profiles').select('is_admin, full_name').eq('id',p.user.id).single();
+          if(prof){ myName=prof.full_name||''; }
           if(prof&&prof.is_admin){ allowed=true; isAdmin.value=true; }
           else{ const { data:acc }=await portal.from('user_app_access').select('app_id').eq('user_id',p.user.id).eq('app_id','sales'); allowed=!!(acc&&acc.length); }
         }catch(e){ allowed=false; }
@@ -704,7 +697,7 @@
           if(!r.ok) throw new Error('session');
           const s=await r.json();
           await sb.auth.setSession({access_token:s.access_token,refresh_token:s.refresh_token});
-          me.value=(s.portal_user&&s.portal_user.email)||p.user.email||'';
+          me.value=myName||(s.portal_user&&s.portal_user.email)||p.user.email||'';
         }catch(e){ gateError.value='Could not open the sales database. Please reload.'; ready.value=true; return; }
         await loadAll();
         ready.value=true;
@@ -712,7 +705,7 @@
 
       return { ready,gateError,me,isAdmin,loading,STATUSES,
         stores,activities,orders,templates,documents,settings,
-        search,areaFilter,sortBy,quick,quickFilters,filteredStores,allAreas,
+        search,areaFilter,sortKey,sortDir,setSort,sortArrow,quick,quickFilters,filteredStores,allAreas,
         dueCount,totalRevenue,countBy,orderCount,
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
