@@ -23,6 +23,9 @@
   const PORTAL_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
 </script>
 
+<!-- Tailwind Play CDN safelist: ensures all dynamic status colours are generated -->
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50"></div>
+
 <div id="app" v-cloak>
 
   <!-- ============ GATE ============ -->
@@ -57,34 +60,17 @@
 
     <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
 
-      <!-- ===== KPI STRIP ===== -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-5">
-        <div class="bg-white rounded-xl border border-stone-200 px-4 py-3">
-          <p class="text-2xl font-bold">{{ stores.length }}</p><p class="text-xs text-stone-500">Total stores</p>
-        </div>
-        <div class="bg-white rounded-xl border border-stone-200 px-4 py-3 cursor-pointer hover:border-amber-300" @click="quick='followup'">
-          <p class="text-2xl font-bold text-amber-600">{{ dueCount }}</p><p class="text-xs text-stone-500">Follow-up due</p>
-        </div>
-        <div class="bg-white rounded-xl border border-stone-200 px-4 py-3 cursor-pointer hover:border-amber-300" @click="quick='leads'">
-          <p class="text-2xl font-bold">{{ countBy('lead') }}</p><p class="text-xs text-stone-500">Leads</p>
-        </div>
-        <div class="bg-white rounded-xl border border-stone-200 px-4 py-3 cursor-pointer hover:border-amber-300" @click="quick='sample'">
-          <p class="text-2xl font-bold">{{ countBy('sent_sample') }}</p><p class="text-xs text-stone-500">Samples out</p>
-        </div>
-        <div class="bg-white rounded-xl border border-stone-200 px-4 py-3 cursor-pointer hover:border-amber-300" @click="quick='customers'">
-          <p class="text-2xl font-bold text-emerald-600">{{ countBy('ordered_1')+countBy('ordered_2') }}</p><p class="text-xs text-stone-500">Customers</p>
-        </div>
-        <div class="bg-white rounded-xl border border-stone-200 px-4 py-3">
-          <p class="text-2xl font-bold text-green-600">{{ countBy('ordered_2') }}</p><p class="text-xs text-stone-500">Repeat customers</p>
-        </div>
-      </div>
-
-      <!-- ===== FILTERS ===== -->
+      <!-- ===== STATUS FILTER ROW (toggle on/off, multi-select) ===== -->
       <div class="flex flex-wrap items-center gap-2 mb-3">
-        <button v-for="f in quickFilters" :key="f.key" @click="quick=f.key"
-          class="text-xs px-3 py-1.5 rounded-full border transition"
-          :class="quick===f.key?'bg-stone-800 text-white border-stone-800':'bg-white text-stone-600 border-stone-300 hover:border-stone-400'">
-          {{ f.label }} <span class="opacity-60">{{ f.count() }}</span>
+        <button @click="clearStatuses"
+          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          :class="activeStatuses.length===0?'bg-stone-800 text-white border-stone-800':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
+          All <span class="opacity-70">{{ stores.length }}</span>
+        </button>
+        <button v-for="st in STATUSES" :key="st.key" @click="toggleStatus(st.key)"
+          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          :class="isStatusActive(st.key)? st.btn : 'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
+          {{ st.label }} <span class="opacity-80">{{ countBy(st.key) }}</span>
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-2 mb-4">
@@ -130,7 +116,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="s in filteredStores" :key="s.id" class="border-t border-stone-100 hover:bg-amber-50/40" :class="selectedIds.includes(s.id)?'bg-amber-50':''">
+            <tr v-for="s in filteredStores" :key="s.id" class="border-t border-stone-100" :class="[rowBg(s.status), selectedIds.includes(s.id)?'ring-2 ring-inset ring-amber-400':'']">
               <td class="px-3 py-2.5 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)"></td>
               <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
                 <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}</p>
@@ -141,7 +127,10 @@
                 </p>
               </td>
               <td class="px-3 py-2.5 hidden md:table-cell align-top">
-                <input v-model="s.area" @change="quickSave(s,{area:s.area})" class="w-24 bg-transparent text-stone-600 hover:bg-stone-100 focus:bg-stone-100 rounded px-1 py-0.5 focus:outline-none">
+                <select v-model="s.area" @change="quickSave(s,{area:s.area})" class="text-xs bg-transparent text-stone-600 hover:bg-stone-100 rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                  <option value="">—</option>
+                  <option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option>
+                </select>
               </td>
               <td class="px-3 py-2.5 align-top">
                 <select v-model="s.status" @change="quickSave(s,{status:s.status})"
@@ -192,7 +181,9 @@
       <div class="p-5 space-y-4 border-b border-stone-200">
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
           <label class="block"><span class="lbl">Store type</span><input v-model="cur.store_type" class="inp"></label>
-          <label class="block"><span class="lbl">Area</span><input v-model="cur.area" class="inp"></label>
+          <label class="block"><span class="lbl">Area</span>
+            <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
+          </label>
           <label class="block"><span class="lbl">Store phone</span><input v-model="cur.store_phone" class="inp"></label>
           <label class="block col-span-2 md:col-span-3"><span class="lbl">Address</span><input v-model="cur.address" class="inp"></label>
           <label class="block"><span class="lbl">Contact name</span><input v-model="cur.contact_name" class="inp"></label>
@@ -401,17 +392,19 @@
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'sales' } });
   const portal = createClient(PORTAL_URL, PORTAL_ANON);
 
+  // Each status has: badge (pill), btn (active filter button), row (table-row tint)
   const STATUSES = [
-    {key:'lead',label:'Lead',cls:'bg-stone-100 text-stone-600'},
-    {key:'sent_comm',label:'Sent Communication',cls:'bg-sky-100 text-sky-700'},
-    {key:'connected',label:'Connected',cls:'bg-indigo-100 text-indigo-700'},
-    {key:'sent_sample',label:'Sent Sample/Details',cls:'bg-violet-100 text-violet-700'},
-    {key:'ordered_1',label:'First Order',cls:'bg-emerald-100 text-emerald-700'},
-    {key:'ordered_2',label:'Repeat Customer',cls:'bg-green-100 text-green-700'},
-    {key:'no_temp',label:'No — Reconnect',cls:'bg-amber-100 text-amber-700'},
-    {key:'no_permanent',label:'No — Permanent',cls:'bg-red-100 text-red-700'},
+    {key:'lead',label:'Lead',badge:'bg-stone-200 text-stone-700',btn:'bg-stone-500 text-white border-stone-500',row:'bg-stone-50'},
+    {key:'sent_comm',label:'Sent Communication',badge:'bg-sky-100 text-sky-700',btn:'bg-sky-600 text-white border-sky-600',row:'bg-sky-50'},
+    {key:'connected',label:'Connected',badge:'bg-indigo-100 text-indigo-700',btn:'bg-indigo-600 text-white border-indigo-600',row:'bg-indigo-50'},
+    {key:'sent_sample',label:'Sent Sample/Details',badge:'bg-violet-100 text-violet-700',btn:'bg-violet-600 text-white border-violet-600',row:'bg-violet-50'},
+    {key:'ordered_1',label:'First Order',badge:'bg-emerald-100 text-emerald-700',btn:'bg-emerald-600 text-white border-emerald-600',row:'bg-emerald-50'},
+    {key:'ordered_2',label:'Repeat Customer',badge:'bg-green-200 text-green-800',btn:'bg-green-700 text-white border-green-700',row:'bg-green-50'},
+    {key:'no_temp',label:'No — Reconnect',badge:'bg-amber-100 text-amber-700',btn:'bg-amber-500 text-white border-amber-500',row:'bg-amber-50'},
+    {key:'no_permanent',label:'No — Permanent',badge:'bg-red-100 text-red-700',btn:'bg-red-600 text-white border-red-600',row:'bg-red-50'},
   ];
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
+  const REGIONS = ['Northland','Central Auckland','Auckland North','Auckland West','Auckland East','Waikato','Bay of Plenty','Lower NI','Wellington','Christchurch','Rest of South Island','All NZ'];
   const todayStr = () => new Date().toISOString().slice(0,10);
 
   createApp({
@@ -420,7 +413,11 @@
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), orders=ref([]), templates=ref([]), documents=ref([]);
       const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:'',ps_list:''});
-      const search=ref(''), areaFilter=ref(''), sortKey=ref('name'), sortDir=ref('asc'), quick=ref('all');
+      const search=ref(''), areaFilter=ref(''), sortKey=ref('name'), sortDir=ref('asc');
+      const activeStatuses=ref([]); // empty = show all
+      function toggleStatus(k){ const i=activeStatuses.value.indexOf(k); if(i<0) activeStatuses.value.push(k); else activeStatuses.value.splice(i,1); }
+      const isStatusActive=(k)=> activeStatuses.value.includes(k);
+      function clearStatuses(){ activeStatuses.value=[]; }
       function setSort(k){ if(sortKey.value===k){ sortDir.value = sortDir.value==='asc'?'desc':'asc'; } else { sortKey.value=k; sortDir.value='asc'; } }
       const sortArrow=(k)=> sortKey.value!==k ? ' ↕' : (sortDir.value==='asc'?' ▲':' ▼');
       const toast=ref('');
@@ -442,7 +439,8 @@
 
       // ===== helpers =====
       const label=(k)=> (SMAP[k]||{}).label || k;
-      const badge=(k)=> (SMAP[k]||{}).cls || 'bg-stone-100 text-stone-600';
+      const badge=(k)=> (SMAP[k]||{}).badge || 'bg-stone-100 text-stone-600';
+      const rowBg=(k)=> (SMAP[k]||{}).row || '';
       const cap=(s)=> s? s.charAt(0).toUpperCase()+s.slice(1):'';
       const typeIcon=(t)=>({call:'📞',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',status_change:'🔄',order:'🛒',other:'•'}[t]||'•');
       const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'';
@@ -460,30 +458,12 @@
       const totalRevenue=computed(()=> Math.round(orders.value.reduce((n,o)=>n+Number(o.amount||0),0)));
       const allAreas=computed(()=> [...new Set(stores.value.map(s=>s.area).filter(Boolean))].sort());
 
-      const quickFilters=computed(()=>[
-        {key:'all',label:'All',count:()=>stores.value.length},
-        {key:'followup',label:'Follow-up due',count:()=>dueCount.value},
-        {key:'leads',label:'Leads',count:()=>countBy('lead')},
-        {key:'sent_comm',label:'Contacted',count:()=>countBy('sent_comm')},
-        {key:'connected',label:'Connected',count:()=>countBy('connected')},
-        {key:'sample',label:'Samples',count:()=>countBy('sent_sample')},
-        {key:'customers',label:'Customers',count:()=>countBy('ordered_1')+countBy('ordered_2')},
-        {key:'no',label:'Said No',count:()=>countBy('no_temp')+countBy('no_permanent')},
-      ]);
-
       const filteredStores=computed(()=>{
         let list=stores.value.slice();
         const q=search.value.trim().toLowerCase();
         if(q) list=list.filter(s=>[s.store_name,s.contact_name,s.contact_email,s.area,s.store_type].some(v=>(v||'').toLowerCase().includes(q)));
         if(areaFilter.value) list=list.filter(s=>s.area===areaFilter.value);
-        const k=quick.value;
-        if(k==='followup') list=list.filter(isOverdue);
-        else if(k==='leads') list=list.filter(s=>s.status==='lead');
-        else if(k==='sent_comm') list=list.filter(s=>s.status==='sent_comm');
-        else if(k==='connected') list=list.filter(s=>s.status==='connected');
-        else if(k==='sample') list=list.filter(s=>s.status==='sent_sample');
-        else if(k==='customers') list=list.filter(s=>s.status==='ordered_1'||s.status==='ordered_2');
-        else if(k==='no') list=list.filter(s=>s.status==='no_temp'||s.status==='no_permanent');
+        if(activeStatuses.value.length) list=list.filter(s=>activeStatuses.value.includes(s.status));
         const sOrder=STATUSES.map(s=>s.key), k2=sortKey.value;
         list.sort((a,b)=>{
           let r=0;
@@ -705,7 +685,8 @@
 
       return { ready,gateError,me,isAdmin,loading,STATUSES,
         stores,activities,orders,templates,documents,settings,
-        search,areaFilter,sortKey,sortDir,setSort,sortArrow,quick,quickFilters,filteredStores,allAreas,
+        search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,allAreas,REGIONS,
+        activeStatuses,toggleStatus,isStatusActive,clearStatuses,rowBg,
         dueCount,totalRevenue,countBy,orderCount,
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
