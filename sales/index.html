@@ -52,6 +52,7 @@
         <button @click="openNewStore" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">+ Store</button>
         <button @click="showImport=true" class="border border-stone-600 hover:border-stone-400 text-stone-200 text-xs px-3 py-1.5 rounded-lg">↑ Import</button>
         <button @click="openDocs" class="border border-stone-600 hover:border-stone-400 text-stone-200 text-xs px-3 py-1.5 rounded-lg">Docs</button>
+        <button @click="showMotivation=true" class="border border-stone-600 hover:border-stone-400 text-stone-200 text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
         <button v-if="isAdmin" @click="openAdmin" class="border border-stone-600 hover:border-stone-400 text-stone-200 text-xs px-3 py-1.5 rounded-lg">Admin</button>
         <span class="text-stone-400 text-xs hidden md:inline ml-1">{{ me }}</span>
         <a href="/" class="text-stone-400 hover:text-white text-xs ml-1">Portal</a>
@@ -59,6 +60,16 @@
     </nav>
 
     <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+
+      <!-- ===== MOTIVATION QUOTE (changes hourly) ===== -->
+      <div class="bg-gradient-to-r from-amber-50 to-stone-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
+        <span class="text-amber-500 text-xl leading-none">★</span>
+        <div class="flex-1">
+          <p class="text-sm text-stone-700 italic">“{{ quoteOfHour.text }}”</p>
+          <p class="text-xs text-stone-500 mt-0.5">— {{ quoteOfHour.source }}</p>
+        </div>
+        <button @click="saveQuote(quoteOfHour)" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1 whitespace-nowrap">Save</button>
+      </div>
 
       <!-- ===== STATUS FILTER ROW (toggle on/off, multi-select) ===== -->
       <div class="flex flex-wrap items-center gap-2 mb-3">
@@ -92,7 +103,8 @@
         <input type="date" v-model="bulk.next" class="text-stone-800 rounded px-2 py-1" title="Set next contact date">
         <input v-model="bulk.tag" placeholder="Add tag" class="text-stone-800 rounded px-2 py-1 w-28">
         <button @click="applyBulk" class="bg-amber-600 hover:bg-amber-700 px-3 py-1 rounded font-semibold">Apply</button>
-        <button @click="bulkDelete" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">Delete</button>
+        <button @click="openBulkEmail" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded font-semibold">✉ Bulk email</button>
+        <button @click="bulkDelete" class="bg-red-700 hover:bg-red-800 px-3 py-1 rounded">Delete</button>
         <button @click="clearSel" class="text-stone-300 hover:text-white ml-auto">Clear</button>
       </div>
 
@@ -106,7 +118,7 @@
         <table v-else class="w-full text-sm">
           <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wide">
             <tr>
-              <th class="px-3 py-2.5"><input type="checkbox" :checked="allShownSelected" @change="toggleAll"></th>
+              <th class="px-3 py-2.5"><input type="checkbox" :checked="allShownSelected" @change="toggleAll" class="w-5 h-5 accent-amber-600 cursor-pointer align-middle"></th>
               <th @click="setSort('name')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Store<span class="text-amber-600">{{ sortArrow('name') }}</span></th>
               <th @click="setSort('area')" class="text-left font-semibold px-3 py-2.5 hidden md:table-cell cursor-pointer select-none hover:text-stone-700">Area<span class="text-amber-600">{{ sortArrow('area') }}</span></th>
               <th @click="setSort('status')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Status<span class="text-amber-600">{{ sortArrow('status') }}</span></th>
@@ -117,7 +129,7 @@
           </thead>
           <tbody>
             <tr v-for="s in filteredStores" :key="s.id" class="border-t border-stone-100" :class="[rowBg(s.status), selectedIds.includes(s.id)?'ring-2 ring-inset ring-amber-400':'']">
-              <td class="px-3 py-2.5 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)"></td>
+              <td class="px-3 py-3 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)" class="w-5 h-5 accent-amber-600 cursor-pointer"></td>
               <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
                 <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}</p>
                 <p class="text-xs text-stone-400">{{ s.store_type }}<span v-if="s.contact_name"> · {{ s.contact_name }}</span></p>
@@ -165,7 +177,7 @@
   <!-- ================= STORE DETAIL DRAWER ================= -->
   <div v-if="cur" class="fixed inset-0 z-50 flex">
     <div class="flex-1 bg-black/30" @click="closeStore"></div>
-    <div class="w-full max-w-4xl bg-stone-50 h-full overflow-y-auto shadow-2xl">
+    <div class="w-full max-w-5xl bg-stone-50 h-full overflow-y-auto shadow-2xl">
       <div class="sticky top-0 bg-white border-b border-stone-200 px-5 py-3 flex items-center justify-between z-10">
         <div>
           <input v-model="cur.store_name" class="font-bold text-lg bg-transparent focus:outline-none focus:bg-stone-100 rounded px-1">
@@ -177,97 +189,103 @@
         </div>
       </div>
 
-      <!-- DETAILS -->
-      <div class="p-5 space-y-4 border-b border-stone-200">
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <label class="block"><span class="lbl">Store type</span><input v-model="cur.store_type" class="inp"></label>
-          <label class="block"><span class="lbl">Area</span>
-            <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
-          </label>
-          <label class="block"><span class="lbl">Store phone</span><input v-model="cur.store_phone" class="inp"></label>
-          <label class="block col-span-2 md:col-span-3"><span class="lbl">Address</span><input v-model="cur.address" class="inp"></label>
-          <label class="block"><span class="lbl">Contact name</span><input v-model="cur.contact_name" class="inp"></label>
-          <label class="block"><span class="lbl">Contact email</span><input v-model="cur.contact_email" class="inp"></label>
-          <label class="block"><span class="lbl">Store email</span><input v-model="cur.store_email" class="inp"></label>
-          <label class="block col-span-2 md:col-span-3"><span class="lbl">Website</span><input v-model="cur.website" class="inp"></label>
-        </div>
-
-        <div class="bg-white rounded-xl border border-stone-200 p-4 grid sm:grid-cols-3 gap-3">
-          <label class="block"><span class="lbl">Status</span>
-            <select v-model="cur.status" @change="onStatusChange" class="inp">
-              <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
-            </select>
-          </label>
-          <label class="block"><span class="lbl">Next contact date</span><input type="date" v-model="cur.next_contact_date" class="inp"></label>
-          <label class="block"><span class="lbl">Tags (comma separated)</span><input v-model="tagText" class="inp" placeholder="organic, high potential"></label>
-          <label v-if="cur.status==='no_permanent'" class="block sm:col-span-3"><span class="lbl">Reason (permanent no)</span><input v-model="cur.no_reason" class="inp"></label>
-        </div>
-        <button @click="deleteStore" class="text-red-500 text-xs hover:underline">Delete this store</button>
-      </div>
-
-      <!-- COMPOSE + TIMELINE side by side -->
+      <!-- TWO COLUMNS: details+compose (left) | notes (right) -->
       <div class="grid lg:grid-cols-2">
-        <!-- COMPOSE -->
-        <div class="p-5 space-y-3 lg:border-r border-stone-200 border-b lg:border-b-0">
-          <p class="font-semibold text-sm">Compose email</p>
-          <div class="flex flex-wrap gap-2 items-center">
-            <select v-model="selectedTemplate" @change="applyTemplate" class="inp flex-1 min-w-[140px]">
-              <option value="">— Canned response —</option>
-              <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
-            </select>
-            <button @click="aiDraft" :disabled="aiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-sm px-3 py-1.5 rounded-lg disabled:opacity-50">{{ aiBusy?'Thinking…':'✨ AI draft' }}</button>
-          </div>
-          <input v-model="aiIntent" placeholder="Optional: the goal (e.g. follow up after sample)" class="inp text-sm">
-          <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
-          <label class="block"><span class="lbl">Subject</span><input v-model="email.subject" class="inp"></label>
-          <label class="block"><span class="lbl">Body</span><textarea v-model="email.body" rows="9" class="inp font-mono text-xs"></textarea></label>
-          <label class="block"><span class="lbl">P.S. (added to the end of every email)</span>
-            <select v-model="email.ps" class="inp text-sm">
-              <option value="">— No P.S. —</option>
-              <option v-for="(p,i) in psList" :key="i" :value="p">{{ p.length>70? p.slice(0,70)+'…' : p }}</option>
-            </select>
-          </label>
-          <p v-if="email.ps" class="text-xs text-stone-500 italic">P.S. {{ email.ps }}</p>
 
-          <div v-if="documents.length" class="text-xs text-stone-500">
-            <p class="mb-1">Attach (download, then drag into Gmail):</p>
-            <div class="flex flex-wrap gap-2">
+        <!-- LEFT: DETAILS + COMPOSE -->
+        <div class="p-4 space-y-3 lg:border-r border-stone-200">
+          <div class="grid grid-cols-2 gap-2">
+            <label class="block"><span class="lbl">Store type</span><input v-model="cur.store_type" class="inp"></label>
+            <label class="block"><span class="lbl">Area</span>
+              <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
+            </label>
+            <label class="block"><span class="lbl">Store phone</span><input v-model="cur.store_phone" class="inp"></label>
+            <label class="block"><span class="lbl">Contact phone</span><input v-model="cur.contact_phone" class="inp"></label>
+            <label class="block"><span class="lbl">Contact name</span><input v-model="cur.contact_name" class="inp"></label>
+            <label class="block"><span class="lbl">Contact email</span><input v-model="cur.contact_email" class="inp"></label>
+            <label class="block"><span class="lbl">Store email</span><input v-model="cur.store_email" class="inp"></label>
+            <label class="block"><span class="lbl">Website</span><input v-model="cur.website" class="inp"></label>
+            <label class="block col-span-2"><span class="lbl">Address</span><input v-model="cur.address" class="inp"></label>
+          </div>
+
+          <div class="bg-white rounded-lg border border-stone-200 p-3 grid grid-cols-3 gap-2">
+            <label class="block"><span class="lbl">Status</span>
+              <select v-model="cur.status" @change="onStatusChange" class="inp">
+                <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
+              </select>
+            </label>
+            <label class="block"><span class="lbl">Next contact</span><input type="date" v-model="cur.next_contact_date" class="inp"></label>
+            <label class="block"><span class="lbl">Tags (comma sep.)</span><input v-model="tagText" class="inp" placeholder="organic"></label>
+            <label v-if="cur.status==='no_permanent'" class="block col-span-3"><span class="lbl">Reason (permanent no)</span><input v-model="cur.no_reason" class="inp"></label>
+          </div>
+
+          <!-- COMPOSE -->
+          <div class="border-t border-stone-200 pt-3 space-y-2">
+            <div class="flex flex-wrap gap-2 items-center">
+              <p class="font-semibold text-sm mr-auto">Compose email</p>
+              <select v-model="selectedTemplate" @change="applyTemplate" class="inp text-xs flex-1 min-w-[120px]">
+                <option value="">— Canned response —</option>
+                <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+              <button @click="aiDraft" :disabled="aiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ aiBusy?'…':'✨ AI draft' }}</button>
+            </div>
+            <input v-model="aiIntent" placeholder="Optional goal (e.g. follow up after sample)" class="inp text-xs">
+            <div class="grid grid-cols-2 gap-2">
+              <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
+              <label class="block"><span class="lbl">Subject</span><input v-model="email.subject" class="inp"></label>
+            </div>
+            <textarea v-model="email.body" rows="7" placeholder="Email body…" class="inp font-mono text-xs"></textarea>
+            <select v-model="email.ps" class="inp text-xs">
+              <option value="">— No P.S. —</option>
+              <option v-for="(p,i) in psList" :key="i" :value="p">P.S. {{ p.length>60? p.slice(0,60)+'…' : p }}</option>
+            </select>
+            <div v-if="documents.length" class="flex flex-wrap gap-1.5 text-xs">
               <button v-for="d in documents" :key="d.id" @click="downloadDoc(d)" class="border border-stone-300 rounded px-2 py-1 hover:bg-stone-100">⬇ {{ d.name }}</button>
             </div>
+            <div class="flex flex-wrap gap-2">
+              <button @click="openGmail" class="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Open in Gmail</button>
+              <button @click="copyEmail" class="border border-stone-300 text-xs px-3 py-1.5 rounded-lg hover:bg-stone-100">Copy</button>
+              <button @click="logEmail" class="bg-stone-800 text-white text-xs px-3 py-1.5 rounded-lg">Mark sent &amp; log</button>
+            </div>
           </div>
-          <div class="flex flex-wrap gap-2 pt-1">
-            <button @click="openGmail" class="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">Open in Gmail</button>
-            <button @click="copyEmail" class="border border-stone-300 text-sm px-3 py-1.5 rounded-lg hover:bg-stone-100">Copy</button>
-            <button @click="logEmail" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Mark sent &amp; log</button>
-          </div>
+          <button @click="deleteStore" class="text-red-500 text-xs hover:underline">Delete this store</button>
         </div>
 
-        <!-- TIMELINE & NOTES -->
-        <div class="p-5">
-          <p class="font-semibold text-sm mb-2">Timeline &amp; notes</p>
-          <div class="bg-white rounded-xl border border-stone-200 p-4 mb-4 space-y-2">
+        <!-- RIGHT: NOTES (entry + history) -->
+        <div class="p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-sm">Notes</p>
+            <button @click="noteSortDesc=!noteSortDesc" class="text-xs text-stone-500 hover:text-stone-800 border border-stone-300 rounded px-2 py-0.5">
+              {{ noteSortDesc ? 'Newest first ▼' : 'Oldest first ▲' }}
+            </button>
+          </div>
+          <!-- ENTRY -->
+          <div class="bg-white rounded-lg border border-stone-200 p-3 space-y-2">
             <div class="flex flex-wrap gap-1.5">
-              <button v-for="t in ['note','call','email','meeting','sample','other']" :key="t" @click="actForm.type=t"
+              <button v-for="t in ['note','call','email','meeting','sample','referral','other']" :key="t" @click="actForm.type=t"
                 class="text-xs px-2.5 py-1 rounded-full border capitalize transition"
                 :class="actForm.type===t?'bg-stone-800 text-white border-stone-800':'bg-white text-stone-600 border-stone-300 hover:border-stone-400'">
                 {{ typeIcon(t) }} {{ t }}
               </button>
             </div>
-            <input v-model="actForm.subject" placeholder="Subject (optional)" class="inp">
-            <textarea v-model="actForm.result" rows="2" placeholder="What happened / note…" class="inp"></textarea>
-            <div class="flex justify-end"><button @click="addActivity" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Add</button></div>
-          </div>
-          <div v-if="!curActivities.length" class="text-stone-400 text-sm text-center py-6">No activity yet.</div>
-          <div v-for="a in curActivities" :key="a.id" class="flex gap-3 mb-3">
-            <div class="text-lg">{{ typeIcon(a.type) }}</div>
-            <div class="flex-1 bg-white rounded-lg border border-stone-200 px-3 py-2">
-              <div class="flex justify-between items-start">
-                <p class="text-sm font-medium">{{ a.subject || cap(a.type) }}</p>
-                <button @click="delActivity(a)" class="text-stone-300 hover:text-red-500 text-xs">✕</button>
-              </div>
-              <p v-if="a.result" class="text-sm text-stone-600 whitespace-pre-wrap">{{ a.result }}</p>
-              <p class="text-xs text-stone-400 mt-1">{{ fmtDateTime(a.occurred_at) }} · {{ a.created_by || '—' }}</p>
+            <textarea v-model="actForm.result" rows="3" placeholder="Write a note…" class="inp"></textarea>
+            <div class="flex items-center gap-2">
+              <input type="date" v-model="actForm.date" class="inp w-40 text-xs" title="Note date (editable)">
+              <button @click="addActivity" class="ml-auto bg-stone-800 text-white text-sm px-4 py-1.5 rounded-lg">Add note</button>
             </div>
+          </div>
+          <!-- HISTORY -->
+          <div v-if="!curNotes.length" class="text-stone-400 text-sm text-center py-6">No notes yet.</div>
+          <div v-for="a in curNotes" :key="a.id" class="bg-white rounded-lg border border-stone-200 px-3 py-2 mb-2">
+            <div class="flex justify-between items-center gap-2">
+              <span class="text-sm">{{ typeIcon(a.type) }} <span class="text-xs text-stone-400 capitalize">{{ a.type }}</span></span>
+              <div class="flex items-center gap-2">
+                <input type="date" :value="(a.occurred_at||'').slice(0,10)" @change="updateNoteDate(a,$event.target.value)" class="text-xs border border-stone-200 rounded px-1 py-0.5 text-stone-500">
+                <button @click="delActivity(a)" class="text-stone-300 hover:text-red-500 text-sm">✕</button>
+              </div>
+            </div>
+            <p v-if="a.result" class="text-sm text-stone-700 whitespace-pre-wrap mt-1">{{ a.result }}</p>
+            <p class="text-[11px] text-stone-400 mt-0.5">{{ a.created_by || '—' }}</p>
           </div>
         </div>
       </div>
@@ -376,6 +394,55 @@
     </div>
   </div>
 
+  <!-- ================= BULK EMAIL MODAL ================= -->
+  <div v-if="showBulkEmail" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200">
+        <h3 class="font-bold">Bulk email — {{ selectedIds.length }} stores</h3><button @click="showBulkEmail=false" class="text-stone-400 hover:text-stone-700">✕</button>
+      </div>
+      <div class="p-5 space-y-3">
+        <div>
+          <p class="lbl">Email addresses ({{ bulkEmails.length }}) — comma separated</p>
+          <textarea readonly rows="4" :value="bulkEmailsStr" class="inp text-xs font-mono"></textarea>
+          <div class="flex gap-2 mt-1">
+            <button @click="copyBulkEmails" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Copy addresses</button>
+            <span v-if="bulkEmails.length<selectedIds.length" class="text-xs text-amber-600 self-center">{{ selectedIds.length-bulkEmails.length }} selected have no email</span>
+          </div>
+          <p class="text-xs text-stone-400 mt-1">Paste into the BCC field of your email.</p>
+        </div>
+        <label class="flex items-center gap-2 text-sm pt-2 border-t border-stone-100">
+          <input type="checkbox" v-model="bulkAddNote" class="w-5 h-5 accent-amber-600"> Add a note to all selected stores
+        </label>
+        <div v-if="bulkAddNote">
+          <textarea v-model="bulkNote" rows="2" class="inp text-sm"></textarea>
+          <button @click="applyBulkNote" class="mt-2 bg-amber-600 text-white text-sm px-3 py-1.5 rounded-lg">Add note to {{ selectedIds.length }} stores</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MOTIVATION MODAL ================= -->
+  <div v-if="showMotivation" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200 sticky top-0 bg-white">
+        <h3 class="font-bold">★ Motivation</h3><button @click="showMotivation=false" class="text-stone-400 hover:text-stone-700">✕</button>
+      </div>
+      <div class="p-5 space-y-3">
+        <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <p class="text-sm italic text-stone-700">“{{ quoteOfHour.text }}”</p>
+          <p class="text-xs text-stone-500 mt-0.5">— {{ quoteOfHour.source }}</p>
+          <button @click="saveQuote(quoteOfHour)" class="text-xs text-amber-700 border border-amber-300 rounded px-2 py-0.5 mt-1">Save this one</button>
+        </div>
+        <p class="lbl">Saved quotes</p>
+        <div v-if="!savedQuotes.length" class="text-stone-400 text-sm">None saved yet.</div>
+        <div v-for="q in savedQuotes" :key="q.id" class="flex justify-between items-start gap-2 border border-stone-200 rounded-lg px-3 py-2">
+          <div><p class="text-sm text-stone-700 italic">“{{ q.text }}”</p><p class="text-xs text-stone-500">— {{ q.source }}</p></div>
+          <button @click="deleteQuote(q)" class="text-stone-300 hover:text-red-500 text-sm">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div v-if="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-[60]">{{ toast }}</div>
 </div>
 
@@ -405,6 +472,32 @@
   ];
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
   const REGIONS = ['Northland','Central Auckland','Auckland North','Auckland West','Auckland East','Waikato','Bay of Plenty','Lower NI','Wellington','Christchurch','Rest of South Island','All NZ'];
+  const QUOTES = [
+    {text:"Approach each customer with the idea of helping them solve a problem, not of selling a product.",source:"Brian Tracy"},
+    {text:"Sales are contingent upon the attitude of the salesman — not the attitude of the prospect.",source:"W. Clement Stone"},
+    {text:"Make a customer, not a sale.",source:"Katherine Barchetti"},
+    {text:"The harder you work for something, the greater you'll feel when you achieve it.",source:"Anonymous"},
+    {text:"Ninety percent of selling is conviction and 10 percent is persuasion.",source:"Shiv Khera"},
+    {text:"Your attitude, not your aptitude, will determine your altitude.",source:"Zig Ziglar"},
+    {text:"Opportunities don't happen. You create them.",source:"Chris Grosser"},
+    {text:"Motivation is what gets you started. Habit is what keeps you going.",source:"Jim Ryun"},
+    {text:"Success is the sum of small efforts repeated day in and day out.",source:"Robert Collier"},
+    {text:"Most people think 'selling' is the same as 'talking'. The best salespeople know that listening is the most important part of their job.",source:"Roy Bartell"},
+    {text:"Either you run the day, or the day runs you.",source:"Jim Rohn"},
+    {text:"Begin by always expecting good things to happen.",source:"Tom Hopkins"},
+    {text:"Treat objections as requests for further information.",source:"Brian Tracy"},
+    {text:"Whether you think you can or you think you can't, you're right.",source:"Henry Ford"},
+    {text:"The way to get started is to quit talking and begin doing.",source:"Walt Disney"},
+    {text:"Setting goals is the first step in turning the invisible into the visible.",source:"Tony Robbins"},
+    {text:"Don't watch the clock; do what it does. Keep going.",source:"Sam Levenson"},
+    {text:"Quality performance starts with a positive attitude.",source:"Jeffrey Gitomer"},
+    {text:"You don't have to be great to start, but you have to start to be great.",source:"Zig Ziglar"},
+    {text:"Success usually comes to those who are too busy to be looking for it.",source:"Henry David Thoreau"},
+    {text:"Great things in business are never done by one person; they're done by a team of people.",source:"Steve Jobs"},
+    {text:"Become the person who would attract the results you seek.",source:"Jim Cathcart"},
+    {text:"Our greatest weakness lies in giving up. The most certain way to succeed is always to try just one more time.",source:"Thomas Edison"},
+    {text:"If you are not taking care of your customer, your competitor will.",source:"Bob Hooey"},
+  ];
   const todayStr = () => new Date().toISOString().slice(0,10);
 
   createApp({
@@ -426,7 +519,7 @@
 
       // ---- detail drawer ----
       const cur=ref(null), tab=ref('details'), saving=ref(false), tagText=ref('');
-      const actForm=reactive({type:'call',subject:'',result:''});
+      const actForm=reactive({type:'note',result:'',date:todayStr()});
       const orderForm=reactive({order_date:todayStr(),amount:'',notes:''});
       const email=reactive({to:'',subject:'',body:'',ps:''});
       const psList=computed(()=> (settings.ps_list||'').split('\n').map(s=>s.trim()).filter(Boolean));
@@ -436,13 +529,24 @@
       // ---- modals ----
       const showImport=ref(false), showDocs=ref(false), showAdmin=ref(false);
       const importStep=ref(1), importRows=ref([]), importBusy=ref(false), importError=ref(''), docBusy=ref(false);
+      // ---- bulk email + motivation ----
+      const showBulkEmail=ref(false), bulkAddNote=ref(true), bulkNote=ref('Bulk e-mail sent');
+      const showMotivation=ref(false), savedQuotes=ref([]);
+      const quoteOfHour=computed(()=> QUOTES[Math.floor(Date.now()/3600000) % QUOTES.length]);
+      const bulkEmails=computed(()=> selectedIds.value.map(id=>{ const s=stores.value.find(x=>x.id===id); return s&&(s.contact_email||s.store_email); }).filter(Boolean));
+      const bulkEmailsStr=computed(()=> bulkEmails.value.join(', '));
+      function openBulkEmail(){ bulkNote.value='Bulk e-mail sent'; bulkAddNote.value=true; showBulkEmail.value=true; }
+      async function copyBulkEmails(){ await navigator.clipboard.writeText(bulkEmailsStr.value); flash('Addresses copied'); }
+      async function applyBulkNote(){ const txt=bulkNote.value.trim(); if(!txt){ flash('Enter a note'); return; } const rows=selectedIds.value.map(id=>({store_id:id,type:'email',result:txt,created_by:me.value,occurred_at:new Date().toISOString()})); await sb.from('activities').insert(rows); await loadAll(); flash('Note added to '+rows.length+' stores'); }
+      async function saveQuote(q){ const ex=savedQuotes.value.find(x=>x.text===q.text); if(ex){ flash('Already saved'); return; } const r=await sb.from('motivation').insert({text:q.text,source:q.source,created_by:me.value}).select().single(); if(r.data){ savedQuotes.value.unshift(r.data); flash('Saved to Motivation'); } }
+      async function deleteQuote(q){ await sb.from('motivation').delete().eq('id',q.id); savedQuotes.value=savedQuotes.value.filter(x=>x.id!==q.id); }
 
       // ===== helpers =====
       const label=(k)=> (SMAP[k]||{}).label || k;
       const badge=(k)=> (SMAP[k]||{}).badge || 'bg-stone-100 text-stone-600';
       const rowBg=(k)=> (SMAP[k]||{}).row || '';
       const cap=(s)=> s? s.charAt(0).toUpperCase()+s.slice(1):'';
-      const typeIcon=(t)=>({call:'📞',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',status_change:'🔄',order:'🛒',other:'•'}[t]||'•');
+      const typeIcon=(t)=>({call:'📞',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',referral:'🔗',status_change:'🔄',order:'🛒',other:'•'}[t]||'•');
       const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'';
       const fmtDateTime=(d)=> d? new Date(d).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
       const isOverdue=(s)=> s.next_contact_date && s.next_contact_date <= todayStr() && s.status!=='no_permanent';
@@ -478,7 +582,10 @@
       });
 
       const curActivities=computed(()=> cur.value? activities.value.filter(a=>a.store_id===cur.value.id):[]);
+      const noteSortDesc=ref(true);
+      const curNotes=computed(()=>{ if(!cur.value) return []; const list=activities.value.filter(a=>a.store_id===cur.value.id).slice(); list.sort((a,b)=>(a.occurred_at||'').localeCompare(b.occurred_at||'')); return noteSortDesc.value? list.reverse() : list; });
       const curOrders=computed(()=> cur.value? orders.value.filter(o=>o.store_id===cur.value.id):[]);
+      async function updateNoteDate(a, val){ const iso = val? new Date(val+'T12:00:00').toISOString() : new Date().toISOString(); await sb.from('activities').update({occurred_at:iso}).eq('id',a.id); a.occurred_at=iso; flash('Date updated'); }
 
       // ===== inline editing + multi-select bulk =====
       const orderCount=(id)=> orders.value.filter(o=>o.store_id===id).length;
@@ -504,13 +611,16 @@
         templates.value=tp.data||[]; documents.value=dc.data||[];
         const sx=await sb.from('settings').select('*');
         (sx.data||[]).forEach(r=>{ if(r.key in settings) settings[r.key]=r.value||''; });
+        const mq=await sb.from('motivation').select('*').order('created_at',{ascending:false});
+        savedQuotes.value=mq.data||[];
         loading.value=false;
       }
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
-      function openNewStore(){ cur.value=blankStore(); tagText.value=''; tab.value='details'; }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); tab.value=t||'details'; email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
+      function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
+      function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
@@ -528,7 +638,7 @@
         else res=await sb.from('stores').update(payload).eq('id',cur.value.id).select().single();
         saving.value=false;
         if(res.error){ flash('Save failed: '+res.error.message); return; }
-        if(statusChanged && !isNew){ await logActivityRow(res.data.id,'status_change','Status → '+label(res.data.status),''); }
+        if(statusChanged && !isNew){ await logActivityRow(res.data.id,'status_change','Status → '+label(res.data.status)); }
         statusChanged=false;
         await loadAll();
         cur.value=JSON.parse(JSON.stringify(res.data)); tagText.value=(res.data.tags||[]).join(', ');
@@ -536,15 +646,16 @@
       }
       async function deleteStore(){ if(!confirm('Delete this store and all its activity?')) return; await sb.from('stores').delete().eq('id',cur.value.id); cur.value=null; await loadAll(); flash('Deleted'); }
 
-      // ===== activities =====
-      async function logActivityRow(store_id,type,subject,result){
-        await sb.from('activities').insert({store_id,type,subject,result,created_by:me.value,occurred_at:new Date().toISOString()});
+      // ===== notes / activities =====
+      async function logActivityRow(store_id,type,text){
+        await sb.from('activities').insert({store_id,type,result:text,created_by:me.value,occurred_at:new Date().toISOString()});
       }
       async function addActivity(){
-        if(!actForm.result && !actForm.subject){ flash('Add a subject or result'); return; }
-        await logActivityRow(cur.value.id,actForm.type,actForm.subject,actForm.result);
-        actForm.subject=''; actForm.result='';
-        await loadAll(); flash('Activity logged');
+        if(!actForm.result.trim()){ flash('Write a note first'); return; }
+        const iso = actForm.date? new Date(actForm.date+'T12:00:00').toISOString() : new Date().toISOString();
+        await sb.from('activities').insert({store_id:cur.value.id,type:actForm.type,result:actForm.result.trim(),created_by:me.value,occurred_at:iso});
+        actForm.result=''; actForm.type='note'; actForm.date=todayStr();
+        await loadAll(); flash('Note added');
       }
       async function delActivity(a){ await sb.from('activities').delete().eq('id',a.id); await loadAll(); }
 
@@ -692,12 +803,14 @@
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
         recentNotes,isRepeat,daysSince,daysLabel,psList,
         cur,tab,saving,tagText,actForm,orderForm,email,selectedTemplate,aiIntent,aiBusy,
-        curActivities,curOrders,
+        curActivities,curNotes,noteSortDesc,updateNoteDate,curOrders,
         openNewStore,openStore,closeStore,onStatusChange,saveStore,deleteStore,
         addActivity,delActivity,addOrder,delOrder,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
+        showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,
+        showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,
         openAdmin,saveSettings,newTemplate,saveTemplate,delTemplate,
         toast };
     }
