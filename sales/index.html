@@ -24,7 +24,7 @@
 </script>
 
 <!-- Tailwind Play CDN safelist: ensures all dynamic status colours are generated -->
-<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50"></div>
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700"></div>
 
 <div id="app" v-cloak>
 
@@ -82,6 +82,21 @@
           class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
           :class="isStatusActive(st.key)? st.btn : 'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
           {{ st.label }} <span class="opacity-80">{{ countBy(st.key) }}</span>
+        </button>
+      </div>
+
+      <!-- ===== CUSTOMER TYPE FILTER ROW ===== -->
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <span class="text-xs text-stone-400 uppercase tracking-wide mr-1">Type:</span>
+        <button @click="clearTypes"
+          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          :class="activeTypes.length===0?'bg-teal-700 text-white border-teal-700':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
+          All
+        </button>
+        <button v-for="t in TYPES" :key="t" @click="toggleType(t)"
+          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          :class="isTypeActive(t)?'bg-teal-700 text-white border-teal-700':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
+          {{ t }} <span class="opacity-80">{{ countByType(t) }}</span>
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-2 mb-4">
@@ -162,8 +177,8 @@
                 </div>
               </td>
               <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs text-stone-500">
-                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-md" :title="a.subject || a.result">
-                  <span class="text-stone-400">{{ typeIcon(a.type) }}</span> {{ a.subject || a.result || cap(a.type) }}
+                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-md" :title="a.result || cap(a.type)">
+                  <span class="text-stone-400">{{ typeIcon(a.type) }} {{ shortDate(a.occurred_at) }}</span> {{ a.result || cap(a.type) }}
                 </p>
                 <span v-if="!recentNotes(s.id).length" class="text-stone-300">—</span>
               </td>
@@ -195,7 +210,9 @@
         <!-- LEFT: DETAILS + COMPOSE -->
         <div class="p-4 space-y-3 lg:border-r border-stone-200">
           <div class="grid grid-cols-2 gap-2">
-            <label class="block"><span class="lbl">Store type</span><input v-model="cur.store_type" class="inp"></label>
+            <label class="block"><span class="lbl">Customer type</span>
+              <select v-model="cur.store_type" class="inp"><option value="">— Type —</option><option v-for="t in TYPES" :key="t" :value="t">{{ t }}</option></select>
+            </label>
             <label class="block"><span class="lbl">Area</span>
               <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
             </label>
@@ -472,31 +489,232 @@
   ];
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
   const REGIONS = ['Northland','Central Auckland','Auckland North','Auckland West','Auckland East','Waikato','Bay of Plenty','Lower NI','Wellington','Christchurch','Rest of South Island','All NZ'];
+  const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World','Woolworths','Bin Inn','Other','None'];
   const QUOTES = [
-    {text:"Approach each customer with the idea of helping them solve a problem, not of selling a product.",source:"Brian Tracy"},
-    {text:"Sales are contingent upon the attitude of the salesman — not the attitude of the prospect.",source:"W. Clement Stone"},
-    {text:"Make a customer, not a sale.",source:"Katherine Barchetti"},
-    {text:"The harder you work for something, the greater you'll feel when you achieve it.",source:"Anonymous"},
-    {text:"Ninety percent of selling is conviction and 10 percent is persuasion.",source:"Shiv Khera"},
-    {text:"Your attitude, not your aptitude, will determine your altitude.",source:"Zig Ziglar"},
-    {text:"Opportunities don't happen. You create them.",source:"Chris Grosser"},
-    {text:"Motivation is what gets you started. Habit is what keeps you going.",source:"Jim Ryun"},
-    {text:"Success is the sum of small efforts repeated day in and day out.",source:"Robert Collier"},
-    {text:"Most people think 'selling' is the same as 'talking'. The best salespeople know that listening is the most important part of their job.",source:"Roy Bartell"},
-    {text:"Either you run the day, or the day runs you.",source:"Jim Rohn"},
-    {text:"Begin by always expecting good things to happen.",source:"Tom Hopkins"},
-    {text:"Treat objections as requests for further information.",source:"Brian Tracy"},
-    {text:"Whether you think you can or you think you can't, you're right.",source:"Henry Ford"},
-    {text:"The way to get started is to quit talking and begin doing.",source:"Walt Disney"},
-    {text:"Setting goals is the first step in turning the invisible into the visible.",source:"Tony Robbins"},
-    {text:"Don't watch the clock; do what it does. Keep going.",source:"Sam Levenson"},
-    {text:"Quality performance starts with a positive attitude.",source:"Jeffrey Gitomer"},
-    {text:"You don't have to be great to start, but you have to start to be great.",source:"Zig Ziglar"},
-    {text:"Success usually comes to those who are too busy to be looking for it.",source:"Henry David Thoreau"},
-    {text:"Great things in business are never done by one person; they're done by a team of people.",source:"Steve Jobs"},
-    {text:"Become the person who would attract the results you seek.",source:"Jim Cathcart"},
-    {text:"Our greatest weakness lies in giving up. The most certain way to succeed is always to try just one more time.",source:"Thomas Edison"},
-    {text:"If you are not taking care of your customer, your competitor will.",source:"Bob Hooey"},
+    {text:"Approach each customer with the idea of helping them solve a problem, not of selling a product.", source:"Brian Tracy"},
+    {text:"Sales are contingent upon the attitude of the salesman, not the attitude of the prospect.", source:"W. Clement Stone"},
+    {text:"Make a customer, not a sale.", source:"Katharine Barchetti"},
+    {text:"The harder you work for something, the greater you will feel when you achieve it.", source:"Anonymous"},
+    {text:"Ninety percent of selling is conviction and 10 percent is persuasion.", source:"Shiv Khera"},
+    {text:"Your attitude, not your aptitude, will determine your altitude.", source:"Zig Ziglar"},
+    {text:"Opportunities don't happen. You create them.", source:"Chris Grosser"},
+    {text:"Motivation is what gets you started. Habit is what keeps you going.", source:"Jim Ryun"},
+    {text:"Success is the sum of small efforts repeated day in and day out.", source:"Robert Collier"},
+    {text:"Most people think selling is the same as talking. But the best salespeople know that listening is the most important part of their job.", source:"Roy Bartell"},
+    {text:"Either you run the day, or the day runs you.", source:"Jim Rohn"},
+    {text:"Begin by always expecting good things to happen.", source:"Tom Hopkins"},
+    {text:"Treat objections as requests for further information.", source:"Brian Tracy"},
+    {text:"Whether you think you can or you think you can't, you're right.", source:"Henry Ford"},
+    {text:"The way to get started is to quit talking and begin doing.", source:"Walt Disney"},
+    {text:"Setting goals is the first step in turning the invisible into the visible.", source:"Tony Robbins"},
+    {text:"Don't watch the clock; do what it does. Keep going.", source:"Sam Levenson"},
+    {text:"Quality performance starts with a positive attitude.", source:"Jeffrey Gitomer"},
+    {text:"You don't have to be great to start, but you have to start to be great.", source:"Zig Ziglar"},
+    {text:"Success usually comes to those who are too busy to be looking for it.", source:"Henry David Thoreau"},
+    {text:"Great things in business are never done by one person; they're done by a team of people.", source:"Steve Jobs"},
+    {text:"Become the person who would attract the results you seek.", source:"Jim Cathcart"},
+    {text:"Our greatest weakness lies in giving up. The most certain way to succeed is always to try just one more time.", source:"Thomas Edison"},
+    {text:"If you are not taking care of your customer, your competitor will.", source:"Bob Hooey"},
+    {text:"People don't buy for logical reasons. They buy for emotional reasons.", source:"Zig Ziglar"},
+    {text:"Stop selling. Start helping.", source:"Zig Ziglar"},
+    {text:"You miss 100 percent of the shots you don't take.", source:"Wayne Gretzky"},
+    {text:"The secret of getting ahead is getting started.", source:"Mark Twain"},
+    {text:"Don't be afraid to give up the good to go for the great.", source:"John D. Rockefeller"},
+    {text:"I never lose. I either win or learn.", source:"Nelson Mandela"},
+    {text:"The only place where success comes before work is in the dictionary.", source:"Vidal Sassoon"},
+    {text:"Action is the foundational key to all success.", source:"Pablo Picasso"},
+    {text:"Believe you can and you're halfway there.", source:"Theodore Roosevelt"},
+    {text:"It always seems impossible until it's done.", source:"Nelson Mandela"},
+    {text:"Hard work beats talent when talent doesn't work hard.", source:"Tim Notke"},
+    {text:"Well done is better than well said.", source:"Benjamin Franklin"},
+    {text:"A goal is a dream with a deadline.", source:"Napoleon Hill"},
+    {text:"Whatever the mind can conceive and believe, it can achieve.", source:"Napoleon Hill"},
+    {text:"Don't wish it were easier; wish you were better.", source:"Jim Rohn"},
+    {text:"The expert in anything was once a beginner.", source:"Helen Hayes"},
+    {text:"Success is walking from failure to failure with no loss of enthusiasm.", source:"Winston Churchill"},
+    {text:"Success is not final, failure is not fatal: it is the courage to continue that counts.", source:"Winston Churchill"},
+    {text:"If you really look closely, most overnight successes took a long time.", source:"Steve Jobs"},
+    {text:"The best way to predict the future is to create it.", source:"Peter Drucker"},
+    {text:"What gets measured gets managed.", source:"Peter Drucker"},
+    {text:"There is only one boss. The customer.", source:"Sam Walton"},
+    {text:"The goal as a company is to have customer service that is not just the best but legendary.", source:"Sam Walton"},
+    {text:"Quality is remembered long after the price is forgotten.", source:"Aldo Gucci"},
+    {text:"People will forget what you said, but they will never forget how you made them feel.", source:"Maya Angelou"},
+    {text:"To handle yourself, use your head; to handle others, use your heart.", source:"Eleanor Roosevelt"},
+    {text:"The future belongs to those who believe in the beauty of their dreams.", source:"Eleanor Roosevelt"},
+    {text:"Do what you can, with what you have, where you are.", source:"Theodore Roosevelt"},
+    {text:"Quality means doing it right when no one is looking.", source:"Henry Ford"},
+    {text:"Coming together is a beginning, staying together is progress, and working together is success.", source:"Henry Ford"},
+    {text:"Obstacles are those frightful things you see when you take your eyes off your goal.", source:"Henry Ford"},
+    {text:"Failure is simply the opportunity to begin again, this time more intelligently.", source:"Henry Ford"},
+    {text:"Genius is one percent inspiration and ninety-nine percent perspiration.", source:"Thomas Edison"},
+    {text:"Opportunity is missed by most people because it is dressed in overalls and looks like work.", source:"Thomas Edison"},
+    {text:"I have not failed. I've just found 10,000 ways that won't work.", source:"Thomas Edison"},
+    {text:"The harder I work, the luckier I get.", source:"Samuel Goldwyn"},
+    {text:"Strive not to be a success, but rather to be of value.", source:"Albert Einstein"},
+    {text:"In the middle of difficulty lies opportunity.", source:"Albert Einstein"},
+    {text:"Try not to become a person of success, but rather a person of value.", source:"Albert Einstein"},
+    {text:"The man who moves a mountain begins by carrying away small stones.", source:"Confucius"},
+    {text:"It does not matter how slowly you go as long as you do not stop.", source:"Confucius"},
+    {text:"Our greatest glory is not in never falling, but in rising every time we fall.", source:"Confucius"},
+    {text:"Choose a job you love, and you will never have to work a day in your life.", source:"Confucius"},
+    {text:"Quality is not an act, it is a habit.", source:"Aristotle"},
+    {text:"Well begun is half done.", source:"Aristotle"},
+    {text:"Knowing yourself is the beginning of all wisdom.", source:"Aristotle"},
+    {text:"Excellence is never an accident.", source:"Aristotle"},
+    {text:"The journey of a thousand miles begins with one step.", source:"Lao Tzu"},
+    {text:"When you reach the end of your rope, tie a knot in it and hang on.", source:"Franklin D. Roosevelt"},
+    {text:"It's not about having the right opportunities. It's about handling the opportunities right.", source:"Mark Hunter"},
+    {text:"Selling is essentially a transfer of feelings.", source:"Zig Ziglar"},
+    {text:"Every sale has five basic obstacles: no need, no money, no hurry, no desire, no trust.", source:"Zig Ziglar"},
+    {text:"You can have everything in life you want if you will just help enough other people get what they want.", source:"Zig Ziglar"},
+    {text:"Expect the best, prepare for the worst, capitalize on what comes.", source:"Zig Ziglar"},
+    {text:"Confidence and enthusiasm are the greatest sales producers in any kind of economy.", source:"O.B. Smith"},
+    {text:"Always do your best. What you plant now, you will harvest later.", source:"Og Mandino"},
+    {text:"The greatest secret of success is there is no big secret, whoever you are, you will likely succeed if you work hard and you are honest.", source:"Sara Blakely"},
+    {text:"Don't be cocky. Don't be flashy. There's always someone better than you.", source:"Tony Hsieh"},
+    {text:"Customers don't expect you to be perfect. They do expect you to fix things when they go wrong.", source:"Donald Porter"},
+    {text:"The aim of marketing is to know and understand the customer so well the product or service fits him and sells itself.", source:"Peter Drucker"},
+    {text:"Marketing is no longer about the stuff that you make, but about the stories you tell.", source:"Seth Godin"},
+    {text:"Don't find customers for your products, find products for your customers.", source:"Seth Godin"},
+    {text:"People do not buy goods and services. They buy relations, stories and magic.", source:"Seth Godin"},
+    {text:"In a crowded marketplace, fitting in is a failure. Not standing out is the same as being invisible.", source:"Seth Godin"},
+    {text:"Instead of wondering when your next vacation is, maybe you should set up a life you don't need to escape from.", source:"Seth Godin"},
+    {text:"The cost of being wrong is less than the cost of doing nothing.", source:"Seth Godin"},
+    {text:"Persistence can change failure into extraordinary achievement.", source:"Matt Biondi"},
+    {text:"Energy and persistence conquer all things.", source:"Benjamin Franklin"},
+    {text:"Without a customer, you don't have a business, all you have is a hobby.", source:"Don Peppers"},
+    {text:"Treat every customer as if they sign your paycheck, because they do.", source:"Anonymous"},
+    {text:"A satisfied customer is the best business strategy of all.", source:"Michael LeBoeuf"},
+    {text:"Here is a simple but powerful rule: always give people more than what they expect to get.", source:"Nelson Boswell"},
+    {text:"Customer service shouldn't just be a department, it should be the entire company.", source:"Tony Hsieh"},
+    {text:"Your most unhappy customers are your greatest source of learning.", source:"Bill Gates"},
+    {text:"Patience, persistence and perspiration make an unbeatable combination for success.", source:"Napoleon Hill"},
+    {text:"Effort only fully releases its reward after a person refuses to quit.", source:"Napoleon Hill"},
+    {text:"Don't let the fear of losing be greater than the excitement of winning.", source:"Robert Kiyosaki"},
+    {text:"The richest people in the world look for and build networks. Everyone else looks for work.", source:"Robert Kiyosaki"},
+    {text:"It's not what you sell, it's how you sell it.", source:"Anonymous"},
+    {text:"Selling is helping people get what they want.", source:"Anonymous"},
+    {text:"Pretend that every single person you meet has a sign around his or her neck that says, make me feel important.", source:"Mary Kay Ash"},
+    {text:"Don't limit yourself. Many people limit themselves to what they think they can do.", source:"Mary Kay Ash"},
+    {text:"People are definitely a company's greatest asset.", source:"Mary Kay Ash"},
+    {text:"A mediocre idea that generates enthusiasm will go further than a great idea that inspires no one.", source:"Mary Kay Ash"},
+    {text:"There are no traffic jams along the extra mile.", source:"Roger Staubach"},
+    {text:"Always deliver more than expected.", source:"Larry Page"},
+    {text:"If you are working on something exciting that you really care about, you don't have to be pushed.", source:"Steve Jobs"},
+    {text:"Innovation distinguishes between a leader and a follower.", source:"Steve Jobs"},
+    {text:"The only way to do great work is to love what you do.", source:"Steve Jobs"},
+    {text:"Get closer than ever to your customers. So close that you tell them what they need well before they realize it themselves.", source:"Steve Jobs"},
+    {text:"Stay hungry, stay foolish.", source:"Steve Jobs"},
+    {text:"Your work is going to fill a large part of your life, and the only way to be truly satisfied is to do what you believe is great work.", source:"Steve Jobs"},
+    {text:"Whatever you are, be a good one.", source:"Abraham Lincoln"},
+    {text:"The best way to find yourself is to lose yourself in the service of others.", source:"Mahatma Gandhi"},
+    {text:"A satisfied customer is the best advertisement.", source:"G.S. Alag"},
+    {text:"Make the customer the hero of your story.", source:"Ann Handley"},
+    {text:"If people like you they'll listen to you, but if they trust you they'll do business with you.", source:"Zig Ziglar"},
+    {text:"Trust is the glue of life. It's the most essential ingredient in effective communication.", source:"Stephen Covey"},
+    {text:"Seek first to understand, then to be understood.", source:"Stephen Covey"},
+    {text:"The main thing is to keep the main thing the main thing.", source:"Stephen Covey"},
+    {text:"Begin with the end in mind.", source:"Stephen Covey"},
+    {text:"Most people do not listen with the intent to understand; they listen with the intent to reply.", source:"Stephen Covey"},
+    {text:"Strength and growth come only through continuous effort and struggle.", source:"Napoleon Hill"},
+    {text:"Think twice before you speak, because your words and influence will plant the seed of either success or failure.", source:"Napoleon Hill"},
+    {text:"You become what you think about most of the time.", source:"Earl Nightingale"},
+    {text:"We become what we think about.", source:"Earl Nightingale"},
+    {text:"All you have to do is know where you're going. The answers will come to you of their own accord.", source:"Earl Nightingale"},
+    {text:"People with goals succeed because they know where they're going.", source:"Earl Nightingale"},
+    {text:"Don't let what you cannot do interfere with what you can do.", source:"John Wooden"},
+    {text:"It's the little details that are vital. Little things make big things happen.", source:"John Wooden"},
+    {text:"Success is peace of mind which is a direct result of self-satisfaction in knowing you did your best.", source:"John Wooden"},
+    {text:"Be quick, but don't hurry.", source:"John Wooden"},
+    {text:"Discipline yourself, and others won't need to.", source:"John Wooden"},
+    {text:"The price of success is hard work, dedication to the job at hand.", source:"Vince Lombardi"},
+    {text:"Winners never quit and quitters never win.", source:"Vince Lombardi"},
+    {text:"The difference between a successful person and others is not a lack of strength, but rather a lack of will.", source:"Vince Lombardi"},
+    {text:"Perfection is not attainable, but if we chase perfection we can catch excellence.", source:"Vince Lombardi"},
+    {text:"The achievements of an organization are the results of the combined effort of each individual.", source:"Vince Lombardi"},
+    {text:"Individual commitment to a group effort, that is what makes a team work.", source:"Vince Lombardi"},
+    {text:"Champions keep playing until they get it right.", source:"Billie Jean King"},
+    {text:"It's hard to beat a person who never gives up.", source:"Babe Ruth"},
+    {text:"Every strike brings me closer to the next home run.", source:"Babe Ruth"},
+    {text:"You can't put a limit on anything. The more you dream, the farther you get.", source:"Michael Phelps"},
+    {text:"Persistence guarantees that results are inevitable.", source:"Paramahansa Yogananda"},
+    {text:"Fall seven times, stand up eight.", source:"Japanese Proverb"},
+    {text:"A river cuts through rock, not because of its power but its persistence.", source:"James N. Watkins"},
+    {text:"Nothing in the world can take the place of persistence.", source:"Calvin Coolidge"},
+    {text:"Press on. Nothing in the world can take the place of persistence.", source:"Calvin Coolidge"},
+    {text:"Sales is not about selling anymore, but about building trust and educating.", source:"Siva Devaki"},
+    {text:"Treat objections as a request for more information.", source:"Brian Tracy"},
+    {text:"The successful warrior is the average man, with laser-like focus.", source:"Bruce Lee"},
+    {text:"As long as you're going to be thinking anyway, think big.", source:"Donald Trump"},
+    {text:"The man who will use his skill and constructive imagination to see how much he can give for a dollar instead of how little he can give for a dollar, is bound to succeed.", source:"Henry Ford"},
+    {text:"Success seems to be connected with action. Successful people keep moving.", source:"Conrad Hilton"},
+    {text:"Whatever you do, do it well.", source:"Walt Disney"},
+    {text:"All our dreams can come true, if we have the courage to pursue them.", source:"Walt Disney"},
+    {text:"The more you praise and celebrate your life, the more there is in life to celebrate.", source:"Oprah Winfrey"},
+    {text:"Turn your wounds into wisdom.", source:"Oprah Winfrey"},
+    {text:"Doing the best at this moment puts you in the best place for the next moment.", source:"Oprah Winfrey"},
+    {text:"Don't go through life, grow through life.", source:"Eric Butterworth"},
+    {text:"Be so good they can't ignore you.", source:"Steve Martin"},
+    {text:"Done is better than perfect.", source:"Sheryl Sandberg"},
+    {text:"Done is the engine of more.", source:"Bre Pettis"},
+    {text:"If you can dream it, you can do it.", source:"Walt Disney"},
+    {text:"Diligence is the mother of good luck.", source:"Benjamin Franklin"},
+    {text:"By failing to prepare, you are preparing to fail.", source:"Benjamin Franklin"},
+    {text:"An investment in knowledge pays the best interest.", source:"Benjamin Franklin"},
+    {text:"Either write something worth reading or do something worth writing.", source:"Benjamin Franklin"},
+    {text:"Tell me and I forget. Teach me and I remember. Involve me and I learn.", source:"Benjamin Franklin"},
+    {text:"The best preparation for tomorrow is doing your best today.", source:"H. Jackson Brown Jr."},
+    {text:"Twenty years from now you will be more disappointed by the things that you didn't do than by the ones you did do.", source:"Mark Twain"},
+    {text:"Continuous improvement is better than delayed perfection.", source:"Mark Twain"},
+    {text:"The two most important days in your life are the day you are born and the day you find out why.", source:"Mark Twain"},
+    {text:"Courage is resistance to fear, mastery of fear, not absence of fear.", source:"Mark Twain"},
+    {text:"Keep away from people who try to belittle your ambitions.", source:"Mark Twain"},
+    {text:"If you want to lift yourself up, lift up someone else.", source:"Booker T. Washington"},
+    {text:"Success is to be measured not so much by the position that one has reached as by the obstacles overcome.", source:"Booker T. Washington"},
+    {text:"Believe in yourself and all that you are. Know that there is something inside you that is greater than any obstacle.", source:"Christian D. Larson"},
+    {text:"Act as if what you do makes a difference. It does.", source:"William James"},
+    {text:"The greatest weapon against stress is our ability to choose one thought over another.", source:"William James"},
+    {text:"Nothing will work unless you do.", source:"Maya Angelou"},
+    {text:"You may encounter many defeats, but you must not be defeated.", source:"Maya Angelou"},
+    {text:"Try to be a rainbow in someone's cloud.", source:"Maya Angelou"},
+    {text:"If you don't like something, change it. If you can't change it, change your attitude.", source:"Maya Angelou"},
+    {text:"We may encounter many defeats but we must not be defeated.", source:"Maya Angelou"},
+    {text:"Do the best you can until you know better. Then when you know better, do better.", source:"Maya Angelou"},
+    {text:"Energy and persistence alter all things.", source:"Benjamin Franklin"},
+    {text:"The only limit to our realization of tomorrow will be our doubts of today.", source:"Franklin D. Roosevelt"},
+    {text:"Happiness lies in the joy of achievement and the thrill of creative effort.", source:"Franklin D. Roosevelt"},
+    {text:"It is hard to fail, but it is worse never to have tried to succeed.", source:"Theodore Roosevelt"},
+    {text:"Keep your eyes on the stars, and your feet on the ground.", source:"Theodore Roosevelt"},
+    {text:"Nothing worth having comes easy.", source:"Theodore Roosevelt"},
+    {text:"Believe you can and you're halfway to where you want to be.", source:"Theodore Roosevelt"},
+    {text:"Build your own dreams, or someone else will hire you to build theirs.", source:"Farrah Gray"},
+    {text:"The function of leadership is to produce more leaders, not more followers.", source:"Ralph Nader"},
+    {text:"A leader is one who knows the way, goes the way, and shows the way.", source:"John C. Maxwell"},
+    {text:"Leaders become great not because of their power, but because of their ability to empower others.", source:"John C. Maxwell"},
+    {text:"Teamwork makes the dream work.", source:"John C. Maxwell"},
+    {text:"People may hear your words, but they feel your attitude.", source:"John C. Maxwell"},
+    {text:"You will never change your life until you change something you do daily.", source:"John C. Maxwell"},
+    {text:"Dream big and dare to fail.", source:"Norman Vaughan"},
+    {text:"The only thing standing between you and your goal is the story you keep telling yourself.", source:"Jordan Belfort"},
+    {text:"The people who are crazy enough to think they can change the world are the ones who do.", source:"Rob Siltanen"},
+    {text:"Wanting to be someone else is a waste of the person you are.", source:"Marilyn Monroe"},
+    {text:"Do one thing every day that scares you.", source:"Eleanor Roosevelt"},
+    {text:"Goal setting is the secret to a compelling future.", source:"Tony Robbins"},
+    {text:"The path to success is to take massive, determined action.", source:"Tony Robbins"},
+    {text:"If you do what you've always done, you'll get what you've always gotten.", source:"Tony Robbins"},
+    {text:"It is in your moments of decision that your destiny is shaped.", source:"Tony Robbins"},
+    {text:"Only those who dare to fail greatly can ever achieve greatly.", source:"Robert F. Kennedy"},
+    {text:"The best revenge is massive success.", source:"Frank Sinatra"},
+    {text:"Always bear in mind that your own resolution to succeed is more important than any other.", source:"Abraham Lincoln"},
+    {text:"Things may come to those who wait, but only the things left by those who hustle.", source:"Abraham Lincoln"},
+    {text:"Give me six hours to chop down a tree and I will spend the first four sharpening the axe.", source:"Abraham Lincoln"},
+    {text:"The best time to plant a tree was 20 years ago. The second best time is now.", source:"Chinese Proverb"},
+    {text:"Fortune favours the bold.", source:"Latin Proverb"},
+    {text:"Smooth seas do not make skillful sailors.", source:"African Proverb"},
+    {text:"If you want to go fast, go alone. If you want to go far, go together.", source:"African Proverb"},
+    {text:"Vision without action is a daydream. Action without vision is a nightmare.", source:"Japanese Proverb"},
+    {text:"A year from now you may wish you had started today.", source:"Karen Lamb"},
   ];
   const todayStr = () => new Date().toISOString().slice(0,10);
 
@@ -511,6 +729,11 @@
       function toggleStatus(k){ const i=activeStatuses.value.indexOf(k); if(i<0) activeStatuses.value.push(k); else activeStatuses.value.splice(i,1); }
       const isStatusActive=(k)=> activeStatuses.value.includes(k);
       function clearStatuses(){ activeStatuses.value=[]; }
+      const activeTypes=ref([]); // empty = show all
+      function toggleType(k){ const i=activeTypes.value.indexOf(k); if(i<0) activeTypes.value.push(k); else activeTypes.value.splice(i,1); }
+      const isTypeActive=(k)=> activeTypes.value.includes(k);
+      function clearTypes(){ activeTypes.value=[]; }
+      const countByType=(t)=> stores.value.filter(s=>(s.store_type||'')===t).length;
       function setSort(k){ if(sortKey.value===k){ sortDir.value = sortDir.value==='asc'?'desc':'asc'; } else { sortKey.value=k; sortDir.value='asc'; } }
       const sortArrow=(k)=> sortKey.value!==k ? ' ↕' : (sortDir.value==='asc'?' ▲':' ▼');
       const toast=ref('');
@@ -532,13 +755,15 @@
       // ---- bulk email + motivation ----
       const showBulkEmail=ref(false), bulkAddNote=ref(true), bulkNote=ref('Bulk e-mail sent');
       const showMotivation=ref(false), savedQuotes=ref([]);
-      const quoteOfHour=computed(()=> QUOTES[Math.floor(Date.now()/3600000) % QUOTES.length]);
+      const quoteOffset=ref(0);
+      const quoteOfHour=computed(()=> QUOTES[(Math.floor(Date.now()/3600000)+quoteOffset.value) % QUOTES.length]);
+      function nextQuote(){ quoteOffset.value++; }
       const bulkEmails=computed(()=> selectedIds.value.map(id=>{ const s=stores.value.find(x=>x.id===id); return s&&(s.contact_email||s.store_email); }).filter(Boolean));
       const bulkEmailsStr=computed(()=> bulkEmails.value.join(', '));
       function openBulkEmail(){ bulkNote.value='Bulk e-mail sent'; bulkAddNote.value=true; showBulkEmail.value=true; }
       async function copyBulkEmails(){ await navigator.clipboard.writeText(bulkEmailsStr.value); flash('Addresses copied'); }
       async function applyBulkNote(){ const txt=bulkNote.value.trim(); if(!txt){ flash('Enter a note'); return; } const rows=selectedIds.value.map(id=>({store_id:id,type:'email',result:txt,created_by:me.value,occurred_at:new Date().toISOString()})); await sb.from('activities').insert(rows); await loadAll(); flash('Note added to '+rows.length+' stores'); }
-      async function saveQuote(q){ const ex=savedQuotes.value.find(x=>x.text===q.text); if(ex){ flash('Already saved'); return; } const r=await sb.from('motivation').insert({text:q.text,source:q.source,created_by:me.value}).select().single(); if(r.data){ savedQuotes.value.unshift(r.data); flash('Saved to Motivation'); } }
+      async function saveQuote(q){ const ex=savedQuotes.value.find(x=>x.text===q.text); if(!ex){ const r=await sb.from('motivation').insert({text:q.text,source:q.source,created_by:me.value}).select().single(); if(r.data){ savedQuotes.value.unshift(r.data); flash('Saved to Motivation'); } } else { flash('Already saved'); } nextQuote(); }
       async function deleteQuote(q){ await sb.from('motivation').delete().eq('id',q.id); savedQuotes.value=savedQuotes.value.filter(x=>x.id!==q.id); }
 
       // ===== helpers =====
@@ -548,6 +773,7 @@
       const cap=(s)=> s? s.charAt(0).toUpperCase()+s.slice(1):'';
       const typeIcon=(t)=>({call:'📞',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',referral:'🔗',status_change:'🔄',order:'🛒',other:'•'}[t]||'•');
       const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'';
+      const shortDate=(d)=> d? new Date(d).toLocaleDateString('en-NZ',{day:'numeric',month:'short'}):'';
       const fmtDateTime=(d)=> d? new Date(d).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
       const isOverdue=(s)=> s.next_contact_date && s.next_contact_date <= todayStr() && s.status!=='no_permanent';
       const countBy=(k)=> stores.value.filter(s=>s.status===k).length;
@@ -568,6 +794,7 @@
         if(q) list=list.filter(s=>[s.store_name,s.contact_name,s.contact_email,s.area,s.store_type].some(v=>(v||'').toLowerCase().includes(q)));
         if(areaFilter.value) list=list.filter(s=>s.area===areaFilter.value);
         if(activeStatuses.value.length) list=list.filter(s=>activeStatuses.value.includes(s.status));
+        if(activeTypes.value.length) list=list.filter(s=>activeTypes.value.includes(s.store_type||''));
         const sOrder=STATUSES.map(s=>s.key), k2=sortKey.value;
         list.sort((a,b)=>{
           let r=0;
@@ -796,8 +1023,9 @@
 
       return { ready,gateError,me,isAdmin,loading,STATUSES,
         stores,activities,orders,templates,documents,settings,
-        search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,allAreas,REGIONS,
+        search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,allAreas,REGIONS,TYPES,
         activeStatuses,toggleStatus,isStatusActive,clearStatuses,rowBg,
+        activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,
         dueCount,totalRevenue,countBy,orderCount,
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
