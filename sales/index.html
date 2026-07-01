@@ -229,10 +229,16 @@
             </label>
           </div>
           <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 grid grid-cols-3 gap-2">
-            <p class="col-span-3 lbl" style="margin-bottom:0">Main contact</p>
+            <p class="col-span-3 lbl" style="margin-bottom:0">Contact 1</p>
             <label class="block"><span class="lbl">Name</span><input v-model="cur.contact_name" class="inp"></label>
             <label class="block"><span class="lbl">Email</span><input v-model="cur.contact_email" class="inp"></label>
             <label class="block"><span class="lbl">Phone</span><input v-model="cur.contact_phone" class="inp"></label>
+          </div>
+          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 grid grid-cols-3 gap-2">
+            <p class="col-span-3 lbl" style="margin-bottom:0">Contact 2</p>
+            <label class="block"><span class="lbl">Name</span><input v-model="cur.contact2_name" class="inp"></label>
+            <label class="block"><span class="lbl">Email</span><input v-model="cur.contact2_email" class="inp"></label>
+            <label class="block"><span class="lbl">Phone</span><input v-model="cur.contact2_phone" class="inp"></label>
           </div>
           <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 grid grid-cols-3 gap-2">
             <p class="col-span-3 lbl" style="margin-bottom:0">Store</p>
@@ -338,7 +344,11 @@
               <p class="text-[13px] font-medium mt-1">{{ it.subject || '(no subject)' }}</p>
               <p v-if="!emailBodies[it.id]" class="text-xs text-stone-500 mt-0.5">{{ it.snippet }}</p>
               <p v-else class="text-[13px] text-stone-700 whitespace-pre-wrap mt-1">{{ emailBodies[it.id] }}</p>
-              <button @click="expandEmail(it)" class="text-xs text-amber-700 hover:text-amber-900 mt-1">{{ emailBodies[it.id]?'Hide':'Read full ▾' }}</button>
+              <div class="flex items-center gap-3 mt-1">
+                <button @click="expandEmail(it)" class="text-xs text-amber-700 hover:text-amber-900">{{ emailBodies[it.id]?'Hide':'Read full ▾' }}</button>
+                <button v-if="it.direction==='in' && !filedIds.includes(it.id)" @click="fileEmail(it)" class="text-xs text-emerald-700 border border-emerald-300 rounded px-2 py-0.5 hover:bg-emerald-50">✓ Received &amp; file</button>
+                <span v-if="filedIds.includes(it.id)" class="text-xs text-emerald-600">✓ Filed to CRM Reviewed</span>
+              </div>
             </template>
           </div>
         </div>
@@ -469,22 +479,33 @@
       <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200">
         <h3 class="font-bold">Bulk email — {{ selectedIds.length }} stores</h3><button @click="showBulkEmail=false" class="text-stone-400 hover:text-stone-700">✕</button>
       </div>
-      <div class="p-5 space-y-3">
-        <div>
-          <p class="lbl">Email addresses ({{ bulkEmails.length }}) — comma separated</p>
-          <textarea readonly rows="4" :value="bulkEmailsStr" class="inp text-xs font-mono"></textarea>
-          <div class="flex gap-2 mt-1">
-            <button @click="copyBulkEmails" class="bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">Copy addresses</button>
-            <span v-if="bulkEmails.length<selectedIds.length" class="text-xs text-amber-600 self-center">{{ selectedIds.length-bulkEmails.length }} selected have no email</span>
-          </div>
-          <p class="text-xs text-stone-400 mt-1">Paste into the BCC field of your email.</p>
+      <div class="p-5 space-y-2">
+        <p class="text-xs text-stone-500">Each customer gets their own personalised email (sent to all their addresses). Merge fields: <code v-pre>{{name}}</code> = contact, <code v-pre>{{customer}}</code> = store name.</p>
+        <div class="flex flex-wrap gap-2 items-center">
+          <select v-model="bulkTemplate" @change="applyBulkTemplate" class="inp text-xs flex-1 min-w-[140px]">
+            <option value="">— Canned response —</option>
+            <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+          <button @click="aiDraftBulk" :disabled="bulkAiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ bulkAiBusy?'…':'✨ AI draft' }}</button>
         </div>
-        <label class="flex items-center gap-2 text-sm pt-2 border-t border-stone-100">
-          <input type="checkbox" v-model="bulkAddNote" class="w-5 h-5 accent-amber-600"> Add a note to all selected stores
-        </label>
-        <div v-if="bulkAddNote">
-          <textarea v-model="bulkNote" rows="2" class="inp text-sm"></textarea>
-          <button @click="applyBulkNote" class="mt-2 bg-amber-600 text-white text-sm px-3 py-1.5 rounded-lg">Add note to {{ selectedIds.length }} stores</button>
+        <input v-model="bulkAiIntent" placeholder="Optional goal (e.g. introduce Wopples to new stores)" class="inp text-xs">
+        <label class="block"><span class="lbl">Subject</span><input v-model="bulkCompose.subject" class="inp"></label>
+        <textarea v-model="bulkCompose.body" rows="8" placeholder="Email body… use {{name}} and {{customer}}" class="inp font-mono text-xs"></textarea>
+        <select v-model="bulkCompose.ps" class="inp text-xs">
+          <option value="">— No P.S. —</option>
+          <option v-for="(pp,i) in psList" :key="i" :value="pp">P.S. {{ pp.length>60? pp.slice(0,60)+'…' : pp }}</option>
+        </select>
+        <div v-if="documents.length" class="text-xs">
+          <p class="lbl">Attach documents</p>
+          <div class="flex flex-wrap gap-1.5">
+            <button v-for="d in documents" :key="d.id" @click="toggleBulkAttach(d.id)" class="border rounded px-2 py-1 transition" :class="bulkAttachIds.includes(d.id)?'bg-amber-100 border-amber-400 text-amber-800':'border-stone-300 hover:bg-stone-100'">{{ bulkAttachIds.includes(d.id)?'📎':'○' }} {{ d.name }}</button>
+          </div>
+        </div>
+        <p class="text-xs text-stone-500">{{ bulkRecipientCount }} of {{ selectedIds.length }} selected have an email.</p>
+        <div class="flex items-center gap-2 pt-1">
+          <button @click="sendBulk" :disabled="bulkSendBusy" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50">{{ bulkSendBusy?'Sending…':('Send to '+bulkRecipientCount) }}</button>
+          <button @click="showBulkEmail=false" class="border border-stone-300 text-sm px-3 py-1.5 rounded-lg">Cancel</button>
+          <span class="text-xs text-stone-500">{{ bulkProgress }}</span>
         </div>
       </div>
     </div>
@@ -871,9 +892,42 @@
       function prevQuote(){ if(quotePtr.value>0) quotePtr.value--; }
       const bulkEmails=computed(()=> selectedIds.value.map(id=>{ const s=stores.value.find(x=>x.id===id); return s&&(s.contact_email||s.store_email); }).filter(Boolean));
       const bulkEmailsStr=computed(()=> bulkEmails.value.join(', '));
-      function openBulkEmail(){ bulkNote.value='Bulk e-mail sent'; bulkAddNote.value=true; showBulkEmail.value=true; }
+      function openBulkEmail(){ bulkCompose.subject=''; bulkCompose.body=''; bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAiIntent.value=''; bulkAttachIds.value=[]; bulkProgress.value=''; showBulkEmail.value=true; }
       async function copyBulkEmails(){ await navigator.clipboard.writeText(bulkEmailsStr.value); flash('Addresses copied'); }
       async function applyBulkNote(){ const txt=bulkNote.value.trim(); if(!txt){ flash('Enter a note'); return; } const rows=selectedIds.value.map(id=>({store_id:id,type:'email',result:txt,created_by:me.value,occurred_at:new Date().toISOString()})); await sb.from('activities').insert(rows); await loadAll(); flash('Note added to '+rows.length+' stores'); }
+      const bulkCompose=reactive({subject:'',body:'',ps:''});
+      const bulkTemplate=ref(''), bulkAiIntent=ref(''), bulkAiBusy=ref(false), bulkSendBusy=ref(false), bulkAttachIds=ref([]), bulkProgress=ref('');
+      const bulkRecipientList=computed(()=> selectedIds.value.map(id=>stores.value.find(s=>s.id===id)).filter(s=>s && storeEmails(s).length));
+      const bulkRecipientCount=computed(()=> bulkRecipientList.value.length);
+      function toggleBulkAttach(id){ const i=bulkAttachIds.value.indexOf(id); if(i<0) bulkAttachIds.value.push(id); else bulkAttachIds.value.splice(i,1); }
+      function applyBulkTemplate(){ const t=templates.value.find(x=>x.id===bulkTemplate.value); if(!t) return; bulkCompose.subject=(t.subject||''); bulkCompose.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
+      async function aiDraftBulk(){ bulkAiBusy.value=true; try{ const sys=(settings.ai_master_prompt||'')+'\n\nWrite a template email to be sent to many stores. Use placeholders {{name}} (contact) and {{customer}} (store name) so each is personalised. Return ONLY JSON {"subject":"...","body":"..."}. End the body with this signature:\n'+(settings.email_signature||'')+'\n\nDo NOT add a P.S.'; const goal=bulkAiIntent.value.trim()||'Write a friendly outreach email introducing our range.'; const txt=await callAI([{role:'user',content:'Goal: '+goal}],{model:'sonnet',max_tokens:1000,system:sys}); const j=parseJSON(txt); bulkCompose.subject=j.subject||bulkCompose.subject; bulkCompose.body=(j.body||bulkCompose.body||'').replace(/\\r\\n|\\n/g,'\n'); flash('Draft ready'); }catch(e){ flash('AI error: '+e.message); } bulkAiBusy.value=false; }
+      async function sendBulk(){
+        if(!bulkCompose.subject.trim()||!bulkCompose.body.trim()){ flash('Add a subject and body'); return; }
+        const recips=bulkRecipientList.value.slice(); if(!recips.length){ flash('No selected customers have an email'); return; }
+        bulkSendBusy.value=true;
+        const attachments=await gatherAttachments(bulkAttachIds.value);
+        const tag='Bulk '+shortDate(new Date().toISOString());
+        let sent=0;
+        for(const st of recips){
+          bulkProgress.value='Sending '+(sent+1)+' of '+recips.length+'…';
+          const to=storeEmails(st).join(', ');
+          const subject=mergeStore(bulkCompose.subject,st);
+          const bodyTxt=mergeStore(bulkCompose.body,st)+(bulkCompose.ps? '\n\nP.S. '+bulkCompose.ps:'');
+          try{
+            const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to,subject,text:bodyTxt,attachments,bannerUrl:settings.email_banner_url})});
+            const d=await r.json();
+            if(r.ok){ sent++;
+              await sb.from('activities').insert({store_id:st.id,type:'email',result:'📣 Bulk: '+subject,gmail_id:(d.id||('bulk_'+Date.now()+'_'+st.id)),created_by:me.value,occurred_at:new Date().toISOString()});
+              const tags=Array.isArray(st.tags)?st.tags.slice():[]; if(!tags.includes(tag)) tags.push(tag);
+              const patch={tags,updated_at:new Date().toISOString()}; if(st.status==='lead') patch.status='sent_comm';
+              await sb.from('stores').update(patch).eq('id',st.id);
+            }
+          }catch(e){}
+        }
+        bulkSendBusy.value=false; bulkProgress.value=''; showBulkEmail.value=false; bulkAttachIds.value=[];
+        await loadAll(); flash('Bulk email sent to '+sent+' of '+recips.length);
+      }
       async function saveQuote(q){ const ex=savedQuotes.value.find(x=>x.text===q.text); if(!ex){ const r=await sb.from('motivation').insert({text:q.text,source:q.source,created_by:me.value}).select().single(); if(r.data){ savedQuotes.value.unshift(r.data); flash('Saved to Motivation'); } } else { flash('Already saved'); } nextQuote(); }
       async function deleteQuote(q){ await sb.from('motivation').delete().eq('id',q.id); savedQuotes.value=savedQuotes.value.filter(x=>x.id!==q.id); }
 
@@ -956,10 +1010,10 @@
       }
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; attachIds.value=[]; curEmails.value=[]; emailBodies.value={}; loadEmails(); markStoreRead(s.id); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; attachIds.value=[]; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
@@ -1014,7 +1068,9 @@
       async function delOrder(o){ await sb.from('orders').delete().eq('id',o.id); await loadAll(); }
 
       // ===== email =====
-      function merge(str){ if(!str) return ''; return str.replace(/\{\{\s*store_name\s*\}\}/g,cur.value.store_name||'').replace(/\{\{\s*contact_name\s*\}\}/g,cur.value.contact_name||'there').replace(/\{\{\s*area\s*\}\}/g,cur.value.area||''); }
+      function mergeStore(str, st){ if(!str) return ''; const nm=st.contact_name||'there'; const store=st.store_name||''; return str.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store).replace(/\{\{\s*(contact_name|name)\s*\}\}/gi,nm).replace(/\{\{\s*area\s*\}\}/gi,st.area||''); }
+      function merge(str){ return mergeStore(str, cur.value); }
+      function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=merge(t.subject); email.body=merge(t.body).replace(/\\r\\n|\\n/g,'\n'); }
       function finalBody(){ return email.body + (email.ps? '\n\nP.S. '+email.ps : ''); }
       function openGmail(){ const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email.to)+'&su='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(finalBody()); window.open(u,'_blank'); }
@@ -1029,7 +1085,7 @@
           const r=await fetch('/.netlify/functions/gmail-inbox',{method:'POST',headers:{'Authorization':'Bearer '+(await portalToken())}});
           const d=await r.json(); const msgs=d.messages||[];
           const have=new Set(activities.value.filter(a=>a.gmail_id).map(a=>a.gmail_id));
-          const byEmail={}; for(const st of stores.value){ if(st.contact_email) byEmail[st.contact_email.trim().toLowerCase()]=st.id; if(st.store_email) byEmail[st.store_email.trim().toLowerCase()]=st.id; }
+          const byEmail={}; for(const st of stores.value){ [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ if(e) byEmail[e.trim().toLowerCase()]=st.id; }); }
           const rows=[];
           for(const m of msgs){ const sid=byEmail[(m.email||'').toLowerCase()]; if(sid && m.id && !have.has(m.id)){ rows.push({store_id:sid,type:'email',result:'📥 '+(m.subject||'(no subject)')+(m.snippet? '\n'+m.snippet : ''),gmail_id:m.id,unread:true,created_by:'Gmail',occurred_at:m.date? new Date(m.date).toISOString(): new Date().toISOString()}); } }
           if(rows.length){ await sb.from('activities').insert(rows); await loadAll(); flash(rows.length+' new email'+(rows.length>1?'s':'')+' synced'); }
@@ -1041,7 +1097,7 @@
       async function uploadBanner(e){ const f=e.target.files[0]; if(!f) return; bannerBusy.value=true; try{ const path='email-banner-'+Date.now()+'-'+f.name.replace(/[^a-zA-Z0-9._-]/g,'_'); const up=await sb.storage.from('sales-public').upload(path,f,{upsert:true}); if(up.error) throw up.error; const { data }=sb.storage.from('sales-public').getPublicUrl(path); settings.email_banner_url=data.publicUrl; await sb.from('settings').upsert({key:'email_banner_url',value:data.publicUrl}); flash('Banner updated'); }catch(err){ flash('Upload failed: '+(err.message||err)); } bannerBusy.value=false; e.target.value=''; }
       function toggleAttach(id){ const i=attachIds.value.indexOf(id); if(i<0) attachIds.value.push(id); else attachIds.value.splice(i,1); }
       function abToB64(buf){ const b=new Uint8Array(buf); let s=''; const c=0x8000; for(let i=0;i<b.length;i+=c){ s+=String.fromCharCode.apply(null,b.subarray(i,i+c)); } return btoa(s); }
-      async function gatherAttachments(){ const out=[]; for(const d of documents.value.filter(x=>attachIds.value.includes(x.id))){ try{ const { data }=await sb.storage.from('sales-docs').createSignedUrl(d.storage_path,600); const resp=await fetch(data.signedUrl); const buf=await resp.arrayBuffer(); out.push({filename:d.name,mimeType:d.file_type||'application/octet-stream',dataBase64:abToB64(buf)}); }catch(e){} } return out; }
+      async function gatherAttachments(ids){ ids=ids||attachIds.value; const out=[]; for(const d of documents.value.filter(x=>ids.includes(x.id))){ try{ const { data }=await sb.storage.from('sales-docs').createSignedUrl(d.storage_path,600); const resp=await fetch(data.signedUrl); const buf=await resp.arrayBuffer(); out.push({filename:d.name,mimeType:d.file_type||'application/octet-stream',dataBase64:abToB64(buf)}); }catch(e){} } return out; }
       async function sendEmail(){
         if(!email.to.trim()){ flash('Add a recipient'); return; }
         if(!email.subject.trim()){ flash('Add a subject'); return; }
@@ -1067,8 +1123,10 @@
         }catch(e){ flash('AI error: '+e.message); }
         aiBusy.value=false;
       }
-      async function loadEmails(){ curEmails.value=[]; emailBodies.value={}; const addr=cur.value && (cur.value.contact_email||cur.value.store_email); if(!addr) return; loadingEmails.value=true; try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({email:addr})}); const d=await r.json(); if(d.messages) curEmails.value=d.messages; }catch(e){} loadingEmails.value=false; }
+      async function loadEmails(){ curEmails.value=[]; emailBodies.value={}; const ems=cur.value? storeEmails(cur.value):[]; if(!ems.length) return; loadingEmails.value=true; try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({emails:ems})}); const d=await r.json(); if(d.messages) curEmails.value=d.messages; }catch(e){} loadingEmails.value=false; }
       async function expandEmail(it){ if(emailBodies.value[it.id]){ const c={...emailBodies.value}; delete c[it.id]; emailBodies.value=c; return; } try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); emailBodies.value={...emailBodies.value,[it.id]:d.text||'(no text)'}; }catch(e){ flash('Could not load email'); } }
+      const filedIds=ref([]);
+      async function fileEmail(it){ try{ const r=await fetch('/.netlify/functions/gmail-file',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed'); filedIds.value=filedIds.value.concat([it.id]); activities.value=activities.value.map(a=> a.gmail_id===it.id? {...a,unread:false}:a); flash('Filed to CRM Reviewed'); }catch(e){ flash('Could not file: '+e.message); } }
       const curTimeline=computed(()=>{
         if(!cur.value) return [];
         const notes=activities.value.filter(a=>a.store_id===cur.value.id && !a.gmail_id).map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
@@ -1210,6 +1268,8 @@
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
         showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,
+        bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
+        filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         openAdmin,saveSettings,newTemplate,saveTemplate,delTemplate,uploadBanner,bannerBusy,
         toast };
