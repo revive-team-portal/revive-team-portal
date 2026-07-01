@@ -1419,6 +1419,16 @@
           const flat=(arr)=> (arr||[]).map(o=>{ const r={}; for(const k in o){ const v=o[k]; r[k]=Array.isArray(v)? v.join(', ') : (v&&typeof v==='object'? JSON.stringify(v) : v); } return r; });
           const wb=XLSX.utils.book_new();
           const add=(name,arr)=>{ const rows=flat(arr); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length?rows:[{}]), name); };
+          // Readable timeline: Store name, Event type, easy date, detail, by — sorted by store then date
+          const nameById={}; (stores.value||[]).forEach(x=>{ nameById[x.id]=x.name||x.store_name||''; });
+          const evType=(a)=> (a.type==='email' && a.created_by==='Gmail') ? 'Email In' : noteTypeLabel(a.type);
+          const niceD=(ts)=> ts? new Date(ts).toLocaleDateString('en-NZ',{timeZone:'Pacific/Auckland',weekday:'short',day:'numeric',month:'short',year:'numeric'}) : '';
+          const tl=(activities.value||[]).map(a=>({ 'Store name':nameById[a.store_id]||'(unknown)', 'Event type':evType(a), 'Date':niceD(a.occurred_at), 'Detail':a.result||a.note||a.text||'', 'By':a.created_by||'', _sn:(nameById[a.store_id]||'').toLowerCase(), _d:nzYMD(a.occurred_at) }))
+            .sort((x,y)=> x._sn<y._sn?-1 : x._sn>y._sn?1 : (x._d<y._d?-1 : x._d>y._d?1 : 0));
+          tl.forEach(r=>{ delete r._sn; delete r._d; });
+          const tlWs=XLSX.utils.json_to_sheet(tl.length?tl:[{'Store name':'','Event type':'','Date':'','Detail':'','By':''}]);
+          tlWs['!cols']=[{wch:26},{wch:12},{wch:24},{wch:60},{wch:14}];
+          XLSX.utils.book_append_sheet(wb, tlWs, 'Timeline');
           add('Stores', stores.value);
           add('Notes & Emails', activities.value);
           add('Orders', orders.value);
