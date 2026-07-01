@@ -1059,11 +1059,18 @@
         await sb.from('activities').insert({store_id,type,result:text,created_by:me.value,occurred_at:new Date().toISOString()});
       }
       async function addActivity(){
-        if(!actForm.result.trim()){ flash('Write a note first'); return; }
-        const iso = actForm.date? new Date(actForm.date+'T12:00:00').toISOString() : new Date().toISOString();
-        await sb.from('activities').insert({store_id:cur.value.id,type:actForm.type,result:actForm.result.trim(),created_by:me.value,occurred_at:iso});
+        const text=(actForm.result||'').trim();
+        if(!text){ flash('Write a note first'); return; }
+        if(!cur.value || !cur.value.id){ flash('Save the store first, then add notes'); return; }
+        let iso;
+        try{ iso = actForm.date? new Date(actForm.date+'T12:00:00').toISOString() : new Date().toISOString(); }
+        catch(e){ iso = new Date().toISOString(); }
+        const row={store_id:cur.value.id,type:actForm.type,result:text,created_by:me.value,occurred_at:iso};
+        const { data, error }=await sb.from('activities').insert(row).select().single();
+        if(error){ flash('Could not save note: '+error.message); return; }
+        activities.value=[data, ...activities.value];
         actForm.result=''; actForm.type='note'; actForm.date=todayStr();
-        await loadAll(); flash('Note added');
+        flash('Note added \u2713');
       }
       async function delActivity(a){ await sb.from('activities').delete().eq('id',a.id); await loadAll(); }
 
