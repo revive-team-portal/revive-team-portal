@@ -263,6 +263,7 @@
                 <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
               </select>
               <button @click="aiDraft" :disabled="aiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ aiBusy?'…':'✨ AI draft' }}</button>
+              <button @click="clearCompose" class="text-xs text-stone-500 hover:text-stone-800 border border-stone-300 rounded px-2 py-1.5">Clear details</button>
             </div>
             <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
             <label class="block"><span class="lbl">Subject <button @click="aiSubject" :disabled="aiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="email.subject" class="inp"></label>
@@ -884,6 +885,12 @@
       const actForm=reactive({type:'note',result:'',date:todayStr()});
       const orderForm=reactive({order_date:todayStr(),amount:'',notes:''});
       const email=reactive({to:'',subject:'',body:'',ps:''});
+      const lastEmail=ref(null);
+      try{ const _le=localStorage.getItem('revive_last_email'); if(_le) lastEmail.value=JSON.parse(_le); }catch(e){}
+      function saveLastEmail(o){ lastEmail.value=o; try{ localStorage.setItem('revive_last_email', JSON.stringify(o)); }catch(e){} }
+      function blankCompose(){ email.subject=''; email.body=''; email.ps=psList.value[0]||''; attachIds.value=[]; }
+      function prefillFromLast(){ const L=lastEmail.value; if(L && cur.value){ email.subject=merge(L.subject||''); email.body=merge(L.body||''); email.ps=L.ps||''; attachIds.value=(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)); } else { blankCompose(); } }
+      function clearCompose(){ blankCompose(); selectedTemplate.value=''; aiIntent.value=''; flash('Cleared'); }
       const psList=computed(()=> (settings.ps_list||'').split('\n').map(s=>s.trim()).filter(Boolean));
       const selectedTemplate=ref(''), aiIntent=ref(''), aiBusy=ref(false);
       const sendBusy=ref(false); const attachIds=ref([]);
@@ -940,6 +947,7 @@
             }
           }catch(e){}
         }
+        if(sent>0) saveLastEmail({subject:bulkCompose.subject, body:bulkCompose.body, ps:bulkCompose.ps, attachIds:[...bulkAttachIds.value]});
         bulkSendBusy.value=false; bulkProgress.value=''; showBulkEmail.value=false; bulkAttachIds.value=[];
         await loadAll(); flash('Bulk email sent to '+sent+' of '+recips.length);
       }
@@ -1028,7 +1036,7 @@
       function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; attachIds.value=[]; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
@@ -1134,6 +1142,7 @@
           if(!r.ok){ flash('Send failed: '+(d.error||r.status)); sendBusy.value=false; return; }
           await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'✉️ Sent: '+email.subject,gmail_id:(d.id||('sent_'+Date.now())),created_by:me.value,occurred_at:new Date().toISOString()});
           if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; }
+          saveLastEmail({subject:email.subject, body:email.body, ps:email.ps, attachIds:[...attachIds.value]});
           email.subject=''; email.body=''; attachIds.value=[];
           await loadAll(); await loadEmails();
           flash('Email sent ✓');
@@ -1289,7 +1298,7 @@
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,
         openNewStore,openStore,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
         addActivity,delActivity,addOrder,delOrder,
-        applyTemplate,openGmail,copyEmail,logEmail,aiDraft,
+        applyTemplate,openGmail,copyEmail,logEmail,aiDraft,clearCompose,
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
         showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,effectiveBanner,attachBytes,attachSizeLabel,
