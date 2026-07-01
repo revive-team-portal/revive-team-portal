@@ -1237,7 +1237,7 @@
       // ===== store CRUD =====
       function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',no_reason:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
-      function openNewStore(){ cur.value=blankStore(); resetNoteForm(); }
+      function openNewStore(){ cur.value=blankStore(); resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
       function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
