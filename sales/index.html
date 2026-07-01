@@ -989,11 +989,11 @@
       const attachSizeLabel=(ids)=> ids.length? ('≈ '+fmtBytes(attachBytes(ids)*1.37)) : '';
       const search=ref(''), areaFilter=ref(''), sortKey=ref('name'), sortDir=ref('asc');
       const activeStatuses=ref([]); // empty = show all
-      function toggleStatus(k){ const i=activeStatuses.value.indexOf(k); if(i<0) activeStatuses.value.push(k); else activeStatuses.value.splice(i,1); }
+      function toggleStatus(k){ activeStatuses.value = activeStatuses.value.includes(k) ? activeStatuses.value.filter(x=>x!==k) : [...activeStatuses.value, k]; }
       const isStatusActive=(k)=> activeStatuses.value.includes(k);
       function clearStatuses(){ activeStatuses.value=[]; }
       const activeTypes=ref([]); // empty = show all
-      function toggleType(k){ const i=activeTypes.value.indexOf(k); if(i<0) activeTypes.value.push(k); else activeTypes.value.splice(i,1); }
+      function toggleType(k){ activeTypes.value = activeTypes.value.includes(k) ? activeTypes.value.filter(x=>x!==k) : [...activeTypes.value, k]; }
       const isTypeActive=(k)=> activeTypes.value.includes(k);
       function clearTypes(){ activeTypes.value=[]; }
       const countByType=(t)=> stores.value.filter(s=>(s.store_type||'')===t).length;
