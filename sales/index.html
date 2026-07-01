@@ -906,7 +906,7 @@
       try{ const _le=localStorage.getItem('revive_last_email'); if(_le) lastEmail.value=JSON.parse(_le); }catch(e){}
       function saveLastEmail(o){ lastEmail.value=o; try{ localStorage.setItem('revive_last_email', JSON.stringify(o)); }catch(e){} }
       function blankCompose(){ email.subject=''; email.body=''; email.ps=psList.value[0]||''; attachIds.value=[]; }
-      function prefillFromLast(){ const L=lastEmail.value; if(L && cur.value){ email.subject=merge(L.subject||''); email.body=merge(L.body||''); email.ps=L.ps||''; attachIds.value=(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)); } else { blankCompose(); } }
+      function prefillFromLast(){ const L=lastEmail.value; if(L && cur.value){ email.subject=(L.subject||''); email.body=(L.body||''); email.ps=L.ps||''; attachIds.value=(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)); } else { blankCompose(); } }
       function clearCompose(){ blankCompose(); selectedTemplate.value=''; aiIntent.value=''; flash('Cleared'); }
       const bodyRef=ref(null), bulkBodyRef=ref(null);
       const bodyCaret=ref(0), bulkCaret=ref(0);
@@ -1126,10 +1126,10 @@
       async function delOrder(o){ await sb.from('orders').delete().eq('id',o.id); await loadAll(); }
 
       // ===== email =====
-      function mergeStore(str, st){ if(!str) return ''; const nm=st.contact_name||'there'; const store=st.store_name||''; return str.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store).replace(/\{\{\s*(contact_name|contact|name)\s*\}\}/gi,nm).replace(/\{\{\s*area\s*\}\}/gi,st.area||''); }
+      function mergeStore(str, st){ if(!str) return ''; const nm=(st.contact_name||'').trim(); const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,st.area||''); return out; }
       function merge(str){ return mergeStore(str, cur.value); }
       function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
-      function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=merge(t.subject); email.body=merge(t.body).replace(/\\r\\n|\\n/g,'\n'); }
+      function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
       function finalBody(){ return email.body; }
       const previewSubject=computed(()=> cur.value? merge(email.subject||'') : (email.subject||''));
       const previewBody=computed(()=> cur.value? merge(finalBody()) : finalBody());
@@ -1210,7 +1210,7 @@
       async function aiDraft(){
         aiBusy.value=true;
         try{
-          const sys=(settings.ai_master_prompt||'')+'\n\nReturn ONLY a JSON object {"subject":"...","body":"..."}. The body must be plain text ready to send in his authentic voice, applying the persuasion principles above and using the store history provided. End with this signature:\n'+(settings.email_signature||'')+'\n\nAfter the signature, ALWAYS add one compelling P.S. line (starting with P.S.) that gives a reason to act now.';
+          const sys=(settings.ai_master_prompt||'')+'\n\nReturn ONLY a JSON object {"subject":"...","body":"..."}. The body must be plain text ready to send in his authentic voice, applying the persuasion principles above and using the store history provided. Use {{contact}} for the contact first name and {{customer}} for the store name (do not write actual names). End with this signature:\n'+(settings.email_signature||'')+'\n\nAfter the signature, ALWAYS add one compelling P.S. line (starting with P.S.) that gives a reason to act now.';
           const acts=curActivities.value.slice(0,8).map(a=>a.type+': '+((a.result||a.subject||'')+'').slice(0,140));
           const mails=curEmails.value.slice(0,5).map(m=>(m.direction==='out'?'Sent':'Received')+': '+(m.subject||'')+' — '+((m.snippet||'')+'').slice(0,120));
           const ctx={store:cur.value.store_name,type:cur.value.store_type,area:cur.value.area,contact:cur.value.contact_name,status:label(cur.value.status),recent_notes:acts,recent_emails:mails};
