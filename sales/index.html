@@ -225,20 +225,20 @@
             </label>
           </div>
           <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 space-y-1">
-            <div style="display:grid;grid-template-columns:2.4rem 1fr 1.35fr 1fr;gap:6px" class="text-[10px] text-stone-400 uppercase tracking-wide">
-              <span></span><span>Name / site</span><span>Email</span><span>Phone</span>
+            <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="text-[10px] text-stone-400 uppercase tracking-wide">
+              <span></span><span>First</span><span>Last</span><span>Email</span><span>Phone</span>
             </div>
-            <div style="display:grid;grid-template-columns:2.4rem 1fr 1.35fr 1fr;gap:6px" class="items-center">
-              <span class="text-[11px] text-stone-500 font-medium">C1</span>
-              <input v-model="cur.contact_name" placeholder="Name" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp">
+            <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="items-center">
+              <span class="text-base" title="Contact 1">👤</span>
+              <input v-model="cur.contact_first" placeholder="First" class="inp"><input v-model="cur.contact_last" placeholder="Last" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp">
             </div>
-            <div style="display:grid;grid-template-columns:2.4rem 1fr 1.35fr 1fr;gap:6px" class="items-center">
-              <span class="text-[11px] text-stone-500 font-medium">C2</span>
-              <input v-model="cur.contact2_name" placeholder="Name" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp">
+            <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="items-center">
+              <span class="text-base" title="Contact 2">👤</span>
+              <input v-model="cur.contact2_first" placeholder="First" class="inp"><input v-model="cur.contact2_last" placeholder="Last" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp">
             </div>
-            <div style="display:grid;grid-template-columns:2.4rem 1fr 1.35fr 1fr;gap:6px" class="items-center">
-              <span class="text-[11px] text-stone-500 font-medium">Store</span>
-              <input v-model="cur.website" placeholder="Website" class="inp"><input v-model="cur.store_email" placeholder="Email" class="inp"><input v-model="cur.store_phone" placeholder="Phone" class="inp">
+            <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="items-center">
+              <span class="text-base" title="Store / site">🏢</span>
+              <input v-model="cur.website" placeholder="Website" class="inp" style="grid-column:span 2"><input v-model="cur.store_email" placeholder="Email" class="inp"><input v-model="cur.store_phone" placeholder="Phone" class="inp">
             </div>
           </div>
           <label class="block"><span class="lbl">Address <a v-if="cur.address" :href="'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(cur.address)" target="_blank" class="text-amber-700 hover:underline float-right normal-case">📍 Open in Maps</a></span><input v-model="cur.address" class="inp"></label>
@@ -909,8 +909,8 @@
       const orderForm=reactive({order_date:todayStr(),amount:'',notes:''});
       const email=reactive({to:'',subject:'',body:'',ps:'',quote:'',threadId:''});
       const lastEmail=ref(null);
-      try{ const _le=localStorage.getItem('revive_last_email'); if(_le) lastEmail.value=JSON.parse(_le); }catch(e){}
-      function saveLastEmail(o){ lastEmail.value=o; try{ localStorage.setItem('revive_last_email', JSON.stringify(o)); }catch(e){} }
+      try{ const _le=localStorage.getItem('revive_last_email_v2'); if(_le) lastEmail.value=JSON.parse(_le); }catch(e){}
+      function saveLastEmail(o){ lastEmail.value=o; try{ localStorage.setItem('revive_last_email_v2', JSON.stringify(o)); }catch(e){} }
       function blankCompose(){ email.subject=''; email.body=''; email.ps=psList.value[0]||''; attachIds.value=[]; email.quote=''; email.threadId=''; }
       function prefillFromLast(){ const L=lastEmail.value; if(L && cur.value){ email.subject=(L.subject||''); email.body=(L.body||''); email.ps=L.ps||''; attachIds.value=(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)); } else { blankCompose(); } }
       function clearCompose(){ blankCompose(); selectedTemplate.value=''; aiIntent.value=''; flash('Cleared'); }
@@ -942,7 +942,7 @@
       function prevQuote(){ if(quotePtr.value>0) quotePtr.value--; }
       const bulkEmails=computed(()=> selectedIds.value.map(id=>{ const s=stores.value.find(x=>x.id===id); return s&&(s.contact_email||s.store_email); }).filter(Boolean));
       const bulkEmailsStr=computed(()=> bulkEmails.value.join(', '));
-      function openBulkEmail(){ const L=lastEmail.value; bulkCompose.subject=L?(L.subject||''):''; bulkCompose.body=L?(L.body||''):''; bulkCompose.ps=L?(L.ps||''):(psList.value[0]||''); bulkTemplate.value=''; bulkAttachIds.value=L?(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)):[]; bulkProgress.value=''; bulkRecipients.value=selectedIds.value.map(id=>{ const st=stores.value.find(s=>s.id===id); if(!st) return null; const ems=storeEmails(st); return { id, store_name:st.store_name, name:st.contact_name||'', emails:ems.join(', '), included:ems.length>0 }; }).filter(Boolean); showBulkEmail.value=true; }
+      function openBulkEmail(){ const L=lastEmail.value; bulkCompose.subject=L?(L.subject||''):''; bulkCompose.body=L?(L.body||''):''; bulkCompose.ps=L?(L.ps||''):(psList.value[0]||''); bulkTemplate.value=''; bulkAttachIds.value=L?(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)):[]; bulkProgress.value=''; bulkRecipients.value=selectedIds.value.map(id=>{ const st=stores.value.find(s=>s.id===id); if(!st) return null; const ems=storeEmails(st); return { id, store_name:st.store_name, name:(st.contact_first||(st.contact_name||'').trim().split(/\s+/)[0]||''), emails:ems.join(', '), included:ems.length>0 }; }).filter(Boolean); showBulkEmail.value=true; }
       async function copyBulkEmails(){ await navigator.clipboard.writeText(bulkEmailsStr.value); flash('Addresses copied'); }
       async function applyBulkNote(){ const txt=bulkNote.value.trim(); if(!txt){ flash('Enter a note'); return; } const rows=selectedIds.value.map(id=>({store_id:id,type:'email',result:txt,created_by:me.value,occurred_at:new Date().toISOString()})); await sb.from('activities').insert(rows); await loadAll(); flash('Note added to '+rows.length+' stores'); }
       const bulkCompose=reactive({subject:'',body:'',ps:''});
@@ -964,7 +964,7 @@
         for(const r of recips){
           const st=stores.value.find(x=>x.id===r.id)||{};
           bulkProgress.value='Sending '+(sent+1)+' of '+recips.length+'…';
-          const ctx={contact_name:r.name||'there', store_name:r.store_name||'', area:st.area||''};
+          const ctx={contact_first:r.name||'', store_name:r.store_name||'', area:st.area||''};
           const subject=mergeStore(bulkCompose.subject,ctx);
           const bodyTxt=mergeStore(bulkCompose.body,ctx);
           try{
@@ -1064,7 +1064,7 @@
       }
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
       function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
@@ -1076,6 +1076,8 @@
         if(!cur.value.store_name.trim()){ flash('Store name is required'); return false; }
         saving.value=true;
         cur.value.tags=tagText.value.split(',').map(t=>t.trim()).filter(Boolean);
+        cur.value.contact_name=((cur.value.contact_first||'')+' '+(cur.value.contact_last||'')).trim();
+        cur.value.contact2_name=((cur.value.contact2_first||'')+' '+(cur.value.contact2_last||'')).trim();
         const isNew=!cur.value.id;
         const payload={...cur.value, updated_at:new Date().toISOString()};
         if(isNew){ payload.created_by=me.value; delete payload.id; }
@@ -1132,7 +1134,7 @@
       async function delOrder(o){ await sb.from('orders').delete().eq('id',o.id); await loadAll(); }
 
       // ===== email =====
-      function mergeStore(str, st){ if(!str) return ''; const nm=(st.contact_name||'').trim(); const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,st.area||''); return out; }
+      function mergeStore(str, st){ if(!str) return ''; const nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,st.area||''); return out; }
       function merge(str){ return mergeStore(str, cur.value); }
       function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
