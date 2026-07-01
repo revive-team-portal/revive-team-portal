@@ -273,6 +273,10 @@
               <button v-for="m in MERGE_FIELDS" :key="m" @mousedown.prevent @click="insertMerge('s',m)" class="text-[11px] bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded px-1.5 py-0.5 font-mono">{{ m }}</button>
             </div>
             <textarea ref="bodyRef" v-model="email.body" @keyup="setCaret($event,'s')" @click="setCaret($event,'s')" @select="setCaret($event,'s')" rows="7" placeholder="Email body…" class="inp font-mono text-xs"></textarea>
+            <div v-if="email.quote" class="text-xs">
+              <div class="flex justify-between items-center"><span class="lbl" style="margin:0">Quoted below your reply</span><button @click="email.quote=''" class="text-stone-400 hover:text-red-500">✕ remove</button></div>
+              <div class="border-l-2 border-stone-300 pl-2 text-stone-500 whitespace-pre-wrap max-h-32 overflow-y-auto">{{ email.quote }}</div>
+            </div>
             <div v-if="documents.length" class="text-xs">
               <p class="lbl">Attach documents</p>
               <div class="flex flex-wrap gap-1.5">
@@ -344,11 +348,12 @@
                 <span class="text-sm">✉️ <span class="text-[10px] px-1.5 py-0.5 rounded-full" :class="it.direction==='out'?'bg-sky-100 text-sky-700':'bg-emerald-100 text-emerald-700'">{{ it.direction==='out'?'Sent':'Received' }}</span> <span class="text-xs text-stone-400">Gmail</span></span>
                 <span class="text-xs text-stone-400">{{ fmtDateTime(it.when) }}</span>
               </div>
-              <p class="text-[13px] font-medium mt-1">{{ it.subject || '(no subject)' }}</p>
-              <p v-if="!emailBodies[it.id]" class="text-xs text-stone-500 mt-0.5">{{ it.snippet }}</p>
+              <p class="text-[13px] font-medium mt-1">{{ decodeHtml(it.subject) || '(no subject)' }}</p>
+              <p v-if="!emailBodies[it.id]" class="text-xs text-stone-500 mt-0.5">{{ decodeHtml(it.snippet) }}</p>
               <p v-else class="text-[13px] text-stone-700 whitespace-pre-wrap mt-1">{{ emailBodies[it.id] }}</p>
               <div class="flex items-center gap-3 mt-1">
                 <button @click="expandEmail(it)" class="text-xs text-amber-700 hover:text-amber-900">{{ emailBodies[it.id]?'Hide':'Read full ▾' }}</button>
+                <button @click="reply(it)" class="text-xs text-sky-700 border border-sky-300 rounded px-2 py-0.5 hover:bg-sky-50">↩ Reply</button>
                 <button v-if="it.direction==='in' && !filedIds.includes(it.id)" @click="fileEmail(it)" class="text-xs text-emerald-700 border border-emerald-300 rounded px-2 py-0.5 hover:bg-emerald-50">✓ Confirm e-mail read and file it in G-mail</button>
                 <span v-if="filedIds.includes(it.id)" class="text-xs text-emerald-600">✓ Filed to CRM Reviewed</span>
               </div>
@@ -901,11 +906,11 @@
       const cur=ref(null), tab=ref('details'), saving=ref(false), tagText=ref('');
       const actForm=reactive({type:'note',result:'',date:todayStr()});
       const orderForm=reactive({order_date:todayStr(),amount:'',notes:''});
-      const email=reactive({to:'',subject:'',body:'',ps:''});
+      const email=reactive({to:'',subject:'',body:'',ps:'',quote:'',threadId:''});
       const lastEmail=ref(null);
       try{ const _le=localStorage.getItem('revive_last_email'); if(_le) lastEmail.value=JSON.parse(_le); }catch(e){}
       function saveLastEmail(o){ lastEmail.value=o; try{ localStorage.setItem('revive_last_email', JSON.stringify(o)); }catch(e){} }
-      function blankCompose(){ email.subject=''; email.body=''; email.ps=psList.value[0]||''; attachIds.value=[]; }
+      function blankCompose(){ email.subject=''; email.body=''; email.ps=psList.value[0]||''; attachIds.value=[]; email.quote=''; email.threadId=''; }
       function prefillFromLast(){ const L=lastEmail.value; if(L && cur.value){ email.subject=(L.subject||''); email.body=(L.body||''); email.ps=L.ps||''; attachIds.value=(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)); } else { blankCompose(); } }
       function clearCompose(){ blankCompose(); selectedTemplate.value=''; aiIntent.value=''; flash('Cleared'); }
       const bodyRef=ref(null), bulkBodyRef=ref(null);
@@ -1061,7 +1066,7 @@
       function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
@@ -1130,7 +1135,12 @@
       function merge(str){ return mergeStore(str, cur.value); }
       function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
-      function finalBody(){ return email.body; }
+      function finalBody(){ return email.body + (email.quote? '\n\n'+email.quote : ''); }
+      const _decEl=(typeof document!=='undefined')?document.createElement('textarea'):null;
+      function decodeHtml(str){ if(!str) return ''; if(_decEl){ _decEl.innerHTML=str; return _decEl.value; } return str; }
+      function extractEmail(h){ const m=(h||'').match(/<([^>]+)>/); return (m?m[1]:(h||'')).trim(); }
+      function buildQuote(it, bodyText){ const who=decodeHtml(it.from||it.to||''); const when=fmtDateTime(it.when); const src=(bodyText||decodeHtml(it.snippet)||''); const q=src.split('\n').map(l=>'> '+l).join('\n'); return 'On '+when+', '+who+' wrote:\n'+q; }
+      async function reply(it){ let bodyText=emailBodies.value[it.id]; if(!bodyText){ try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); bodyText=decodeHtml(d.text||''); }catch(e){} } const counterpart = it.direction==='out'? it.to : it.from; email.to = extractEmail(counterpart) || storeEmails(cur.value).join(', '); email.subject = /^\s*re:/i.test(it.subject||'')? decodeHtml(it.subject||'') : ('Re: '+decodeHtml(it.subject||'')); email.threadId = it.threadId || ''; email.body=''; email.quote = buildQuote(it, bodyText); flash('Reply ready — write your message above the quote'); }
       const previewSubject=computed(()=> cur.value? merge(email.subject||'') : (email.subject||''));
       const previewBody=computed(()=> cur.value? merge(finalBody()) : finalBody());
       const attachDocs=computed(()=> documents.value.filter(d=>attachIds.value.includes(d.id)));
@@ -1148,7 +1158,7 @@
           const have=new Set(activities.value.filter(a=>a.gmail_id).map(a=>a.gmail_id));
           const byEmail={}; for(const st of stores.value){ [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ if(e) byEmail[e.trim().toLowerCase()]=st.id; }); }
           const rows=[];
-          for(const m of msgs){ const sid=byEmail[(m.email||'').toLowerCase()]; if(sid && m.id && !have.has(m.id)){ rows.push({store_id:sid,type:'email',result:'📥 '+(m.subject||'(no subject)')+(m.snippet? '\n'+m.snippet : ''),gmail_id:m.id,unread:true,created_by:'Gmail',occurred_at:m.date? new Date(m.date).toISOString(): new Date().toISOString()}); } }
+          for(const m of msgs){ const sid=byEmail[(m.email||'').toLowerCase()]; if(sid && m.id && !have.has(m.id)){ rows.push({store_id:sid,type:'email',result:'📥 '+decodeHtml(m.subject||'(no subject)')+(m.snippet? '\n'+decodeHtml(m.snippet) : ''),gmail_id:m.id,unread:true,created_by:'Gmail',occurred_at:m.date? new Date(m.date).toISOString(): new Date().toISOString()}); } }
           if(rows.length){ await sb.from('activities').insert(rows); await loadAll(); flash(rows.length+' new email'+(rows.length>1?'s':'')+' synced'); }
         }catch(e){}
       }
@@ -1167,13 +1177,13 @@
           const attachments=await gatherAttachments();
           const subjectOut=merge(email.subject);
           const bodyOut=merge(finalBody());
-          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:subjectOut,text:bodyOut,attachments,bannerUrl:effectiveBanner.value})});
+          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:subjectOut,text:bodyOut,attachments,bannerUrl:effectiveBanner.value,threadId:email.threadId})});
           const d=await r.json();
           if(!r.ok){ flash('Send failed: '+(d.error||r.status)); sendBusy.value=false; return; }
           await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'✉️ Sent: '+subjectOut,gmail_id:(d.id||('sent_'+Date.now())),created_by:me.value,occurred_at:new Date().toISOString()});
           if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; }
           saveLastEmail({subject:email.subject, body:email.body, ps:email.ps, attachIds:[...attachIds.value]});
-          email.subject=''; email.body=''; attachIds.value=[];
+          email.subject=''; email.body=''; email.quote=''; email.threadId=''; attachIds.value=[];
           await loadAll(); await loadEmails();
           flash('Email sent ✓');
         }catch(e){ flash('Send error: '+e.message); }
@@ -1188,7 +1198,7 @@
         aiBusy.value=false;
       }
       async function loadEmails(){ curEmails.value=[]; emailBodies.value={}; const ems=cur.value? storeEmails(cur.value):[]; if(!ems.length) return; loadingEmails.value=true; try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({emails:ems})}); const d=await r.json(); if(d.messages) curEmails.value=d.messages; }catch(e){} loadingEmails.value=false; }
-      async function expandEmail(it){ if(emailBodies.value[it.id]){ const c={...emailBodies.value}; delete c[it.id]; emailBodies.value=c; return; } try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); emailBodies.value={...emailBodies.value,[it.id]:d.text||'(no text)'}; }catch(e){ flash('Could not load email'); } }
+      async function expandEmail(it){ if(emailBodies.value[it.id]){ const c={...emailBodies.value}; delete c[it.id]; emailBodies.value=c; return; } try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); emailBodies.value={...emailBodies.value,[it.id]:decodeHtml(d.text||'(no text)')}; }catch(e){ flash('Could not load email'); } }
       const filedIds=ref([]);
       async function fileEmail(it){ try{ const r=await fetch('/.netlify/functions/gmail-file',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed'); filedIds.value=filedIds.value.concat([it.id]); await sb.from('activities').update({unread:false}).eq('gmail_id',it.id); activities.value=activities.value.map(a=> a.gmail_id===it.id? {...a,unread:false}:a); flash('Filed to CRM Reviewed'); }catch(e){ flash('Could not file: '+e.message); } }
       const curTimeline=computed(()=>{
@@ -1328,7 +1338,7 @@
         cur,tab,saving,tagText,actForm,orderForm,email,selectedTemplate,aiIntent,aiBusy,
         curActivities,curNotes,noteSortDesc,updateNoteDate,curOrders,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
-        sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,
+        sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,reply,decodeHtml,
         MERGE_FIELDS,bodyRef,bulkBodyRef,insertMerge,setCaret,clearBulkCompose,bulkPreviewRecip,bulkPreviewSubject,bulkPreviewBody,
         openNewStore,openStore,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
         addActivity,delActivity,addOrder,delOrder,
