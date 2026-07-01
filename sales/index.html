@@ -174,7 +174,6 @@
               <td class="px-3 py-3 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)" class="w-5 h-5 accent-amber-600 cursor-pointer"></td>
               <td v-if="aiActionsOn" class="px-3 py-2.5 align-top w-44">
                 <div v-if="s.ai_action" class="rounded-lg px-2 py-1.5 text-xs font-medium leading-snug" :class="aiBoxClass(s.ai_priority)">{{ s.ai_action }}</div>
-                <span v-else class="text-stone-300 text-xs">—</span>
               </td>
               <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
                 <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}</p>
@@ -1171,19 +1170,33 @@
         if(aiActionsBusy.value) return;
         aiActionsBusy.value=true; flash('AI scanning all customers…');
         try{
+          const now=Date.now();
           const idx=stores.value.map((s,i)=>({n:i+1,s}));
-          const lines=idx.map(({n,s})=>{ const d=daysSince(s); const last=recentNotes(s.id)[0]; const ln=last? ((last.result||cap(last.type))+'').replace(/\s+/g,' ').slice(0,60) : 'no activity'; return '#'+n+' | '+(s.store_name||'')+' | type:'+(s.store_type||'-')+' | rating:'+(s.rating||1)+'star | status:'+label(s.status)+' | daysSinceContact:'+(d===null?'never':d)+' | last:'+ln; });
+          const lines=idx.map(({n,s})=>{
+            const acts=activities.value.filter(a=>a.store_id===s.id);
+            const recent=acts.slice(0,4).map(a=>{ const t=(a.type==='email'&&a.created_by==='Gmail')?'Email In':noteTypeLabel(a.type); return nzYMD(a.occurred_at)+' '+t+': '+((a.result||cap(a.type))+'').replace(/\s+/g,' ').slice(0,45); });
+            const d=daysSince(s);
+            const lastOut=acts.find(a=>a.type==='email'&&a.created_by!=='Gmail');
+            const dEmail=lastOut? Math.floor((now-new Date(lastOut.occurred_at).getTime())/86400000) : null;
+            const reply=acts.find(a=>a.type==='email'&&a.created_by==='Gmail');
+            const awaiting = lastOut && (!reply || new Date(reply.occurred_at) < new Date(lastOut.occurred_at));
+            return '#'+n+' | '+(s.store_name||'')+' | type:'+(s.store_type||'-')+' | rating:'+(s.rating||1)+'star | status:'+label(s.status)+' | daysSinceLastContact:'+(d===null?'never':d)+' | lastEmailSentDaysAgo:'+(dEmail===null?'never':dEmail)+' | awaitingReply:'+(awaiting?'yes':'no')+' | recent:['+recent.join(' ; ')+']';
+          });
           const sys=(settings.ai_actions_prompt||'').trim()
-            + '\n\nYou are a sales manager triaging a CRM for Revivealicious Foods. For EVERY store listed, decide the single best next action and a priority.'
-            + '\nHigher star ratings usually deserve higher priority — but not always: a hot 1-star that just replied can outrank a cold 3-star. Weigh rating, days since last contact, pipeline status, and the last activity together.'
-            + '\naction = a short imperative, max 6 words (e.g. "Call to check in", "Email samples offer", "Offer a free sample", "Send price list", "Follow up on quote").'
-            + '\npriority: 1 = do today (high), 2 = soon, 3 = later. Only a handful should be priority 1.'
-            + '\nReturn ONLY a JSON array covering every # number: [{"n":1,"action":"...","priority":1}]. No prose.';
+            + '\n\nYou are a sales manager triaging a CRM for Revivealicious Foods. For EVERY store listed, output the single best NEXT action and a priority. Read the recent activity carefully so you NEVER repeat something that was just done.'
+            + '\nStatus meanings: Lead=not yet contacted; Sent Communication=intro email/message already sent; Connected=have made contact; Sent Sample/Details=samples or info sent; First Order / Repeat Customer=buying; "No — Reconnect"=declined for now, revisit later; "No — Permanent"=declined, do not pursue.'
+            + '\nHARD RULES:'
+            + '\n- NEVER recommend an action that was effectively just completed. If an intro/first email was already sent and awaitingReply=yes, do NOT suggest emailing again — the next step is a PHONE CALL to follow up.'
+            + '\n- Leave the action BLANK (empty string, priority 0) when there is nothing useful to do now: status is "No — Permanent"; OR the store was just contacted (daysSinceLastContact within ~7) and it is too soon to chase; OR you are simply waiting with nothing due.'
+            + '\n- Higher star ratings usually raise priority, but not always — a hot 1-star that just replied can outrank a cold 3-star. Weigh rating, recency, status and recent activity together.'
+            + '\naction = a short imperative, max 6 words (e.g. "Call to follow up", "Phone to introduce us", "Offer a free sample", "Send price list", "Check in on samples").'
+            + '\npriority: 1 = do today, 2 = soon, 3 = later. Only a handful should be 1. Use "" with priority 0 for blank/no-action.'
+            + '\nReturn ONLY a JSON array covering every # number, e.g. [{"n":1,"action":"Call to follow up","priority":1},{"n":2,"action":"","priority":0}]. No prose.';
           const txt=await callAI([{role:'user',content:'Stores:\n'+lines.join('\n')}],{model:'sonnet',max_tokens:4000,system:sys});
           const arr=parseJSON(txt); const byN={}; (Array.isArray(arr)?arr:[]).forEach(o=>{ const n=parseInt(o.n); if(n) byN[n]={action:((o.action||'')+'').trim().slice(0,80), priority:Math.max(1,Math.min(3,parseInt(o.priority)||3))}; });
           let cnt=0;
-          for(const {n,s} of idx){ const r=byN[n]; if(!r||!r.action) continue; await sb.from('stores').update({ai_action:r.action, ai_priority:r.priority}).eq('id',s.id); s.ai_action=r.action; s.ai_priority=r.priority; cnt++; }
-          aiActionsOn.value=true; flash('AI actions ready ('+cnt+' stores)');
+          for(const {n,s} of idx){ const r=byN[n]; const action=(r&&r.action)? r.action : null; const priority=action? r.priority : null; if((s.ai_action||null)===action && (s.ai_priority||null)===priority) continue; await sb.from('stores').update({ai_action:action, ai_priority:priority}).eq('id',s.id); s.ai_action=action; s.ai_priority=priority; if(action) cnt++; }
+          aiActionsOn.value=true; flash('AI actions ready ('+cnt+' with an action)');
         }catch(e){ flash('AI actions failed: '+e.message); }
         aiActionsBusy.value=false;
       }
