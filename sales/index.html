@@ -165,11 +165,11 @@
           <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wide">
             <tr>
               <th class="px-3 py-2.5"><input type="checkbox" :checked="allShownSelected" @change="toggleAll" class="w-5 h-5 accent-amber-600 cursor-pointer align-middle"></th>
-              <th v-if="aiActionsOn" class="text-left font-semibold px-3 py-2.5">Recommended action</th>
-              <th @click="setSort('name')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Store<span class="text-amber-600">{{ sortArrow('name') }}</span></th>
-              <th @click="setSort('area')" class="text-left font-semibold px-3 py-2.5 hidden md:table-cell cursor-pointer select-none hover:text-stone-700">Area<span class="text-amber-600">{{ sortArrow('area') }}</span></th>
-              <th @click="setSort('status')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Status<span class="text-amber-600">{{ sortArrow('status') }}</span></th>
-              <th @click="setSort('rating')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Rating<span class="text-amber-600">{{ sortArrow('rating') }}</span></th>
+              <th v-if="aiActionsOn" @click="setSort('priority')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap">Recommended action<span class="text-amber-600 text-sm">{{ sortArrow('priority') }}</span></th>
+              <th @click="setSort('name')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Store<span class="text-amber-600 text-sm">{{ sortArrow('name') }}</span></th>
+              <th @click="setSort('area')" class="text-left font-semibold px-3 py-2.5 hidden md:table-cell cursor-pointer select-none hover:text-stone-700">Area<span class="text-amber-600 text-sm">{{ sortArrow('area') }}</span></th>
+              <th @click="setSort('status')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Status<span class="text-amber-600 text-sm">{{ sortArrow('status') }}</span></th>
+              <th @click="setSort('rating')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap">Rating<span class="text-amber-600 text-sm">{{ sortArrow('rating') }}</span></th>
               <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">Recent notes</th>
             </tr>
           </thead>
@@ -642,7 +642,7 @@
             <p class="lbl mb-1">Customers touched ({{ touchedStores.length }})</p>
             <div class="space-y-1.5 max-h-[55vh] overflow-y-auto">
               <div v-for="c in touchedStores" :key="c.id" class="border-b border-stone-100 pb-1">
-                <p class="text-sm font-medium">{{ c.name }} <span class="text-[10px] text-stone-400">{{ c.stype }}</span></p>
+                <p class="text-sm font-medium"><a @click="openStoreById(c.id)" class="text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600 cursor-pointer">{{ c.name }}</a> <span class="text-[10px] text-stone-400">{{ c.stype }}</span></p>
                 <p v-for="(e,i) in c.events" :key="i" class="text-[11px] text-stone-500 truncate"><span class="text-stone-400">{{ e.label }}</span> {{ e.text }}</p>
               </div>
               <p v-if="!touchedStores.length" class="text-xs text-stone-400 text-center py-6">No activity in this range.</p>
@@ -1146,11 +1146,9 @@
           else if(k2==='area') r=(a.area||'').localeCompare(b.area||'');
           else if(k2==='status') r=sOrder.indexOf(a.status)-sOrder.indexOf(b.status);
           else if(k2==='rating') r=(a.rating||1)-(b.rating||1);
+          else if(k2==='priority'){ const pa=a.ai_priority||9, pb=b.ai_priority||9; r = (pa-pb) || ((b.rating||1)-(a.rating||1)) || (a.store_name||'').localeCompare(b.store_name||''); }
           return sortDir.value==='asc'? r : -r;
         });
-        if(aiActionsOn.value){
-          list.sort((a,b)=>{ const pa=a.ai_priority||9, pb=b.ai_priority||9; if(pa!==pb) return pa-pb; const ra=a.rating||1, rb=b.rating||1; if(ra!==rb) return rb-ra; return (a.store_name||'').localeCompare(b.store_name||''); });
-        }
         return list;
       });
       const displayStores=ref([]);
@@ -1188,7 +1186,7 @@
           const arr=parseJSON(txt); const byN={}; (Array.isArray(arr)?arr:[]).forEach(o=>{ const n=parseInt(o.n); if(n) byN[n]={action:((o.action||'')+'').trim().slice(0,80), priority:Math.max(1,Math.min(3,parseInt(o.priority)||3))}; });
           let cnt=0;
           for(const {n,s} of idx){ const r=byN[n]; const action=(r&&r.action)? r.action : null; const priority=action? r.priority : null; if((s.ai_action||null)===action && (s.ai_priority||null)===priority) continue; await sb.from('stores').update({ai_action:action, ai_priority:priority}).eq('id',s.id); s.ai_action=action; s.ai_priority=priority; if(action) cnt++; }
-          aiActionsOn.value=true; flash('AI actions ready ('+cnt+' with an action)');
+          aiActionsOn.value=true; sortKey.value='priority'; sortDir.value='asc'; flash('AI actions ready ('+cnt+' with an action)');
         }catch(e){ flash('AI actions failed: '+e.message); }
         aiActionsBusy.value=false;
       }
@@ -1221,7 +1219,7 @@
         (sx.data||[]).forEach(r=>{ if(r.key in settings) settings[r.key]=r.value||''; });
         const mq=await sb.from('motivation').select('*').order('created_at',{ascending:false});
         savedQuotes.value=mq.data||[];
-        if(stores.value.some(s=>s.ai_priority)) aiActionsOn.value=true;
+        if(stores.value.some(s=>s.ai_priority)){ aiActionsOn.value=true; if(sortKey.value==='name'){ sortKey.value='priority'; sortDir.value='asc'; } }
         refreshOrder();
         loading.value=false;
       }
@@ -1230,6 +1228,7 @@
       function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',no_reason:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
+      function openStoreById(id){ const st=stores.value.find(x=>x.id===id); if(st){ showAnalytics.value=false; openStore(st); } }
       function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
@@ -1533,7 +1532,7 @@
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,reply,decodeHtml,
         MERGE_FIELDS,bodyRef,bulkBodyRef,insertMerge,setCaret,clearBulkCompose,bulkPreviewRecip,bulkPreviewSubject,bulkPreviewBody,
-        openNewStore,openStore,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
+        openNewStore,openStore,openStoreById,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
         addActivity,addAction,delActivity,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,clearCompose,
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
