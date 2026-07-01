@@ -20,7 +20,7 @@ exports.handler = async (event) => {
   const at = await getAccessToken();
   if (!at.ok) return json(400, { error: at.error });
   const from = body.from || at.email;
-  const banner = (typeof body.bannerUrl === 'string') ? body.bannerUrl.trim() : FOOTER_IMG;
+  const banner = (body.bannerUrl && String(body.bannerUrl).trim()) || FOOTER_IMG;
 
   const footer = banner ? '<br><a href="https://revivealicious.com"><img src="' + banner + '" alt="Revivealicious Foods" style="display:block;max-width:600px;width:100%;height:auto;border:0"></a>' : '';
   const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;white-space:pre-wrap">' + esc(text) + '</div>' + footer;

@@ -90,7 +90,6 @@
 
       <!-- ===== CUSTOMER TYPE FILTER ROW ===== -->
       <div class="flex flex-wrap items-center gap-2 mb-3">
-        <span class="text-xs text-stone-400 uppercase tracking-wide mr-1">Type:</span>
         <button @click="clearTypes"
           class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="activeTypes.length===0?'bg-teal-700 text-white border-teal-700':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
@@ -280,6 +279,7 @@
                   {{ attachIds.includes(d.id)?'📎':'○' }} {{ d.name }}
                 </button>
               </div>
+              <p v-if="attachIds.length" class="text-[11px] mt-1" :class="attachBytes(attachIds)*1.37>26214400?'text-red-600':'text-stone-500'">Approx email size {{ attachSizeLabel(attachIds) }}<span v-if="attachBytes(attachIds)*1.37>26214400"> — over Gmail's 25 MB limit</span></p>
             </div>
             <div class="flex flex-wrap gap-2 items-center">
               <button @click="sendEmail" :disabled="sendBusy" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50">{{ sendBusy?'Sending…':'Send ▸' }}</button>
@@ -315,7 +315,7 @@
             </div>
           </div>
           <!-- HISTORY: notes + Gmail emails interleaved -->
-          <p v-if="loadingEmails" class="text-xs text-stone-400">Loading emails from Gmail…</p>
+          <p v-if="loadingEmails" class="text-sm text-red-600 font-semibold">⏳ Downloading emails from Gmail — please wait…</p>
           <div v-if="!curTimeline.length" class="text-stone-400 text-sm text-center py-6">No notes or emails yet.</div>
           <div v-for="it in curTimeline" :key="it.kind+it.id" class="bg-white rounded-lg border px-3 py-2 mb-2" :class="it.kind==='email'?'border-sky-200':'border-stone-200'">
             <template v-if="it.kind==='note'">
@@ -339,7 +339,7 @@
               <p v-else class="text-[13px] text-stone-700 whitespace-pre-wrap mt-1">{{ emailBodies[it.id] }}</p>
               <div class="flex items-center gap-3 mt-1">
                 <button @click="expandEmail(it)" class="text-xs text-amber-700 hover:text-amber-900">{{ emailBodies[it.id]?'Hide':'Read full ▾' }}</button>
-                <button v-if="it.direction==='in' && !filedIds.includes(it.id)" @click="fileEmail(it)" class="text-xs text-emerald-700 border border-emerald-300 rounded px-2 py-0.5 hover:bg-emerald-50">✓ Received &amp; file</button>
+                <button v-if="it.direction==='in' && !filedIds.includes(it.id)" @click="fileEmail(it)" class="text-xs text-emerald-700 border border-emerald-300 rounded px-2 py-0.5 hover:bg-emerald-50">✓ Confirm e-mail read and file it in G-mail</button>
                 <span v-if="filedIds.includes(it.id)" class="text-xs text-emerald-600">✓ Filed to CRM Reviewed</span>
               </div>
             </template>
@@ -492,6 +492,11 @@
           <div class="flex flex-wrap gap-1.5">
             <button v-for="d in documents" :key="d.id" @click="toggleBulkAttach(d.id)" class="border rounded px-2 py-1 transition" :class="bulkAttachIds.includes(d.id)?'bg-amber-100 border-amber-400 text-amber-800':'border-stone-300 hover:bg-stone-100'">{{ bulkAttachIds.includes(d.id)?'📎':'○' }} {{ d.name }}</button>
           </div>
+          <p v-if="bulkAttachIds.length" class="text-[11px] mt-1" :class="attachBytes(bulkAttachIds)*1.37>26214400?'text-red-600':'text-stone-500'">Approx size per email {{ attachSizeLabel(bulkAttachIds) }}<span v-if="attachBytes(bulkAttachIds)*1.37>26214400"> — over Gmail's 25 MB limit</span></p>
+        </div>
+        <div class="text-xs text-stone-500">
+          <p class="lbl">Footer banner (on every email)</p>
+          <img :src="effectiveBanner" class="max-w-full rounded border border-stone-200" style="max-height:60px">
         </div>
         <div>
           <p class="lbl">Recipients — {{ bulkRecipientCount }} will be sent (untick to exclude; edits here don't change the store record)</p>
@@ -850,6 +855,11 @@
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), orders=ref([]), templates=ref([]), documents=ref([]);
       const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:''});
+      const DEFAULT_BANNER='https://revivealicious.com/cdn/shop/files/2x1_Banner_2026_75600d3d-3499-4602-af5f-77a29db1fd87.jpg?width=1000';
+      const effectiveBanner=computed(()=> (settings.email_banner_url||'').trim()||DEFAULT_BANNER);
+      const attachBytes=(ids)=> documents.value.filter(d=>ids.includes(d.id)).reduce((n,d)=>n+(Number(d.size_bytes)||0),0);
+      function fmtBytes(n){ if(n<1024) return '<1 KB'; if(n<1048576) return Math.round(n/1024)+' KB'; return (n/1048576).toFixed(1)+' MB'; }
+      const attachSizeLabel=(ids)=> ids.length? ('≈ '+fmtBytes(attachBytes(ids)*1.37)) : '';
       const search=ref(''), areaFilter=ref(''), sortKey=ref('name'), sortDir=ref('asc');
       const activeStatuses=ref([]); // empty = show all
       function toggleStatus(k){ const i=activeStatuses.value.indexOf(k); if(i<0) activeStatuses.value.push(k); else activeStatuses.value.splice(i,1); }
@@ -920,7 +930,7 @@
           const subject=mergeStore(bulkCompose.subject,ctx);
           const bodyTxt=mergeStore(bulkCompose.body,ctx)+(bulkCompose.ps? '\n\nP.S. '+bulkCompose.ps:'');
           try{
-            const resp=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:r.emails,subject,text:bodyTxt,attachments,bannerUrl:settings.email_banner_url})});
+            const resp=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:r.emails,subject,text:bodyTxt,attachments,bannerUrl:effectiveBanner.value})});
             const d=await resp.json();
             if(resp.ok){ sent++;
               await sb.from('activities').insert({store_id:r.id,type:'email',result:'📣 Bulk: '+subject,gmail_id:(d.id||('bulk_'+Date.now()+'_'+r.id)),created_by:me.value,occurred_at:new Date().toISOString()});
@@ -1109,7 +1119,7 @@
         sendBusy.value=true;
         try{
           const attachments=await gatherAttachments();
-          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:email.subject,text:finalBody(),attachments,bannerUrl:settings.email_banner_url})});
+          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:email.subject,text:finalBody(),attachments,bannerUrl:effectiveBanner.value})});
           const d=await r.json();
           if(!r.ok){ flash('Send failed: '+(d.error||r.status)); sendBusy.value=false; return; }
           await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'✉️ Sent: '+email.subject,gmail_id:(d.id||('sent_'+Date.now())),created_by:me.value,occurred_at:new Date().toISOString()});
@@ -1272,7 +1282,7 @@
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
-        showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,
+        showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,effectiveBanner,attachBytes,attachSizeLabel,
         bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
