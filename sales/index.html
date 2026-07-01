@@ -1062,9 +1062,12 @@
         const text=(actForm.result||'').trim();
         if(!text){ flash('Write a note first'); return; }
         if(!cur.value || !cur.value.id){ flash('Save the store first, then add notes'); return; }
+        const now=new Date();
         let iso;
-        try{ iso = actForm.date? new Date(actForm.date+'T12:00:00').toISOString() : new Date().toISOString(); }
-        catch(e){ iso = new Date().toISOString(); }
+        try{
+          if(actForm.date && actForm.date!==todayStr()){ iso = new Date(actForm.date+'T'+now.toTimeString().slice(0,8)).toISOString(); }
+          else { iso = now.toISOString(); }
+        }catch(e){ iso = now.toISOString(); }
         const row={store_id:cur.value.id,type:actForm.type,result:text,created_by:me.value,occurred_at:iso};
         const { data, error }=await sb.from('activities').insert(row).select().single();
         if(error){ flash('Could not save note: '+error.message); return; }
