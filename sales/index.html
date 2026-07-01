@@ -117,7 +117,7 @@
         <button @click="clearTypes"
           class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="activeTypes.length===0?'bg-teal-700 text-white border-teal-700':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
-          All
+          All <span class="opacity-70">{{ stores.length }}</span>
         </button>
         <button v-for="t in TYPES" :key="t" @click="toggleType(t)"
           class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
