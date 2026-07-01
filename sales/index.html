@@ -275,12 +275,11 @@
               <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
             </label>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="lbl" style="margin:0">Rating</span>
-            <div class="flex gap-0.5">
+          <div class="flex items-end gap-3">
+            <label class="block flex-1"><span class="lbl">Info</span><input v-model="cur.info" class="inp" placeholder="Key info about this customer…"></label>
+            <div class="flex gap-0.5 pb-2 shrink-0">
               <button v-for="n in 3" :key="n" type="button" @click="cur.rating=n" class="text-2xl leading-none" :class="(cur.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
             </div>
-            <span class="text-xs text-stone-400">{{ cur.rating||1 }} of 3</span>
           </div>
           <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 space-y-1">
             <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="text-[10px] text-stone-400 uppercase tracking-wide">
@@ -1292,7 +1291,7 @@
       }
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',no_reason:''}; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,info:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',no_reason:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
       function openStoreById(id){ const st=stores.value.find(x=>x.id===id); if(st){ showAnalytics.value=false; openStore(st); } }
