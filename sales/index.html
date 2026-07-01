@@ -131,7 +131,7 @@
           <option value="">All areas</option>
           <option v-for="a in allAreas" :key="a" :value="a">{{ a }}</option>
         </select>
-        <span class="text-stone-400 text-sm">{{ filteredStores.length }} shown · click a column to sort</span>
+        <span class="text-stone-400 text-sm">{{ displayStores.length }} shown · click a column to sort</span>
       </div>
 
       <!-- ===== BULK ACTION BAR ===== -->
@@ -162,12 +162,12 @@
               <th @click="setSort('name')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Store<span class="text-amber-600">{{ sortArrow('name') }}</span></th>
               <th @click="setSort('area')" class="text-left font-semibold px-3 py-2.5 hidden md:table-cell cursor-pointer select-none hover:text-stone-700">Area<span class="text-amber-600">{{ sortArrow('area') }}</span></th>
               <th @click="setSort('status')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Status<span class="text-amber-600">{{ sortArrow('status') }}</span></th>
-              <th class="text-left font-semibold px-3 py-2.5">Rating</th>
+              <th @click="setSort('rating')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Rating<span class="text-amber-600">{{ sortArrow('rating') }}</span></th>
               <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">Recent notes</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="s in filteredStores" :key="s.id" class="border-t border-stone-100" :class="[rowBg(s.status), selectedIds.includes(s.id)?'ring-2 ring-inset ring-amber-400':'']">
+            <tr v-for="s in displayStores" :key="s.id" class="border-t border-stone-100" :class="[rowBg(s.status), selectedIds.includes(s.id)?'ring-2 ring-inset ring-amber-400':'']">
               <td class="px-3 py-3 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)" class="w-5 h-5 accent-amber-600 cursor-pointer"></td>
               <td v-if="aiActionsOn" class="px-3 py-2.5 align-top w-44">
                 <div v-if="s.ai_action" class="rounded-lg px-2 py-1.5 text-xs font-medium leading-snug" :class="aiBoxClass(s.ai_priority)">{{ s.ai_action }}</div>
@@ -670,7 +670,7 @@
 
 <script>
 (function(){
-  const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+  const { createApp, ref, reactive, computed, onMounted, nextTick, watch } = Vue;
   const { createClient } = supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'sales' } });
   const portal = createClient(PORTAL_URL, PORTAL_ANON);
@@ -1144,6 +1144,7 @@
           if(k2==='name') r=(a.store_name||'').localeCompare(b.store_name||'');
           else if(k2==='area') r=(a.area||'').localeCompare(b.area||'');
           else if(k2==='status') r=sOrder.indexOf(a.status)-sOrder.indexOf(b.status);
+          else if(k2==='rating') r=(a.rating||1)-(b.rating||1);
           else if(k2==='next') r=(a.next_contact_date||'9999-99-99').localeCompare(b.next_contact_date||'9999-99-99');
           else if(k2==='days'){ const da=daysSince(a), db=daysSince(b); r=(da===null?1e9:da)-(db===null?1e9:db); }
           return sortDir.value==='asc'? r : -r;
@@ -1153,6 +1154,9 @@
         }
         return list;
       });
+      const displayStores=ref([]);
+      function refreshOrder(){ displayStores.value = filteredStores.value.slice(); }
+      watch([search,areaFilter,activeStatuses,activeTypes,newEmailsOnly,sortKey,sortDir,aiActionsOn, ()=>stores.value.map(s=>s.id).join(',')], refreshOrder, {immediate:true});
       const hasAiActions=computed(()=> stores.value.some(s=>s.ai_priority));
       function aiBoxClass(pri){ return pri===1?'bg-purple-700 text-white':(pri===2?'bg-purple-400 text-white':'bg-purple-100 text-purple-800'); }
       async function runAiActions(){
@@ -1198,9 +1202,9 @@
 
       // ===== inline editing + multi-select bulk =====
       const orderCount=(id)=> orders.value.filter(o=>o.store_id===id).length;
-      const allShownSelected=computed(()=> filteredStores.value.length>0 && filteredStores.value.every(s=>selectedIds.value.includes(s.id)));
+      const allShownSelected=computed(()=> displayStores.value.length>0 && displayStores.value.every(s=>selectedIds.value.includes(s.id)));
       function toggleSel(id){ const i=selectedIds.value.indexOf(id); if(i<0) selectedIds.value.push(id); else selectedIds.value.splice(i,1); }
-      function toggleAll(){ selectedIds.value = allShownSelected.value? [] : filteredStores.value.map(s=>s.id); }
+      function toggleAll(){ selectedIds.value = allShownSelected.value? [] : displayStores.value.map(s=>s.id); }
       function clearSel(){ selectedIds.value=[]; }
       async function quickSave(s,patch){ patch.updated_at=new Date().toISOString(); const { error }=await sb.from('stores').update(patch).eq('id',s.id); if(error){ flash('Save failed: '+error.message); return; } Object.assign(s,patch); flash('Saved'); }
       async function applyBulk(){ if(!bulk.status){ flash('Pick a status to apply'); return; } const ids=selectedIds.value.slice(); for(const id of ids){ await sb.from('stores').update({status:bulk.status,updated_at:new Date().toISOString()}).eq('id',id); } bulk.status=''; await loadAll(); flash('Updated '+ids.length+' stores'); }
@@ -1223,6 +1227,7 @@
         const mq=await sb.from('motivation').select('*').order('created_at',{ascending:false});
         savedQuotes.value=mq.data||[];
         if(stores.value.some(s=>s.ai_priority)) aiActionsOn.value=true;
+        refreshOrder();
         loading.value=false;
       }
 
@@ -1536,7 +1541,7 @@
 
       return { ready,gateError,me,isAdmin,loading,STATUSES,
         stores,activities,orders,templates,documents,settings,
-        search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,allAreas,REGIONS,TYPES,
+        search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,displayStores,allAreas,REGIONS,TYPES,
         activeStatuses,toggleStatus,isStatusActive,clearStatuses,rowBg,
         activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,newEmailsOnly,newCount,aiActionsOn,aiActionsBusy,runAiActions,aiBoxClass,hasAiActions,stores,
         dueCount,totalRevenue,countBy,orderCount,
