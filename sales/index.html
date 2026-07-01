@@ -126,7 +126,10 @@
         <label v-if="hasAiActions" class="flex items-center gap-1 text-xs text-stone-600 select-none cursor-pointer whitespace-nowrap" title="Show/hide AI recommendations and priority ordering"><input type="checkbox" v-model="aiActionsOn" class="w-4 h-4 accent-purple-600"> Show actions</label>
         <button @click="newEmailsOnly=!newEmailsOnly" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
           :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">📥 New emails {{ newCount }}</button>
-        <input v-model="search" placeholder="Search name, contact, area…" class="flex-1 min-w-[180px] border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+        <div class="relative flex-1 min-w-[180px]">
+          <button v-if="search" @click="search=''" class="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-sm" title="Clear search">✕</button>
+          <input v-model="search" placeholder="Search name, contact, area…" class="w-full border border-stone-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" :class="search?'pl-7 pr-3':'px-3'">
+        </div>
         <select v-model="areaFilter" class="border border-stone-300 rounded-lg px-2 py-2 text-sm bg-white">
           <option value="">All areas</option>
           <option v-for="a in allAreas" :key="a" :value="a">{{ a }}</option>
