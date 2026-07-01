@@ -435,6 +435,10 @@
         <h3 class="font-bold">Admin — AI &amp; templates</h3><button @click="showAdmin=false" class="text-stone-400 hover:text-stone-700">✕</button>
       </div>
       <div class="p-5 space-y-5">
+        <div class="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg p-3">
+          <div><p class="font-semibold text-sm">Backup</p><p class="text-xs text-stone-500">Download everything (stores, notes, orders, templates, settings) as an Excel file.</p></div>
+          <button @click="exportDatabase" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">⬇ Export database</button>
+        </div>
         <div class="space-y-2">
           <p class="font-semibold text-sm">AI master prompt</p>
           <p class="text-xs text-stone-500">Sets the voice &amp; rules for every AI-drafted email (e.g. “write in the philosophy of Ogilvy”).</p>
@@ -1299,6 +1303,22 @@
       // ===== admin =====
       function openAdmin(){ showAdmin.value=true; }
       async function saveSettings(){ for(const k of ['ai_master_prompt','email_signature','sender_name','ps_list','email_banner_url']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
+      function exportDatabase(){
+        try{
+          const flat=(arr)=> (arr||[]).map(o=>{ const r={}; for(const k in o){ const v=o[k]; r[k]=Array.isArray(v)? v.join(', ') : (v&&typeof v==='object'? JSON.stringify(v) : v); } return r; });
+          const wb=XLSX.utils.book_new();
+          const add=(name,arr)=>{ const rows=flat(arr); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length?rows:[{}]), name); };
+          add('Stores', stores.value);
+          add('Notes & Emails', activities.value);
+          add('Orders', orders.value);
+          add('Templates', templates.value);
+          add('Documents', documents.value);
+          add('Settings', Object.keys(settings).map(k=>({key:k,value:settings[k]})));
+          add('Motivation', savedQuotes.value);
+          XLSX.writeFile(wb, 'revive-sales-crm-backup-'+new Date().toISOString().slice(0,10)+'.xlsx');
+          flash('Backup downloaded');
+        }catch(e){ flash('Export failed: '+e.message); }
+      }
       async function newTemplate(){ const r=await sb.from('email_templates').insert({name:'New template',subject:'',body:'',sort_order:templates.value.length+1}).select().single(); if(r.data) templates.value.push(r.data); }
       async function saveTemplate(t){ await sb.from('email_templates').update({name:t.name,subject:t.subject,body:t.body}).eq('id',t.id); flash('Template saved'); }
       async function saveAsTemplate(src){ src=src||email; if(!(src.subject||'').trim() && !(src.body||'').trim()){ flash('Nothing to save'); return; } const name=prompt('Save this email as a template — name it:'); if(!name || !name.trim()) return; const r=await sb.from('email_templates').insert({name:name.trim(),subject:src.subject,body:src.body,sort_order:(templates.value.length+1)}).select().single(); if(r.error){ flash('Save failed: '+r.error.message); return; } templates.value.push(r.data); flash('Template \u201c'+name.trim()+'\u201d saved'); }
@@ -1352,7 +1372,7 @@
         bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
-        openAdmin,saveSettings,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
+        openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
         toast };
     }
   }).mount('#app');
