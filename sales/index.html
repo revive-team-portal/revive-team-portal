@@ -1137,10 +1137,12 @@
         sendBusy.value=true;
         try{
           const attachments=await gatherAttachments();
-          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:email.subject,text:finalBody(),attachments,bannerUrl:effectiveBanner.value})});
+          const subjectOut=merge(email.subject);
+          const bodyOut=merge(finalBody());
+          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:subjectOut,text:bodyOut,attachments,bannerUrl:effectiveBanner.value})});
           const d=await r.json();
           if(!r.ok){ flash('Send failed: '+(d.error||r.status)); sendBusy.value=false; return; }
-          await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'✉️ Sent: '+email.subject,gmail_id:(d.id||('sent_'+Date.now())),created_by:me.value,occurred_at:new Date().toISOString()});
+          await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'✉️ Sent: '+subjectOut,gmail_id:(d.id||('sent_'+Date.now())),created_by:me.value,occurred_at:new Date().toISOString()});
           if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; }
           saveLastEmail({subject:email.subject, body:email.body, ps:email.ps, attachIds:[...attachIds.value]});
           email.subject=''; email.body=''; attachIds.value=[];
