@@ -141,8 +141,6 @@
           <option value="">Set status…</option>
           <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
         </select>
-        <input type="date" v-model="bulk.next" class="text-stone-800 rounded px-2 py-1" title="Set next contact date">
-        <input v-model="bulk.tag" placeholder="Add tag" class="text-stone-800 rounded px-2 py-1 w-28">
         <button @click="applyBulk" class="bg-amber-600 hover:bg-amber-700 px-3 py-1 rounded font-semibold">Apply</button>
         <button @click="openBulkEmail" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded font-semibold">✉ Bulk email</button>
         <button @click="bulkDelete" class="bg-red-700 hover:bg-red-800 px-3 py-1 rounded">Delete</button>
@@ -164,8 +162,7 @@
               <th @click="setSort('name')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Store<span class="text-amber-600">{{ sortArrow('name') }}</span></th>
               <th @click="setSort('area')" class="text-left font-semibold px-3 py-2.5 hidden md:table-cell cursor-pointer select-none hover:text-stone-700">Area<span class="text-amber-600">{{ sortArrow('area') }}</span></th>
               <th @click="setSort('status')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Status<span class="text-amber-600">{{ sortArrow('status') }}</span></th>
-              <th @click="setSort('next')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Next contact<span class="text-amber-600">{{ sortArrow('next') }}</span></th>
-              <th @click="setSort('days')" class="text-left font-semibold px-3 py-2.5 hidden sm:table-cell cursor-pointer select-none hover:text-stone-700">Days since<span class="text-amber-600">{{ sortArrow('days') }}</span></th>
+              <th class="text-left font-semibold px-3 py-2.5">Rating</th>
               <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">Recent notes</th>
             </tr>
           </thead>
@@ -179,9 +176,6 @@
                 <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}</p>
                 <p class="text-xs text-stone-400">{{ s.store_type }}<span v-if="s.contact_name"> · {{ s.contact_name }}</span></p>
                 <p v-if="s.contact_email" class="text-xs text-stone-400">{{ s.contact_email }}</p>
-                <p v-if="s.tags && s.tags.length" class="mt-1 flex flex-wrap gap-1">
-                  <span v-for="t in s.tags" :key="t" class="text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">{{ t }}</span>
-                </p>
               </td>
               <td class="px-3 py-2.5 hidden md:table-cell align-top">
                 <select v-model="s.area" @change="quickSave(s,{area:s.area})" class="text-xs bg-transparent text-stone-600 hover:bg-stone-100 rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-amber-400">
@@ -196,18 +190,12 @@
                 </select>
               </td>
               <td class="px-3 py-2.5 align-top">
-                <input type="date" v-model="s.next_contact_date" @change="quickSave(s,{next_contact_date:s.next_contact_date})"
-                  class="text-xs rounded px-1 py-1 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  :class="isOverdue(s)?'text-red-600 font-semibold border-red-300':'text-stone-500'">
-              </td>
-              <td class="px-3 py-2.5 hidden sm:table-cell align-top">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-xs" :class="(daysSince(s)!==null && daysSince(s)>=30)?'text-amber-600 font-semibold':'text-stone-500'">{{ daysLabel(s) }}</span>
-                  <span v-if="isRepeat(s)" title="Repeat customer" class="text-emerald-600 font-bold">✓</span>
+                <div class="flex gap-0.5">
+                  <button v-for="n in 3" :key="n" type="button" @click.stop="quickSave(s,{rating:n})" class="text-lg leading-none" :class="(s.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
                 </div>
               </td>
               <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs text-stone-500">
-                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-md" :title="a.result || cap(a.type)">
+                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-md" :class="a.type==='action'?'text-amber-700 font-semibold':''" :title="a.result || cap(a.type)">
                   <span v-if="a.unread" class="text-red-600 font-bold">● NEW </span><span class="text-stone-400">{{ typeIcon(a.type) }} {{ shortDate(a.occurred_at) }}</span> {{ a.result || cap(a.type) }}
                 </p>
                 <span v-if="!recentNotes(s.id).length" class="text-stone-300">—</span>
@@ -228,7 +216,9 @@
           <label class="block"><span class="lbl">Store / company name</span>
             <input v-model="cur.store_name" placeholder="Enter store name…" class="font-bold text-lg bg-stone-100 border border-stone-300 focus:border-amber-500 focus:outline-none rounded px-2 py-0.5 w-72 max-w-full placeholder-stone-400 placeholder:font-normal placeholder:text-base">
           </label>
-          <span class="text-xs font-medium px-2 py-0.5 rounded-full mb-1.5" :class="badge(cur.status)">{{ label(cur.status) }}</span>
+          <select v-model="cur.status" @change="onStatusChange" class="text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400 mb-1.5" :class="badge(cur.status)">
+            <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
+          </select>
         </div>
         <div class="flex gap-2 items-start">
           <button @click="saveStore" :disabled="saving" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">{{ saving?'Saving…':'Save' }}</button>
@@ -276,16 +266,7 @@
           </div>
           <label class="block"><span class="lbl">Address <a v-if="cur.address" :href="'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(cur.address)" target="_blank" class="text-amber-700 hover:underline float-right normal-case">📍 Open in Maps</a></span><input v-model="cur.address" class="inp"></label>
 
-          <div class="bg-white rounded-lg border border-stone-200 p-3 grid grid-cols-3 gap-2">
-            <label class="block"><span class="lbl">Status</span>
-              <select v-model="cur.status" @change="onStatusChange" class="inp">
-                <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
-              </select>
-            </label>
-            <label class="block"><span class="lbl">Next contact</span><input type="date" v-model="cur.next_contact_date" class="inp"></label>
-            <label class="block"><span class="lbl">Tags (comma sep.)</span><input v-model="tagText" class="inp" placeholder="organic"></label>
-            <label v-if="cur.status==='no_permanent'" class="block col-span-3"><span class="lbl">Reason (permanent no)</span><input v-model="cur.no_reason" class="inp"></label>
-          </div>
+          <label v-if="cur.status==='no_permanent'" class="block"><span class="lbl">Reason (permanent no)</span><input v-model="cur.no_reason" class="inp"></label>
 
           <!-- COMPOSE -->
           <div class="border-t border-stone-200 pt-3 space-y-2">
@@ -362,10 +343,19 @@
               <button @click="addActivity" class="bg-stone-800 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap">Add note</button>
             </div>
           </div>
+          <!-- ACTION (pinned) -->
+          <div class="bg-amber-50 rounded-lg border border-amber-200 p-3 space-y-2">
+            <p class="text-xs font-semibold text-amber-800 uppercase tracking-wide">📌 Action — pinned to top</p>
+            <div class="flex items-center gap-2">
+              <textarea v-model="pinForm.result" rows="2" placeholder="Next action for this customer…" class="border border-amber-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+              <input type="date" v-model="pinForm.date" class="border border-amber-300 rounded-lg px-2 py-2 text-xs bg-white" style="width:8.5rem" title="Action date">
+              <button @click="addAction" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap">Add action</button>
+            </div>
+          </div>
           <!-- HISTORY: notes + Gmail emails interleaved -->
           <p v-if="loadingEmails" class="text-sm text-red-600 font-semibold">⏳ Downloading emails from Gmail — please wait…</p>
           <div v-if="!curTimeline.length" class="text-stone-400 text-sm text-center py-6">No notes or emails yet.</div>
-          <div v-for="it in curTimeline" :key="it.kind+it.id" class="bg-white rounded-lg border px-3 py-2 mb-2" :class="it.kind==='email'?'border-sky-200':'border-stone-200'">
+          <div v-for="it in curTimeline" :key="it.kind+it.id" class="rounded-lg border px-3 py-2 mb-2" :class="it.kind==='email'?'bg-white border-sky-200':(it.raw&&it.raw.type==='action'?'bg-amber-50 border-amber-300':'bg-white border-stone-200')">
             <template v-if="it.kind==='note'">
               <div class="flex justify-between items-center gap-2">
                 <span class="text-sm">{{ typeIcon(it.raw.type) }} <span class="text-xs text-stone-400">{{ typeLabel(it.raw.type) }}</span></span>
@@ -1011,8 +1001,9 @@
       const flash=(m)=>{ toast.value=m; clearTimeout(toastT); toastT=setTimeout(()=>toast.value='',2500); };
 
       // ---- detail drawer ----
-      const cur=ref(null), tab=ref('details'), saving=ref(false), tagText=ref('');
+      const cur=ref(null), tab=ref('details'), saving=ref(false);
       const actForm=reactive({type:'note',result:'',date:todayStr()});
+      const pinForm=reactive({result:'',date:todayStr()});
       const orderForm=reactive({order_date:todayStr(),amount:'',notes:''});
       const email=reactive({to:'',subject:'',body:'',ps:'',quote:'',threadId:''});
       const lastEmail=ref(null);
@@ -1069,7 +1060,6 @@
         if(!recips.length){ flash('No included recipients with an email'); return; }
         bulkSendBusy.value=true;
         const attachments=await gatherAttachments(bulkAttachIds.value);
-        const tag='Bulk '+shortDate(new Date().toISOString());
         let sent=0;
         for(const r of recips){
           const st=stores.value.find(x=>x.id===r.id)||{};
@@ -1082,8 +1072,7 @@
             const d=await resp.json();
             if(resp.ok){ sent++;
               await sb.from('activities').insert({store_id:r.id,type:'email',result:'📣 Bulk: '+subject,gmail_id:(d.id||('bulk_'+Date.now()+'_'+r.id)),created_by:me.value,occurred_at:new Date().toISOString()});
-              const tags=Array.isArray(st.tags)?st.tags.slice():[]; if(!tags.includes(tag)) tags.push(tag);
-              const patch={tags,updated_at:new Date().toISOString()}; if(st.status==='lead') patch.status='sent_comm';
+              const patch={updated_at:new Date().toISOString()}; if(st.status==='lead') patch.status='sent_comm';
               await sb.from('stores').update(patch).eq('id',r.id);
             }
           }catch(e){}
@@ -1100,8 +1089,8 @@
       const badge=(k)=> (SMAP[k]||{}).badge || 'bg-stone-100 text-stone-600';
       const rowBg=(k)=> (SMAP[k]||{}).row || '';
       const cap=(s)=> s? s.charAt(0).toUpperCase()+s.slice(1):'';
-      const typeIcon=(t)=>({call:'📞',phone_in:'📲',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',referral:'🔗',status_change:'🔄',order:'🛒',other:'•'}[t]||'•');
-      const TLABEL={note:'Note',call:'Phone Out',phone_in:'Phone In',email:'Email',meeting:'Meeting',sample:'Sample',referral:'Referral',status_change:'Status change',order:'Order',other:'Other'};
+      const typeIcon=(t)=>({call:'📞',phone_in:'📲',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',referral:'🔗',status_change:'🔄',order:'🛒',action:'📌',other:'•'}[t]||'•');
+      const TLABEL={note:'Note',call:'Phone Out',phone_in:'Phone In',email:'Email',meeting:'Meeting',sample:'Sample',referral:'Referral',status_change:'Status change',order:'Order',action:'Action',other:'Other'};
       const typeLabel=(t)=> TLABEL[t]||t;
       const noteTypeLabel=(t)=> t==='email'?'Email Out':(TLABEL[t]||cap(t));
       // ===== analytics =====
@@ -1131,7 +1120,7 @@
       const isOverdue=(s)=> s.next_contact_date && s.next_contact_date <= todayStr() && s.status!=='no_permanent';
       const countBy=(k)=> stores.value.filter(s=>s.status===k).length;
       const lastActivity=(id)=>{ const a=activities.value.filter(x=>x.store_id===id); if(!a.length) return '—'; return fmtDate(a[0].occurred_at.slice(0,10)); };
-      const recentNotes=(id)=> activities.value.filter(x=>x.store_id===id).slice(0,3);
+      const recentNotes=(id)=>{ const arr=activities.value.filter(x=>x.store_id===id); const acts=arr.filter(a=>a.type==='action'); const rest=arr.filter(a=>a.type!=='action'); return acts.concat(rest).slice(0,3); };
       const isRepeat=(s)=> s.status==='ordered_2';
       function lastChangeISO(s){ const a=activities.value.filter(x=>x.store_id===s.id)[0]; return a? a.occurred_at : s.updated_at; }
       function daysSince(s){ const d=lastChangeISO(s); if(!d) return null; return Math.floor((Date.now()-new Date(d).getTime())/86400000); }
@@ -1214,7 +1203,7 @@
       function toggleAll(){ selectedIds.value = allShownSelected.value? [] : filteredStores.value.map(s=>s.id); }
       function clearSel(){ selectedIds.value=[]; }
       async function quickSave(s,patch){ patch.updated_at=new Date().toISOString(); if('next_contact_date' in patch && !patch.next_contact_date) patch.next_contact_date=null; const { error }=await sb.from('stores').update(patch).eq('id',s.id); if(error){ flash('Save failed: '+error.message); return; } Object.assign(s,patch); flash('Saved'); }
-      async function applyBulk(){ const tagAdd=bulk.tag.trim(); if(!bulk.status && !bulk.next && !tagAdd){ flash('Pick a change to apply'); return; } const ids=selectedIds.value.slice(); for(const id of ids){ const s=stores.value.find(x=>x.id===id); if(!s) continue; const p={updated_at:new Date().toISOString()}; if(bulk.status) p.status=bulk.status; if(bulk.next) p.next_contact_date=bulk.next; if(tagAdd){ const tags=Array.isArray(s.tags)?s.tags.slice():[]; if(!tags.includes(tagAdd)) tags.push(tagAdd); p.tags=tags; } await sb.from('stores').update(p).eq('id',id); } bulk.status=''; bulk.next=''; bulk.tag=''; await loadAll(); flash('Updated '+ids.length+' stores'); }
+      async function applyBulk(){ if(!bulk.status){ flash('Pick a status to apply'); return; } const ids=selectedIds.value.slice(); for(const id of ids){ await sb.from('stores').update({status:bulk.status,updated_at:new Date().toISOString()}).eq('id',id); } bulk.status=''; await loadAll(); flash('Updated '+ids.length+' stores'); }
       async function bulkDelete(){ const n=selectedIds.value.length; if(!confirm('Delete '+n+' stores and all their activity?')) return; await sb.from('stores').delete().in('id',selectedIds.value); selectedIds.value=[]; await loadAll(); flash('Deleted '+n+' stores'); }
 
       // ===== data load =====
@@ -1238,10 +1227,10 @@
       }
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
-      function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
-      function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',notes:''}; }
+      function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
+      function openNewStore(){ cur.value=blankStore(); resetNoteForm(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
@@ -1249,7 +1238,6 @@
       async function saveStore(){
         if(!cur.value.store_name.trim()){ flash('Store name is required'); return false; }
         saving.value=true;
-        cur.value.tags=tagText.value.split(',').map(t=>t.trim()).filter(Boolean);
         cur.value.contact_name=((cur.value.contact_first||'')+' '+(cur.value.contact_last||'')).trim();
         cur.value.contact2_name=((cur.value.contact2_first||'')+' '+(cur.value.contact2_last||'')).trim();
         const isNew=!cur.value.id;
@@ -1264,7 +1252,7 @@
         if(statusChanged && !isNew){ await logActivityRow(res.data.id,'status_change','Status → '+label(res.data.status)); }
         statusChanged=false;
         await loadAll();
-        cur.value=JSON.parse(JSON.stringify(res.data)); tagText.value=(res.data.tags||[]).join(', ');
+        cur.value=JSON.parse(JSON.stringify(res.data));
         flash(isNew?'Store added':'Saved'); return true;
       }
       async function deleteStore(){ if(!confirm('Delete this store and all its activity?')) return; await sb.from('stores').delete().eq('id',cur.value.id); cur.value=null; await loadAll(); flash('Deleted'); }
@@ -1289,6 +1277,19 @@
         activities.value=[data, ...activities.value];
         actForm.result=''; actForm.type='note'; actForm.date=todayStr();
         flash('Note added \u2713');
+      }
+      async function addAction(){
+        const text=(pinForm.result||'').trim();
+        if(!text){ flash('Write the action first'); return; }
+        if(!cur.value || !cur.value.id){ flash('Save the store first, then add an action'); return; }
+        const now=new Date(); let iso;
+        try{ iso = (pinForm.date && pinForm.date!==todayStr())? new Date(pinForm.date+'T'+now.toTimeString().slice(0,8)).toISOString() : now.toISOString(); }catch(e){ iso=now.toISOString(); }
+        const row={store_id:cur.value.id,type:'action',result:text,created_by:me.value,occurred_at:iso};
+        const { data, error }=await sb.from('activities').insert(row).select().single();
+        if(error){ flash('Could not save action: '+error.message); return; }
+        activities.value=[data, ...activities.value];
+        pinForm.result=''; pinForm.date=todayStr();
+        flash('Action added \u2713');
       }
       async function delActivity(a){ await sb.from('activities').delete().eq('id',a.id); await loadAll(); }
 
@@ -1381,10 +1382,13 @@
       async function fileEmail(it){ try{ const r=await fetch('/.netlify/functions/gmail-file',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed'); filedIds.value=filedIds.value.concat([it.id]); await sb.from('activities').update({unread:false}).eq('gmail_id',it.id); activities.value=activities.value.map(a=> a.gmail_id===it.id? {...a,unread:false}:a); flash('Filed to CRM Reviewed'); }catch(e){ flash('Could not file: '+e.message); } }
       const curTimeline=computed(()=>{
         if(!cur.value) return [];
-        const notes=activities.value.filter(a=>a.store_id===cur.value.id && !a.gmail_id).map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
+        const rawNotes=activities.value.filter(a=>a.store_id===cur.value.id && !a.gmail_id);
+        const pinned=rawNotes.filter(a=>a.type==='action').map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a})).sort((a,b)=>(b.when||'').localeCompare(a.when||''));
+        const notes=rawNotes.filter(a=>a.type!=='action').map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
         const emails=curEmails.value.map(m=>({kind:'email',id:m.id,direction:m.direction,subject:m.subject,snippet:m.snippet,when:m.date? new Date(m.date).toISOString():''}));
         const all=notes.concat(emails); all.sort((a,b)=>(a.when||'').localeCompare(b.when||''));
-        return noteSortDesc.value? all.reverse():all;
+        const rest=noteSortDesc.value? all.reverse():all;
+        return pinned.concat(rest);
       });
 
       async function callAI(messages, opts={}){
@@ -1539,13 +1543,13 @@
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
         recentNotes,isRepeat,daysSince,daysLabel,psList,
-        cur,tab,saving,tagText,actForm,orderForm,email,selectedTemplate,aiIntent,aiBusy,
+        cur,tab,saving,actForm,pinForm,orderForm,email,selectedTemplate,aiIntent,aiBusy,
         curActivities,curNotes,noteSortDesc,updateNoteDate,curOrders,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,reply,decodeHtml,
         MERGE_FIELDS,bodyRef,bulkBodyRef,insertMerge,setCaret,clearBulkCompose,bulkPreviewRecip,bulkPreviewSubject,bulkPreviewBody,
         openNewStore,openStore,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
-        addActivity,delActivity,addOrder,delOrder,
+        addActivity,addAction,delActivity,addOrder,delOrder,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,clearCompose,
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
