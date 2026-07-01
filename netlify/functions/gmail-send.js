@@ -51,7 +51,7 @@ exports.handler = async (event) => {
 
   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST', headers: { Authorization: 'Bearer ' + at.access_token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ raw: b64url(mime) }),
+    body: JSON.stringify(body.threadId ? { raw: b64url(mime), threadId: String(body.threadId) } : { raw: b64url(mime) }),
   });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) return json(502, { error: (d.error && d.error.message) || 'Gmail send failed.' });
