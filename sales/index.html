@@ -505,11 +505,11 @@
 
   <!-- ================= BULK EMAIL MODAL ================= -->
   <div v-if="showBulkEmail" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-      <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200">
-        <h3 class="font-bold">Bulk email — {{ selectedIds.length }} stores</h3><button @click="showBulkEmail=false" class="text-stone-400 hover:text-stone-700">✕</button>
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col">
+      <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200 shrink-0">
+        <h3 class="font-bold">Bulk email — {{ selectedIds.length }} stores</h3><button @click="showBulkEmail=false" class="text-stone-400 hover:text-stone-700 text-lg leading-none px-1">✕</button>
       </div>
-      <div class="p-5 space-y-2">
+      <div class="p-5 space-y-2 overflow-y-auto">
         <p class="text-xs text-stone-500">Each customer gets their own personalised email (sent to all their addresses). Merge fields: <code v-pre>{{firstname}}</code> = contact first name, <code v-pre>{{customer}}</code> = store name.</p>
         <div class="flex flex-wrap gap-2 items-center">
           <select v-model="bulkTemplate" @change="applyBulkTemplate" class="inp text-xs flex-1 min-w-[140px]">
