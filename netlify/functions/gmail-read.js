@@ -27,9 +27,10 @@ exports.handler = async (event) => {
     return json(200, { id: m.id, text: extractBody(m.payload) || m.snippet || '' });
   }
 
-  const email = (body.email || '').trim();
-  if (!email) return json(400, { error: 'No contact email.' });
-  const q = encodeURIComponent('from:' + email + ' OR to:' + email);
+  let emails = Array.isArray(body.emails) ? body.emails : (body.email ? [body.email] : []);
+  emails = [...new Set(emails.map(e => (e || '').trim().toLowerCase()).filter(Boolean))];
+  if (!emails.length) return json(400, { error: 'No contact email.' });
+  const q = encodeURIComponent(emails.map(e => 'from:' + e + ' OR to:' + e).join(' OR '));
   const list = await gapi(at.access_token, 'messages?maxResults=' + (Number(body.max) || 12) + '&q=' + q);
   const ids = (list.messages || []).map(m => m.id).slice(0, 12);
   const out = [];

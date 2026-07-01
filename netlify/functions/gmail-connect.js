@@ -2,7 +2,7 @@
 // Opening the flow isn't sensitive; only someone who can sign in to the mailbox can complete it.
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID;
 const REDIRECT = 'https://team.revive.co.nz/.netlify/functions/gmail-callback';
-const SCOPES = ['openid','email','https://www.googleapis.com/auth/gmail.send','https://www.googleapis.com/auth/gmail.readonly'].join(' ');
+const SCOPES = ['openid','email','https://www.googleapis.com/auth/gmail.send','https://www.googleapis.com/auth/gmail.modify'].join(' ');
 
 exports.handler = async () => {
   const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
