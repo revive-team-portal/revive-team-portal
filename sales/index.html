@@ -264,6 +264,7 @@
               </select>
               <button @click="aiDraft" :disabled="aiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ aiBusy?'…':'✨ AI draft' }}</button>
               <button @click="clearCompose" class="text-xs text-stone-500 hover:text-stone-800 border border-stone-300 rounded px-2 py-1.5">Clear details</button>
+              <button @click="saveAsTemplate" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1.5">Save template</button>
             </div>
             <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
             <label class="block"><span class="lbl">Subject <button @click="aiSubject" :disabled="aiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="email.subject" class="inp"></label>
@@ -1109,7 +1110,7 @@
       async function delOrder(o){ await sb.from('orders').delete().eq('id',o.id); await loadAll(); }
 
       // ===== email =====
-      function mergeStore(str, st){ if(!str) return ''; const nm=st.contact_name||'there'; const store=st.store_name||''; return str.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store).replace(/\{\{\s*(contact_name|name)\s*\}\}/gi,nm).replace(/\{\{\s*area\s*\}\}/gi,st.area||''); }
+      function mergeStore(str, st){ if(!str) return ''; const nm=st.contact_name||'there'; const store=st.store_name||''; return str.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store).replace(/\{\{\s*(contact_name|contact|name)\s*\}\}/gi,nm).replace(/\{\{\s*area\s*\}\}/gi,st.area||''); }
       function merge(str){ return mergeStore(str, cur.value); }
       function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=merge(t.subject); email.body=merge(t.body).replace(/\\r\\n|\\n/g,'\n'); }
@@ -1269,6 +1270,7 @@
       async function saveSettings(){ for(const k of ['ai_master_prompt','email_signature','sender_name','ps_list','email_banner_url']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
       async function newTemplate(){ const r=await sb.from('email_templates').insert({name:'New template',subject:'',body:'',sort_order:templates.value.length+1}).select().single(); if(r.data) templates.value.push(r.data); }
       async function saveTemplate(t){ await sb.from('email_templates').update({name:t.name,subject:t.subject,body:t.body}).eq('id',t.id); flash('Template saved'); }
+      async function saveAsTemplate(){ if(!email.subject.trim() && !email.body.trim()){ flash('Nothing to save'); return; } const name=prompt('Save this email as a template — name it:'); if(!name || !name.trim()) return; const r=await sb.from('email_templates').insert({name:name.trim(),subject:email.subject,body:email.body,sort_order:(templates.value.length+1)}).select().single(); if(r.error){ flash('Save failed: '+r.error.message); return; } templates.value.push(r.data); flash('Template \u201c'+name.trim()+'\u201d saved'); }
       async function delTemplate(t){ if(!confirm('Delete template?')) return; await sb.from('email_templates').delete().eq('id',t.id); templates.value=templates.value.filter(x=>x.id!==t.id); }
 
       // ===== INIT (portal gate -> shared sales session) =====
@@ -1318,7 +1320,7 @@
         bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
-        openAdmin,saveSettings,newTemplate,saveTemplate,delTemplate,uploadBanner,bannerBusy,
+        openAdmin,saveSettings,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
         toast };
     }
   }).mount('#app');
