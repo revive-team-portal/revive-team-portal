@@ -29,10 +29,10 @@
 <div id="app" v-cloak>
 
   <!-- ============ GATE ============ -->
-  <div v-if="!ready" class="min-h-screen flex items-center justify-center">
+  <div v-if="!ready" class="min-h-screen flex items-center justify-center revive-waffle">
     <div class="text-center">
-      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="w-14 h-14 mx-auto mb-3" style="mix-blend-mode:multiply" alt="Revive">
-      <p v-if="!gateError" class="text-stone-500 text-sm">Loading Sales CRM…</p>
+      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
+      <p v-if="!gateError" class="text-white/90 text-sm">Loading Sales CRM…</p>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
         <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
         <a href="/" class="text-amber-700 underline text-sm">← Back to portal</a>
@@ -44,8 +44,7 @@
     <!-- NAV -->
     <nav class="bg-stone-800 text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow">
       <div class="flex items-center gap-2">
-        <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="w-7 h-7 rounded-full" alt="">
-        <span class="font-bold text-amber-400">Revivealicious Foods</span>
+        <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
         <span class="text-stone-400 text-sm hidden sm:inline">Sales CRM</span>
       </div>
       <div class="flex items-center gap-2">
@@ -69,6 +68,7 @@
           <p class="text-xs text-stone-500 mt-0.5">— {{ quoteOfHour.source }}</p>
         </div>
         <div class="flex gap-1 shrink-0">
+          <button @click="prevQuote" class="text-xs text-stone-600 hover:text-stone-900 border border-stone-300 rounded px-2 py-1 whitespace-nowrap">‹ Prev</button>
           <button @click="nextQuote" class="text-xs text-stone-600 hover:text-stone-900 border border-stone-300 rounded px-2 py-1 whitespace-nowrap">Next ›</button>
           <button @click="saveQuote(quoteOfHour)" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1 whitespace-nowrap">Save</button>
         </div>
@@ -76,6 +76,11 @@
 
       <!-- ===== STATUS FILTER ROW (toggle on/off, multi-select) ===== -->
       <div class="flex flex-wrap items-center gap-2 mb-3">
+        <button @click="newEmailsOnly=!newEmailsOnly"
+          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">
+          📥 New emails <span class="opacity-80">{{ newCount }}</span>
+        </button>
         <button @click="clearStatuses"
           class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
           :class="activeStatuses.length===0?'bg-stone-800 text-white border-stone-800':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
@@ -181,7 +186,7 @@
               </td>
               <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs text-stone-500">
                 <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-md" :title="a.result || cap(a.type)">
-                  <span class="text-stone-400">{{ typeIcon(a.type) }} {{ shortDate(a.occurred_at) }}</span> {{ a.result || cap(a.type) }}
+                  <span v-if="a.unread" class="text-red-600 font-bold">● NEW </span><span class="text-stone-400">{{ typeIcon(a.type) }} {{ shortDate(a.occurred_at) }}</span> {{ a.result || cap(a.type) }}
                 </p>
                 <span v-if="!recentNotes(s.id).length" class="text-stone-300">—</span>
               </td>
@@ -197,12 +202,15 @@
     <div class="flex-1 bg-black/30" @click="closeStore"></div>
     <div class="w-full max-w-5xl bg-stone-50 h-full overflow-y-auto shadow-2xl">
       <div class="sticky top-0 bg-white border-b border-stone-200 px-5 py-3 flex items-center justify-between z-10">
-        <div>
-          <input v-model="cur.store_name" class="font-bold text-lg bg-transparent focus:outline-none focus:bg-stone-100 rounded px-1">
-          <span class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full" :class="badge(cur.status)">{{ label(cur.status) }}</span>
+        <div class="flex items-end gap-2">
+          <label class="block"><span class="lbl">Store / company name</span>
+            <input v-model="cur.store_name" placeholder="Enter store name…" class="font-bold text-lg bg-stone-100 border border-stone-300 focus:border-amber-500 focus:outline-none rounded px-2 py-0.5 w-72 max-w-full placeholder-stone-400 placeholder:font-normal placeholder:text-base">
+          </label>
+          <span class="text-xs font-medium px-2 py-0.5 rounded-full mb-1.5" :class="badge(cur.status)">{{ label(cur.status) }}</span>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-start">
           <button @click="saveStore" :disabled="saving" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">{{ saving?'Saving…':'Save' }}</button>
+          <button @click="saveAndClose" :disabled="saving" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">Save &amp; close</button>
           <button @click="closeStore" class="text-stone-400 hover:text-stone-700 px-2">✕</button>
         </div>
       </div>
@@ -219,14 +227,20 @@
             <label class="block"><span class="lbl">Area</span>
               <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
             </label>
-            <label class="block"><span class="lbl">Store phone</span><input v-model="cur.store_phone" class="inp"></label>
-            <label class="block"><span class="lbl">Contact phone</span><input v-model="cur.contact_phone" class="inp"></label>
-            <label class="block"><span class="lbl">Contact name</span><input v-model="cur.contact_name" class="inp"></label>
-            <label class="block"><span class="lbl">Contact email</span><input v-model="cur.contact_email" class="inp"></label>
-            <label class="block"><span class="lbl">Store email</span><input v-model="cur.store_email" class="inp"></label>
-            <label class="block"><span class="lbl">Website</span><input v-model="cur.website" class="inp"></label>
-            <label class="block col-span-2"><span class="lbl">Address</span><input v-model="cur.address" class="inp"></label>
           </div>
+          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 grid grid-cols-3 gap-2">
+            <p class="col-span-3 lbl" style="margin-bottom:0">Main contact</p>
+            <label class="block"><span class="lbl">Name</span><input v-model="cur.contact_name" class="inp"></label>
+            <label class="block"><span class="lbl">Email</span><input v-model="cur.contact_email" class="inp"></label>
+            <label class="block"><span class="lbl">Phone</span><input v-model="cur.contact_phone" class="inp"></label>
+          </div>
+          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 grid grid-cols-3 gap-2">
+            <p class="col-span-3 lbl" style="margin-bottom:0">Store</p>
+            <label class="block"><span class="lbl">Email</span><input v-model="cur.store_email" class="inp"></label>
+            <label class="block"><span class="lbl">Phone</span><input v-model="cur.store_phone" class="inp"></label>
+            <label class="block"><span class="lbl">Website</span><input v-model="cur.website" class="inp"></label>
+          </div>
+          <label class="block"><span class="lbl">Address</span><input v-model="cur.address" class="inp"></label>
 
           <div class="bg-white rounded-lg border border-stone-200 p-3 grid grid-cols-3 gap-2">
             <label class="block"><span class="lbl">Status</span>
@@ -479,6 +493,7 @@
           <p class="text-sm italic text-stone-700">“{{ quoteOfHour.text }}”</p>
           <p class="text-xs text-stone-500 mt-0.5">— {{ quoteOfHour.source }}</p>
           <div class="flex gap-1 mt-1">
+            <button @click="prevQuote" class="text-xs text-stone-600 border border-stone-300 rounded px-2 py-0.5">‹ Prev</button>
             <button @click="nextQuote" class="text-xs text-stone-600 border border-stone-300 rounded px-2 py-0.5">Next ›</button>
             <button @click="saveQuote(quoteOfHour)" class="text-xs text-amber-700 border border-amber-300 rounded px-2 py-0.5">Save this one</button>
           </div>
@@ -500,6 +515,7 @@
   .lbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#78716c;margin-bottom:3px}
   .inp{width:100%;border:1px solid #d6d3d1;border-radius:8px;padding:7px 10px;font-size:14px;background:#fff}
   .inp:focus{outline:none;box-shadow:0 0 0 2px #f59e0b}
+  .revive-waffle{background-color:#25b4e8;background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.06) 0 2px,transparent 2px 30px),repeating-linear-gradient(-45deg,rgba(0,0,0,.06) 0 2px,transparent 2px 30px)}
 </style>
 
 <script>
@@ -521,7 +537,7 @@
     {key:'no_permanent',label:'No — Permanent',badge:'bg-red-100 text-red-700',btn:'bg-red-600 text-white border-red-600',row:'bg-red-50'},
   ];
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
-  const REGIONS = ['Northland','Central Auckland','Auckland North','Auckland West','Auckland East','Waikato','Bay of Plenty','Lower NI','Wellington','Christchurch','Rest of South Island','All NZ'];
+  const REGIONS = ['Northland','Auckland Central','Auckland North','Auckland West','Auckland East','Auckland South','Waikato','Bay of Plenty','Lower NI','Wellington','Christchurch','Rest of South Island','All NZ'];
   const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World','Woolworths','Bin Inn','Other','None'];
   const QUOTES = [
     {text:"The consumer isn't a moron; she is your wife.", source:"David Ogilvy"},
@@ -813,6 +829,9 @@
       const isTypeActive=(k)=> activeTypes.value.includes(k);
       function clearTypes(){ activeTypes.value=[]; }
       const countByType=(t)=> stores.value.filter(s=>(s.store_type||'')===t).length;
+      const newEmailsOnly=ref(false);
+      const newCount=computed(()=> activities.value.filter(a=>a.unread).length);
+      const storeHasNew=(id)=> activities.value.some(a=>a.store_id===id && a.unread);
       function setSort(k){ if(sortKey.value===k){ sortDir.value = sortDir.value==='asc'?'desc':'asc'; } else { sortKey.value=k; sortDir.value='asc'; } }
       const sortArrow=(k)=> sortKey.value!==k ? ' ↕' : (sortDir.value==='asc'?' ▲':' ▼');
       const toast=ref('');
@@ -837,9 +856,11 @@
       // ---- bulk email + motivation ----
       const showBulkEmail=ref(false), bulkAddNote=ref(true), bulkNote=ref('Bulk e-mail sent');
       const showMotivation=ref(false), savedQuotes=ref([]);
-      const quoteOffset=ref(0);
-      const quoteOfHour=computed(()=> QUOTES[(Math.floor(Date.now()/3600000)+quoteOffset.value) % QUOTES.length]);
-      function nextQuote(){ quoteOffset.value++; }
+      const quoteHist=ref([Math.floor(Math.random()*QUOTES.length)]);
+      const quotePtr=ref(0);
+      const quoteOfHour=computed(()=> QUOTES[quoteHist.value[quotePtr.value] % QUOTES.length]);
+      function nextQuote(){ const n=Math.floor(Math.random()*QUOTES.length); quoteHist.value=quoteHist.value.slice(0,quotePtr.value+1).concat([n]); quotePtr.value++; }
+      function prevQuote(){ if(quotePtr.value>0) quotePtr.value--; }
       const bulkEmails=computed(()=> selectedIds.value.map(id=>{ const s=stores.value.find(x=>x.id===id); return s&&(s.contact_email||s.store_email); }).filter(Boolean));
       const bulkEmailsStr=computed(()=> bulkEmails.value.join(', '));
       function openBulkEmail(){ bulkNote.value='Bulk e-mail sent'; bulkAddNote.value=true; showBulkEmail.value=true; }
@@ -877,6 +898,7 @@
         if(areaFilter.value) list=list.filter(s=>s.area===areaFilter.value);
         if(activeStatuses.value.length) list=list.filter(s=>activeStatuses.value.includes(s.status));
         if(activeTypes.value.length) list=list.filter(s=>activeTypes.value.includes(s.store_type||''));
+        if(newEmailsOnly.value) list=list.filter(s=>storeHasNew(s.id));
         const sOrder=STATUSES.map(s=>s.key), k2=sortKey.value;
         list.sort((a,b)=>{
           let r=0;
@@ -929,13 +951,13 @@
       function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; attachIds.value=[]; curEmails.value=[]; emailBodies.value={}; loadEmails(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; attachIds.value=[]; curEmails.value=[]; emailBodies.value={}; loadEmails(); markStoreRead(s.id); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
 
       async function saveStore(){
-        if(!cur.value.store_name.trim()){ flash('Store name is required'); return; }
+        if(!cur.value.store_name.trim()){ flash('Store name is required'); return false; }
         saving.value=true;
         cur.value.tags=tagText.value.split(',').map(t=>t.trim()).filter(Boolean);
         const isNew=!cur.value.id;
@@ -946,12 +968,12 @@
         if(isNew) res=await sb.from('stores').insert(payload).select().single();
         else res=await sb.from('stores').update(payload).eq('id',cur.value.id).select().single();
         saving.value=false;
-        if(res.error){ flash('Save failed: '+res.error.message); return; }
+        if(res.error){ flash('Save failed: '+res.error.message); return false; }
         if(statusChanged && !isNew){ await logActivityRow(res.data.id,'status_change','Status → '+label(res.data.status)); }
         statusChanged=false;
         await loadAll();
         cur.value=JSON.parse(JSON.stringify(res.data)); tagText.value=(res.data.tags||[]).join(', ');
-        flash(isNew?'Store added':'Saved');
+        flash(isNew?'Store added':'Saved'); return true;
       }
       async function deleteStore(){ if(!confirm('Delete this store and all its activity?')) return; await sb.from('stores').delete().eq('id',cur.value.id); cur.value=null; await loadAll(); flash('Deleted'); }
 
@@ -993,6 +1015,20 @@
       // ===== Gmail send/read =====
       async function portalToken(){ const { data:{ session } } = await portal.auth.getSession(); return session? session.access_token : ''; }
       async function checkGmail(){ try{ const r=await fetch('/.netlify/functions/gmail-status',{method:'POST',headers:{'Authorization':'Bearer '+(await portalToken())}}); const d=await r.json(); gmailConnected.value=!!d.connected; gmailEmail.value=d.email||''; }catch(e){} }
+      async function syncEmails(){
+        if(!gmailConnected.value) return;
+        try{
+          const r=await fetch('/.netlify/functions/gmail-inbox',{method:'POST',headers:{'Authorization':'Bearer '+(await portalToken())}});
+          const d=await r.json(); const msgs=d.messages||[];
+          const have=new Set(activities.value.filter(a=>a.gmail_id).map(a=>a.gmail_id));
+          const byEmail={}; for(const st of stores.value){ if(st.contact_email) byEmail[st.contact_email.trim().toLowerCase()]=st.id; if(st.store_email) byEmail[st.store_email.trim().toLowerCase()]=st.id; }
+          const rows=[];
+          for(const m of msgs){ const sid=byEmail[(m.email||'').toLowerCase()]; if(sid && m.id && !have.has(m.id)){ rows.push({store_id:sid,type:'email',result:'📥 '+(m.subject||'(no subject)')+(m.snippet? '\n'+m.snippet : ''),gmail_id:m.id,unread:true,created_by:'Gmail',occurred_at:m.date? new Date(m.date).toISOString(): new Date().toISOString()}); } }
+          if(rows.length){ await sb.from('activities').insert(rows); await loadAll(); flash(rows.length+' new email'+(rows.length>1?'s':'')+' synced'); }
+        }catch(e){}
+      }
+      async function markStoreRead(id){ if(!activities.value.some(a=>a.store_id===id&&a.unread)) return; await sb.from('activities').update({unread:false}).eq('store_id',id).eq('unread',true); activities.value=activities.value.map(a=>(a.store_id===id&&a.unread)?{...a,unread:false}:a); }
+      async function saveAndClose(){ const ok=await saveStore(); if(ok!==false) closeStore(); }
       function toggleAttach(id){ const i=attachIds.value.indexOf(id); if(i<0) attachIds.value.push(id); else attachIds.value.splice(i,1); }
       function abToB64(buf){ const b=new Uint8Array(buf); let s=''; const c=0x8000; for(let i=0;i<b.length;i+=c){ s+=String.fromCharCode.apply(null,b.subarray(i,i+c)); } return btoa(s); }
       async function gatherAttachments(){ const out=[]; for(const d of documents.value.filter(x=>attachIds.value.includes(x.id))){ try{ const { data }=await sb.storage.from('sales-docs').createSignedUrl(d.storage_path,600); const resp=await fetch(data.signedUrl); const buf=await resp.arrayBuffer(); out.push({filename:d.name,mimeType:d.file_type||'application/octet-stream',dataBase64:abToB64(buf)}); }catch(e){} } return out; }
@@ -1025,7 +1061,7 @@
       async function expandEmail(it){ if(emailBodies.value[it.id]){ const c={...emailBodies.value}; delete c[it.id]; emailBodies.value=c; return; } try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); emailBodies.value={...emailBodies.value,[it.id]:d.text||'(no text)'}; }catch(e){ flash('Could not load email'); } }
       const curTimeline=computed(()=>{
         if(!cur.value) return [];
-        const notes=activities.value.filter(a=>a.store_id===cur.value.id).map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
+        const notes=activities.value.filter(a=>a.store_id===cur.value.id && !a.gmail_id).map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
         const emails=curEmails.value.map(m=>({kind:'email',id:m.id,direction:m.direction,subject:m.subject,snippet:m.snippet,when:m.date? new Date(m.date).toISOString():''}));
         const all=notes.concat(emails); all.sort((a,b)=>(a.when||'').localeCompare(b.when||''));
         return noteSortDesc.value? all.reverse():all;
@@ -1140,15 +1176,16 @@
           me.value=myName||(s.portal_user&&s.portal_user.email)||p.user.email||'';
         }catch(e){ gateError.value='Could not open the sales database. Please reload.'; ready.value=true; return; }
         await loadAll();
-        checkGmail();
+        await checkGmail();
         ready.value=true;
+        syncEmails();
       });
 
       return { ready,gateError,me,isAdmin,loading,STATUSES,
         stores,activities,orders,templates,documents,settings,
         search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,allAreas,REGIONS,TYPES,
         activeStatuses,toggleStatus,isStatusActive,clearStatuses,rowBg,
-        activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,
+        activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,newEmailsOnly,newCount,
         dueCount,totalRevenue,countBy,orderCount,
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
@@ -1157,13 +1194,13 @@
         curActivities,curNotes,noteSortDesc,updateNoteDate,curOrders,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,
-        openNewStore,openStore,closeStore,onStatusChange,saveStore,deleteStore,
+        openNewStore,openStore,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
         addActivity,delActivity,addOrder,delOrder,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
         showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,
-        showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,
+        showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         openAdmin,saveSettings,newTemplate,saveTemplate,delTemplate,
         toast };
     }
