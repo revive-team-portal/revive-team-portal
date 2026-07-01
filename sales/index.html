@@ -270,13 +270,9 @@
             <label class="block"><span class="lbl">Subject <button @click="aiSubject" :disabled="aiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="email.subject" class="inp"></label>
             <div class="flex flex-wrap gap-1 items-center">
               <span class="text-[10px] text-stone-400 mr-1">Insert:</span>
-              <button v-for="m in MERGE_FIELDS" :key="m" @click="insertAt(bodyRef,email,'body',m)" class="text-[11px] bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded px-1.5 py-0.5 font-mono">{{ m }}</button>
+              <button v-for="m in MERGE_FIELDS" :key="m" @mousedown.prevent @click="insertAt(bodyRef,email,'body',m)" class="text-[11px] bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded px-1.5 py-0.5 font-mono">{{ m }}</button>
             </div>
             <textarea ref="bodyRef" v-model="email.body" rows="7" placeholder="Email body…" class="inp font-mono text-xs"></textarea>
-            <select v-model="email.ps" class="inp text-xs">
-              <option value="">— No P.S. —</option>
-              <option v-for="(p,i) in psList" :key="i" :value="p">P.S. {{ p.length>60? p.slice(0,60)+'…' : p }}</option>
-            </select>
             <div v-if="documents.length" class="text-xs">
               <p class="lbl">Attach documents</p>
               <div class="flex flex-wrap gap-1.5">
@@ -441,9 +437,6 @@
             <label class="block"><span class="lbl">Email signature</span><textarea v-model="settings.email_signature" rows="2" class="inp text-xs"></textarea></label>
             <label class="block"><span class="lbl">Sender name</span><input v-model="settings.sender_name" class="inp"></label>
           </div>
-          <label class="block"><span class="lbl">P.S. options (one per line — pick one when composing)</span>
-            <textarea v-model="settings.ps_list" rows="5" class="inp text-xs" placeholder="One P.S. line per line"></textarea>
-          </label>
           <label class="block"><span class="lbl">Email footer banner</span>
             <img v-if="settings.email_banner_url" :src="settings.email_banner_url" class="max-w-full rounded border border-stone-200 mb-1" style="max-height:80px">
             <div class="flex items-center gap-2">
@@ -500,13 +493,9 @@
         <label class="block"><span class="lbl">Subject <button @click="aiBulkSubject" :disabled="bulkAiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="bulkCompose.subject" class="inp"></label>
         <div class="flex flex-wrap gap-1 items-center">
           <span class="text-[10px] text-stone-400 mr-1">Insert:</span>
-          <button v-for="m in MERGE_FIELDS" :key="m" @click="insertAt(bulkBodyRef,bulkCompose,'body',m)" class="text-[11px] bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded px-1.5 py-0.5 font-mono">{{ m }}</button>
+          <button v-for="m in MERGE_FIELDS" :key="m" @mousedown.prevent @click="insertAt(bulkBodyRef,bulkCompose,'body',m)" class="text-[11px] bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded px-1.5 py-0.5 font-mono">{{ m }}</button>
         </div>
         <textarea ref="bulkBodyRef" v-model="bulkCompose.body" rows="8" placeholder="Email body… use {{name}} and {{customer}}" class="inp font-mono text-xs"></textarea>
-        <select v-model="bulkCompose.ps" class="inp text-xs">
-          <option value="">— No P.S. —</option>
-          <option v-for="(pp,i) in psList" :key="i" :value="pp">P.S. {{ pp.length>60? pp.slice(0,60)+'…' : pp }}</option>
-        </select>
         <div v-if="documents.length" class="text-xs">
           <p class="lbl">Attach documents</p>
           <div class="flex flex-wrap gap-1.5">
@@ -924,7 +913,7 @@
       function clearBulkCompose(){ bulkCompose.subject=''; bulkCompose.body=''; bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAttachIds.value=[]; flash('Cleared'); }
       const bulkPreviewRecip=computed(()=> bulkRecipients.value.find(r=>r.included && (r.emails||'').trim()) || null);
       const bulkPreviewSubject=computed(()=>{ const r=bulkPreviewRecip.value; return r? mergeStore(bulkCompose.subject||'', {contact_name:r.name,store_name:r.store_name,area:''}) : (bulkCompose.subject||''); });
-      const bulkPreviewBody=computed(()=>{ const r=bulkPreviewRecip.value; const raw=(bulkCompose.body||'')+(bulkCompose.ps? '\n\nP.S. '+bulkCompose.ps:''); return r? mergeStore(raw,{contact_name:r.name,store_name:r.store_name,area:''}) : raw; });
+      const bulkPreviewBody=computed(()=>{ const r=bulkPreviewRecip.value; const raw=(bulkCompose.body||''); return r? mergeStore(raw,{contact_name:r.name,store_name:r.store_name,area:''}) : raw; });
       const psList=computed(()=> (settings.ps_list||'').split('\n').map(s=>s.trim()).filter(Boolean));
       const selectedTemplate=ref(''), aiIntent=ref(''), aiBusy=ref(false);
       const sendBusy=ref(false); const attachIds=ref([]);
@@ -969,7 +958,7 @@
           bulkProgress.value='Sending '+(sent+1)+' of '+recips.length+'…';
           const ctx={contact_name:r.name||'there', store_name:r.store_name||'', area:st.area||''};
           const subject=mergeStore(bulkCompose.subject,ctx);
-          const bodyTxt=mergeStore(bulkCompose.body,ctx)+(bulkCompose.ps? '\n\nP.S. '+bulkCompose.ps:'');
+          const bodyTxt=mergeStore(bulkCompose.body,ctx);
           try{
             const resp=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:r.emails,subject,text:bodyTxt,attachments,bannerUrl:effectiveBanner.value})});
             const d=await resp.json();
@@ -1139,7 +1128,7 @@
       function merge(str){ return mergeStore(str, cur.value); }
       function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=merge(t.subject); email.body=merge(t.body).replace(/\\r\\n|\\n/g,'\n'); }
-      function finalBody(){ return email.body + (email.ps? '\n\nP.S. '+email.ps : ''); }
+      function finalBody(){ return email.body; }
       const previewSubject=computed(()=> cur.value? merge(email.subject||'') : (email.subject||''));
       const previewBody=computed(()=> cur.value? merge(finalBody()) : finalBody());
       const attachDocs=computed(()=> documents.value.filter(d=>attachIds.value.includes(d.id)));
@@ -1199,7 +1188,7 @@
       async function loadEmails(){ curEmails.value=[]; emailBodies.value={}; const ems=cur.value? storeEmails(cur.value):[]; if(!ems.length) return; loadingEmails.value=true; try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({emails:ems})}); const d=await r.json(); if(d.messages) curEmails.value=d.messages; }catch(e){} loadingEmails.value=false; }
       async function expandEmail(it){ if(emailBodies.value[it.id]){ const c={...emailBodies.value}; delete c[it.id]; emailBodies.value=c; return; } try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); emailBodies.value={...emailBodies.value,[it.id]:d.text||'(no text)'}; }catch(e){ flash('Could not load email'); } }
       const filedIds=ref([]);
-      async function fileEmail(it){ try{ const r=await fetch('/.netlify/functions/gmail-file',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed'); filedIds.value=filedIds.value.concat([it.id]); activities.value=activities.value.map(a=> a.gmail_id===it.id? {...a,unread:false}:a); flash('Filed to CRM Reviewed'); }catch(e){ flash('Could not file: '+e.message); } }
+      async function fileEmail(it){ try{ const r=await fetch('/.netlify/functions/gmail-file',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed'); filedIds.value=filedIds.value.concat([it.id]); await sb.from('activities').update({unread:false}).eq('gmail_id',it.id); activities.value=activities.value.map(a=> a.gmail_id===it.id? {...a,unread:false}:a); flash('Filed to CRM Reviewed'); }catch(e){ flash('Could not file: '+e.message); } }
       const curTimeline=computed(()=>{
         if(!cur.value) return [];
         const notes=activities.value.filter(a=>a.store_id===cur.value.id && !a.gmail_id).map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
