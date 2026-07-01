@@ -300,6 +300,7 @@
               <div class="border-t border-stone-100 pt-1 whitespace-pre-wrap text-stone-700 max-h-56 overflow-y-auto">{{ previewBody }}</div>
               <p v-if="attachDocs.length" class="text-stone-500 border-t border-stone-100 pt-1">📎 {{ attachDocs.length }} attachment(s): {{ attachDocs.map(d=>d.name).join(', ') }} <span class="text-stone-400">({{ attachSizeLabel(attachIds) }})</span></p>
               <img :src="effectiveBanner" class="max-w-full rounded border border-stone-100 mt-1" style="max-height:56px">
+              <div v-if="email.quote" class="border-l-2 border-stone-300 pl-2 text-stone-500 whitespace-pre-wrap mt-2 max-h-40 overflow-y-auto">{{ email.quote }}</div>
             </div>
           </div>
           <button @click="deleteStore" class="text-red-500 text-xs hover:underline">Delete this store</button>
@@ -1135,7 +1136,7 @@
       function merge(str){ return mergeStore(str, cur.value); }
       function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
-      function finalBody(){ return email.body + (email.quote? '\n\n'+email.quote : ''); }
+      function finalBody(){ return email.body; }
       const _decEl=(typeof document!=='undefined')?document.createElement('textarea'):null;
       function decodeHtml(str){ if(!str) return ''; if(_decEl){ _decEl.innerHTML=str; return _decEl.value; } return str; }
       function extractEmail(h){ const m=(h||'').match(/<([^>]+)>/); return (m?m[1]:(h||'')).trim(); }
@@ -1144,8 +1145,8 @@
       const previewSubject=computed(()=> cur.value? merge(email.subject||'') : (email.subject||''));
       const previewBody=computed(()=> cur.value? merge(finalBody()) : finalBody());
       const attachDocs=computed(()=> documents.value.filter(d=>attachIds.value.includes(d.id)));
-      function openGmail(){ const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email.to)+'&su='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(finalBody()); window.open(u,'_blank'); }
-      async function copyEmail(){ await navigator.clipboard.writeText('Subject: '+email.subject+'\n\n'+finalBody()); flash('Copied'); }
+      function openGmail(){ const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email.to)+'&su='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(finalBody()+(email.quote? '\n\n'+email.quote:'')); window.open(u,'_blank'); }
+      async function copyEmail(){ await navigator.clipboard.writeText('Subject: '+email.subject+'\n\n'+finalBody()+(email.quote? '\n\n'+email.quote:'')); flash('Copied'); }
       async function logEmail(){ if(!email.subject && !email.body){ flash('Nothing to log'); return; } await sb.from('activities').insert({store_id:cur.value.id,type:'email',subject:email.subject,result:finalBody(),created_by:me.value,occurred_at:new Date().toISOString()}); if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; } await loadAll(); flash('Email logged'); }
       // ===== Gmail send/read =====
       async function portalToken(){ const { data:{ session } } = await portal.auth.getSession(); return session? session.access_token : ''; }
@@ -1177,7 +1178,7 @@
           const attachments=await gatherAttachments();
           const subjectOut=merge(email.subject);
           const bodyOut=merge(finalBody());
-          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:subjectOut,text:bodyOut,attachments,bannerUrl:effectiveBanner.value,threadId:email.threadId})});
+          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:subjectOut,text:bodyOut,attachments,bannerUrl:effectiveBanner.value,threadId:email.threadId,quote:email.quote})});
           const d=await r.json();
           if(!r.ok){ flash('Send failed: '+(d.error||r.status)); sendBusy.value=false; return; }
           await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'✉️ Sent: '+subjectOut,gmail_id:(d.id||('sent_'+Date.now())),created_by:me.value,occurred_at:new Date().toISOString()});
