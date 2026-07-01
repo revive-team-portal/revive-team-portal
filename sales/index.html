@@ -308,9 +308,9 @@
                 {{ typeIcon(t) }} {{ t }}
               </button>
             </div>
-            <div class="flex items-end gap-2">
-              <textarea v-model="actForm.result" rows="2" placeholder="Write a note…" class="inp flex-1"></textarea>
-              <input type="date" v-model="actForm.date" class="inp w-32 text-xs" title="Note date">
+            <div class="flex items-center gap-2">
+              <input v-model="actForm.result" placeholder="Write a note…" class="border border-stone-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <input type="date" v-model="actForm.date" class="border border-stone-300 rounded-lg px-2 py-2 text-xs bg-white" style="width:8.5rem" title="Note date">
               <button @click="addActivity" class="bg-stone-800 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap">Add note</button>
             </div>
           </div>
@@ -327,12 +327,12 @@
                 </div>
               </div>
               <p v-if="it.raw.result" class="text-[13px] text-stone-700 whitespace-pre-wrap mt-1">{{ it.raw.result }}</p>
-              <p class="text-[11px] text-stone-400 mt-0.5">{{ it.raw.created_by || '—' }}</p>
+              <p class="text-[11px] text-stone-400 mt-0.5">{{ fmtDateTime(it.raw.occurred_at) }} · {{ it.raw.created_by || '—' }}</p>
             </template>
             <template v-else>
               <div class="flex justify-between items-center gap-2">
                 <span class="text-sm">✉️ <span class="text-[10px] px-1.5 py-0.5 rounded-full" :class="it.direction==='out'?'bg-sky-100 text-sky-700':'bg-emerald-100 text-emerald-700'">{{ it.direction==='out'?'Sent':'Received' }}</span> <span class="text-xs text-stone-400">Gmail</span></span>
-                <span class="text-xs text-stone-400">{{ shortDate(it.when) }}</span>
+                <span class="text-xs text-stone-400">{{ fmtDateTime(it.when) }}</span>
               </div>
               <p class="text-[13px] font-medium mt-1">{{ it.subject || '(no subject)' }}</p>
               <p v-if="!emailBodies[it.id]" class="text-xs text-stone-500 mt-0.5">{{ it.snippet }}</p>
@@ -481,7 +481,6 @@
           </select>
           <button @click="aiDraftBulk" :disabled="bulkAiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ bulkAiBusy?'…':'✨ AI draft' }}</button>
         </div>
-        <input v-model="bulkAiIntent" placeholder="Optional goal (e.g. introduce Wopples to new stores)" class="inp text-xs">
         <label class="block"><span class="lbl">Subject</span><input v-model="bulkCompose.subject" class="inp"></label>
         <textarea v-model="bulkCompose.body" rows="8" placeholder="Email body… use {{name}} and {{customer}}" class="inp font-mono text-xs"></textarea>
         <select v-model="bulkCompose.ps" class="inp text-xs">
