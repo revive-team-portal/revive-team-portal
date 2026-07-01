@@ -487,7 +487,7 @@
         <hr>
         <div class="space-y-2">
           <p class="font-semibold text-sm">Canned email templates</p>
-          <p class="text-xs text-stone-500">Use <code v-pre>{{store_name}}</code> and <code v-pre>{{contact_name}}</code> as merge fields.</p>
+          <p class="text-xs text-stone-500">Use <code v-pre>{{firstname}}</code> and <code v-pre>{{customer}}</code> as merge fields.</p>
           <div v-for="t in templates" :key="t.id" class="border border-stone-200 rounded-lg p-3 space-y-2">
             <div class="flex gap-2">
               <input v-model="t.name" class="inp flex-1" placeholder="Template name">
@@ -510,7 +510,7 @@
         <h3 class="font-bold">Bulk email — {{ selectedIds.length }} stores</h3><button @click="showBulkEmail=false" class="text-stone-400 hover:text-stone-700">✕</button>
       </div>
       <div class="p-5 space-y-2">
-        <p class="text-xs text-stone-500">Each customer gets their own personalised email (sent to all their addresses). Merge fields: <code v-pre>{{name}}</code> = contact, <code v-pre>{{customer}}</code> = store name.</p>
+        <p class="text-xs text-stone-500">Each customer gets their own personalised email (sent to all their addresses). Merge fields: <code v-pre>{{firstname}}</code> = contact first name, <code v-pre>{{customer}}</code> = store name.</p>
         <div class="flex flex-wrap gap-2 items-center">
           <select v-model="bulkTemplate" @change="applyBulkTemplate" class="inp text-xs flex-1 min-w-[140px]">
             <option value="">— Canned response —</option>
@@ -525,7 +525,7 @@
           <span class="text-[10px] text-stone-400 mr-1">Insert:</span>
           <button v-for="m in MERGE_FIELDS" :key="m" @mousedown.prevent @click="insertMerge('b',m)" class="text-[11px] bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded px-1.5 py-0.5 font-mono">{{ m }}</button>
         </div>
-        <textarea ref="bulkBodyRef" v-model="bulkCompose.body" @keyup="setCaret($event,'b')" @click="setCaret($event,'b')" @select="setCaret($event,'b')" rows="8" placeholder="Email body… use {{name}} and {{customer}}" class="inp font-mono text-xs"></textarea>
+        <textarea ref="bulkBodyRef" v-model="bulkCompose.body" @keyup="setCaret($event,'b')" @click="setCaret($event,'b')" @select="setCaret($event,'b')" rows="8" placeholder="Email body… use {{firstname}} and {{customer}}" class="inp font-mono text-xs"></textarea>
         <div v-if="documents.length" class="text-xs">
           <p class="lbl">Attach documents</p>
           <div class="flex flex-wrap gap-1.5">
@@ -683,7 +683,7 @@
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
   const REGIONS = ['Northland','Auckland Central','Auckland North','Auckland West','Auckland East','Auckland South','Waikato','Bay of Plenty','Lower North Island','Wellington','Christchurch','Rest of South Island','All NZ'];
   const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World','Woolworths','Bin Inn','Other','None'];
-  const MERGE_FIELDS = ['{{contact}}','{{customer}}','{{area}}'];
+  const MERGE_FIELDS = ['{{firstname}}','{{customer}}'];
   const QUOTES = [
     {text:"The consumer isn't a moron; she is your wife.", source:"David Ogilvy"},
     {text:"If it doesn't sell, it isn't creative.", source:"David Ogilvy"},
@@ -1010,8 +1010,8 @@
       function insertMerge(which, token){ const isB=which==='b'; const obj=isB?bulkCompose:email; const v=obj.body||''; let pos=isB?bulkCaret.value:bodyCaret.value; pos=Math.min(Math.max(pos||0,0),v.length); obj.body=v.slice(0,pos)+token+v.slice(pos); const np=pos+token.length; if(isB) bulkCaret.value=np; else bodyCaret.value=np; nextTick(()=>{ const el=(isB?bulkBodyRef:bodyRef).value; if(el){ try{ el.focus(); el.setSelectionRange(np,np); }catch(e){} } }); }
       function clearBulkCompose(){ bulkCompose.subject=''; bulkCompose.body=''; bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAttachIds.value=[]; flash('Cleared'); }
       const bulkPreviewRecip=computed(()=> bulkRecipients.value.find(r=>r.included && (r.emails||'').trim()) || null);
-      const bulkPreviewSubject=computed(()=>{ const r=bulkPreviewRecip.value; return r? mergeStore(bulkCompose.subject||'', {contact_name:r.name,store_name:r.store_name,area:''}) : (bulkCompose.subject||''); });
-      const bulkPreviewBody=computed(()=>{ const r=bulkPreviewRecip.value; const raw=(bulkCompose.body||''); return r? mergeStore(raw,{contact_name:r.name,store_name:r.store_name,area:''}) : raw; });
+      const bulkPreviewSubject=computed(()=>{ const r=bulkPreviewRecip.value; return r? mergeStore(bulkCompose.subject||'', {contact_first:r.name,store_name:r.store_name}, 'there') : (bulkCompose.subject||''); });
+      const bulkPreviewBody=computed(()=>{ const r=bulkPreviewRecip.value; const raw=(bulkCompose.body||''); return r? mergeStore(raw,{contact_first:r.name,store_name:r.store_name}, 'there') : raw; });
       const psList=computed(()=> (settings.ps_list||'').split('\n').map(s=>s.trim()).filter(Boolean));
       const selectedTemplate=ref(''), aiIntent=ref(''), aiBusy=ref(false);
       const sendBusy=ref(false); const attachIds=ref([]);
@@ -1043,7 +1043,7 @@
       async function aiBulkSubject(){ bulkAiBusy.value=true; try{ const sys='Write ONE short, compelling email subject line for a mass outreach email. You may use the placeholder {{customer}} for the store name. Return ONLY the subject line, no quotes.\n\n'+(settings.ai_master_prompt||''); const txt=await callAI([{role:'user',content:'Email body:\n'+(bulkCompose.body||'(none yet)')+'\n\nWrite one subject line.'}],{model:'haiku',max_tokens:60,system:sys}); bulkCompose.subject=(txt||'').trim().replace(/^["\']|["\']$/g,''); flash('Subject suggested'); }catch(e){ flash('AI error: '+e.message); } bulkAiBusy.value=false; }
       function toggleBulkAttach(id){ const i=bulkAttachIds.value.indexOf(id); if(i<0) bulkAttachIds.value.push(id); else bulkAttachIds.value.splice(i,1); }
       function applyBulkTemplate(){ const t=templates.value.find(x=>x.id===bulkTemplate.value); if(!t) return; bulkCompose.subject=(t.subject||''); bulkCompose.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
-      async function aiDraftBulk(){ bulkAiBusy.value=true; try{ const sys=(settings.ai_master_prompt||'')+'\n\nWrite a template email to be sent to many stores. Use placeholders {{name}} (contact) and {{customer}} (store name) so each is personalised. Return ONLY JSON {"subject":"...","body":"..."}. End the body with this signature:\n'+(settings.email_signature||'')+'\n\nAfter the signature, ALWAYS add one compelling P.S. line (starting with P.S.).'; const brief=(bulkCompose.body||'').trim()||'Write a friendly outreach email introducing our range.'; const txt=await callAI([{role:'user',content:'Brief for this email: '+brief}],{model:'sonnet',max_tokens:1200,system:sys}); const j=parseJSON(txt); bulkCompose.subject=j.subject||bulkCompose.subject; bulkCompose.body=(j.body||bulkCompose.body||'').replace(/\\r\\n|\\n/g,'\n'); flash('Draft ready'); }catch(e){ flash('AI error: '+e.message); } bulkAiBusy.value=false; }
+      async function aiDraftBulk(){ bulkAiBusy.value=true; try{ const sys=(settings.ai_master_prompt||'')+'\n\nWrite a template email to be sent to many stores. Use placeholders {{firstname}} (contact first name) and {{customer}} (store name) so each is personalised. Return ONLY JSON {"subject":"...","body":"..."}. End the body with this signature:\n'+(settings.email_signature||'')+'\n\nAfter the signature, ALWAYS add one compelling P.S. line (starting with P.S.).'; const brief=(bulkCompose.body||'').trim()||'Write a friendly outreach email introducing our range.'; const txt=await callAI([{role:'user',content:'Brief for this email: '+brief}],{model:'sonnet',max_tokens:1200,system:sys}); const j=parseJSON(txt); bulkCompose.subject=j.subject||bulkCompose.subject; bulkCompose.body=(j.body||bulkCompose.body||'').replace(/\\r\\n|\\n/g,'\n'); flash('Draft ready'); }catch(e){ flash('AI error: '+e.message); } bulkAiBusy.value=false; }
       async function sendBulk(){
         if(!bulkCompose.subject.trim()||!bulkCompose.body.trim()){ flash('Add a subject and body'); return; }
         const recips=bulkRecipients.value.filter(r=>r.included && (r.emails||'').trim());
@@ -1056,8 +1056,8 @@
           const st=stores.value.find(x=>x.id===r.id)||{};
           bulkProgress.value='Sending '+(sent+1)+' of '+recips.length+'…';
           const ctx={contact_first:r.name||'', store_name:r.store_name||'', area:st.area||''};
-          const subject=mergeStore(bulkCompose.subject,ctx);
-          const bodyTxt=mergeStore(bulkCompose.body,ctx);
+          const subject=mergeStore(bulkCompose.subject,ctx,'there');
+          const bodyTxt=mergeStore(bulkCompose.body,ctx,'there');
           try{
             const resp=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:r.emails,subject,text:bodyTxt,attachments,bannerUrl:effectiveBanner.value})});
             const d=await resp.json();
@@ -1249,7 +1249,7 @@
       async function delOrder(o){ await sb.from('orders').delete().eq('id',o.id); await loadAll(); }
 
       // ===== email =====
-      function mergeStore(str, st){ if(!str) return ''; const nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,st.area||''); return out; }
+      function mergeStore(str, st, fb){ if(!str) return ''; let nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); if(!nm && fb) nm=fb; const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(firstname|first_name|contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,''); return out; }
       function merge(str){ return mergeStore(str, cur.value); }
       function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
@@ -1338,7 +1338,7 @@
       async function aiDraft(){
         aiBusy.value=true;
         try{
-          const sys=(settings.ai_master_prompt||'')+'\n\nReturn ONLY a JSON object {"subject":"...","body":"..."}. The body must be plain text ready to send in his authentic voice, applying the persuasion principles above and using the store history provided. Use {{contact}} for the contact first name and {{customer}} for the store name (do not write actual names). End with this signature:\n'+(settings.email_signature||'')+'\n\nAfter the signature, ALWAYS add one compelling P.S. line (starting with P.S.) that gives a reason to act now.';
+          const sys=(settings.ai_master_prompt||'')+'\n\nReturn ONLY a JSON object {"subject":"...","body":"..."}. The body must be plain text ready to send in his authentic voice, applying the persuasion principles above and using the store history provided. Use {{firstname}} for the contact first name and {{customer}} for the store name (do not write actual names). End with this signature:\n'+(settings.email_signature||'')+'\n\nAfter the signature, ALWAYS add one compelling P.S. line (starting with P.S.) that gives a reason to act now.';
           const acts=curActivities.value.slice(0,8).map(a=>a.type+': '+((a.result||a.subject||'')+'').slice(0,140));
           const mails=curEmails.value.slice(0,5).map(m=>(m.direction==='out'?'Sent':'Received')+': '+(m.subject||'')+' — '+((m.snippet||'')+'').slice(0,120));
           const ctx={store:cur.value.store_name,type:cur.value.store_type,area:cur.value.area,contact:cur.value.contact_name,status:label(cur.value.status),recent_notes:acts,recent_emails:mails};
