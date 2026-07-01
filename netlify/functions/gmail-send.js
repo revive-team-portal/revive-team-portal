@@ -23,10 +23,13 @@ exports.handler = async (event) => {
   const banner = (body.bannerUrl && String(body.bannerUrl).trim()) || FOOTER_IMG;
 
   const footer = banner ? '<br><a href="https://revivealicious.com"><img src="' + banner + '" alt="Revivealicious Foods" style="display:block;max-width:600px;width:100%;height:auto;border:0"></a>' : '';
-  const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;white-space:pre-wrap">' + esc(text) + '</div>' + footer;
+  const quote = (typeof body.quote === 'string' && body.quote.trim()) ? body.quote : '';
+  const quoteHtml = quote ? '<br><br><div style="color:#777;font-size:13px;border-left:2px solid #ccc;padding-left:10px;white-space:pre-wrap">' + esc(quote) + '</div>' : '';
+  const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;white-space:pre-wrap">' + esc(text) + '</div>' + footer + quoteHtml;
 
   const altB = 'alt_' + Date.now();
-  const alt = '--' + altB + '\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n' + text + '\r\n' +
+  const plain = text + (quote ? '\r\n\r\n' + quote : '');
+  const alt = '--' + altB + '\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n' + plain + '\r\n' +
               '--' + altB + '\r\nContent-Type: text/html; charset="UTF-8"\r\n\r\n' + html + '\r\n' +
               '--' + altB + '--';
   const headers = ['From: ' + from, 'To: ' + to, 'Subject: ' + encHeader(subject), 'MIME-Version: 1.0'];
