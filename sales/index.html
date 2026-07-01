@@ -24,7 +24,7 @@
 </script>
 
 <!-- Tailwind Play CDN safelist: ensures all dynamic status colours are generated -->
-<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700"></div>
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600"></div>
 
 <div id="app" v-cloak>
 
@@ -122,6 +122,8 @@
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-2 mb-4">
+        <button @click="runAiActions" :disabled="aiActionsBusy" class="text-xs px-3 py-2 rounded-lg border font-semibold whitespace-nowrap bg-purple-600 hover:bg-purple-700 text-white border-purple-600 disabled:opacity-50" title="Scan all customers and recommend the next best action for each">{{ aiActionsBusy?'Scanning…':'✨ AI Actions' }}</button>
+        <label v-if="hasAiActions" class="flex items-center gap-1 text-xs text-stone-600 select-none cursor-pointer whitespace-nowrap" title="Show/hide AI recommendations and priority ordering"><input type="checkbox" v-model="aiActionsOn" class="w-4 h-4 accent-purple-600"> Show actions</label>
         <button @click="newEmailsOnly=!newEmailsOnly" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
           :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">📥 New emails {{ newCount }}</button>
         <input v-model="search" placeholder="Search name, contact, area…" class="flex-1 min-w-[180px] border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
@@ -158,6 +160,7 @@
           <thead class="bg-stone-50 text-stone-500 text-xs uppercase tracking-wide">
             <tr>
               <th class="px-3 py-2.5"><input type="checkbox" :checked="allShownSelected" @change="toggleAll" class="w-5 h-5 accent-amber-600 cursor-pointer align-middle"></th>
+              <th v-if="aiActionsOn" class="text-left font-semibold px-3 py-2.5">Recommended action</th>
               <th @click="setSort('name')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Store<span class="text-amber-600">{{ sortArrow('name') }}</span></th>
               <th @click="setSort('area')" class="text-left font-semibold px-3 py-2.5 hidden md:table-cell cursor-pointer select-none hover:text-stone-700">Area<span class="text-amber-600">{{ sortArrow('area') }}</span></th>
               <th @click="setSort('status')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Status<span class="text-amber-600">{{ sortArrow('status') }}</span></th>
@@ -169,6 +172,10 @@
           <tbody>
             <tr v-for="s in filteredStores" :key="s.id" class="border-t border-stone-100" :class="[rowBg(s.status), selectedIds.includes(s.id)?'ring-2 ring-inset ring-amber-400':'']">
               <td class="px-3 py-3 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)" class="w-5 h-5 accent-amber-600 cursor-pointer"></td>
+              <td v-if="aiActionsOn" class="px-3 py-2.5 align-top w-44">
+                <div v-if="s.ai_action" class="rounded-lg px-2 py-1.5 text-xs font-medium leading-snug" :class="aiBoxClass(s.ai_priority)">{{ s.ai_action }}</div>
+                <span v-else class="text-stone-300 text-xs">—</span>
+              </td>
               <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
                 <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}</p>
                 <p class="text-xs text-stone-400">{{ s.store_type }}<span v-if="s.contact_name"> · {{ s.contact_name }}</span></p>
@@ -243,6 +250,13 @@
             <label class="block"><span class="lbl">Area</span>
               <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
             </label>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="lbl" style="margin:0">Rating</span>
+            <div class="flex gap-0.5">
+              <button v-for="n in 3" :key="n" type="button" @click="cur.rating=n" class="text-2xl leading-none" :class="(cur.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
+            </div>
+            <span class="text-xs text-stone-400">{{ cur.rating||1 }} of 3</span>
           </div>
           <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 space-y-1">
             <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="text-[10px] text-stone-400 uppercase tracking-wide">
@@ -463,6 +477,9 @@
           <p class="font-semibold text-sm">AI master prompt</p>
           <p class="text-xs text-stone-500">Sets the voice &amp; rules for every AI-drafted email (e.g. “write in the philosophy of Ogilvy”).</p>
           <textarea v-model="settings.ai_master_prompt" rows="6" class="inp text-xs"></textarea>
+          <p class="font-semibold text-sm pt-1">AI recommended-actions focus</p>
+          <p class="text-xs text-stone-500">Optional steer for the dashboard “AI Actions” sweep (e.g. “foodservice focus”, “push new packaging”). Leave blank for a balanced triage.</p>
+          <textarea v-model="settings.ai_actions_prompt" rows="2" placeholder="e.g. Prioritise foodservice and stores that haven't ordered in 60+ days" class="inp text-xs"></textarea>
           <div class="grid grid-cols-2 gap-3">
             <label class="block"><span class="lbl">Email signature</span><textarea v-model="settings.email_signature" rows="2" class="inp text-xs"></textarea></label>
             <label class="block"><span class="lbl">Sender name</span><input v-model="settings.sender_name" class="inp"></label>
@@ -968,7 +985,7 @@
       const ready=ref(false), gateError=ref(''), me=ref(''), isAdmin=ref(false);
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), orders=ref([]), templates=ref([]), documents=ref([]);
-      const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:''});
+      const settings=reactive({ai_master_prompt:'',ai_actions_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:''});
       const DEFAULT_BANNER='https://revivealicious.com/cdn/shop/files/2x1_Banner_2026_75600d3d-3499-4602-af5f-77a29db1fd87.jpg?width=1000';
       const effectiveBanner=computed(()=> (settings.email_banner_url||'').trim()||DEFAULT_BANNER);
       const attachBytes=(ids)=> documents.value.filter(d=>ids.includes(d.id)).reduce((n,d)=>n+(Number(d.size_bytes)||0),0);
@@ -985,6 +1002,7 @@
       function clearTypes(){ activeTypes.value=[]; }
       const countByType=(t)=> stores.value.filter(s=>(s.store_type||'')===t).length;
       const newEmailsOnly=ref(false);
+      const aiActionsOn=ref(false), aiActionsBusy=ref(false);
       const newCount=computed(()=> activities.value.filter(a=>a.unread).length);
       const storeHasNew=(id)=> activities.value.some(a=>a.store_id===id && a.unread);
       function setSort(k){ if(sortKey.value===k){ sortDir.value = sortDir.value==='asc'?'desc':'asc'; } else { sortKey.value=k; sortDir.value='asc'; } }
@@ -1140,8 +1158,33 @@
           else if(k2==='days'){ const da=daysSince(a), db=daysSince(b); r=(da===null?1e9:da)-(db===null?1e9:db); }
           return sortDir.value==='asc'? r : -r;
         });
+        if(aiActionsOn.value){
+          list.sort((a,b)=>{ const pa=a.ai_priority||9, pb=b.ai_priority||9; if(pa!==pb) return pa-pb; const ra=a.rating||1, rb=b.rating||1; if(ra!==rb) return rb-ra; return (a.store_name||'').localeCompare(b.store_name||''); });
+        }
         return list;
       });
+      const hasAiActions=computed(()=> stores.value.some(s=>s.ai_priority));
+      function aiBoxClass(pri){ return pri===1?'bg-purple-700 text-white':(pri===2?'bg-purple-400 text-white':'bg-purple-100 text-purple-800'); }
+      async function runAiActions(){
+        if(aiActionsBusy.value) return;
+        aiActionsBusy.value=true; flash('AI scanning all customers…');
+        try{
+          const idx=stores.value.map((s,i)=>({n:i+1,s}));
+          const lines=idx.map(({n,s})=>{ const d=daysSince(s); const last=recentNotes(s.id)[0]; const ln=last? ((last.result||cap(last.type))+'').replace(/\s+/g,' ').slice(0,60) : 'no activity'; return '#'+n+' | '+(s.store_name||'')+' | type:'+(s.store_type||'-')+' | rating:'+(s.rating||1)+'star | status:'+label(s.status)+' | daysSinceContact:'+(d===null?'never':d)+' | last:'+ln; });
+          const sys=(settings.ai_actions_prompt||'').trim()
+            + '\n\nYou are a sales manager triaging a CRM for Revivealicious Foods. For EVERY store listed, decide the single best next action and a priority.'
+            + '\nHigher star ratings usually deserve higher priority — but not always: a hot 1-star that just replied can outrank a cold 3-star. Weigh rating, days since last contact, pipeline status, and the last activity together.'
+            + '\naction = a short imperative, max 6 words (e.g. "Call to check in", "Email samples offer", "Offer a free sample", "Send price list", "Follow up on quote").'
+            + '\npriority: 1 = do today (high), 2 = soon, 3 = later. Only a handful should be priority 1.'
+            + '\nReturn ONLY a JSON array covering every # number: [{"n":1,"action":"...","priority":1}]. No prose.';
+          const txt=await callAI([{role:'user',content:'Stores:\n'+lines.join('\n')}],{model:'sonnet',max_tokens:4000,system:sys});
+          const arr=parseJSON(txt); const byN={}; (Array.isArray(arr)?arr:[]).forEach(o=>{ const n=parseInt(o.n); if(n) byN[n]={action:((o.action||'')+'').trim().slice(0,80), priority:Math.max(1,Math.min(3,parseInt(o.priority)||3))}; });
+          let cnt=0;
+          for(const {n,s} of idx){ const r=byN[n]; if(!r||!r.action) continue; await sb.from('stores').update({ai_action:r.action, ai_priority:r.priority}).eq('id',s.id); s.ai_action=r.action; s.ai_priority=r.priority; cnt++; }
+          aiActionsOn.value=true; flash('AI actions ready ('+cnt+' stores)');
+        }catch(e){ flash('AI actions failed: '+e.message); }
+        aiActionsBusy.value=false;
+      }
 
       const curActivities=computed(()=> cur.value? activities.value.filter(a=>a.store_id===cur.value.id):[]);
       const noteSortDesc=ref(true);
@@ -1175,11 +1218,12 @@
         (sx.data||[]).forEach(r=>{ if(r.key in settings) settings[r.key]=r.value||''; });
         const mq=await sb.from('motivation').select('*').order('created_at',{ascending:false});
         savedQuotes.value=mq.data||[];
+        if(stores.value.some(s=>s.ai_priority)) aiActionsOn.value=true;
         loading.value=false;
       }
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
       function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
@@ -1413,7 +1457,7 @@
 
       // ===== admin =====
       function openAdmin(){ showAdmin.value=true; }
-      async function saveSettings(){ for(const k of ['ai_master_prompt','email_signature','sender_name','ps_list','email_banner_url']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
+      async function saveSettings(){ for(const k of ['ai_master_prompt','ai_actions_prompt','email_signature','sender_name','ps_list','email_banner_url']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
       function exportDatabase(){
         try{
           const flat=(arr)=> (arr||[]).map(o=>{ const r={}; for(const k in o){ const v=o[k]; r[k]=Array.isArray(v)? v.join(', ') : (v&&typeof v==='object'? JSON.stringify(v) : v); } return r; });
@@ -1474,7 +1518,7 @@
         stores,activities,orders,templates,documents,settings,
         search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,allAreas,REGIONS,TYPES,
         activeStatuses,toggleStatus,isStatusActive,clearStatuses,rowBg,
-        activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,newEmailsOnly,newCount,
+        activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,newEmailsOnly,newCount,aiActionsOn,aiActionsBusy,runAiActions,aiBoxClass,hasAiActions,stores,
         dueCount,totalRevenue,countBy,orderCount,
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,isOverdue,lastActivity,
