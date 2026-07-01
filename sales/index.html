@@ -1202,7 +1202,7 @@
       function toggleSel(id){ const i=selectedIds.value.indexOf(id); if(i<0) selectedIds.value.push(id); else selectedIds.value.splice(i,1); }
       function toggleAll(){ selectedIds.value = allShownSelected.value? [] : filteredStores.value.map(s=>s.id); }
       function clearSel(){ selectedIds.value=[]; }
-      async function quickSave(s,patch){ patch.updated_at=new Date().toISOString(); if('next_contact_date' in patch && !patch.next_contact_date) patch.next_contact_date=null; const { error }=await sb.from('stores').update(patch).eq('id',s.id); if(error){ flash('Save failed: '+error.message); return; } Object.assign(s,patch); flash('Saved'); }
+      async function quickSave(s,patch){ patch.updated_at=new Date().toISOString(); const { error }=await sb.from('stores').update(patch).eq('id',s.id); if(error){ flash('Save failed: '+error.message); return; } Object.assign(s,patch); flash('Saved'); }
       async function applyBulk(){ if(!bulk.status){ flash('Pick a status to apply'); return; } const ids=selectedIds.value.slice(); for(const id of ids){ await sb.from('stores').update({status:bulk.status,updated_at:new Date().toISOString()}).eq('id',id); } bulk.status=''; await loadAll(); flash('Updated '+ids.length+' stores'); }
       async function bulkDelete(){ const n=selectedIds.value.length; if(!confirm('Delete '+n+' stores and all their activity?')) return; await sb.from('stores').delete().in('id',selectedIds.value); selectedIds.value=[]; await loadAll(); flash('Deleted '+n+' stores'); }
 
@@ -1227,13 +1227,13 @@
       }
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',notes:''}; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',no_reason:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); resetNoteForm(); }
       function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
-      function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
+      function onStatusChange(){ statusChanged=true; }
 
       async function saveStore(){
         if(!cur.value.store_name.trim()){ flash('Store name is required'); return false; }
@@ -1243,7 +1243,7 @@
         const isNew=!cur.value.id;
         const payload={...cur.value, updated_at:new Date().toISOString()};
         if(isNew){ payload.created_by=me.value; delete payload.id; }
-        if(!payload.next_contact_date) payload.next_contact_date=null;
+        delete payload.tags; delete payload.next_contact_date; delete payload.notes;
         let res;
         if(isNew) res=await sb.from('stores').insert(payload).select().single();
         else res=await sb.from('stores').update(payload).eq('id',cur.value.id).select().single();
