@@ -42,19 +42,19 @@
 
   <div v-else class="min-h-screen flex flex-col">
     <!-- NAV -->
-    <nav class="bg-stone-800 text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow">
+    <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#25b4e8">
       <div class="flex items-center gap-2">
         <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
         <span class="text-stone-400 text-sm hidden sm:inline">Sales CRM</span>
       </div>
       <div class="flex items-center gap-2">
         <button @click="openNewStore" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">+ Store</button>
-        <button @click="showImport=true" class="border border-stone-600 hover:border-stone-400 text-stone-200 text-xs px-3 py-1.5 rounded-lg">↑ Import</button>
-        <button @click="openDocs" class="border border-stone-600 hover:border-stone-400 text-stone-200 text-xs px-3 py-1.5 rounded-lg">Docs</button>
-        <button @click="showMotivation=true" class="border border-stone-600 hover:border-stone-400 text-stone-200 text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
-        <button v-if="isAdmin" @click="openAdmin" class="border border-stone-600 hover:border-stone-400 text-stone-200 text-xs px-3 py-1.5 rounded-lg">Admin</button>
-        <span class="text-stone-400 text-xs hidden md:inline ml-1">{{ me }}</span>
-        <a href="/" class="text-stone-400 hover:text-white text-xs ml-1">Portal</a>
+        <button @click="showImport=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">↑ Import</button>
+        <button @click="openDocs" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Docs</button>
+        <button @click="showMotivation=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
+        <button v-if="isAdmin" @click="openAdmin" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Admin</button>
+        <span class="text-white/80 text-xs hidden md:inline ml-1">{{ me }}</span>
+        <a href="/" class="text-white/80 hover:text-white text-xs ml-1">Portal</a>
       </div>
     </nav>
 
@@ -311,8 +311,8 @@
             </div>
             <textarea v-model="actForm.result" rows="3" placeholder="Write a note…" class="inp"></textarea>
             <div class="flex items-center gap-2">
-              <input type="date" v-model="actForm.date" class="inp w-40 text-xs" title="Note date (editable)">
-              <button @click="addActivity" class="ml-auto bg-stone-800 text-white text-sm px-4 py-1.5 rounded-lg">Add note</button>
+              <button @click="addActivity" class="bg-stone-800 text-white text-xs px-3 py-1 rounded-lg">Add note</button>
+              <input type="date" v-model="actForm.date" class="inp w-36 text-xs" title="Note date (editable)">
             </div>
           </div>
           <!-- HISTORY: notes + Gmail emails interleaved -->
@@ -327,7 +327,7 @@
                   <button @click="delActivity(it.raw)" class="text-stone-300 hover:text-red-500 text-sm">✕</button>
                 </div>
               </div>
-              <p v-if="it.raw.result" class="text-sm text-stone-700 whitespace-pre-wrap mt-1">{{ it.raw.result }}</p>
+              <p v-if="it.raw.result" class="text-[13px] text-stone-700 whitespace-pre-wrap mt-1">{{ it.raw.result }}</p>
               <p class="text-[11px] text-stone-400 mt-0.5">{{ it.raw.created_by || '—' }}</p>
             </template>
             <template v-else>
@@ -335,9 +335,9 @@
                 <span class="text-sm">✉️ <span class="text-[10px] px-1.5 py-0.5 rounded-full" :class="it.direction==='out'?'bg-sky-100 text-sky-700':'bg-emerald-100 text-emerald-700'">{{ it.direction==='out'?'Sent':'Received' }}</span> <span class="text-xs text-stone-400">Gmail</span></span>
                 <span class="text-xs text-stone-400">{{ shortDate(it.when) }}</span>
               </div>
-              <p class="text-sm font-medium mt-1">{{ it.subject || '(no subject)' }}</p>
+              <p class="text-[13px] font-medium mt-1">{{ it.subject || '(no subject)' }}</p>
               <p v-if="!emailBodies[it.id]" class="text-xs text-stone-500 mt-0.5">{{ it.snippet }}</p>
-              <p v-else class="text-sm text-stone-700 whitespace-pre-wrap mt-1">{{ emailBodies[it.id] }}</p>
+              <p v-else class="text-[13px] text-stone-700 whitespace-pre-wrap mt-1">{{ emailBodies[it.id] }}</p>
               <button @click="expandEmail(it)" class="text-xs text-amber-700 hover:text-amber-900 mt-1">{{ emailBodies[it.id]?'Hide':'Read full ▾' }}</button>
             </template>
           </div>
@@ -426,6 +426,14 @@
           </div>
           <label class="block"><span class="lbl">P.S. options (one per line — pick one when composing)</span>
             <textarea v-model="settings.ps_list" rows="5" class="inp text-xs" placeholder="One P.S. line per line"></textarea>
+          </label>
+          <label class="block"><span class="lbl">Email footer banner</span>
+            <img v-if="settings.email_banner_url" :src="settings.email_banner_url" class="max-w-full rounded border border-stone-200 mb-1" style="max-height:80px">
+            <div class="flex items-center gap-2">
+              <input type="file" accept="image/*" @change="uploadBanner" class="text-xs">
+              <span v-if="bannerBusy" class="text-xs text-stone-400">Uploading…</span>
+            </div>
+            <input v-model="settings.email_banner_url" placeholder="…or paste an image URL" class="inp text-xs mt-1">
           </label>
           <button @click="saveSettings" class="bg-amber-600 text-white text-sm px-3 py-1.5 rounded-lg">Save settings</button>
           <hr class="my-2">
@@ -537,7 +545,7 @@
     {key:'no_permanent',label:'No — Permanent',badge:'bg-red-100 text-red-700',btn:'bg-red-600 text-white border-red-600',row:'bg-red-50'},
   ];
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
-  const REGIONS = ['Northland','Auckland Central','Auckland North','Auckland West','Auckland East','Auckland South','Waikato','Bay of Plenty','Lower NI','Wellington','Christchurch','Rest of South Island','All NZ'];
+  const REGIONS = ['Northland','Auckland Central','Auckland North','Auckland West','Auckland East','Auckland South','Waikato','Bay of Plenty','Lower North Island','Wellington','Christchurch','Rest of South Island','All NZ'];
   const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World','Woolworths','Bin Inn','Other','None'];
   const QUOTES = [
     {text:"The consumer isn't a moron; she is your wife.", source:"David Ogilvy"},
@@ -818,7 +826,7 @@
       const ready=ref(false), gateError=ref(''), me=ref(''), isAdmin=ref(false);
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), orders=ref([]), templates=ref([]), documents=ref([]);
-      const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:'',ps_list:''});
+      const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:''});
       const search=ref(''), areaFilter=ref(''), sortKey=ref('name'), sortDir=ref('asc');
       const activeStatuses=ref([]); // empty = show all
       function toggleStatus(k){ const i=activeStatuses.value.indexOf(k); if(i<0) activeStatuses.value.push(k); else activeStatuses.value.splice(i,1); }
@@ -1007,7 +1015,7 @@
 
       // ===== email =====
       function merge(str){ if(!str) return ''; return str.replace(/\{\{\s*store_name\s*\}\}/g,cur.value.store_name||'').replace(/\{\{\s*contact_name\s*\}\}/g,cur.value.contact_name||'there').replace(/\{\{\s*area\s*\}\}/g,cur.value.area||''); }
-      function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=merge(t.subject); email.body=merge(t.body); }
+      function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=merge(t.subject); email.body=merge(t.body).replace(/\\r\\n|\\n/g,'\n'); }
       function finalBody(){ return email.body + (email.ps? '\n\nP.S. '+email.ps : ''); }
       function openGmail(){ const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email.to)+'&su='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(finalBody()); window.open(u,'_blank'); }
       async function copyEmail(){ await navigator.clipboard.writeText('Subject: '+email.subject+'\n\n'+finalBody()); flash('Copied'); }
@@ -1029,6 +1037,8 @@
       }
       async function markStoreRead(id){ if(!activities.value.some(a=>a.store_id===id&&a.unread)) return; await sb.from('activities').update({unread:false}).eq('store_id',id).eq('unread',true); activities.value=activities.value.map(a=>(a.store_id===id&&a.unread)?{...a,unread:false}:a); }
       async function saveAndClose(){ const ok=await saveStore(); if(ok!==false) closeStore(); }
+      const bannerBusy=ref(false);
+      async function uploadBanner(e){ const f=e.target.files[0]; if(!f) return; bannerBusy.value=true; try{ const path='email-banner-'+Date.now()+'-'+f.name.replace(/[^a-zA-Z0-9._-]/g,'_'); const up=await sb.storage.from('sales-public').upload(path,f,{upsert:true}); if(up.error) throw up.error; const { data }=sb.storage.from('sales-public').getPublicUrl(path); settings.email_banner_url=data.publicUrl; await sb.from('settings').upsert({key:'email_banner_url',value:data.publicUrl}); flash('Banner updated'); }catch(err){ flash('Upload failed: '+(err.message||err)); } bannerBusy.value=false; e.target.value=''; }
       function toggleAttach(id){ const i=attachIds.value.indexOf(id); if(i<0) attachIds.value.push(id); else attachIds.value.splice(i,1); }
       function abToB64(buf){ const b=new Uint8Array(buf); let s=''; const c=0x8000; for(let i=0;i<b.length;i+=c){ s+=String.fromCharCode.apply(null,b.subarray(i,i+c)); } return btoa(s); }
       async function gatherAttachments(){ const out=[]; for(const d of documents.value.filter(x=>attachIds.value.includes(x.id))){ try{ const { data }=await sb.storage.from('sales-docs').createSignedUrl(d.storage_path,600); const resp=await fetch(data.signedUrl); const buf=await resp.arrayBuffer(); out.push({filename:d.name,mimeType:d.file_type||'application/octet-stream',dataBase64:abToB64(buf)}); }catch(e){} } return out; }
@@ -1038,10 +1048,10 @@
         sendBusy.value=true;
         try{
           const attachments=await gatherAttachments();
-          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:email.subject,text:finalBody(),attachments})});
+          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:email.subject,text:finalBody(),attachments,bannerUrl:settings.email_banner_url})});
           const d=await r.json();
           if(!r.ok){ flash('Send failed: '+(d.error||r.status)); sendBusy.value=false; return; }
-          await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'Sent: '+email.subject+'\n\n'+finalBody(),created_by:me.value,occurred_at:new Date().toISOString()});
+          await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'✉️ Sent: '+email.subject,gmail_id:(d.id||('sent_'+Date.now())),created_by:me.value,occurred_at:new Date().toISOString()});
           if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; }
           email.subject=''; email.body=''; attachIds.value=[];
           await loadAll(); await loadEmails();
@@ -1082,7 +1092,7 @@
           const ctx={store:cur.value.store_name,type:cur.value.store_type,area:cur.value.area,contact:cur.value.contact_name,status:label(cur.value.status),recent:curActivities.value.slice(0,3).map(a=>a.type+': '+(a.subject||a.result||''))};
           const goal=aiIntent.value.trim()|| ('Write an appropriate next email given the store is at stage: '+label(cur.value.status));
           const txt=await callAI([{role:'user',content:'Store context:\n'+JSON.stringify(ctx)+'\n\nGoal: '+goal}],{model:'sonnet',max_tokens:1200,system:sys});
-          const j=parseJSON(txt); email.subject=j.subject||email.subject; email.body=j.body||email.body;
+          const j=parseJSON(txt); email.subject=(j.subject||email.subject); email.body=(j.body||email.body||'').replace(/\\r\\n|\\n/g,'\n');
           flash('Draft ready');
         }catch(e){ flash('AI error: '+e.message); }
         aiBusy.value=false;
@@ -1151,7 +1161,7 @@
 
       // ===== admin =====
       function openAdmin(){ showAdmin.value=true; }
-      async function saveSettings(){ for(const k of ['ai_master_prompt','email_signature','sender_name','ps_list']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
+      async function saveSettings(){ for(const k of ['ai_master_prompt','email_signature','sender_name','ps_list','email_banner_url']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
       async function newTemplate(){ const r=await sb.from('email_templates').insert({name:'New template',subject:'',body:'',sort_order:templates.value.length+1}).select().single(); if(r.data) templates.value.push(r.data); }
       async function saveTemplate(t){ await sb.from('email_templates').update({name:t.name,subject:t.subject,body:t.body}).eq('id',t.id); flash('Template saved'); }
       async function delTemplate(t){ if(!confirm('Delete template?')) return; await sb.from('email_templates').delete().eq('id',t.id); templates.value=templates.value.filter(x=>x.id!==t.id); }
@@ -1201,7 +1211,7 @@
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
         showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
-        openAdmin,saveSettings,newTemplate,saveTemplate,delTemplate,
+        openAdmin,saveSettings,newTemplate,saveTemplate,delTemplate,uploadBanner,bannerBusy,
         toast };
     }
   }).mount('#app');
