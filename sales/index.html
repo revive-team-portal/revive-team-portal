@@ -75,6 +75,9 @@
           <span>📲 In <b>{{ dashMetrics.phone_in }}</b></span>
           <span>✉ Out <b>{{ dashMetrics.email_out }}</b></span>
           <span>📥 In <b>{{ dashMetrics.email_in }}</b></span>
+          <span>📝 <b>{{ dashMetrics.note }}</b></span>
+          <span>🤝 <b>{{ dashMetrics.meeting }}</b></span>
+          <span>📦 <b>{{ dashMetrics.sample }}</b></span>
           <span>🔄 <b>{{ dashMetrics.status }}</b></span>
           <span>➕ Leads <b>{{ dashMetrics.leads }}</b></span>
         </span>
@@ -648,10 +651,10 @@
           <div class="border border-stone-200 rounded-lg p-2 overflow-x-auto">
             <p class="lbl mb-1">Totals by customer type</p>
             <table class="w-full text-xs">
-              <thead class="text-stone-400"><tr><th class="text-left font-normal">Type</th><th class="font-normal" title="Phone Out">📞O</th><th class="font-normal" title="Phone In">📲I</th><th class="font-normal" title="Email Out">✉O</th><th class="font-normal" title="Email In">📥I</th><th class="font-normal" title="Status">🔄</th><th class="font-normal" title="New leads">➕</th><th class="font-normal" title="Total events">Σ</th></tr></thead>
+              <thead class="text-stone-400"><tr><th class="text-left font-normal">Type</th><th class="font-normal" title="Phone Out">📞O</th><th class="font-normal" title="Phone In">📲I</th><th class="font-normal" title="Email Out">✉O</th><th class="font-normal" title="Email In">📥I</th><th class="font-normal" title="Notes">📝</th><th class="font-normal" title="Meetings">🤝</th><th class="font-normal" title="Samples">📦</th><th class="font-normal" title="Status">🔄</th><th class="font-normal" title="New leads">➕</th><th class="font-normal" title="Total events">Σ</th></tr></thead>
               <tbody>
                 <tr v-for="(m,t) in metricsByType" :key="t" class="border-t border-stone-100">
-                  <td class="text-left py-0.5">{{ t }}</td><td class="text-center">{{ m.phone_out }}</td><td class="text-center">{{ m.phone_in }}</td><td class="text-center">{{ m.email_out }}</td><td class="text-center">{{ m.email_in }}</td><td class="text-center">{{ m.status }}</td><td class="text-center">{{ m.leads }}</td><td class="text-center font-semibold text-stone-800">{{ m.phone_out+m.phone_in+m.email_out+m.email_in+m.status+m.leads }}</td>
+                  <td class="text-left py-0.5">{{ t }}</td><td class="text-center">{{ m.phone_out||'·' }}</td><td class="text-center">{{ m.phone_in||'·' }}</td><td class="text-center">{{ m.email_out||'·' }}</td><td class="text-center">{{ m.email_in||'·' }}</td><td class="text-center">{{ m.note||'·' }}</td><td class="text-center">{{ m.meeting||'·' }}</td><td class="text-center">{{ m.sample||'·' }}</td><td class="text-center">{{ m.status||'·' }}</td><td class="text-center">{{ m.leads||'·' }}</td><td class="text-center font-semibold text-stone-800">{{ (m.phone_out+m.phone_in+m.email_out+m.email_in+m.note+m.meeting+m.sample+m.status+m.leads)||'·' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1113,10 +1116,10 @@
       function _storesF(user){ return stores.value.filter(s=>{ const d=nzYMD(s.created_at); return d>=analyticsRange.value.start && d<=analyticsRange.value.end && (!user || s.created_by===user); }); }
       function metricsOf(user){ const A=_actsF(user); return { phone_out:A.filter(a=>a.type==='call').length, phone_in:A.filter(a=>a.type==='phone_in').length, email_out:A.filter(a=>a.type==='email'&&a.created_by!=='Gmail').length, email_in:A.filter(a=>a.type==='email'&&a.created_by==='Gmail').length, note:A.filter(a=>a.type==='note').length, meeting:A.filter(a=>a.type==='meeting').length, sample:A.filter(a=>a.type==='sample').length, referral:A.filter(a=>a.type==='referral').length, status:A.filter(a=>a.type==='status_change').length, leads:_storesF(user).length }; }
       const dashMetrics=computed(()=> metricsOf(''));
-      const dashTotal=computed(()=>{ const m=dashMetrics.value; return m.phone_out+m.phone_in+m.email_out+m.email_in+m.status+m.leads; });
+      const dashTotal=computed(()=>{ const m=dashMetrics.value; return m.phone_out+m.phone_in+m.email_out+m.email_in+m.note+m.meeting+m.sample+m.status+m.leads; });
       const popupMetrics=computed(()=> metricsOf(analyticsUser.value));
       const analyticsUsers=computed(()=> [...new Set(activities.value.map(a=>a.created_by).filter(u=>u && u!=='Gmail'))].sort());
-      const metricsByType=computed(()=>{ const A=_actsF(analyticsUser.value); const typeOf=id=>{ const st=stores.value.find(x=>x.id===id); return st? (st.store_type||'\u2014'):'\u2014'; }; const rows={}; const ensure=t=>{ if(!rows[t]) rows[t]={phone_out:0,phone_in:0,email_out:0,email_in:0,note:0,status:0,leads:0}; return rows[t]; }; TYPES.forEach(ensure); A.forEach(a=>{ const r=ensure(typeOf(a.store_id)); if(a.type==='call')r.phone_out++; else if(a.type==='phone_in')r.phone_in++; else if(a.type==='email'){ if(a.created_by==='Gmail')r.email_in++; else r.email_out++; } else if(a.type==='note')r.note++; else if(a.type==='status_change')r.status++; }); _storesF(analyticsUser.value).forEach(st=>{ ensure(st.store_type||'\u2014').leads++; }); return rows; });
+      const metricsByType=computed(()=>{ const A=_actsF(analyticsUser.value); const typeOf=id=>{ const st=stores.value.find(x=>x.id===id); return st? (st.store_type||'\u2014'):'\u2014'; }; const rows={}; const ensure=t=>{ if(!rows[t]) rows[t]={phone_out:0,phone_in:0,email_out:0,email_in:0,note:0,meeting:0,sample:0,status:0,leads:0}; return rows[t]; }; TYPES.forEach(ensure); A.forEach(a=>{ const r=ensure(typeOf(a.store_id)); if(a.type==='call')r.phone_out++; else if(a.type==='phone_in')r.phone_in++; else if(a.type==='email'){ if(a.created_by==='Gmail')r.email_in++; else r.email_out++; } else if(a.type==='note')r.note++; else if(a.type==='meeting')r.meeting++; else if(a.type==='sample')r.sample++; else if(a.type==='status_change')r.status++; }); _storesF(analyticsUser.value).forEach(st=>{ ensure(st.store_type||'\u2014').leads++; }); return rows; });
       const touchedStores=computed(()=>{ const A=_actsF(analyticsUser.value); const by={}; A.forEach(a=>{ (by[a.store_id]=by[a.store_id]||[]).push(a); }); const list=Object.keys(by).map(id=>{ const st=stores.value.find(x=>x.id===id); const items=by[id].slice().sort((x,y)=>(y.occurred_at||'').localeCompare(x.occurred_at||'')); return { id, name:st?st.store_name:'(deleted)', stype:st?st.store_type:'', last:items[0].occurred_at, events:items.slice(0,4).map(a=>({label:typeLabel(a.type), text:(a.result||'').replace(/\s+/g,' ').slice(0,50)})) }; }); list.sort((a,b)=>(b.last||'').localeCompare(a.last||'')); return list; });
       const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
       const shortDate=(d)=> d? new Date(d).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}):'';
@@ -1290,7 +1293,6 @@
       }
       async function delActivity(a){ await sb.from('activities').delete().eq('id',a.id); await loadAll(); }
 
-      // ===== orders =====
 
       // ===== email =====
       function mergeStore(str, st, fb){ if(!str) return ''; let nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); if(!nm && fb) nm=fb; const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(firstname|first_name|contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,''); return out; }
@@ -1518,7 +1520,7 @@
       });
 
       return { ready,gateError,me,isAdmin,loading,STATUSES,
-        stores,activities,orders,templates,documents,settings,
+        stores,activities,templates,documents,settings,
         search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,displayStores,allAreas,REGIONS,TYPES,
         activeStatuses,toggleStatus,isStatusActive,clearStatuses,rowBg,
         activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,newEmailsOnly,newCount,aiActionsOn,aiActionsBusy,runAiActions,aiBoxClass,hasAiActions,stores,
