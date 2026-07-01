@@ -252,20 +252,27 @@
             <input v-model="aiIntent" placeholder="Optional goal (e.g. follow up after sample)" class="inp text-xs">
             <div class="grid grid-cols-2 gap-2">
               <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
-              <label class="block"><span class="lbl">Subject</span><input v-model="email.subject" class="inp"></label>
+              <label class="block"><span class="lbl">Subject <button @click="aiSubject" :disabled="aiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="email.subject" class="inp"></label>
             </div>
             <textarea v-model="email.body" rows="7" placeholder="Email body…" class="inp font-mono text-xs"></textarea>
             <select v-model="email.ps" class="inp text-xs">
               <option value="">— No P.S. —</option>
               <option v-for="(p,i) in psList" :key="i" :value="p">P.S. {{ p.length>60? p.slice(0,60)+'…' : p }}</option>
             </select>
-            <div v-if="documents.length" class="flex flex-wrap gap-1.5 text-xs">
-              <button v-for="d in documents" :key="d.id" @click="downloadDoc(d)" class="border border-stone-300 rounded px-2 py-1 hover:bg-stone-100">⬇ {{ d.name }}</button>
+            <div v-if="documents.length" class="text-xs">
+              <p class="lbl">Attach documents</p>
+              <div class="flex flex-wrap gap-1.5">
+                <button v-for="d in documents" :key="d.id" @click="toggleAttach(d.id)" class="border rounded px-2 py-1 transition"
+                  :class="attachIds.includes(d.id)?'bg-amber-100 border-amber-400 text-amber-800':'border-stone-300 hover:bg-stone-100'">
+                  {{ attachIds.includes(d.id)?'📎':'○' }} {{ d.name }}
+                </button>
+              </div>
             </div>
-            <div class="flex flex-wrap gap-2">
-              <button @click="openGmail" class="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Open in Gmail</button>
+            <div class="flex flex-wrap gap-2 items-center">
+              <button @click="sendEmail" :disabled="sendBusy" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50">{{ sendBusy?'Sending…':'Send ▸' }}</button>
               <button @click="copyEmail" class="border border-stone-300 text-xs px-3 py-1.5 rounded-lg hover:bg-stone-100">Copy</button>
-              <button @click="logEmail" class="bg-stone-800 text-white text-xs px-3 py-1.5 rounded-lg">Mark sent &amp; log</button>
+              <button @click="openGmail" class="text-xs text-stone-500 hover:text-stone-800">Open in Gmail instead</button>
+              <span v-if="!gmailConnected" class="text-xs text-amber-600">⚠ Gmail not connected (see Admin)</span>
             </div>
           </div>
           <button @click="deleteStore" class="text-red-500 text-xs hover:underline">Delete this store</button>
@@ -294,18 +301,31 @@
               <button @click="addActivity" class="ml-auto bg-stone-800 text-white text-sm px-4 py-1.5 rounded-lg">Add note</button>
             </div>
           </div>
-          <!-- HISTORY -->
-          <div v-if="!curNotes.length" class="text-stone-400 text-sm text-center py-6">No notes yet.</div>
-          <div v-for="a in curNotes" :key="a.id" class="bg-white rounded-lg border border-stone-200 px-3 py-2 mb-2">
-            <div class="flex justify-between items-center gap-2">
-              <span class="text-sm">{{ typeIcon(a.type) }} <span class="text-xs text-stone-400 capitalize">{{ a.type }}</span></span>
-              <div class="flex items-center gap-2">
-                <input type="date" :value="(a.occurred_at||'').slice(0,10)" @change="updateNoteDate(a,$event.target.value)" class="text-xs border border-stone-200 rounded px-1 py-0.5 text-stone-500">
-                <button @click="delActivity(a)" class="text-stone-300 hover:text-red-500 text-sm">✕</button>
+          <!-- HISTORY: notes + Gmail emails interleaved -->
+          <p v-if="loadingEmails" class="text-xs text-stone-400">Loading emails from Gmail…</p>
+          <div v-if="!curTimeline.length" class="text-stone-400 text-sm text-center py-6">No notes or emails yet.</div>
+          <div v-for="it in curTimeline" :key="it.kind+it.id" class="bg-white rounded-lg border px-3 py-2 mb-2" :class="it.kind==='email'?'border-sky-200':'border-stone-200'">
+            <template v-if="it.kind==='note'">
+              <div class="flex justify-between items-center gap-2">
+                <span class="text-sm">{{ typeIcon(it.raw.type) }} <span class="text-xs text-stone-400 capitalize">{{ it.raw.type }}</span></span>
+                <div class="flex items-center gap-2">
+                  <input type="date" :value="(it.raw.occurred_at||'').slice(0,10)" @change="updateNoteDate(it.raw,$event.target.value)" class="text-xs border border-stone-200 rounded px-1 py-0.5 text-stone-500">
+                  <button @click="delActivity(it.raw)" class="text-stone-300 hover:text-red-500 text-sm">✕</button>
+                </div>
               </div>
-            </div>
-            <p v-if="a.result" class="text-sm text-stone-700 whitespace-pre-wrap mt-1">{{ a.result }}</p>
-            <p class="text-[11px] text-stone-400 mt-0.5">{{ a.created_by || '—' }}</p>
+              <p v-if="it.raw.result" class="text-sm text-stone-700 whitespace-pre-wrap mt-1">{{ it.raw.result }}</p>
+              <p class="text-[11px] text-stone-400 mt-0.5">{{ it.raw.created_by || '—' }}</p>
+            </template>
+            <template v-else>
+              <div class="flex justify-between items-center gap-2">
+                <span class="text-sm">✉️ <span class="text-[10px] px-1.5 py-0.5 rounded-full" :class="it.direction==='out'?'bg-sky-100 text-sky-700':'bg-emerald-100 text-emerald-700'">{{ it.direction==='out'?'Sent':'Received' }}</span> <span class="text-xs text-stone-400">Gmail</span></span>
+                <span class="text-xs text-stone-400">{{ shortDate(it.when) }}</span>
+              </div>
+              <p class="text-sm font-medium mt-1">{{ it.subject || '(no subject)' }}</p>
+              <p v-if="!emailBodies[it.id]" class="text-xs text-stone-500 mt-0.5">{{ it.snippet }}</p>
+              <p v-else class="text-sm text-stone-700 whitespace-pre-wrap mt-1">{{ emailBodies[it.id] }}</p>
+              <button @click="expandEmail(it)" class="text-xs text-amber-700 hover:text-amber-900 mt-1">{{ emailBodies[it.id]?'Hide':'Read full ▾' }}</button>
+            </template>
           </div>
         </div>
       </div>
@@ -394,6 +414,13 @@
             <textarea v-model="settings.ps_list" rows="5" class="inp text-xs" placeholder="One P.S. line per line"></textarea>
           </label>
           <button @click="saveSettings" class="bg-amber-600 text-white text-sm px-3 py-1.5 rounded-lg">Save settings</button>
+          <hr class="my-2">
+          <div class="space-y-1">
+            <p class="font-semibold text-sm">Gmail connection</p>
+            <p class="text-xs text-stone-500">The app sends &amp; reads email through this mailbox.</p>
+            <p class="text-sm" :class="gmailConnected?'text-emerald-700':'text-amber-700'">{{ gmailConnected? ('✓ Connected as '+(gmailEmail||'')) : 'Not connected' }}</p>
+            <a href="/.netlify/functions/gmail-connect" target="_blank" class="inline-block bg-stone-800 text-white text-sm px-3 py-1.5 rounded-lg">{{ gmailConnected?'Reconnect':'Connect Gmail' }}</a>
+          </div>
         </div>
         <hr>
         <div class="space-y-2">
@@ -799,6 +826,9 @@
       const email=reactive({to:'',subject:'',body:'',ps:''});
       const psList=computed(()=> (settings.ps_list||'').split('\n').map(s=>s.trim()).filter(Boolean));
       const selectedTemplate=ref(''), aiIntent=ref(''), aiBusy=ref(false);
+      const sendBusy=ref(false); const attachIds=ref([]);
+      const gmailConnected=ref(false), gmailEmail=ref('');
+      const curEmails=ref([]), loadingEmails=ref(false), emailBodies=ref({});
       const selectedIds=ref([]); const bulk=reactive({status:'',next:'',tag:''});
 
       // ---- modals ----
@@ -899,7 +929,7 @@
       function blankStore(){ return {store_name:'',store_type:'',area:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=s.contact_email||s.store_email||''; email.subject=''; email.body=''; email.ps=psList.value[0]||''; selectedTemplate.value=''; aiIntent.value=''; attachIds.value=[]; curEmails.value=[]; emailBodies.value={}; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
@@ -960,6 +990,46 @@
       function openGmail(){ const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email.to)+'&su='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(finalBody()); window.open(u,'_blank'); }
       async function copyEmail(){ await navigator.clipboard.writeText('Subject: '+email.subject+'\n\n'+finalBody()); flash('Copied'); }
       async function logEmail(){ if(!email.subject && !email.body){ flash('Nothing to log'); return; } await sb.from('activities').insert({store_id:cur.value.id,type:'email',subject:email.subject,result:finalBody(),created_by:me.value,occurred_at:new Date().toISOString()}); if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; } await loadAll(); flash('Email logged'); }
+      // ===== Gmail send/read =====
+      async function portalToken(){ const { data:{ session } } = await portal.auth.getSession(); return session? session.access_token : ''; }
+      async function checkGmail(){ try{ const r=await fetch('/.netlify/functions/gmail-status',{method:'POST',headers:{'Authorization':'Bearer '+(await portalToken())}}); const d=await r.json(); gmailConnected.value=!!d.connected; gmailEmail.value=d.email||''; }catch(e){} }
+      function toggleAttach(id){ const i=attachIds.value.indexOf(id); if(i<0) attachIds.value.push(id); else attachIds.value.splice(i,1); }
+      function abToB64(buf){ const b=new Uint8Array(buf); let s=''; const c=0x8000; for(let i=0;i<b.length;i+=c){ s+=String.fromCharCode.apply(null,b.subarray(i,i+c)); } return btoa(s); }
+      async function gatherAttachments(){ const out=[]; for(const d of documents.value.filter(x=>attachIds.value.includes(x.id))){ try{ const { data }=await sb.storage.from('sales-docs').createSignedUrl(d.storage_path,600); const resp=await fetch(data.signedUrl); const buf=await resp.arrayBuffer(); out.push({filename:d.name,mimeType:d.file_type||'application/octet-stream',dataBase64:abToB64(buf)}); }catch(e){} } return out; }
+      async function sendEmail(){
+        if(!email.to.trim()){ flash('Add a recipient'); return; }
+        if(!email.subject.trim()){ flash('Add a subject'); return; }
+        sendBusy.value=true;
+        try{
+          const attachments=await gatherAttachments();
+          const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:email.to,subject:email.subject,text:finalBody(),attachments})});
+          const d=await r.json();
+          if(!r.ok){ flash('Send failed: '+(d.error||r.status)); sendBusy.value=false; return; }
+          await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'Sent: '+email.subject+'\n\n'+finalBody(),created_by:me.value,occurred_at:new Date().toISOString()});
+          if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; }
+          email.subject=''; email.body=''; attachIds.value=[];
+          await loadAll(); await loadEmails();
+          flash('Email sent ✓');
+        }catch(e){ flash('Send error: '+e.message); }
+        sendBusy.value=false;
+      }
+      async function aiSubject(){
+        aiBusy.value=true;
+        try{ const sys='You write short, compelling email subject lines. Return ONLY the subject line, no quotes.\n\n'+(settings.ai_master_prompt||'');
+          const txt=await callAI([{role:'user',content:'Store: '+cur.value.store_name+'. Email body:\n'+(email.body||'(none yet)')+'\n\nWrite one subject line.'}],{model:'haiku',max_tokens:60,system:sys});
+          email.subject=(txt||'').trim().replace(/^["\']|["\']$/g,''); flash('Subject suggested');
+        }catch(e){ flash('AI error: '+e.message); }
+        aiBusy.value=false;
+      }
+      async function loadEmails(){ curEmails.value=[]; emailBodies.value={}; const addr=cur.value && (cur.value.contact_email||cur.value.store_email); if(!addr) return; loadingEmails.value=true; try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({email:addr})}); const d=await r.json(); if(d.messages) curEmails.value=d.messages; }catch(e){} loadingEmails.value=false; }
+      async function expandEmail(it){ if(emailBodies.value[it.id]){ const c={...emailBodies.value}; delete c[it.id]; emailBodies.value=c; return; } try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); emailBodies.value={...emailBodies.value,[it.id]:d.text||'(no text)'}; }catch(e){ flash('Could not load email'); } }
+      const curTimeline=computed(()=>{
+        if(!cur.value) return [];
+        const notes=activities.value.filter(a=>a.store_id===cur.value.id).map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
+        const emails=curEmails.value.map(m=>({kind:'email',id:m.id,direction:m.direction,subject:m.subject,snippet:m.snippet,when:m.date? new Date(m.date).toISOString():''}));
+        const all=notes.concat(emails); all.sort((a,b)=>(a.when||'').localeCompare(b.when||''));
+        return noteSortDesc.value? all.reverse():all;
+      });
 
       async function callAI(messages, opts={}){
         const { data:{ session } } = await portal.auth.getSession();
@@ -1070,6 +1140,7 @@
           me.value=myName||(s.portal_user&&s.portal_user.email)||p.user.email||'';
         }catch(e){ gateError.value='Could not open the sales database. Please reload.'; ready.value=true; return; }
         await loadAll();
+        checkGmail();
         ready.value=true;
       });
 
@@ -1084,6 +1155,8 @@
         recentNotes,isRepeat,daysSince,daysLabel,psList,
         cur,tab,saving,tagText,actForm,orderForm,email,selectedTemplate,aiIntent,aiBusy,
         curActivities,curNotes,noteSortDesc,updateNoteDate,curOrders,
+        curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
+        sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,
         openNewStore,openStore,closeStore,onStatusChange,saveStore,deleteStore,
         addActivity,delActivity,addOrder,delOrder,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,
