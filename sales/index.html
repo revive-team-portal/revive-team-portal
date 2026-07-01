@@ -264,11 +264,15 @@
               </select>
               <button @click="aiDraft" :disabled="aiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ aiBusy?'…':'✨ AI draft' }}</button>
               <button @click="clearCompose" class="text-xs text-stone-500 hover:text-stone-800 border border-stone-300 rounded px-2 py-1.5">Clear details</button>
-              <button @click="saveAsTemplate" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1.5">Save template</button>
+              <button @click="saveAsTemplate(email)" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1.5">Save template</button>
             </div>
             <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
             <label class="block"><span class="lbl">Subject <button @click="aiSubject" :disabled="aiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="email.subject" class="inp"></label>
-            <textarea v-model="email.body" rows="7" placeholder="Email body…" class="inp font-mono text-xs"></textarea>
+            <div class="flex flex-wrap gap-1 items-center">
+              <span class="text-[10px] text-stone-400 mr-1">Insert:</span>
+              <button v-for="m in MERGE_FIELDS" :key="m" @click="insertAt(bodyRef,email,'body',m)" class="text-[11px] bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded px-1.5 py-0.5 font-mono">{{ m }}</button>
+            </div>
+            <textarea ref="bodyRef" v-model="email.body" rows="7" placeholder="Email body…" class="inp font-mono text-xs"></textarea>
             <select v-model="email.ps" class="inp text-xs">
               <option value="">— No P.S. —</option>
               <option v-for="(p,i) in psList" :key="i" :value="p">P.S. {{ p.length>60? p.slice(0,60)+'…' : p }}</option>
@@ -490,9 +494,15 @@
             <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
           </select>
           <button @click="aiDraftBulk" :disabled="bulkAiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ bulkAiBusy?'…':'✨ AI draft' }}</button>
+          <button @click="clearBulkCompose" class="text-xs text-stone-500 hover:text-stone-800 border border-stone-300 rounded px-2 py-1.5">Clear</button>
+          <button @click="saveAsTemplate(bulkCompose)" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1.5">Save template</button>
         </div>
         <label class="block"><span class="lbl">Subject <button @click="aiBulkSubject" :disabled="bulkAiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="bulkCompose.subject" class="inp"></label>
-        <textarea v-model="bulkCompose.body" rows="8" placeholder="Email body… use {{name}} and {{customer}}" class="inp font-mono text-xs"></textarea>
+        <div class="flex flex-wrap gap-1 items-center">
+          <span class="text-[10px] text-stone-400 mr-1">Insert:</span>
+          <button v-for="m in MERGE_FIELDS" :key="m" @click="insertAt(bulkBodyRef,bulkCompose,'body',m)" class="text-[11px] bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded px-1.5 py-0.5 font-mono">{{ m }}</button>
+        </div>
+        <textarea ref="bulkBodyRef" v-model="bulkCompose.body" rows="8" placeholder="Email body… use {{name}} and {{customer}}" class="inp font-mono text-xs"></textarea>
         <select v-model="bulkCompose.ps" class="inp text-xs">
           <option value="">— No P.S. —</option>
           <option v-for="(pp,i) in psList" :key="i" :value="pp">P.S. {{ pp.length>60? pp.slice(0,60)+'…' : pp }}</option>
@@ -523,6 +533,14 @@
           <button @click="sendBulk" :disabled="bulkSendBusy" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50">{{ bulkSendBusy?'Sending…':('Send to '+bulkRecipientCount) }}</button>
           <button @click="showBulkEmail=false" class="border border-stone-300 text-sm px-3 py-1.5 rounded-lg">Cancel</button>
           <span class="text-xs text-stone-500">{{ bulkProgress }}</span>
+        </div>
+        <div class="border border-stone-200 rounded-lg bg-white p-3 text-xs space-y-1">
+          <p class="lbl" style="margin-bottom:2px">Preview — first recipient <span v-if="bulkPreviewRecip" class="text-stone-400 normal-case">({{ bulkPreviewRecip.store_name }})</span></p>
+          <p><span class="text-stone-400">To:</span> {{ bulkPreviewRecip? bulkPreviewRecip.emails : '—' }}</p>
+          <p><span class="text-stone-400">Subject:</span> <span class="font-medium">{{ bulkPreviewSubject || '—' }}</span></p>
+          <div class="border-t border-stone-100 pt-1 whitespace-pre-wrap text-stone-700 max-h-56 overflow-y-auto">{{ bulkPreviewBody }}</div>
+          <p v-if="bulkAttachIds.length" class="text-stone-500 border-t border-stone-100 pt-1">📎 {{ bulkAttachIds.length }} attachment(s) <span class="text-stone-400">({{ attachSizeLabel(bulkAttachIds) }})</span></p>
+          <img :src="effectiveBanner" class="max-w-full rounded border border-stone-100 mt-1" style="max-height:56px">
         </div>
       </div>
     </div>
@@ -566,7 +584,7 @@
 
 <script>
 (function(){
-  const { createApp, ref, reactive, computed, onMounted } = Vue;
+  const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
   const { createClient } = supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'sales' } });
   const portal = createClient(PORTAL_URL, PORTAL_ANON);
@@ -585,6 +603,7 @@
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
   const REGIONS = ['Northland','Auckland Central','Auckland North','Auckland West','Auckland East','Auckland South','Waikato','Bay of Plenty','Lower North Island','Wellington','Christchurch','Rest of South Island','All NZ'];
   const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World','Woolworths','Bin Inn','Other','None'];
+  const MERGE_FIELDS = ['{{contact}}','{{customer}}','{{area}}'];
   const QUOTES = [
     {text:"The consumer isn't a moron; she is your wife.", source:"David Ogilvy"},
     {text:"If it doesn't sell, it isn't creative.", source:"David Ogilvy"},
@@ -900,6 +919,12 @@
       function blankCompose(){ email.subject=''; email.body=''; email.ps=psList.value[0]||''; attachIds.value=[]; }
       function prefillFromLast(){ const L=lastEmail.value; if(L && cur.value){ email.subject=merge(L.subject||''); email.body=merge(L.body||''); email.ps=L.ps||''; attachIds.value=(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)); } else { blankCompose(); } }
       function clearCompose(){ blankCompose(); selectedTemplate.value=''; aiIntent.value=''; flash('Cleared'); }
+      const bodyRef=ref(null), bulkBodyRef=ref(null);
+      function insertAt(refEl, obj, key, token){ const el=refEl && refEl.value; const v=obj[key]||''; if(el && typeof el.selectionStart==='number'){ const st=el.selectionStart, en=el.selectionEnd; obj[key]=v.slice(0,st)+token+v.slice(en); nextTick(()=>{ try{ el.focus(); const pos=st+token.length; el.setSelectionRange(pos,pos); }catch(e){} }); } else { obj[key]=v+token; } }
+      function clearBulkCompose(){ bulkCompose.subject=''; bulkCompose.body=''; bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAttachIds.value=[]; flash('Cleared'); }
+      const bulkPreviewRecip=computed(()=> bulkRecipients.value.find(r=>r.included && (r.emails||'').trim()) || null);
+      const bulkPreviewSubject=computed(()=>{ const r=bulkPreviewRecip.value; return r? mergeStore(bulkCompose.subject||'', {contact_name:r.name,store_name:r.store_name,area:''}) : (bulkCompose.subject||''); });
+      const bulkPreviewBody=computed(()=>{ const r=bulkPreviewRecip.value; const raw=(bulkCompose.body||'')+(bulkCompose.ps? '\n\nP.S. '+bulkCompose.ps:''); return r? mergeStore(raw,{contact_name:r.name,store_name:r.store_name,area:''}) : raw; });
       const psList=computed(()=> (settings.ps_list||'').split('\n').map(s=>s.trim()).filter(Boolean));
       const selectedTemplate=ref(''), aiIntent=ref(''), aiBusy=ref(false);
       const sendBusy=ref(false); const attachIds=ref([]);
@@ -920,7 +945,7 @@
       function prevQuote(){ if(quotePtr.value>0) quotePtr.value--; }
       const bulkEmails=computed(()=> selectedIds.value.map(id=>{ const s=stores.value.find(x=>x.id===id); return s&&(s.contact_email||s.store_email); }).filter(Boolean));
       const bulkEmailsStr=computed(()=> bulkEmails.value.join(', '));
-      function openBulkEmail(){ bulkCompose.subject=''; bulkCompose.body=''; bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAttachIds.value=[]; bulkProgress.value=''; bulkRecipients.value=selectedIds.value.map(id=>{ const st=stores.value.find(s=>s.id===id); if(!st) return null; const ems=storeEmails(st); return { id, store_name:st.store_name, name:st.contact_name||'', emails:ems.join(', '), included:ems.length>0 }; }).filter(Boolean); showBulkEmail.value=true; }
+      function openBulkEmail(){ const L=lastEmail.value; bulkCompose.subject=L?(L.subject||''):''; bulkCompose.body=L?(L.body||''):''; bulkCompose.ps=L?(L.ps||''):(psList.value[0]||''); bulkTemplate.value=''; bulkAttachIds.value=L?(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)):[]; bulkProgress.value=''; bulkRecipients.value=selectedIds.value.map(id=>{ const st=stores.value.find(s=>s.id===id); if(!st) return null; const ems=storeEmails(st); return { id, store_name:st.store_name, name:st.contact_name||'', emails:ems.join(', '), included:ems.length>0 }; }).filter(Boolean); showBulkEmail.value=true; }
       async function copyBulkEmails(){ await navigator.clipboard.writeText(bulkEmailsStr.value); flash('Addresses copied'); }
       async function applyBulkNote(){ const txt=bulkNote.value.trim(); if(!txt){ flash('Enter a note'); return; } const rows=selectedIds.value.map(id=>({store_id:id,type:'email',result:txt,created_by:me.value,occurred_at:new Date().toISOString()})); await sb.from('activities').insert(rows); await loadAll(); flash('Note added to '+rows.length+' stores'); }
       const bulkCompose=reactive({subject:'',body:'',ps:''});
@@ -1270,7 +1295,7 @@
       async function saveSettings(){ for(const k of ['ai_master_prompt','email_signature','sender_name','ps_list','email_banner_url']){ await sb.from('settings').upsert({key:k,value:settings[k]}); } flash('Settings saved'); }
       async function newTemplate(){ const r=await sb.from('email_templates').insert({name:'New template',subject:'',body:'',sort_order:templates.value.length+1}).select().single(); if(r.data) templates.value.push(r.data); }
       async function saveTemplate(t){ await sb.from('email_templates').update({name:t.name,subject:t.subject,body:t.body}).eq('id',t.id); flash('Template saved'); }
-      async function saveAsTemplate(){ if(!email.subject.trim() && !email.body.trim()){ flash('Nothing to save'); return; } const name=prompt('Save this email as a template — name it:'); if(!name || !name.trim()) return; const r=await sb.from('email_templates').insert({name:name.trim(),subject:email.subject,body:email.body,sort_order:(templates.value.length+1)}).select().single(); if(r.error){ flash('Save failed: '+r.error.message); return; } templates.value.push(r.data); flash('Template \u201c'+name.trim()+'\u201d saved'); }
+      async function saveAsTemplate(src){ src=src||email; if(!(src.subject||'').trim() && !(src.body||'').trim()){ flash('Nothing to save'); return; } const name=prompt('Save this email as a template — name it:'); if(!name || !name.trim()) return; const r=await sb.from('email_templates').insert({name:name.trim(),subject:src.subject,body:src.body,sort_order:(templates.value.length+1)}).select().single(); if(r.error){ flash('Save failed: '+r.error.message); return; } templates.value.push(r.data); flash('Template \u201c'+name.trim()+'\u201d saved'); }
       async function delTemplate(t){ if(!confirm('Delete template?')) return; await sb.from('email_templates').delete().eq('id',t.id); templates.value=templates.value.filter(x=>x.id!==t.id); }
 
       // ===== INIT (portal gate -> shared sales session) =====
@@ -1311,6 +1336,7 @@
         curActivities,curNotes,noteSortDesc,updateNoteDate,curOrders,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,
+        MERGE_FIELDS,bodyRef,bulkBodyRef,insertAt,clearBulkCompose,bulkPreviewRecip,bulkPreviewSubject,bulkPreviewBody,
         openNewStore,openStore,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
         addActivity,delActivity,addOrder,delOrder,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,clearCompose,
