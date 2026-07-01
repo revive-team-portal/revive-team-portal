@@ -288,6 +288,14 @@
               <button @click="openGmail" class="text-xs text-stone-500 hover:text-stone-800">Open in Gmail instead</button>
               <span v-if="!gmailConnected" class="text-xs text-amber-600">⚠ Gmail not connected (see Admin)</span>
             </div>
+            <div class="border border-stone-200 rounded-lg bg-white p-3 text-xs space-y-1">
+              <p class="lbl" style="margin-bottom:2px">Preview — exactly what will be sent (first contact)</p>
+              <p><span class="text-stone-400">To:</span> {{ email.to || '—' }}</p>
+              <p><span class="text-stone-400">Subject:</span> <span class="font-medium">{{ previewSubject || '—' }}</span></p>
+              <div class="border-t border-stone-100 pt-1 whitespace-pre-wrap text-stone-700 max-h-56 overflow-y-auto">{{ previewBody }}</div>
+              <p v-if="attachDocs.length" class="text-stone-500 border-t border-stone-100 pt-1">📎 {{ attachDocs.length }} attachment(s): {{ attachDocs.map(d=>d.name).join(', ') }} <span class="text-stone-400">({{ attachSizeLabel(attachIds) }})</span></p>
+              <img :src="effectiveBanner" class="max-w-full rounded border border-stone-100 mt-1" style="max-height:56px">
+            </div>
           </div>
           <button @click="deleteStore" class="text-red-500 text-xs hover:underline">Delete this store</button>
         </div>
@@ -1106,6 +1114,9 @@
       function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=merge(t.subject); email.body=merge(t.body).replace(/\\r\\n|\\n/g,'\n'); }
       function finalBody(){ return email.body + (email.ps? '\n\nP.S. '+email.ps : ''); }
+      const previewSubject=computed(()=> cur.value? merge(email.subject||'') : (email.subject||''));
+      const previewBody=computed(()=> cur.value? merge(finalBody()) : finalBody());
+      const attachDocs=computed(()=> documents.value.filter(d=>attachIds.value.includes(d.id)));
       function openGmail(){ const u='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email.to)+'&su='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(finalBody()); window.open(u,'_blank'); }
       async function copyEmail(){ await navigator.clipboard.writeText('Subject: '+email.subject+'\n\n'+finalBody()); flash('Copied'); }
       async function logEmail(){ if(!email.subject && !email.body){ flash('Nothing to log'); return; } await sb.from('activities').insert({store_id:cur.value.id,type:'email',subject:email.subject,result:finalBody(),created_by:me.value,occurred_at:new Date().toISOString()}); if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; } await loadAll(); flash('Email logged'); }
@@ -1297,7 +1308,7 @@
         cur,tab,saving,tagText,actForm,orderForm,email,selectedTemplate,aiIntent,aiBusy,
         curActivities,curNotes,noteSortDesc,updateNoteDate,curOrders,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
-        sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,
+        sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,
         openNewStore,openStore,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
         addActivity,delActivity,addOrder,delOrder,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,clearCompose,
