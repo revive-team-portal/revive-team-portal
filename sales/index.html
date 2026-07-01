@@ -1019,7 +1019,9 @@
       const lastEmail=ref(null);
       try{ const _le=localStorage.getItem('revive_last_email_v2'); if(_le) lastEmail.value=JSON.parse(_le); }catch(e){}
       function saveLastEmail(o){ lastEmail.value=o; try{ localStorage.setItem('revive_last_email_v2', JSON.stringify(o)); }catch(e){} }
-      function blankCompose(){ email.subject=''; email.body=''; email.ps=psList.value[0]||''; attachIds.value=[]; email.quote=''; email.threadId=''; }
+      const replyMsg=ref(null);
+      function sigBody(){ return settings.email_signature? '\n\n'+settings.email_signature : ''; }
+      function blankCompose(){ email.subject=''; email.body=sigBody(); email.ps=psList.value[0]||''; attachIds.value=[]; email.quote=''; email.threadId=''; replyMsg.value=null; }
       function prefillFromLast(){ const L=lastEmail.value; if(L && cur.value){ email.subject=(L.subject||''); email.body=(L.body||''); email.ps=L.ps||''; attachIds.value=(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)); } else { blankCompose(); } }
       function clearCompose(){ blankCompose(); selectedTemplate.value=''; aiIntent.value=''; flash('Cleared'); }
       const bodyRef=ref(null), bulkBodyRef=ref(null);
@@ -1226,7 +1228,7 @@
       function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',next_contact_date:null,no_reason:'',tags:[],notes:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); tagText.value=''; resetNoteForm(); }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); tagText.value=(s.tags||[]).join(', '); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; if(cur.value.status==='no_temp' && !cur.value.next_contact_date){ const d=new Date(); d.setMonth(d.getMonth()+3); cur.value.next_contact_date=d.toISOString().slice(0,10); } }
@@ -1302,7 +1304,7 @@
       function decodeHtml(str){ if(!str) return ''; if(_decEl){ _decEl.innerHTML=str; return _decEl.value; } return str; }
       function extractEmail(h){ const m=(h||'').match(/<([^>]+)>/); return (m?m[1]:(h||'')).trim(); }
       function buildQuote(it, bodyText){ const who=decodeHtml(it.from||it.to||''); const when=fmtDateTime(it.when); const src=(bodyText||decodeHtml(it.snippet)||''); const q=src.split('\n').map(l=>'> '+l).join('\n'); return 'On '+when+', '+who+' wrote:\n'+q; }
-      async function reply(it){ let bodyText=emailBodies.value[it.id]; if(!bodyText){ try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); bodyText=decodeHtml(d.text||''); }catch(e){} } const counterpart = it.direction==='out'? it.to : it.from; email.to = extractEmail(counterpart) || storeEmails(cur.value).join(', '); email.subject = /^\s*re:/i.test(it.subject||'')? decodeHtml(it.subject||'') : ('Re: '+decodeHtml(it.subject||'')); email.threadId = it.threadId || ''; email.body=''; email.quote = buildQuote(it, bodyText); flash('Reply ready — write your message above the quote'); }
+      async function reply(it){ let bodyText=emailBodies.value[it.id]; if(!bodyText){ try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); bodyText=decodeHtml(d.text||''); }catch(e){} } const counterpart = it.direction==='out'? it.to : it.from; email.to = extractEmail(counterpart) || storeEmails(cur.value).join(', '); email.subject = /^\s*re:/i.test(it.subject||'')? decodeHtml(it.subject||'') : ('Re: '+decodeHtml(it.subject||'')); email.threadId = it.threadId || ''; email.body=sigBody(); email.quote = buildQuote(it, bodyText); replyMsg.value = (it && it.direction!=='out')? it : null; flash('Reply ready — write your message above the quote'); }
       const previewSubject=computed(()=> cur.value? merge(email.subject||'') : (email.subject||''));
       const previewBody=computed(()=> cur.value? merge(finalBody()) : finalBody());
       const attachDocs=computed(()=> documents.value.filter(d=>attachIds.value.includes(d.id)));
@@ -1344,6 +1346,7 @@
           if(!r.ok){ flash('Send failed: '+(d.error||r.status)); sendBusy.value=false; return; }
           await sb.from('activities').insert({store_id:cur.value.id,type:'email',result:'✉️ Sent: '+subjectOut,gmail_id:(d.id||('sent_'+Date.now())),created_by:me.value,occurred_at:new Date().toISOString()});
           if(cur.value.status==='lead'){ await sb.from('stores').update({status:'sent_comm',updated_at:new Date().toISOString()}).eq('id',cur.value.id); cur.value.status='sent_comm'; }
+          if(replyMsg.value){ try{ await fileEmail(replyMsg.value); }catch(e){} replyMsg.value=null; }
           saveLastEmail({subject:email.subject, body:email.body, ps:email.ps, attachIds:[...attachIds.value]});
           email.subject=''; email.body=''; email.quote=''; email.threadId=''; attachIds.value=[];
           await loadAll(); await loadEmails();
