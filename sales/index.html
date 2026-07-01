@@ -45,7 +45,7 @@
     <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#25b4e8">
       <div class="flex items-center gap-2">
         <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
-        <span class="text-stone-400 text-sm hidden sm:inline">Sales CRM</span>
+        <span class="text-white/90 text-sm hidden sm:inline font-medium">Sales CRM</span>
       </div>
       <div class="flex items-center gap-2">
         <button @click="openNewStore" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">+ Store</button>
@@ -76,18 +76,13 @@
 
       <!-- ===== STATUS FILTER ROW (toggle on/off, multi-select) ===== -->
       <div class="flex flex-wrap items-center gap-2 mb-3">
-        <button @click="newEmailsOnly=!newEmailsOnly"
-          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
-          :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">
-          📥 New emails <span class="opacity-80">{{ newCount }}</span>
-        </button>
         <button @click="clearStatuses"
-          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="activeStatuses.length===0?'bg-stone-800 text-white border-stone-800':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
           All <span class="opacity-70">{{ stores.length }}</span>
         </button>
         <button v-for="st in STATUSES" :key="st.key" @click="toggleStatus(st.key)"
-          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="isStatusActive(st.key)? st.btn : 'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
           {{ st.label }} <span class="opacity-80">{{ countBy(st.key) }}</span>
         </button>
@@ -97,17 +92,19 @@
       <div class="flex flex-wrap items-center gap-2 mb-3">
         <span class="text-xs text-stone-400 uppercase tracking-wide mr-1">Type:</span>
         <button @click="clearTypes"
-          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="activeTypes.length===0?'bg-teal-700 text-white border-teal-700':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
           All
         </button>
         <button v-for="t in TYPES" :key="t" @click="toggleType(t)"
-          class="text-sm px-3 py-1.5 rounded-full border font-medium transition"
+          class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="isTypeActive(t)?'bg-teal-700 text-white border-teal-700':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
           {{ t }} <span class="opacity-80">{{ countByType(t) }}</span>
         </button>
       </div>
       <div class="flex flex-wrap items-center gap-2 mb-4">
+        <button @click="newEmailsOnly=!newEmailsOnly" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
+          :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">📥 New emails {{ newCount }}</button>
         <input v-model="search" placeholder="Search name, contact, area…" class="flex-1 min-w-[180px] border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
         <select v-model="areaFilter" class="border border-stone-300 rounded-lg px-2 py-2 text-sm bg-white">
           <option value="">All areas</option>
@@ -228,25 +225,24 @@
               <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
             </label>
           </div>
-          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 grid grid-cols-3 gap-2">
-            <p class="col-span-3 lbl" style="margin-bottom:0">Contact 1</p>
-            <label class="block"><span class="lbl">Name</span><input v-model="cur.contact_name" class="inp"></label>
-            <label class="block"><span class="lbl">Email</span><input v-model="cur.contact_email" class="inp"></label>
-            <label class="block"><span class="lbl">Phone</span><input v-model="cur.contact_phone" class="inp"></label>
+          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 space-y-1">
+            <div style="display:grid;grid-template-columns:2.4rem 1fr 1.35fr 1fr;gap:6px" class="text-[10px] text-stone-400 uppercase tracking-wide">
+              <span></span><span>Name / site</span><span>Email</span><span>Phone</span>
+            </div>
+            <div style="display:grid;grid-template-columns:2.4rem 1fr 1.35fr 1fr;gap:6px" class="items-center">
+              <span class="text-[11px] text-stone-500 font-medium">C1</span>
+              <input v-model="cur.contact_name" placeholder="Name" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp">
+            </div>
+            <div style="display:grid;grid-template-columns:2.4rem 1fr 1.35fr 1fr;gap:6px" class="items-center">
+              <span class="text-[11px] text-stone-500 font-medium">C2</span>
+              <input v-model="cur.contact2_name" placeholder="Name" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp">
+            </div>
+            <div style="display:grid;grid-template-columns:2.4rem 1fr 1.35fr 1fr;gap:6px" class="items-center">
+              <span class="text-[11px] text-stone-500 font-medium">Store</span>
+              <input v-model="cur.website" placeholder="Website" class="inp"><input v-model="cur.store_email" placeholder="Email" class="inp"><input v-model="cur.store_phone" placeholder="Phone" class="inp">
+            </div>
           </div>
-          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 grid grid-cols-3 gap-2">
-            <p class="col-span-3 lbl" style="margin-bottom:0">Contact 2</p>
-            <label class="block"><span class="lbl">Name</span><input v-model="cur.contact2_name" class="inp"></label>
-            <label class="block"><span class="lbl">Email</span><input v-model="cur.contact2_email" class="inp"></label>
-            <label class="block"><span class="lbl">Phone</span><input v-model="cur.contact2_phone" class="inp"></label>
-          </div>
-          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 grid grid-cols-3 gap-2">
-            <p class="col-span-3 lbl" style="margin-bottom:0">Store</p>
-            <label class="block"><span class="lbl">Email</span><input v-model="cur.store_email" class="inp"></label>
-            <label class="block"><span class="lbl">Phone</span><input v-model="cur.store_phone" class="inp"></label>
-            <label class="block"><span class="lbl">Website</span><input v-model="cur.website" class="inp"></label>
-          </div>
-          <label class="block"><span class="lbl">Address</span><input v-model="cur.address" class="inp"></label>
+          <label class="block"><span class="lbl">Address <a v-if="cur.address" :href="'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(cur.address)" target="_blank" class="text-amber-700 hover:underline float-right normal-case">📍 Open in Maps</a></span><input v-model="cur.address" class="inp"></label>
 
           <div class="bg-white rounded-lg border border-stone-200 p-3 grid grid-cols-3 gap-2">
             <label class="block"><span class="lbl">Status</span>
@@ -269,11 +265,8 @@
               </select>
               <button @click="aiDraft" :disabled="aiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ aiBusy?'…':'✨ AI draft' }}</button>
             </div>
-            <input v-model="aiIntent" placeholder="Optional goal (e.g. follow up after sample)" class="inp text-xs">
-            <div class="grid grid-cols-2 gap-2">
-              <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
-              <label class="block"><span class="lbl">Subject <button @click="aiSubject" :disabled="aiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="email.subject" class="inp"></label>
-            </div>
+            <label class="block"><span class="lbl">To</span><input v-model="email.to" class="inp"></label>
+            <label class="block"><span class="lbl">Subject <button @click="aiSubject" :disabled="aiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="email.subject" class="inp"></label>
             <textarea v-model="email.body" rows="7" placeholder="Email body…" class="inp font-mono text-xs"></textarea>
             <select v-model="email.ps" class="inp text-xs">
               <option value="">— No P.S. —</option>
@@ -301,7 +294,7 @@
         <!-- RIGHT: NOTES (entry + history) -->
         <div class="p-4 space-y-2">
           <div class="flex items-center justify-between">
-            <p class="font-semibold text-sm">Notes</p>
+            <p class="font-semibold text-sm">Timeline</p>
             <button @click="noteSortDesc=!noteSortDesc" class="text-xs text-stone-500 hover:text-stone-800 border border-stone-300 rounded px-2 py-0.5">
               {{ noteSortDesc ? 'Newest first ▼' : 'Oldest first ▲' }}
             </button>
@@ -315,10 +308,10 @@
                 {{ typeIcon(t) }} {{ t }}
               </button>
             </div>
-            <textarea v-model="actForm.result" rows="3" placeholder="Write a note…" class="inp"></textarea>
-            <div class="flex items-center gap-2">
-              <button @click="addActivity" class="bg-stone-800 text-white text-xs px-3 py-1 rounded-lg">Add note</button>
-              <input type="date" v-model="actForm.date" class="inp w-36 text-xs" title="Note date (editable)">
+            <div class="flex items-end gap-2">
+              <textarea v-model="actForm.result" rows="2" placeholder="Write a note…" class="inp flex-1"></textarea>
+              <input type="date" v-model="actForm.date" class="inp w-32 text-xs" title="Note date">
+              <button @click="addActivity" class="bg-stone-800 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap">Add note</button>
             </div>
           </div>
           <!-- HISTORY: notes + Gmail emails interleaved -->
