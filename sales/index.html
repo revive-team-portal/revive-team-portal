@@ -309,7 +309,7 @@
               </button>
             </div>
             <div class="flex items-center gap-2">
-              <input v-model="actForm.result" placeholder="Write a note…" class="border border-stone-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <textarea v-model="actForm.result" rows="2" placeholder="Write a note…" class="border border-stone-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
               <input type="date" v-model="actForm.date" class="border border-stone-300 rounded-lg px-2 py-2 text-xs bg-white" style="width:8.5rem" title="Note date">
               <button @click="addActivity" class="bg-stone-800 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap">Add note</button>
             </div>
@@ -481,7 +481,7 @@
           </select>
           <button @click="aiDraftBulk" :disabled="bulkAiBusy" class="bg-violet-600 hover:bg-violet-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">{{ bulkAiBusy?'…':'✨ AI draft' }}</button>
         </div>
-        <label class="block"><span class="lbl">Subject</span><input v-model="bulkCompose.subject" class="inp"></label>
+        <label class="block"><span class="lbl">Subject <button @click="aiBulkSubject" :disabled="bulkAiBusy" class="text-violet-600 hover:text-violet-800 float-right">✨ suggest</button></span><input v-model="bulkCompose.subject" class="inp"></label>
         <textarea v-model="bulkCompose.body" rows="8" placeholder="Email body… use {{name}} and {{customer}}" class="inp font-mono text-xs"></textarea>
         <select v-model="bulkCompose.ps" class="inp text-xs">
           <option value="">— No P.S. —</option>
@@ -493,7 +493,17 @@
             <button v-for="d in documents" :key="d.id" @click="toggleBulkAttach(d.id)" class="border rounded px-2 py-1 transition" :class="bulkAttachIds.includes(d.id)?'bg-amber-100 border-amber-400 text-amber-800':'border-stone-300 hover:bg-stone-100'">{{ bulkAttachIds.includes(d.id)?'📎':'○' }} {{ d.name }}</button>
           </div>
         </div>
-        <p class="text-xs text-stone-500">{{ bulkRecipientCount }} of {{ selectedIds.length }} selected have an email.</p>
+        <div>
+          <p class="lbl">Recipients — {{ bulkRecipientCount }} will be sent (untick to exclude; edits here don't change the store record)</p>
+          <div class="border border-stone-200 rounded-lg divide-y divide-stone-100 max-h-44 overflow-y-auto">
+            <div v-for="r in bulkRecipients" :key="r.id" class="flex items-center gap-2 px-2 py-1 text-xs" :class="r.included?'':'opacity-40'">
+              <input type="checkbox" v-model="r.included" class="w-4 h-4 accent-emerald-600 shrink-0">
+              <span class="w-28 shrink-0 truncate font-medium" :title="r.store_name">{{ r.store_name }}</span>
+              <input v-model="r.name" placeholder="Name" class="border border-stone-200 rounded px-1 py-0.5 w-24 shrink-0 bg-white">
+              <input v-model="r.emails" placeholder="email(s)" class="border border-stone-200 rounded px-1 py-0.5 flex-1 min-w-0 bg-white">
+            </div>
+          </div>
+        </div>
         <div class="flex items-center gap-2 pt-1">
           <button @click="sendBulk" :disabled="bulkSendBusy" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50">{{ bulkSendBusy?'Sending…':('Send to '+bulkRecipientCount) }}</button>
           <button @click="showBulkEmail=false" class="border border-stone-300 text-sm px-3 py-1.5 rounded-lg">Cancel</button>
@@ -884,36 +894,39 @@
       function prevQuote(){ if(quotePtr.value>0) quotePtr.value--; }
       const bulkEmails=computed(()=> selectedIds.value.map(id=>{ const s=stores.value.find(x=>x.id===id); return s&&(s.contact_email||s.store_email); }).filter(Boolean));
       const bulkEmailsStr=computed(()=> bulkEmails.value.join(', '));
-      function openBulkEmail(){ bulkCompose.subject=''; bulkCompose.body=''; bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAiIntent.value=''; bulkAttachIds.value=[]; bulkProgress.value=''; showBulkEmail.value=true; }
+      function openBulkEmail(){ bulkCompose.subject=''; bulkCompose.body=''; bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAttachIds.value=[]; bulkProgress.value=''; bulkRecipients.value=selectedIds.value.map(id=>{ const st=stores.value.find(s=>s.id===id); if(!st) return null; const ems=storeEmails(st); return { id, store_name:st.store_name, name:st.contact_name||'', emails:ems.join(', '), included:ems.length>0 }; }).filter(Boolean); showBulkEmail.value=true; }
       async function copyBulkEmails(){ await navigator.clipboard.writeText(bulkEmailsStr.value); flash('Addresses copied'); }
       async function applyBulkNote(){ const txt=bulkNote.value.trim(); if(!txt){ flash('Enter a note'); return; } const rows=selectedIds.value.map(id=>({store_id:id,type:'email',result:txt,created_by:me.value,occurred_at:new Date().toISOString()})); await sb.from('activities').insert(rows); await loadAll(); flash('Note added to '+rows.length+' stores'); }
       const bulkCompose=reactive({subject:'',body:'',ps:''});
       const bulkTemplate=ref(''), bulkAiIntent=ref(''), bulkAiBusy=ref(false), bulkSendBusy=ref(false), bulkAttachIds=ref([]), bulkProgress=ref('');
-      const bulkRecipientList=computed(()=> selectedIds.value.map(id=>stores.value.find(s=>s.id===id)).filter(s=>s && storeEmails(s).length));
-      const bulkRecipientCount=computed(()=> bulkRecipientList.value.length);
+      const bulkRecipients=ref([]);
+      const bulkRecipientCount=computed(()=> bulkRecipients.value.filter(r=>r.included && (r.emails||'').trim()).length);
+      async function aiBulkSubject(){ bulkAiBusy.value=true; try{ const sys='Write ONE short, compelling email subject line for a mass outreach email. You may use the placeholder {{customer}} for the store name. Return ONLY the subject line, no quotes.\n\n'+(settings.ai_master_prompt||''); const txt=await callAI([{role:'user',content:'Email body:\n'+(bulkCompose.body||'(none yet)')+'\n\nWrite one subject line.'}],{model:'haiku',max_tokens:60,system:sys}); bulkCompose.subject=(txt||'').trim().replace(/^["\']|["\']$/g,''); flash('Subject suggested'); }catch(e){ flash('AI error: '+e.message); } bulkAiBusy.value=false; }
       function toggleBulkAttach(id){ const i=bulkAttachIds.value.indexOf(id); if(i<0) bulkAttachIds.value.push(id); else bulkAttachIds.value.splice(i,1); }
       function applyBulkTemplate(){ const t=templates.value.find(x=>x.id===bulkTemplate.value); if(!t) return; bulkCompose.subject=(t.subject||''); bulkCompose.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
       async function aiDraftBulk(){ bulkAiBusy.value=true; try{ const sys=(settings.ai_master_prompt||'')+'\n\nWrite a template email to be sent to many stores. Use placeholders {{name}} (contact) and {{customer}} (store name) so each is personalised. Return ONLY JSON {"subject":"...","body":"..."}. End the body with this signature:\n'+(settings.email_signature||'')+'\n\nDo NOT add a P.S.'; const goal=bulkAiIntent.value.trim()||'Write a friendly outreach email introducing our range.'; const txt=await callAI([{role:'user',content:'Goal: '+goal}],{model:'sonnet',max_tokens:1000,system:sys}); const j=parseJSON(txt); bulkCompose.subject=j.subject||bulkCompose.subject; bulkCompose.body=(j.body||bulkCompose.body||'').replace(/\\r\\n|\\n/g,'\n'); flash('Draft ready'); }catch(e){ flash('AI error: '+e.message); } bulkAiBusy.value=false; }
       async function sendBulk(){
         if(!bulkCompose.subject.trim()||!bulkCompose.body.trim()){ flash('Add a subject and body'); return; }
-        const recips=bulkRecipientList.value.slice(); if(!recips.length){ flash('No selected customers have an email'); return; }
+        const recips=bulkRecipients.value.filter(r=>r.included && (r.emails||'').trim());
+        if(!recips.length){ flash('No included recipients with an email'); return; }
         bulkSendBusy.value=true;
         const attachments=await gatherAttachments(bulkAttachIds.value);
         const tag='Bulk '+shortDate(new Date().toISOString());
         let sent=0;
-        for(const st of recips){
+        for(const r of recips){
+          const st=stores.value.find(x=>x.id===r.id)||{};
           bulkProgress.value='Sending '+(sent+1)+' of '+recips.length+'…';
-          const to=storeEmails(st).join(', ');
-          const subject=mergeStore(bulkCompose.subject,st);
-          const bodyTxt=mergeStore(bulkCompose.body,st)+(bulkCompose.ps? '\n\nP.S. '+bulkCompose.ps:'');
+          const ctx={contact_name:r.name||'there', store_name:r.store_name||'', area:st.area||''};
+          const subject=mergeStore(bulkCompose.subject,ctx);
+          const bodyTxt=mergeStore(bulkCompose.body,ctx)+(bulkCompose.ps? '\n\nP.S. '+bulkCompose.ps:'');
           try{
-            const r=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to,subject,text:bodyTxt,attachments,bannerUrl:settings.email_banner_url})});
-            const d=await r.json();
-            if(r.ok){ sent++;
-              await sb.from('activities').insert({store_id:st.id,type:'email',result:'📣 Bulk: '+subject,gmail_id:(d.id||('bulk_'+Date.now()+'_'+st.id)),created_by:me.value,occurred_at:new Date().toISOString()});
+            const resp=await fetch('/.netlify/functions/gmail-send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({to:r.emails,subject,text:bodyTxt,attachments,bannerUrl:settings.email_banner_url})});
+            const d=await resp.json();
+            if(resp.ok){ sent++;
+              await sb.from('activities').insert({store_id:r.id,type:'email',result:'📣 Bulk: '+subject,gmail_id:(d.id||('bulk_'+Date.now()+'_'+r.id)),created_by:me.value,occurred_at:new Date().toISOString()});
               const tags=Array.isArray(st.tags)?st.tags.slice():[]; if(!tags.includes(tag)) tags.push(tag);
               const patch={tags,updated_at:new Date().toISOString()}; if(st.status==='lead') patch.status='sent_comm';
-              await sb.from('stores').update(patch).eq('id',st.id);
+              await sb.from('stores').update(patch).eq('id',r.id);
             }
           }catch(e){}
         }
@@ -929,9 +942,9 @@
       const rowBg=(k)=> (SMAP[k]||{}).row || '';
       const cap=(s)=> s? s.charAt(0).toUpperCase()+s.slice(1):'';
       const typeIcon=(t)=>({call:'📞',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',referral:'🔗',status_change:'🔄',order:'🛒',other:'•'}[t]||'•');
-      const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'';
-      const shortDate=(d)=> d? new Date(d).toLocaleDateString('en-NZ',{day:'numeric',month:'short'}):'';
-      const fmtDateTime=(d)=> d? new Date(d).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+      const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
+      const shortDate=(d)=> d? new Date(d).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}):'';
+      const fmtDateTime=(d)=> d? new Date(d).toLocaleString('en-NZ',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
       const isOverdue=(s)=> s.next_contact_date && s.next_contact_date <= todayStr() && s.status!=='no_permanent';
       const countBy=(k)=> stores.value.filter(s=>s.status===k).length;
       const lastActivity=(id)=>{ const a=activities.value.filter(x=>x.store_id===id); if(!a.length) return '—'; return fmtDate(a[0].occurred_at.slice(0,10)); };
@@ -1260,7 +1273,7 @@
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
         showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,
-        bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
+        bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         openAdmin,saveSettings,newTemplate,saveTemplate,delTemplate,uploadBanner,bannerBusy,
