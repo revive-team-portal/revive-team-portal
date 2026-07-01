@@ -538,15 +538,19 @@
           <img :src="effectiveBanner" class="max-w-full rounded border border-stone-200" style="max-height:60px">
         </div>
         <div>
-          <p class="lbl">Recipients — {{ bulkRecipientCount }} will be sent (untick to exclude; edits here don't change the store record)</p>
+          <p class="lbl">Recipients — {{ bulkRecipientCount }} will be sent · the First name personalises each email (edits here don't change the store record)</p>
+          <div class="flex items-center gap-2 px-2 text-[10px] text-stone-400 uppercase tracking-wide">
+            <span class="w-4 shrink-0"></span><span class="w-28 shrink-0">Store</span><span class="w-28 shrink-0">First name</span><span class="flex-1">Email(s)</span>
+          </div>
           <div class="border border-stone-200 rounded-lg divide-y divide-stone-100 max-h-44 overflow-y-auto">
             <div v-for="r in bulkRecipients" :key="r.id" class="flex items-center gap-2 px-2 py-1 text-xs" :class="r.included?'':'opacity-40'">
               <input type="checkbox" v-model="r.included" class="w-4 h-4 accent-emerald-600 shrink-0">
               <span class="w-28 shrink-0 truncate font-medium" :title="r.store_name">{{ r.store_name }}</span>
-              <input v-model="r.name" placeholder="Name" class="border border-stone-200 rounded px-1 py-0.5 w-24 shrink-0 bg-white">
+              <input v-model="r.name" placeholder="First name" class="border rounded px-1 py-0.5 w-28 shrink-0 bg-white" :class="(r.name||'').trim()?'border-stone-200':'border-amber-400 bg-amber-50'">
               <input v-model="r.emails" placeholder="email(s)" class="border border-stone-200 rounded px-1 py-0.5 flex-1 min-w-0 bg-white">
             </div>
           </div>
+          <p v-if="bulkNoNameCount" class="text-[11px] text-amber-600 mt-0.5">⚠ {{ bulkNoNameCount }} recipient(s) have no first name — add one, or their greeting won't personalise.</p>
         </div>
         <div class="flex items-center gap-2 pt-1">
           <button @click="sendBulk" :disabled="bulkSendBusy" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50">{{ bulkSendBusy?'Sending…':('Send to '+bulkRecipientCount) }}</button>
@@ -1035,6 +1039,7 @@
       const bulkTemplate=ref(''), bulkAiIntent=ref(''), bulkAiBusy=ref(false), bulkSendBusy=ref(false), bulkAttachIds=ref([]), bulkProgress=ref('');
       const bulkRecipients=ref([]);
       const bulkRecipientCount=computed(()=> bulkRecipients.value.filter(r=>r.included && (r.emails||'').trim()).length);
+      const bulkNoNameCount=computed(()=> bulkRecipients.value.filter(r=>r.included && (r.emails||'').trim() && !(r.name||'').trim()).length);
       async function aiBulkSubject(){ bulkAiBusy.value=true; try{ const sys='Write ONE short, compelling email subject line for a mass outreach email. You may use the placeholder {{customer}} for the store name. Return ONLY the subject line, no quotes.\n\n'+(settings.ai_master_prompt||''); const txt=await callAI([{role:'user',content:'Email body:\n'+(bulkCompose.body||'(none yet)')+'\n\nWrite one subject line.'}],{model:'haiku',max_tokens:60,system:sys}); bulkCompose.subject=(txt||'').trim().replace(/^["\']|["\']$/g,''); flash('Subject suggested'); }catch(e){ flash('AI error: '+e.message); } bulkAiBusy.value=false; }
       function toggleBulkAttach(id){ const i=bulkAttachIds.value.indexOf(id); if(i<0) bulkAttachIds.value.push(id); else bulkAttachIds.value.splice(i,1); }
       function applyBulkTemplate(){ const t=templates.value.find(x=>x.id===bulkTemplate.value); if(!t) return; bulkCompose.subject=(t.subject||''); bulkCompose.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
@@ -1475,7 +1480,7 @@
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
         showBulkEmail,bulkAddNote,bulkNote,bulkEmails,bulkEmailsStr,openBulkEmail,copyBulkEmails,applyBulkNote,effectiveBanner,attachBytes,attachSizeLabel,
-        bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
+        bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkNoNameCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         typeLabel,noteTypeLabel,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,popupMetrics,analyticsUsers,metricsByType,touchedStores,
