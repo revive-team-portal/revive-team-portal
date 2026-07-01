@@ -52,6 +52,7 @@
         <button @click="showImport=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">↑ Import</button>
         <button @click="openDocs" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Docs</button>
         <button @click="showMotivation=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
+        <button @click="showAnalytics=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">📊 Analytics</button>
         <button v-if="isAdmin" @click="openAdmin" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Admin</button>
         <span class="text-white/80 text-xs hidden md:inline ml-1">{{ me }}</span>
         <a href="/" class="text-white/80 hover:text-white text-xs ml-1">Portal</a>
@@ -59,6 +60,25 @@
     </nav>
 
     <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+
+      <!-- ===== ANALYTICS BAR ===== -->
+      <div class="flex flex-wrap items-center gap-2 mb-3 bg-white border border-stone-200 rounded-xl px-3 py-2">
+        <select v-model="analyticsPreset" @change="setRange(analyticsPreset)" class="border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white">
+          <option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">This week</option><option value="lastweek">Last week</option><option value="month">This month</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option>
+        </select>
+        <button @click="setRange('today')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">Today</button>
+        <button @click="setRange('yesterday')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">Yesterday</button>
+        <button @click="setRange('week')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">This week</button>
+        <span class="hidden md:flex ml-1 flex-wrap gap-x-3 text-xs text-stone-600 items-center">
+          <span>📞 Out <b>{{ dashMetrics.phone_out }}</b></span>
+          <span>📲 In <b>{{ dashMetrics.phone_in }}</b></span>
+          <span>✉ Out <b>{{ dashMetrics.email_out }}</b></span>
+          <span>📥 In <b>{{ dashMetrics.email_in }}</b></span>
+          <span>🔄 <b>{{ dashMetrics.status }}</b></span>
+          <span>➕ Leads <b>{{ dashMetrics.leads }}</b></span>
+        </span>
+        <button @click="showAnalytics=true" class="ml-auto text-xs text-amber-700 hover:underline font-medium">Analytics →</button>
+      </div>
 
       <!-- ===== MOTIVATION QUOTE (changes hourly) ===== -->
       <div class="bg-gradient-to-r from-amber-50 to-stone-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
@@ -317,10 +337,10 @@
           <!-- ENTRY -->
           <div class="bg-white rounded-lg border border-stone-200 p-3 space-y-2">
             <div class="flex flex-wrap gap-1.5">
-              <button v-for="t in ['note','call','email','meeting','sample','referral','other']" :key="t" @click="actForm.type=t"
-                class="text-xs px-2.5 py-1 rounded-full border capitalize transition"
+              <button v-for="t in ['note','call','phone_in','email','meeting','sample','referral','other']" :key="t" @click="actForm.type=t"
+                class="text-xs px-2.5 py-1 rounded-full border transition"
                 :class="actForm.type===t?'bg-stone-800 text-white border-stone-800':'bg-white text-stone-600 border-stone-300 hover:border-stone-400'">
-                {{ typeIcon(t) }} {{ t }}
+                {{ typeIcon(t) }} {{ noteTypeLabel(t) }}
               </button>
             </div>
             <div class="flex items-center gap-2">
@@ -335,7 +355,7 @@
           <div v-for="it in curTimeline" :key="it.kind+it.id" class="bg-white rounded-lg border px-3 py-2 mb-2" :class="it.kind==='email'?'border-sky-200':'border-stone-200'">
             <template v-if="it.kind==='note'">
               <div class="flex justify-between items-center gap-2">
-                <span class="text-sm">{{ typeIcon(it.raw.type) }} <span class="text-xs text-stone-400 capitalize">{{ it.raw.type }}</span></span>
+                <span class="text-sm">{{ typeIcon(it.raw.type) }} <span class="text-xs text-stone-400">{{ typeLabel(it.raw.type) }}</span></span>
                 <div class="flex items-center gap-2">
                   <input type="date" :value="(it.raw.occurred_at||'').slice(0,10)" @change="updateNoteDate(it.raw,$event.target.value)" class="text-xs border border-stone-200 rounded px-1 py-0.5 text-stone-500">
                   <button @click="delActivity(it.raw)" class="text-stone-300 hover:text-red-500 text-sm">✕</button>
@@ -566,6 +586,63 @@
         <div v-for="q in savedQuotes" :key="q.id" class="flex justify-between items-start gap-2 border border-stone-200 rounded-lg px-3 py-2">
           <div><p class="text-sm text-stone-700 italic">“{{ q.text }}”</p><p class="text-xs text-stone-500">— {{ q.source }}</p></div>
           <button @click="deleteQuote(q)" class="text-stone-300 hover:text-red-500 text-sm">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ANALYTICS MODAL ================= -->
+  <div v-if="showAnalytics" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200 sticky top-0 bg-white z-10">
+        <h3 class="font-bold">📊 Analytics — {{ analyticsRange.label }} <span class="text-xs font-normal text-stone-400">({{ analyticsRange.start }} → {{ analyticsRange.end }}, NZ)</span></h3><button @click="showAnalytics=false" class="text-stone-400 hover:text-stone-700">✕</button>
+      </div>
+      <div class="p-5 space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <select v-model="analyticsPreset" @change="setRange(analyticsPreset)" class="border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white">
+            <option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">This week</option><option value="lastweek">Last week</option><option value="month">This month</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option>
+          </select>
+          <button @click="setRange('today')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">Today</button>
+          <button @click="setRange('yesterday')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">Yesterday</button>
+          <button @click="setRange('week')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">This week</button>
+          <select v-model="analyticsUser" class="ml-auto border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white">
+            <option value="">All users</option><option v-for="u in analyticsUsers" :key="u" :value="u">{{ u }}</option>
+          </select>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+          <span>📞 Phone Out <b>{{ popupMetrics.phone_out }}</b></span>
+          <span>📲 Phone In <b>{{ popupMetrics.phone_in }}</b></span>
+          <span>✉ Email Out <b>{{ popupMetrics.email_out }}</b></span>
+          <span>📥 Email In <b>{{ popupMetrics.email_in }}</b></span>
+          <span>📝 Notes <b>{{ popupMetrics.note }}</b></span>
+          <span>🤝 Meetings <b>{{ popupMetrics.meeting }}</b></span>
+          <span>📦 Samples <b>{{ popupMetrics.sample }}</b></span>
+          <span>🔄 Status <b>{{ popupMetrics.status }}</b></span>
+          <span>➕ New leads <b>{{ popupMetrics.leads }}</b></span>
+        </div>
+        <div class="grid md:grid-cols-3 gap-3">
+          <div class="border border-stone-200 rounded-lg p-2">
+            <p class="lbl mb-1">Customers touched ({{ touchedStores.length }})</p>
+            <div class="space-y-1.5 max-h-[55vh] overflow-y-auto">
+              <div v-for="c in touchedStores" :key="c.id" class="border-b border-stone-100 pb-1">
+                <p class="text-sm font-medium">{{ c.name }} <span class="text-[10px] text-stone-400">{{ c.stype }}</span></p>
+                <p v-for="(e,i) in c.events" :key="i" class="text-[11px] text-stone-500 truncate"><span class="text-stone-400">{{ e.label }}</span> {{ e.text }}</p>
+              </div>
+              <p v-if="!touchedStores.length" class="text-xs text-stone-400 text-center py-6">No activity in this range.</p>
+            </div>
+          </div>
+          <div class="border border-stone-200 rounded-lg p-2 overflow-x-auto">
+            <p class="lbl mb-1">Totals by customer type</p>
+            <table class="w-full text-xs">
+              <thead class="text-stone-400"><tr><th class="text-left font-normal">Type</th><th class="font-normal" title="Phone Out">📞O</th><th class="font-normal" title="Phone In">📲I</th><th class="font-normal" title="Email Out">✉O</th><th class="font-normal" title="Email In">📥I</th><th class="font-normal" title="Status">🔄</th><th class="font-normal" title="New leads">➕</th></tr></thead>
+              <tbody>
+                <tr v-for="(m,t) in metricsByType" :key="t" class="border-t border-stone-100">
+                  <td class="text-left py-0.5">{{ t }}</td><td class="text-center">{{ m.phone_out }}</td><td class="text-center">{{ m.phone_in }}</td><td class="text-center">{{ m.email_out }}</td><td class="text-center">{{ m.email_in }}</td><td class="text-center">{{ m.status }}</td><td class="text-center">{{ m.leads }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="border border-dashed border-stone-200 rounded-lg p-2 flex items-center justify-center text-xs text-stone-300 min-h-[8rem]">More coming soon</div>
         </div>
       </div>
     </div>
@@ -876,6 +953,11 @@
     {text:"People buy on emotion and justify with logic.", source:"Sales Proverb"},
   ];
   const todayStr = () => new Date().toISOString().slice(0,10);
+  const nzYMD = (ts)=> ts? new Date(ts).toLocaleDateString('en-CA',{timeZone:'Pacific/Auckland'}) : '';
+  const todayNZ = ()=> new Date().toLocaleDateString('en-CA',{timeZone:'Pacific/Auckland'});
+  function addDaysYMD(ymd,n){ const dt=new Date(ymd+'T12:00:00Z'); dt.setUTCDate(dt.getUTCDate()+n); return dt.toISOString().slice(0,10); }
+  function dowYMD(ymd){ return new Date(ymd+'T12:00:00Z').getUTCDay(); }
+  function weekEndFriday(ymd){ const add=(5-dowYMD(ymd)+7)%7; return addDaysYMD(ymd,add); }
 
   createApp({
     setup(){
@@ -994,7 +1076,31 @@
       const badge=(k)=> (SMAP[k]||{}).badge || 'bg-stone-100 text-stone-600';
       const rowBg=(k)=> (SMAP[k]||{}).row || '';
       const cap=(s)=> s? s.charAt(0).toUpperCase()+s.slice(1):'';
-      const typeIcon=(t)=>({call:'📞',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',referral:'🔗',status_change:'🔄',order:'🛒',other:'•'}[t]||'•');
+      const typeIcon=(t)=>({call:'📞',phone_in:'📲',email:'✉️',note:'📝',meeting:'🤝',sample:'📦',referral:'🔗',status_change:'🔄',order:'🛒',other:'•'}[t]||'•');
+      const TLABEL={note:'Note',call:'Phone Out',phone_in:'Phone In',email:'Email',meeting:'Meeting',sample:'Sample',referral:'Referral',status_change:'Status change',order:'Order',other:'Other'};
+      const typeLabel=(t)=> TLABEL[t]||t;
+      const noteTypeLabel=(t)=> t==='email'?'Email Out':(TLABEL[t]||cap(t));
+      // ===== analytics =====
+      const showAnalytics=ref(false), analyticsPreset=ref('today'), analyticsUser=ref('');
+      const analyticsRange=ref({start:todayNZ(),end:todayNZ(),label:'Today'});
+      function setRange(preset){ const t=todayNZ(); let start=t,end=t,label='Today';
+        if(preset==='yesterday'){ start=addDaysYMD(t,-1); end=start; label='Yesterday'; }
+        else if(preset==='week'){ const fri=weekEndFriday(t); start=addDaysYMD(fri,-6); end=fri; label='This week (Sat\u2013Fri)'; }
+        else if(preset==='lastweek'){ const fri=addDaysYMD(weekEndFriday(t),-7); start=addDaysYMD(fri,-6); end=fri; label='Last week'; }
+        else if(preset==='month'){ start=t.slice(0,8)+'01'; end=t; label='This month'; }
+        else if(preset==='30'){ start=addDaysYMD(t,-29); end=t; label='Last 30 days'; }
+        else if(preset==='90'){ start=addDaysYMD(t,-89); end=t; label='Last 90 days'; }
+        else if(preset==='all'){ start='2000-01-01'; end=t; label='All time'; }
+        analyticsPreset.value=preset; analyticsRange.value={start,end,label}; }
+      function _aIn(a){ const d=nzYMD(a.occurred_at||a.created_at); return d>=analyticsRange.value.start && d<=analyticsRange.value.end; }
+      function _actsF(user){ return activities.value.filter(a=> _aIn(a) && (!user || a.created_by===user)); }
+      function _storesF(user){ return stores.value.filter(s=>{ const d=nzYMD(s.created_at); return d>=analyticsRange.value.start && d<=analyticsRange.value.end && (!user || s.created_by===user); }); }
+      function metricsOf(user){ const A=_actsF(user); return { phone_out:A.filter(a=>a.type==='call').length, phone_in:A.filter(a=>a.type==='phone_in').length, email_out:A.filter(a=>a.type==='email'&&a.created_by!=='Gmail').length, email_in:A.filter(a=>a.type==='email'&&a.created_by==='Gmail').length, note:A.filter(a=>a.type==='note').length, meeting:A.filter(a=>a.type==='meeting').length, sample:A.filter(a=>a.type==='sample').length, referral:A.filter(a=>a.type==='referral').length, status:A.filter(a=>a.type==='status_change').length, leads:_storesF(user).length }; }
+      const dashMetrics=computed(()=> metricsOf(''));
+      const popupMetrics=computed(()=> metricsOf(analyticsUser.value));
+      const analyticsUsers=computed(()=> [...new Set(activities.value.map(a=>a.created_by).filter(u=>u && u!=='Gmail'))].sort());
+      const metricsByType=computed(()=>{ const A=_actsF(analyticsUser.value); const typeOf=id=>{ const st=stores.value.find(x=>x.id===id); return st? (st.store_type||'\u2014'):'\u2014'; }; const rows={}; const ensure=t=>{ if(!rows[t]) rows[t]={phone_out:0,phone_in:0,email_out:0,email_in:0,note:0,status:0,leads:0}; return rows[t]; }; TYPES.forEach(ensure); A.forEach(a=>{ const r=ensure(typeOf(a.store_id)); if(a.type==='call')r.phone_out++; else if(a.type==='phone_in')r.phone_in++; else if(a.type==='email'){ if(a.created_by==='Gmail')r.email_in++; else r.email_out++; } else if(a.type==='note')r.note++; else if(a.type==='status_change')r.status++; }); _storesF(analyticsUser.value).forEach(st=>{ ensure(st.store_type||'\u2014').leads++; }); return rows; });
+      const touchedStores=computed(()=>{ const A=_actsF(analyticsUser.value); const by={}; A.forEach(a=>{ (by[a.store_id]=by[a.store_id]||[]).push(a); }); const list=Object.keys(by).map(id=>{ const st=stores.value.find(x=>x.id===id); const items=by[id].slice().sort((x,y)=>(y.occurred_at||'').localeCompare(x.occurred_at||'')); return { id, name:st?st.store_name:'(deleted)', stype:st?st.store_type:'', last:items[0].occurred_at, events:items.slice(0,4).map(a=>({label:typeLabel(a.type), text:(a.result||'').replace(/\s+/g,' ').slice(0,50)})) }; }); list.sort((a,b)=>(b.last||'').localeCompare(a.last||'')); return list; });
       const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
       const shortDate=(d)=> d? new Date(d).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}):'';
       const fmtDateTime=(d)=> d? new Date(d).toLocaleString('en-NZ',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
@@ -1372,6 +1478,7 @@
         bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
+        typeLabel,noteTypeLabel,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,popupMetrics,analyticsUsers,metricsByType,touchedStores,
         openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
         toast };
     }
