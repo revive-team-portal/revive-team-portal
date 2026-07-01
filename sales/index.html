@@ -1392,9 +1392,12 @@
         return pinned.concat(rest);
       });
 
+      function stripLoneSurrogates(str){ if(typeof str!=='string') return str; let out=''; for(let i=0;i<str.length;i++){ const c=str.charCodeAt(i); if(c>=0xD800&&c<=0xDBFF){ const nx=str.charCodeAt(i+1); if(nx>=0xDC00&&nx<=0xDFFF){ out+=str[i]+str[i+1]; i++; } } else if(c>=0xDC00&&c<=0xDFFF){ /* lone low surrogate: drop */ } else { out+=str[i]; } } return out; }
       async function callAI(messages, opts={}){
+        const msgs=(messages||[]).map(m=>({...m, content: typeof m.content==='string'? stripLoneSurrogates(m.content): m.content}));
+        const o={...opts}; if(typeof o.system==='string') o.system=stripLoneSurrogates(o.system);
         const { data:{ session } } = await portal.auth.getSession();
-        const res=await fetch('/.netlify/functions/sales-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(session?session.access_token:'')},body:JSON.stringify({messages,...opts})});
+        const res=await fetch('/.netlify/functions/sales-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(session?session.access_token:'')},body:JSON.stringify({messages:msgs,...o})});
         if(!res.ok){ const t=await res.text(); throw new Error(t.slice(0,200)); }
         return (await res.json()).text;
       }
