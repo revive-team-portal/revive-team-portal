@@ -1162,24 +1162,40 @@
         try{
           const now=Date.now();
           const idx=stores.value.map((s,i)=>({n:i+1,s}));
+          const T=x=> x? new Date(x.occurred_at).getTime():0;
           const lines=idx.map(({n,s})=>{
             const acts=activities.value.filter(a=>a.store_id===s.id);
             const recent=acts.slice(0,4).map(a=>{ const t=(a.type==='email'&&a.created_by==='Gmail')?'Email In':noteTypeLabel(a.type); return nzYMD(a.occurred_at)+' '+t+': '+((a.result||cap(a.type))+'').replace(/\s+/g,' ').slice(0,45); });
             const d=daysSince(s);
             const lastOut=acts.find(a=>a.type==='email'&&a.created_by!=='Gmail');
-            const dEmail=lastOut? Math.floor((now-new Date(lastOut.occurred_at).getTime())/86400000) : null;
-            const reply=acts.find(a=>a.type==='email'&&a.created_by==='Gmail');
-            const awaiting = lastOut && (!reply || new Date(reply.occurred_at) < new Date(lastOut.occurred_at));
-            return '#'+n+' | '+(s.store_name||'')+' | type:'+(s.store_type||'-')+' | rating:'+(s.rating||1)+'star | status:'+label(s.status)+' | daysSinceLastContact:'+(d===null?'never':d)+' | lastEmailSentDaysAgo:'+(dEmail===null?'never':dEmail)+' | awaitingReply:'+(awaiting?'yes':'no')+' | recent:['+recent.join(' ; ')+']';
+            const lastIn=acts.find(a=>a.type==='email'&&a.created_by==='Gmail');
+            const lastCall=acts.find(a=>a.type==='call'||a.type==='phone_in');
+            const lastSample=acts.find(a=>a.type==='sample');
+            const sampleSent=!!lastSample || s.status==='sent_sample';
+            const awaiting = lastOut && (!lastIn || T(lastIn) < T(lastOut));
+            // deterministic next-step hint (channel + angle) from what has actually happened
+            let hint;
+            if(s.status==='no_permanent') hint='none — declined, do not pursue';
+            else if(!acts.length && s.status==='lead') hint='make first contact — send an intro email';
+            else if(lastIn && T(lastIn)>T(lastOut) && T(lastIn)>T(lastCall)) hint='they replied — respond to their message';
+            else if(sampleSent && T(lastCall)<T(lastSample)) hint='PHONE to follow up on the sample sent';
+            else if(lastOut && !lastCall) hint='PHONE to follow up on the email (already emailed, never phoned)';
+            else if(lastOut && awaiting) hint='PHONE to follow up on the email';
+            else if(lastCall && T(lastCall)>T(lastOut)) hint='already phoned — send info / email next, or wait';
+            else hint='PHONE to progress the relationship';
+            return '#'+n+' | '+(s.store_name||'')+' | type:'+(s.store_type||'-')+' | rating:'+(s.rating||1)+'star | status:'+label(s.status)+' | daysSinceLastContact:'+(d===null?'never':d)+' | emailedOut:'+(lastOut?'yes':'no')+' | sampleSent:'+(sampleSent?'yes':'no')+' | phonedOut:'+(lastCall?'yes':'no')+' | awaitingReply:'+(awaiting?'yes':'no')+' | suggestedNextStep:'+hint+' | recent:['+recent.join(' ; ')+']';
           });
           const sys=(settings.ai_actions_prompt||'').trim()
             + '\n\nYou are a sales manager triaging a CRM for Revivealicious Foods. For EVERY store listed, output the single best NEXT action and a priority. Read the recent activity carefully so you NEVER repeat something that was just done.'
             + '\nStatus meanings: Lead=not yet contacted; Sent Communication=intro email/message already sent; Connected=have made contact; Sent Sample/Details=samples or info sent; First Order / Repeat Customer=buying; "No — Reconnect"=declined for now, revisit later; "No — Permanent"=declined, do not pursue.'
+            + '\nEach store has a suggestedNextStep computed from what has actually happened. Treat it as the strong default: adopt its CHANNEL (phone vs email) and ANGLE, and phrase a specific action. Only override it if the recent activity clearly warrants something else.'
             + '\nHARD RULES:'
-            + '\n- NEVER recommend an action that was effectively just completed. If an intro/first email was already sent and awaitingReply=yes, do NOT suggest emailing again — the next step is a PHONE CALL to follow up.'
-            + '\n- Leave the action BLANK (empty string, priority 0) when there is nothing useful to do now: status is "No — Permanent"; OR the store was just contacted (daysSinceLastContact within ~7) and it is too soon to chase; OR you are simply waiting with nothing due.'
+            + '\n- Choose the CHANNEL deliberately — do not just say "connect". If a store has already been emailed or sent a sample and has NOT been phoned (phonedOut=no) or is awaitingReply=yes, the next step is a PHONE CALL, and the action should reference what was sent (e.g. "Call re: the samples", "Call to follow up on email").'
+            + '\n- NEVER recommend an action that was effectively just completed (e.g. do not suggest emailing when an email is already sent and unanswered).'
+            + '\n- Move to a NEW channel/angle each step: email intro -> phone follow-up -> sample -> phone re sample -> etc. Match the pipeline status.'
+            + '\n- Leave the action BLANK (empty string, priority 0) when there is nothing useful to do now: status is "No — Permanent"; OR just contacted (daysSinceLastContact within ~7) and too soon to chase; OR simply waiting with nothing due.'
             + '\n- Higher star ratings usually raise priority, but not always — a hot 1-star that just replied can outrank a cold 3-star. Weigh rating, recency, status and recent activity together.'
-            + '\naction = a short imperative, max 6 words (e.g. "Call to follow up", "Phone to introduce us", "Offer a free sample", "Send price list", "Check in on samples").'
+            + '\naction = a short imperative, max 6 words, and it must name the channel + angle (e.g. "Call to follow up on email", "Call re: the samples", "Phone to introduce us", "Send price list", "Email the intro + flyer").'
             + '\npriority: 1 = do today, 2 = soon, 3 = later. Only a handful should be 1. Use "" with priority 0 for blank/no-action.'
             + '\nReturn ONLY a JSON array covering every # number, e.g. [{"n":1,"action":"Call to follow up","priority":1},{"n":2,"action":"","priority":0}]. No prose.';
           const txt=await callAI([{role:'user',content:'Stores:\n'+lines.join('\n')}],{model:'sonnet',max_tokens:4000,system:sys});
