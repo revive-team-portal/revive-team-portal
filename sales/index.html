@@ -245,61 +245,64 @@
     <div v-else class="hidden xl:flex flex-col items-center bg-indigo-100 text-indigo-700 h-full shrink-0 w-8 cursor-pointer hover:bg-indigo-200" @click="promptsOpen=true" title="Show sales prompts"><div class="mt-4 text-lg">💡</div></div>
     <div class="flex-1 bg-black/30" @click="closeStore"></div>
     <div class="w-full max-w-5xl bg-stone-50 h-full overflow-y-auto shadow-2xl">
-      <div class="sticky top-0 bg-white border-b border-stone-200 px-5 py-3 flex items-center justify-between z-10">
-        <div class="flex items-end gap-2">
-          <label class="block"><span class="lbl">Store / company name</span>
-            <input v-model="cur.store_name" placeholder="Enter store name…" class="font-bold text-lg bg-stone-100 border border-stone-300 focus:border-amber-500 focus:outline-none rounded px-2 py-0.5 w-72 max-w-full placeholder-stone-400 placeholder:font-normal placeholder:text-base">
-          </label>
-          <select v-model="cur.status" @change="onStatusChange" class="text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400 mb-1.5" :class="badge(cur.status)">
-            <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
-          </select>
-        </div>
-        <div class="flex gap-2 items-start">
-          <button @click="saveStore" :disabled="saving" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">{{ saving?'Saving…':'Save' }}</button>
-          <button @click="saveAndClose" :disabled="saving" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">Save &amp; close</button>
-          <button @click="closeStore" class="text-stone-400 hover:text-stone-700 px-2">✕</button>
-        </div>
+      <div class="sticky top-0 bg-white border-b border-stone-200 px-5 py-2 flex items-center justify-end gap-2 z-10">
+        <button @click="saveStore" :disabled="saving" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">{{ saving?'Saving…':'Save' }}</button>
+        <button @click="saveAndClose" :disabled="saving" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">Save &amp; close</button>
+        <button @click="closeStore" class="text-stone-400 hover:text-stone-700 px-2 text-lg leading-none">✕</button>
       </div>
 
-      <!-- TWO COLUMNS: details+compose (left) | notes (right) -->
-      <div class="grid lg:grid-cols-2">
-
-        <!-- LEFT: DETAILS + COMPOSE -->
-        <div class="p-4 space-y-3 lg:border-r border-stone-200">
-          <div class="grid grid-cols-2 gap-2">
-            <label class="block"><span class="lbl">Customer type</span>
-              <select v-model="cur.store_type" class="inp"><option value="">— Type —</option><option v-for="t in TYPES" :key="t" :value="t">{{ t }}</option></select>
-            </label>
-            <label class="block"><span class="lbl">Area</span>
-              <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
-            </label>
-          </div>
-          <div class="flex items-end gap-3">
-            <label class="block flex-1"><span class="lbl">Info</span><input v-model="cur.info" class="inp" placeholder="Key info about this customer…"></label>
-            <div class="flex gap-0.5 pb-2 shrink-0">
+      <!-- TOP BOX: full-width customer details -->
+      <div class="px-4 py-3 bg-white border-b border-stone-200 space-y-3">
+        <div class="flex flex-wrap items-end gap-x-4 gap-y-2">
+          <label class="block"><span class="lbl">Store / company name</span>
+            <input v-model="cur.store_name" placeholder="Enter store name…" class="font-bold text-lg bg-stone-100 border border-stone-300 focus:border-amber-500 focus:outline-none rounded px-2 py-1 w-72 max-w-full placeholder-stone-400 placeholder:font-normal placeholder:text-base">
+          </label>
+          <label class="block"><span class="lbl">Status</span>
+            <select v-model="cur.status" @change="onStatusChange" class="text-xs font-medium px-2 py-1.5 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400 block" :class="badge(cur.status)">
+              <option v-for="st in STATUSES" :key="st.key" :value="st.key">{{ st.label }}</option>
+            </select>
+          </label>
+          <div><span class="lbl">Rating</span>
+            <div class="flex gap-0.5">
               <button v-for="n in 3" :key="n" type="button" @click="cur.rating=n" class="text-2xl leading-none" :class="(cur.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
             </div>
           </div>
-          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2 space-y-1">
-            <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="text-[10px] text-stone-400 uppercase tracking-wide">
-              <span></span><span>First</span><span>Last</span><span>Email</span><span>Phone</span>
-            </div>
-            <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="items-center">
-              <span class="text-base" title="Contact 1">👤</span>
-              <input v-model="cur.contact_first" placeholder="First" class="inp"><input v-model="cur.contact_last" placeholder="Last" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp">
-            </div>
-            <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="items-center">
-              <span class="text-base" title="Contact 2">👤</span>
-              <input v-model="cur.contact2_first" placeholder="First" class="inp"><input v-model="cur.contact2_last" placeholder="Last" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp">
-            </div>
-            <div style="display:grid;grid-template-columns:1.5rem 1fr 1fr 1.4fr 1fr;gap:6px" class="items-center">
-              <span class="text-base" title="Store / site">🏢</span>
-              <input v-model="cur.website" placeholder="Website" class="inp" style="grid-column:span 2"><input v-model="cur.store_email" placeholder="Email" class="inp"><input v-model="cur.store_phone" placeholder="Phone" class="inp">
-            </div>
+          <label class="block"><span class="lbl">Customer type</span>
+            <select v-model="cur.store_type" class="inp"><option value="">— Type —</option><option v-for="t in TYPES" :key="t" :value="t">{{ t }}</option></select>
+          </label>
+          <label class="block"><span class="lbl">Area</span>
+            <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
+          </label>
+        </div>
+        <label class="block"><span class="lbl">Info</span><input v-model="cur.info" class="inp" placeholder="Key info about this customer…"></label>
+        <div class="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="text-[10px] text-stone-400 uppercase tracking-wide">
+            <span></span><span>First</span><span>Last</span><span>Email</span><span>Phone</span>
           </div>
-          <label class="block"><span class="lbl">Address <a v-if="cur.address" :href="'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(cur.address)" target="_blank" class="text-amber-700 hover:underline float-right normal-case">📍 Open in Maps</a></span><input v-model="cur.address" class="inp"></label>
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
+            <span class="text-base" title="Contact 1">👤</span>
+            <input v-model="cur.contact_first" placeholder="First" class="inp"><input v-model="cur.contact_last" placeholder="Last" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp">
+          </div>
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
+            <span class="text-base" title="Contact 2">👤</span>
+            <input v-model="cur.contact2_first" placeholder="First" class="inp"><input v-model="cur.contact2_last" placeholder="Last" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp">
+          </div>
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
+            <span class="text-base" title="Store / site">🏢</span>
+            <input v-model="cur.website" placeholder="Website" class="inp" style="grid-column:span 2"><input v-model="cur.store_email" placeholder="Email" class="inp"><input v-model="cur.store_phone" placeholder="Phone" class="inp">
+          </div>
+          <div style="display:grid;grid-template-columns:1.75rem 1fr;gap:10px" class="items-center">
+            <a v-if="cur.address" :href="'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(cur.address)" target="_blank" class="text-base" title="Open in Maps">📍</a><span v-else class="text-base" title="Address">📍</span>
+            <input v-model="cur.address" placeholder="Address" class="inp">
+          </div>
+        </div>
+        <label v-if="cur.status==='no_permanent'" class="block"><span class="lbl">Reason (permanent no)</span><input v-model="cur.no_reason" class="inp"></label>
+      </div>
 
-          <label v-if="cur.status==='no_permanent'" class="block"><span class="lbl">Reason (permanent no)</span><input v-model="cur.no_reason" class="inp"></label>
+      <!-- TWO COLUMNS: compose (left) | timeline (right) -->
+      <div class="grid lg:grid-cols-2">
+        <!-- LEFT: COMPOSE -->
+        <div class="p-4 space-y-3 lg:border-r border-stone-200">
 
           <!-- COMPOSE -->
           <div class="border-t border-stone-200 pt-3 space-y-2">
@@ -356,7 +359,10 @@
         <!-- RIGHT: NOTES (entry + history) -->
         <div class="p-4 space-y-2">
           <div class="flex items-center justify-between">
-            <p class="font-semibold text-sm">Timeline</p>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 rounded px-2 py-1 whitespace-nowrap">Events: {{ eventCount(cur.id) }}</span>
+              <p class="font-semibold text-sm">Timeline</p>
+            </div>
             <button @click="noteSortDesc=!noteSortDesc" class="text-xs text-stone-500 hover:text-stone-800 border border-stone-300 rounded px-2 py-0.5">
               {{ noteSortDesc ? 'Newest first ▼' : 'Oldest first ▲' }}
             </button>
