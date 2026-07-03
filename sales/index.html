@@ -495,6 +495,10 @@
           <div><p class="font-semibold text-sm">Backup</p><p class="text-xs text-stone-500">Download everything (stores, notes, templates, settings) as an Excel file.</p></div>
           <button @click="exportDatabase" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">⬇ Export database</button>
         </div>
+        <div class="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg p-3">
+          <div><p class="font-semibold text-sm">Sync Gmail history</p><p class="text-xs text-stone-500">Pull every customer's full email history from Gmail and count it as events. Run once; new emails are then captured automatically as you open each customer.</p><p v-if="syncProgress" class="text-xs text-sky-700 mt-1">{{ syncProgress }}</p></div>
+          <button @click="syncAllEmails" :disabled="syncBusy" class="bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap disabled:opacity-50">{{ syncBusy? 'Syncing…' : '📧 Sync all emails' }}</button>
+        </div>
         <div class="space-y-2">
           <p class="font-semibold text-sm">AI master prompt</p>
           <p class="text-xs text-stone-500">Sets the voice &amp; rules for every AI-drafted email (e.g. “write in the philosophy of Ogilvy”).</p>
@@ -1081,6 +1085,7 @@
       const sendBusy=ref(false); const attachIds=ref([]);
       const gmailConnected=ref(false), gmailEmail=ref('');
       const curEmails=ref([]), loadingEmails=ref(false), emailBodies=ref({});
+      const syncBusy=ref(false), syncProgress=ref('');
       const selectedIds=ref([]); const bulk=reactive({status:'',next:'',tag:''});
 
       // ---- modals ----
@@ -1427,7 +1432,25 @@
         }catch(e){ flash('AI error: '+e.message); }
         aiBusy.value=false;
       }
-      async function loadEmails(){ curEmails.value=[]; emailBodies.value={}; const ems=cur.value? storeEmails(cur.value):[]; if(!ems.length) return; loadingEmails.value=true; try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({emails:ems})}); const d=await r.json(); if(d.messages) curEmails.value=d.messages; }catch(e){} loadingEmails.value=false; }
+      async function loadEmails(){ curEmails.value=[]; emailBodies.value={}; const ems=cur.value? storeEmails(cur.value):[]; if(!ems.length) return; loadingEmails.value=true; try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({emails:ems})}); const d=await r.json(); if(d.messages){ curEmails.value=d.messages; syncEmailActivities(cur.value.id, d.messages); } }catch(e){} loadingEmails.value=false; }
+      async function syncEmailActivities(storeId, msgs){
+        if(!storeId || !msgs || !msgs.length) return 0;
+        const ex=await sb.from('activities').select('gmail_id').eq('store_id',storeId).not('gmail_id','is',null);
+        const have=new Set((ex.data||[]).map(r=>r.gmail_id));
+        const rows=msgs.filter(m=>m.id && !have.has(m.id)).map(m=>({ store_id:storeId, type:'email', result:(m.direction==='out'?'✉️ ':'📥 ')+decodeHtml(m.subject||'(no subject)'), gmail_id:m.id, created_by:(m.direction==='out'? (me.value||'Gmail') : 'Gmail'), unread:false, occurred_at:(m.date? new Date(m.date).toISOString(): new Date().toISOString()) }));
+        if(!rows.length) return 0;
+        const { data, error }=await sb.from('activities').insert(rows).select();
+        if(error) return 0;
+        if(data && data.length) activities.value=[...data, ...activities.value];
+        return data? data.length : 0;
+      }
+      async function syncAllEmails(){
+        if(syncBusy.value) return; syncBusy.value=true; let total=0;
+        const list=stores.value.slice();
+        for(let i=0;i<list.length;i++){ const st=list[i]; syncProgress.value='Syncing '+(i+1)+' / '+list.length+' — '+(st.store_name||''); const ems=storeEmails(st); if(!ems.length) continue;
+          try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({emails:ems})}); const d=await r.json(); if(d.messages && d.messages.length){ total += await syncEmailActivities(st.id, d.messages); } }catch(e){}
+        }
+        syncProgress.value=''; syncBusy.value=false; flash('Synced '+total+' emails as events'); }
       async function expandEmail(it){ if(emailBodies.value[it.id]){ const c={...emailBodies.value}; delete c[it.id]; emailBodies.value=c; return; } try{ const r=await fetch('/.netlify/functions/gmail-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); emailBodies.value={...emailBodies.value,[it.id]:decodeHtml(d.text||'(no text)')}; }catch(e){ flash('Could not load email'); } }
       const filedIds=ref([]);
       async function fileEmail(it){ try{ const r=await fetch('/.netlify/functions/gmail-file',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({messageId:it.id})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed'); filedIds.value=filedIds.value.concat([it.id]); await sb.from('activities').update({unread:false}).eq('gmail_id',it.id); activities.value=activities.value.map(a=> a.gmail_id===it.id? {...a,unread:false}:a); flash('Filed to CRM Reviewed'); }catch(e){ flash('Could not file: '+e.message); } }
@@ -1602,7 +1625,7 @@
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,reply,decodeHtml,
         MERGE_FIELDS,bodyRef,bulkBodyRef,insertMerge,setCaret,clearBulkCompose,bulkPreviewRecip,bulkPreviewSubject,bulkPreviewBody,
         openNewStore,openStore,openStoreById,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
-        addActivity,addAction,delActivity,
+        addActivity,addAction,delActivity,syncAllEmails,syncBusy,syncProgress,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,clearCompose,
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
