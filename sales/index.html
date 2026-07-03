@@ -75,11 +75,8 @@
           <span>📲 In <b>{{ dashMetrics.phone_in }}</b></span>
           <span>✉ Out <b>{{ dashMetrics.email_out }}</b></span>
           <span>📥 In <b>{{ dashMetrics.email_in }}</b></span>
-          <span>📝 <b>{{ dashMetrics.note }}</b></span>
           <span>🤝 <b>{{ dashMetrics.meeting }}</b></span>
           <span>📦 <b>{{ dashMetrics.sample }}</b></span>
-          <span>🔄 <b>{{ dashMetrics.status }}</b></span>
-          <span>➕ Leads <b>{{ dashMetrics.leads }}</b></span>
         </span>
         <button @click="showAnalytics=true" class="ml-auto text-xs text-amber-700 hover:underline font-medium">Analytics →</button>
       </div>
@@ -170,6 +167,7 @@
               <th @click="setSort('area')" class="text-left font-semibold px-3 py-2.5 hidden md:table-cell cursor-pointer select-none hover:text-stone-700">Area<span class="text-amber-600 text-sm">{{ sortArrow('area') }}</span></th>
               <th @click="setSort('status')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700">Status<span class="text-amber-600 text-sm">{{ sortArrow('status') }}</span></th>
               <th @click="setSort('rating')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap">Rating<span class="text-amber-600 text-sm">{{ sortArrow('rating') }}</span></th>
+              <th @click="setSort('events')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap" title="Total events (calls, emails, meetings, samples)">Events<span class="text-amber-600 text-sm">{{ sortArrow('events') }}</span></th>
               <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">Recent notes</th>
             </tr>
           </thead>
@@ -201,6 +199,7 @@
                   <button v-for="n in 3" :key="n" type="button" @click.stop="quickSave(s,{rating:n})" class="text-lg leading-none" :class="(s.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
                 </div>
               </td>
+              <td class="px-3 py-2.5 align-top"><span class="text-sm font-semibold text-stone-700">{{ eventCount(s.id) }}</span></td>
               <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs text-stone-500">
                 <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-md" :class="a.type==='action'?'text-amber-700 font-semibold':''" :title="a.result || cap(a.type)">
                   <span v-if="a.unread" class="text-red-600 font-bold">● NEW </span><span class="text-stone-400">{{ typeIcon(a.type) }} {{ shortDate(a.occurred_at) }}</span> {{ a.result || cap(a.type) }}
@@ -675,11 +674,9 @@
           <span>📲 Phone In <b>{{ popupMetrics.phone_in }}</b></span>
           <span>✉ Email Out <b>{{ popupMetrics.email_out }}</b></span>
           <span>📥 Email In <b>{{ popupMetrics.email_in }}</b></span>
-          <span>📝 Notes <b>{{ popupMetrics.note }}</b></span>
           <span>🤝 Meetings <b>{{ popupMetrics.meeting }}</b></span>
           <span>📦 Samples <b>{{ popupMetrics.sample }}</b></span>
-          <span>🔄 Status <b>{{ popupMetrics.status }}</b></span>
-          <span>➕ New leads <b>{{ popupMetrics.leads }}</b></span>
+          <span class="font-semibold text-stone-800">Σ Events <b>{{ popupMetrics.events }}</b></span>
         </div>
         <div class="grid md:grid-cols-3 gap-3">
           <div class="border border-stone-200 rounded-lg p-2">
@@ -695,10 +692,10 @@
           <div class="border border-stone-200 rounded-lg p-2 overflow-x-auto">
             <p class="lbl mb-1">Totals by customer type</p>
             <table class="w-full text-xs">
-              <thead class="text-stone-400"><tr><th class="text-left font-normal">Type</th><th class="font-normal" title="Phone Out">📞O</th><th class="font-normal" title="Phone In">📲I</th><th class="font-normal" title="Email Out">✉O</th><th class="font-normal" title="Email In">📥I</th><th class="font-normal" title="Notes">📝</th><th class="font-normal" title="Meetings">🤝</th><th class="font-normal" title="Samples">📦</th><th class="font-normal" title="Status">🔄</th><th class="font-normal" title="New leads">➕</th><th class="font-normal" title="Total events">Σ</th></tr></thead>
+              <thead class="text-stone-400"><tr><th class="text-left font-normal">Type</th><th class="font-normal" title="Phone Out">📞O</th><th class="font-normal" title="Phone In">📲I</th><th class="font-normal" title="Email Out">✉O</th><th class="font-normal" title="Email In">📥I</th><th class="font-normal" title="Meetings">🤝</th><th class="font-normal" title="Samples">📦</th><th class="font-normal" title="Total events">Σ</th></tr></thead>
               <tbody>
                 <tr v-for="(m,t) in metricsByType" :key="t" class="border-t border-stone-100">
-                  <td class="text-left py-0.5">{{ t }}</td><td class="text-center">{{ m.phone_out||'·' }}</td><td class="text-center">{{ m.phone_in||'·' }}</td><td class="text-center">{{ m.email_out||'·' }}</td><td class="text-center">{{ m.email_in||'·' }}</td><td class="text-center">{{ m.note||'·' }}</td><td class="text-center">{{ m.meeting||'·' }}</td><td class="text-center">{{ m.sample||'·' }}</td><td class="text-center">{{ m.status||'·' }}</td><td class="text-center">{{ m.leads||'·' }}</td><td class="text-center font-semibold text-stone-800">{{ (m.phone_out+m.phone_in+m.email_out+m.email_in+m.note+m.meeting+m.sample+m.status+m.leads)||'·' }}</td>
+                  <td class="text-left py-0.5">{{ t }}</td><td class="text-center">{{ m.phone_out||'·' }}</td><td class="text-center">{{ m.phone_in||'·' }}</td><td class="text-center">{{ m.email_out||'·' }}</td><td class="text-center">{{ m.email_in||'·' }}</td><td class="text-center">{{ m.meeting||'·' }}</td><td class="text-center">{{ m.sample||'·' }}</td><td class="text-center font-semibold text-stone-800">{{ (m.phone_out+m.phone_in+m.email_out+m.email_in+m.meeting+m.sample)||'·' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -740,6 +737,7 @@
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
   const REGIONS = ['Northland','Auckland Central','Auckland North','Auckland West','Auckland East','Auckland South','Waikato','Bay of Plenty','Lower North Island','Wellington','Christchurch','Rest of South Island','All NZ'];
   const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World','Woolworths','Bin Inn','Other','None'];
+  const EVENT_TYPES = ['call','phone_in','email','meeting','sample'];
   const MERGE_FIELDS = ['{{firstname}}','{{customer}}'];
   const QUOTES = [
     {text:"The consumer isn't a moron; she is your wife.", source:"David Ogilvy"},
@@ -1164,17 +1162,18 @@
       function _aIn(a){ const d=nzYMD(a.occurred_at||a.created_at); return d>=analyticsRange.value.start && d<=analyticsRange.value.end; }
       function _actsF(user){ return activities.value.filter(a=> _aIn(a) && (!user || a.created_by===user)); }
       function _storesF(user){ return stores.value.filter(s=>{ const d=nzYMD(s.created_at); return d>=analyticsRange.value.start && d<=analyticsRange.value.end && (!user || s.created_by===user); }); }
-      function metricsOf(user){ const A=_actsF(user); return { phone_out:A.filter(a=>a.type==='call').length, phone_in:A.filter(a=>a.type==='phone_in').length, email_out:A.filter(a=>a.type==='email'&&a.created_by!=='Gmail').length, email_in:A.filter(a=>a.type==='email'&&a.created_by==='Gmail').length, note:A.filter(a=>a.type==='note').length, meeting:A.filter(a=>a.type==='meeting').length, sample:A.filter(a=>a.type==='sample').length, referral:A.filter(a=>a.type==='referral').length, status:A.filter(a=>a.type==='status_change').length, leads:_storesF(user).length }; }
+      function metricsOf(user){ const A=_actsF(user); return { phone_out:A.filter(a=>a.type==='call').length, phone_in:A.filter(a=>a.type==='phone_in').length, email_out:A.filter(a=>a.type==='email'&&a.created_by!=='Gmail').length, email_in:A.filter(a=>a.type==='email'&&a.created_by==='Gmail').length, note:A.filter(a=>a.type==='note').length, meeting:A.filter(a=>a.type==='meeting').length, sample:A.filter(a=>a.type==='sample').length, referral:A.filter(a=>a.type==='referral').length, status:A.filter(a=>a.type==='status_change').length, leads:_storesF(user).length, events:A.filter(a=>EVENT_TYPES.includes(a.type)).length }; }
       const dashMetrics=computed(()=> metricsOf(''));
-      const dashTotal=computed(()=>{ const m=dashMetrics.value; return m.phone_out+m.phone_in+m.email_out+m.email_in+m.note+m.meeting+m.sample+m.status+m.leads; });
+      const dashTotal=computed(()=> dashMetrics.value.events);
       const popupMetrics=computed(()=> metricsOf(analyticsUser.value));
       const analyticsUsers=computed(()=> [...new Set(activities.value.map(a=>a.created_by).filter(u=>u && u!=='Gmail'))].sort());
-      const metricsByType=computed(()=>{ const A=_actsF(analyticsUser.value); const typeOf=id=>{ const st=stores.value.find(x=>x.id===id); return st? (st.store_type||'\u2014'):'\u2014'; }; const rows={}; const ensure=t=>{ if(!rows[t]) rows[t]={phone_out:0,phone_in:0,email_out:0,email_in:0,note:0,meeting:0,sample:0,status:0,leads:0}; return rows[t]; }; TYPES.forEach(ensure); A.forEach(a=>{ const r=ensure(typeOf(a.store_id)); if(a.type==='call')r.phone_out++; else if(a.type==='phone_in')r.phone_in++; else if(a.type==='email'){ if(a.created_by==='Gmail')r.email_in++; else r.email_out++; } else if(a.type==='note')r.note++; else if(a.type==='meeting')r.meeting++; else if(a.type==='sample')r.sample++; else if(a.type==='status_change')r.status++; }); _storesF(analyticsUser.value).forEach(st=>{ ensure(st.store_type||'\u2014').leads++; }); return rows; });
+      const metricsByType=computed(()=>{ const A=_actsF(analyticsUser.value); const typeOf=id=>{ const st=stores.value.find(x=>x.id===id); return st? (st.store_type||'\u2014'):'\u2014'; }; const rows={}; const ensure=t=>{ if(!rows[t]) rows[t]={phone_out:0,phone_in:0,email_out:0,email_in:0,meeting:0,sample:0}; return rows[t]; }; TYPES.forEach(ensure); A.forEach(a=>{ const r=ensure(typeOf(a.store_id)); if(a.type==='call')r.phone_out++; else if(a.type==='phone_in')r.phone_in++; else if(a.type==='email'){ if(a.created_by==='Gmail')r.email_in++; else r.email_out++; } else if(a.type==='meeting')r.meeting++; else if(a.type==='sample')r.sample++; }); return rows; });
       const touchedStores=computed(()=>{ const A=_actsF(analyticsUser.value); const by={}; A.forEach(a=>{ (by[a.store_id]=by[a.store_id]||[]).push(a); }); const list=Object.keys(by).map(id=>{ const st=stores.value.find(x=>x.id===id); const items=by[id].slice().sort((x,y)=>(y.occurred_at||'').localeCompare(x.occurred_at||'')); return { id, name:st?st.store_name:'(deleted)', stype:st?st.store_type:'', last:items[0].occurred_at, events:items.slice(0,4).map(a=>({label:typeLabel(a.type), text:(a.result||'').replace(/\s+/g,' ').slice(0,50)})) }; }); list.sort((a,b)=>(b.last||'').localeCompare(a.last||'')); return list; });
       const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
       const shortDate=(d)=> d? new Date(d).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}):'';
       const fmtDateTime=(d)=> d? new Date(d).toLocaleString('en-NZ',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
       const countBy=(k)=> stores.value.filter(s=>s.status===k).length;
+      const eventCount=(id)=> activities.value.filter(a=>a.store_id===id && EVENT_TYPES.includes(a.type)).length;
       const recentNotes=(id)=>{ const arr=activities.value.filter(x=>x.store_id===id); const acts=arr.filter(a=>a.type==='action'); const rest=arr.filter(a=>a.type!=='action'); return acts.concat(rest).slice(0,3); };
       function lastChangeISO(s){ const a=activities.value.filter(x=>x.store_id===s.id)[0]; return a? a.occurred_at : s.updated_at; }
       function daysSince(s){ const d=lastChangeISO(s); if(!d) return null; return Math.floor((Date.now()-new Date(d).getTime())/86400000); }
@@ -1196,6 +1195,7 @@
           else if(k2==='area') r=(a.area||'').localeCompare(b.area||'');
           else if(k2==='status') r=sOrder.indexOf(a.status)-sOrder.indexOf(b.status);
           else if(k2==='rating') r=(a.rating||1)-(b.rating||1);
+          else if(k2==='events') r=eventCount(a.id)-eventCount(b.id);
           else if(k2==='priority'){ const pa=a.ai_priority||9, pb=b.ai_priority||9; r = (pa-pb) || ((b.rating||1)-(a.rating||1)) || (a.store_name||'').localeCompare(b.store_name||''); }
           return sortDir.value==='asc'? r : -r;
         });
@@ -1595,7 +1595,7 @@
         countBy,
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,
-        recentNotes,daysSince,psList,
+        recentNotes,eventCount,daysSince,psList,
         cur,tab,saving,actForm,pinForm,email,selectedTemplate,aiIntent,aiBusy,
         curActivities,noteSortDesc,updateNoteDate,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
