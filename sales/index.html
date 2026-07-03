@@ -274,11 +274,8 @@
             <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
           </label>
         </div>
-        <label class="block"><span class="lbl">Info</span><input v-model="cur.info" class="inp" placeholder="Key info about this customer…"></label>
+        <div class="flex items-center gap-2"><span class="text-base" title="Info">📝</span><input v-model="cur.info" class="inp" placeholder="Key info about this customer…"></div>
         <div class="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="text-[10px] text-stone-400 uppercase tracking-wide">
-            <span></span><span>First</span><span>Last</span><span>Email</span><span>Phone</span>
-          </div>
           <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
             <span class="text-base" title="Contact 1">👤</span>
             <input v-model="cur.contact_first" placeholder="First" class="inp"><input v-model="cur.contact_last" placeholder="Last" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp">
@@ -305,7 +302,7 @@
         <div class="p-4 space-y-3 lg:border-r border-stone-200">
 
           <!-- COMPOSE -->
-          <div class="border-t border-stone-200 pt-3 space-y-2">
+          <div class="space-y-2">
             <div class="flex flex-wrap gap-2 items-center">
               <p class="font-semibold text-sm mr-auto">Compose email</p>
               <select v-model="selectedTemplate" @change="applyTemplate" class="inp text-xs flex-1 min-w-[120px]">
