@@ -52,7 +52,6 @@
         <button @click="showImport=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">↑ Import</button>
         <button @click="openDocs" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Docs</button>
         <button @click="showMotivation=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
-        <button @click="showAnalytics=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">📊 Analytics</button>
         <button v-if="isAdmin" @click="openAdmin" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Admin</button>
         <span class="text-white/80 text-xs hidden md:inline ml-1">{{ me }}</span>
         <a href="/" class="text-white/80 hover:text-white text-xs ml-1">Portal</a>
@@ -63,6 +62,7 @@
 
       <!-- ===== ANALYTICS BAR ===== -->
       <div class="flex flex-wrap items-center gap-2 mb-3 bg-white border border-stone-200 rounded-xl px-3 py-2">
+        <button @click="showAnalytics=true" class="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg whitespace-nowrap">📊 Analytics</button>
         <select v-model="analyticsPreset" @change="setRange(analyticsPreset)" class="border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white">
           <option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">This week</option><option value="lastweek">Last week</option><option value="month">This month</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option>
         </select>
@@ -78,7 +78,6 @@
           <span>🤝 <b>{{ dashMetrics.meeting }}</b></span>
           <span>📦 <b>{{ dashMetrics.sample }}</b></span>
         </span>
-        <button @click="showAnalytics=true" class="ml-auto text-xs text-amber-700 hover:underline font-medium">Analytics →</button>
       </div>
 
       <!-- ===== MOTIVATION QUOTE (changes hourly) ===== -->
@@ -681,10 +680,12 @@
         <div class="grid md:grid-cols-3 gap-3">
           <div class="border border-stone-200 rounded-lg p-2 overflow-x-auto">
             <p class="lbl mb-1">Totals by customer type</p>
-            <p class="text-sm font-semibold text-stone-800 mb-2 pb-2 border-b border-stone-200">Σ Total events: {{ popupMetrics.events }}</p>
             <table class="w-full text-xs">
               <thead class="text-stone-400"><tr><th class="text-left font-normal">Type</th><th class="font-normal" title="Phone Out">📞O</th><th class="font-normal" title="Phone In">📲I</th><th class="font-normal" title="Email Out">✉O</th><th class="font-normal" title="Email In">📥I</th><th class="font-normal" title="Meetings">🤝</th><th class="font-normal" title="Samples">📦</th><th class="font-normal" title="Total events">Σ</th></tr></thead>
               <tbody>
+                <tr class="border-b-2 border-stone-300 font-semibold text-stone-800 bg-stone-50">
+                  <td class="text-left py-0.5">TOTAL</td><td class="text-center">{{ mbtTotals.phone_out||'·' }}</td><td class="text-center">{{ mbtTotals.phone_in||'·' }}</td><td class="text-center">{{ mbtTotals.email_out||'·' }}</td><td class="text-center">{{ mbtTotals.email_in||'·' }}</td><td class="text-center">{{ mbtTotals.meeting||'·' }}</td><td class="text-center">{{ mbtTotals.sample||'·' }}</td><td class="text-center">{{ (mbtTotals.phone_out+mbtTotals.phone_in+mbtTotals.email_out+mbtTotals.email_in+mbtTotals.meeting+mbtTotals.sample)||'·' }}</td>
+                </tr>
                 <tr v-for="(m,t) in metricsByType" :key="t" class="border-t border-stone-100">
                   <td class="text-left py-0.5">{{ t }}</td><td class="text-center">{{ m.phone_out||'·' }}</td><td class="text-center">{{ m.phone_in||'·' }}</td><td class="text-center">{{ m.email_out||'·' }}</td><td class="text-center">{{ m.email_in||'·' }}</td><td class="text-center">{{ m.meeting||'·' }}</td><td class="text-center">{{ m.sample||'·' }}</td><td class="text-center font-semibold text-stone-800">{{ (m.phone_out+m.phone_in+m.email_out+m.email_in+m.meeting+m.sample)||'·' }}</td>
                 </tr>
@@ -1161,6 +1162,7 @@
       const popupMetrics=computed(()=> metricsOf(analyticsUser.value));
       const analyticsUsers=computed(()=> [...new Set(activities.value.map(a=>a.created_by).filter(u=>u && u!=='Gmail'))].sort());
       const metricsByType=computed(()=>{ const A=_actsF(analyticsUser.value); const typeOf=id=>{ const st=stores.value.find(x=>x.id===id); return st? (st.store_type||'\u2014'):'\u2014'; }; const rows={}; const ensure=t=>{ if(!rows[t]) rows[t]={phone_out:0,phone_in:0,email_out:0,email_in:0,meeting:0,sample:0}; return rows[t]; }; TYPES.forEach(ensure); A.forEach(a=>{ const r=ensure(typeOf(a.store_id)); if(a.type==='call')r.phone_out++; else if(a.type==='phone_in')r.phone_in++; else if(a.type==='email'){ if(a.created_by==='Gmail')r.email_in++; else r.email_out++; } else if(a.type==='meeting')r.meeting++; else if(a.type==='sample')r.sample++; }); return rows; });
+      const mbtTotals=computed(()=>{ const t={phone_out:0,phone_in:0,email_out:0,email_in:0,meeting:0,sample:0}; Object.values(metricsByType.value).forEach(m=>{ for(const k in t) t[k]+=(m[k]||0); }); return t; });
       const touchedStores=computed(()=>{ const A=_actsF(analyticsUser.value); const by={}; A.forEach(a=>{ (by[a.store_id]=by[a.store_id]||[]).push(a); }); const list=Object.keys(by).map(id=>{ const st=stores.value.find(x=>x.id===id); const items=by[id].slice().sort((x,y)=>(y.occurred_at||'').localeCompare(x.occurred_at||'')); return { id, name:st?st.store_name:'(deleted)', stype:st?st.store_type:'', last:items[0].occurred_at, events:items.slice(0,4).map(a=>({label:typeLabel(a.type), text:(a.result||'').replace(/\s+/g,' ').slice(0,50)})) }; }); list.sort((a,b)=>(b.last||'').localeCompare(a.last||'')); return list; });
       const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
       const shortDate=(d)=> d? new Date(d).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}):'';
@@ -1624,7 +1626,7 @@
         bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkNoNameCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
-        typeLabel,noteTypeLabel,salesPrompts,promptsOpen,showPromptsEdit,promptsDraft,openPromptsEdit,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,touchedStores,
+        typeLabel,noteTypeLabel,salesPrompts,promptsOpen,showPromptsEdit,promptsDraft,openPromptsEdit,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
         openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
         toast };
     }
