@@ -31,8 +31,8 @@ exports.handler = async (event) => {
   emails = [...new Set(emails.map(e => (e || '').trim().toLowerCase()).filter(Boolean))];
   if (!emails.length) return json(400, { error: 'No contact email.' });
   const q = encodeURIComponent(emails.map(e => 'from:' + e + ' OR to:' + e).join(' OR '));
-  const list = await gapi(at.access_token, 'messages?maxResults=' + (Number(body.max) || 12) + '&q=' + q);
-  const ids = (list.messages || []).map(m => m.id).slice(0, 12);
+  const list = await gapi(at.access_token, 'messages?maxResults=' + (Number(body.max) || 25) + '&q=' + q);
+  const ids = (list.messages || []).map(m => m.id).slice(0, 25);
   const out = [];
   for (const id of ids) {
     const m = await gapi(at.access_token, 'messages/' + id + '?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date');
