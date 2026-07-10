@@ -24,7 +24,7 @@
 </script>
 
 <!-- Tailwind Play CDN safelist: ensures all dynamic status colours are generated -->
-<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600 bg-yellow-100 bg-yellow-50 border-yellow-300 text-stone-900 ring-yellow-400 bg-indigo-950 bg-indigo-900 bg-indigo-800 bg-indigo-700 bg-indigo-600 text-indigo-50 text-indigo-100 text-indigo-300 text-indigo-400 border-indigo-800 text-amber-300 bg-indigo-50 bg-indigo-100 bg-indigo-200 text-indigo-700 text-indigo-800 text-indigo-900 border-indigo-200"></div>
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600 bg-yellow-100 bg-yellow-50 border-yellow-300 border-yellow-200 text-stone-900 ring-yellow-400 bg-indigo-950 bg-indigo-900 bg-indigo-800 bg-indigo-700 bg-indigo-600 text-indigo-50 text-indigo-100 text-indigo-300 text-indigo-400 border-indigo-800 text-amber-300 bg-indigo-50 bg-indigo-100 bg-indigo-200 text-indigo-700 text-indigo-800 text-indigo-900 border-indigo-200"></div>
 
 <div id="app" v-cloak>
 
@@ -58,7 +58,7 @@
       </div>
     </nav>
 
-    <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+    <main class="flex-1 max-w-[100rem] mx-auto w-full px-4 py-6">
 
       <!-- ===== ANALYTICS BAR ===== -->
       <div class="flex flex-wrap items-center gap-2 mb-3 bg-white border border-stone-200 rounded-xl px-3 py-2">
@@ -168,7 +168,8 @@
               <th @click="setSort('rating')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap">Rating<span class="text-amber-600 text-sm">{{ sortArrow('rating') }}</span></th>
               <th @click="setSort('events')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap" title="Total events (calls, emails, meetings, samples)">Events<span class="text-amber-600 text-sm">{{ sortArrow('events') }}</span></th>
               <th @click="setSort('daysevent')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap" title="Days since last event">Days<span class="text-amber-600 text-sm">{{ sortArrow('daysevent') }}</span></th>
-              <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">Recent notes</th>
+              <th class="text-left font-semibold px-3 py-2.5 hidden xl:table-cell w-1/5">Customer Info</th>
+              <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">TIMELINE</th>
             </tr>
           </thead>
           <tbody>
@@ -201,8 +202,12 @@
               </td>
               <td class="px-3 py-2.5 align-top"><span class="text-sm font-semibold text-stone-700">{{ eventCount(s.id) }}</span></td>
               <td class="px-3 py-2.5 align-top"><span class="text-sm" :class="(daysSinceEvent(s.id)!==null && daysSinceEvent(s.id)>=30)?'text-amber-600 font-semibold':'text-stone-500'">{{ daysEventLabel(s.id) }}</span></td>
+              <td class="px-3 py-2.5 hidden xl:table-cell align-top text-xs">
+                <span v-if="(s.info||'').trim()" class="block bg-yellow-50 border border-yellow-200 rounded px-1.5 py-1 text-stone-700 whitespace-normal break-words overflow-hidden" style="max-height:3.6rem" :title="s.info">{{ s.info }}</span>
+                <span v-else class="text-stone-300">—</span>
+              </td>
               <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs text-stone-500">
-                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-md" :class="a.type==='action'?'text-amber-700 font-semibold':''" :title="a.result || cap(a.type)">
+                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-xl" :class="a.type==='action'?'text-amber-700 font-semibold':''" :title="a.result || cap(a.type)">
                   <span v-if="a.unread" class="text-red-600 font-bold">● NEW </span><span class="text-stone-400">{{ typeIcon(a.type) }} {{ shortDate(a.occurred_at) }}</span> {{ a.result || cap(a.type) }}
                 </p>
                 <span v-if="!recentNotes(s.id).length" class="text-stone-300">—</span>
@@ -262,7 +267,7 @@
             <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
           </label>
         </div>
-        <div class="flex items-center gap-2 rounded-lg px-2 py-1.5" :class="(cur.info||'').trim() ? 'bg-yellow-100 border border-yellow-300 note-flash' : ''"><span class="text-base" title="Notes">📝</span><input v-model="cur.info" class="inp flex-1" :class="(cur.info||'').trim()?'bg-yellow-50':''" placeholder="Key info / notes about this customer…"></div>
+        <label class="block"><span class="lbl">Customer info</span><div class="flex items-center gap-2 rounded-lg px-2 py-1.5" :class="(cur.info||'').trim() ? 'bg-yellow-100 border border-yellow-300 note-flash' : ''"><span class="text-base" title="Customer info">📝</span><input v-model="cur.info" class="inp flex-1" :class="(cur.info||'').trim()?'bg-yellow-50':''" placeholder="Notes about this customer…"></div></label>
         <div class="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
           <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
             <span class="text-base" title="Contact 1">👤</span>
