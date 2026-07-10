@@ -24,7 +24,7 @@
 </script>
 
 <!-- Tailwind Play CDN safelist: ensures all dynamic status colours are generated -->
-<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600 bg-indigo-950 bg-indigo-900 bg-indigo-800 bg-indigo-700 bg-indigo-600 text-indigo-50 text-indigo-100 text-indigo-300 text-indigo-400 border-indigo-800 text-amber-300 bg-indigo-50 bg-indigo-100 bg-indigo-200 text-indigo-700 text-indigo-800 text-indigo-900 border-indigo-200"></div>
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600 bg-yellow-100 bg-yellow-50 border-yellow-300 bg-indigo-950 bg-indigo-900 bg-indigo-800 bg-indigo-700 bg-indigo-600 text-indigo-50 text-indigo-100 text-indigo-300 text-indigo-400 border-indigo-800 text-amber-300 bg-indigo-50 bg-indigo-100 bg-indigo-200 text-indigo-700 text-indigo-800 text-indigo-900 border-indigo-200"></div>
 
 <div id="app" v-cloak>
 
@@ -220,26 +220,25 @@
       <div class="sticky top-0 bg-indigo-100 px-4 py-3 flex items-center justify-between border-b border-indigo-200 z-10">
         <p class="font-bold text-sm text-indigo-900">💡 Sales Prompts</p>
         <div class="flex gap-1 items-center">
-          <button @click="openPromptsEdit" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded">✎ Edit</button>
           <button @click="promptsOpen=false" class="text-indigo-400 hover:text-indigo-800 px-1 text-lg leading-none" title="Hide">«</button>
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-x-4 gap-y-3 p-4 text-[15px] leading-snug">
+      <div class="p-4 space-y-3">
         <div>
-          <p class="uppercase tracking-wide text-indigo-700 font-bold mb-1">Product benefits</p>
-          <ul class="space-y-1"><li v-for="(x,i) in salesPrompts.features" :key="i" class="flex gap-1"><span class="shrink-0">✅</span><span>{{ x }}</span></li></ul>
+          <p class="uppercase tracking-wide text-indigo-700 font-bold text-[11px] mb-1">✅ Product benefits</p>
+          <textarea v-model="salesPrompts.features" @change="savePrompts" rows="6" placeholder="Type freely…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
         </div>
         <div>
-          <p class="uppercase tracking-wide text-indigo-700 font-bold mb-1">Retailer benefits &amp; facts</p>
-          <ul class="space-y-1"><li v-for="(x,i) in salesPrompts.retailer" :key="i" class="flex gap-1"><span class="shrink-0">💰</span><span>{{ x }}</span></li></ul>
+          <p class="uppercase tracking-wide text-indigo-700 font-bold text-[11px] mb-1">💰 Retailer benefits &amp; facts</p>
+          <textarea v-model="salesPrompts.retailer" @change="savePrompts" rows="6" placeholder="Type freely…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
         </div>
         <div>
-          <p class="uppercase tracking-wide text-indigo-700 font-bold mb-1">Objections &amp; solutions</p>
-          <ul class="space-y-1.5"><li v-for="(x,i) in salesPrompts.objections" :key="i"><p class="font-semibold text-stone-800">❓ {{ x.o }}</p><p class="text-stone-600 pl-4">✅ {{ x.s }}</p></li></ul>
+          <p class="uppercase tracking-wide text-indigo-700 font-bold text-[11px] mb-1">❓ Objections &amp; solutions</p>
+          <textarea v-model="salesPrompts.objections" @change="savePrompts" rows="7" placeholder="Type freely…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
         </div>
         <div>
-          <p class="uppercase tracking-wide text-indigo-700 font-bold mb-1">Closing &amp; next steps</p>
-          <ul class="space-y-1"><li v-for="(x,i) in salesPrompts.closing" :key="i" class="flex gap-1"><span class="shrink-0">🎯</span><span>{{ x }}</span></li></ul>
+          <p class="uppercase tracking-wide text-indigo-700 font-bold text-[11px] mb-1">🎯 Closing &amp; next steps</p>
+          <textarea v-model="salesPrompts.closing" @change="savePrompts" rows="6" placeholder="Type freely…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
         </div>
       </div>
     </div>
@@ -275,7 +274,7 @@
             <select v-model="cur.area" class="inp"><option value="">— Area —</option><option v-for="r in REGIONS" :key="r" :value="r">{{ r }}</option></select>
           </label>
         </div>
-        <div class="flex items-center gap-2"><span class="text-base" title="Info">📝</span><input v-model="cur.info" class="inp" placeholder="Key info about this customer…"></div>
+        <div class="flex items-center gap-2 rounded-lg px-2 py-1.5" :class="(cur.info||'').trim() ? 'bg-yellow-100 border border-yellow-300 note-flash' : ''"><span class="text-base" title="Notes">📝</span><input v-model="cur.info" class="inp flex-1" :class="(cur.info||'').trim()?'bg-yellow-50':''" placeholder="Key info / notes about this customer…"></div>
         <div class="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
           <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
             <span class="text-base" title="Contact 1">👤</span>
@@ -643,23 +642,6 @@
   </div>
 
   <!-- ================= ANALYTICS MODAL ================= -->
-  <div v-if="showPromptsEdit" class="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
-      <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200 shrink-0">
-        <h3 class="font-bold">Edit Sales Prompts</h3><button @click="showPromptsEdit=false" class="text-stone-400 hover:text-stone-700 text-lg leading-none px-1">&times;</button>
-      </div>
-      <div class="p-5 space-y-3 overflow-y-auto text-sm">
-        <label class="block"><span class="lbl">Product benefits &amp; features (one per line)</span><textarea v-model="promptsDraft.features" rows="6" class="inp text-xs"></textarea></label>
-        <label class="block"><span class="lbl">Retailer benefits &amp; facts (one per line)</span><textarea v-model="promptsDraft.retailer" rows="6" class="inp text-xs"></textarea></label>
-        <label class="block"><span class="lbl">Objections &amp; solutions - one per line, format:  objection :: solution</span><textarea v-model="promptsDraft.objections" rows="8" class="inp text-xs"></textarea></label>
-        <label class="block"><span class="lbl">Closing lines &amp; next steps (one per line)</span><textarea v-model="promptsDraft.closing" rows="6" class="inp text-xs"></textarea></label>
-      </div>
-      <div class="px-5 py-3 border-t border-stone-200 shrink-0 flex justify-end gap-2">
-        <button @click="showPromptsEdit=false" class="border border-stone-300 text-sm px-3 py-1.5 rounded-lg">Cancel</button>
-        <button @click="savePrompts" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">Save prompts</button>
-      </div>
-    </div>
-  </div>
   <div v-if="showAnalytics" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200 sticky top-0 bg-white z-10">
@@ -703,6 +685,8 @@
 </div>
 
 <style>
+  @keyframes noteflash { 0%,100%{ background-color:#fde68a; } 50%{ background-color:#f59e0b; } }
+  .note-flash { animation: noteflash 0.7s ease-in-out 3; }
   .lbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#78716c;margin-bottom:3px}
   .inp{width:100%;border:1px solid #d6d3d1;border-radius:8px;padding:7px 10px;font-size:14px;background:#fff}
   .inp:focus{outline:none;box-shadow:0 0 0 2px #f59e0b}
@@ -1011,18 +995,22 @@
   function dowYMD(ymd){ return new Date(ymd+'T12:00:00Z').getUTCDay(); }
   function weekEndFriday(ymd){ const add=(5-dowYMD(ymd)+7)%7; return addDaysYMD(ymd,add); }
 
-  const DEFAULT_PROMPTS = {"features": ["Gluten free & clean label - nothing to explain to shoppers.", "Made by Revive Cafe - a trusted NZ wholefoods name.", "Genuinely delicious - taste drives the repeat buy.", "Bold packaging that stands out in the freezer.", "NZ made & free-from - rides the fastest-growing demand."], "retailer": ["Healthy margin - [enter ~40%].", "Frozen = long shelf life, low wastage.", "Point of difference vs the store down the road.", "Reorder on Upstock in ~2 minutes.", "Free samples + merchandising support."], "objections": [{"o": "Freezer's full.", "s": "Trial one facing vs a slow mover - pull it if it doesn't outsell in 4 weeks."}, {"o": "Not sure it'll sell.", "s": "Start with free samples + a small order; most reorder after the first case."}, {"o": "Too dear.", "s": "Sell the margin, not the price - clean-label shoppers pay more."}, {"o": "Already have gluten-free.", "s": "Give that shopper something new so they don't go elsewhere."}, {"o": "Just send info.", "s": "Emailing the flyer + price list now - I'll call Thursday."}], "closing": ["Shall we start with [X] cases and see how they move?", "I'll drop samples this week - Tuesday or Thursday?", "Let's get you on the shelf for the next reset.", "Give it a starter case + shelf talker for 4 weeks?", "What would you need to see to say yes today?"]};
+  const DEFAULT_PROMPTS = {"features": "✅ Gluten free & clean label — nothing to explain to shoppers.\n✅ Made by Revive Cafe — a trusted NZ wholefoods name.\n✅ Genuinely delicious — taste drives the repeat buy.\n✅ Bold packaging that stands out in the freezer.\n✅ NZ made & free-from — rides the fastest-growing demand.", "retailer": "💰 Healthy margin — [enter ~40%].\n💰 Frozen = long shelf life, low wastage.\n💰 Point of difference vs the store down the road.\n💰 Reorder on Upstock in ~2 minutes.\n💰 Free samples + merchandising support.", "objections": "❓ Freezer's full → Trial one facing vs a slow mover; pull it if it doesn't outsell in 4 weeks.\n❓ Not sure it'll sell → Start with free samples + a small order; most reorder after the first case.\n❓ Too dear → Sell the margin, not the price; clean-label shoppers pay more.\n❓ Already have gluten-free → Give that shopper something new so they don't go elsewhere.\n❓ Just send info → Emailing the flyer + price list now; I'll call Thursday.", "closing": "🎯 Shall we start with [X] cases and see how they move?\n🎯 I'll drop samples this week — Tuesday or Thursday?\n🎯 Let's get you on the shelf for the next reset.\n🎯 Give it a starter case + shelf talker for 4 weeks?\n🎯 What would you need to see to say yes today?"};
   createApp({
     setup(){
       const ready=ref(false), gateError=ref(''), me=ref(''), isAdmin=ref(false);
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), templates=ref([]), documents=ref([]);
       const settings=reactive({ai_master_prompt:'',ai_actions_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:'',sales_prompts:''});
-      const promptsOpen=ref(true), showPromptsEdit=ref(false);
-      const promptsDraft=reactive({features:'',retailer:'',objections:'',closing:''});
-      const salesPrompts=computed(()=>{ try{ const q=JSON.parse(settings.sales_prompts||''); if(q&&Array.isArray(q.features)) return {features:q.features||[],retailer:q.retailer||[],objections:q.objections||[],closing:q.closing||[]}; }catch(e){} return DEFAULT_PROMPTS; });
-      function openPromptsEdit(){ const q=salesPrompts.value; promptsDraft.features=(q.features||[]).join('\n'); promptsDraft.retailer=(q.retailer||[]).join('\n'); promptsDraft.objections=(q.objections||[]).map(x=>x.o+' :: '+x.s).join('\n'); promptsDraft.closing=(q.closing||[]).join('\n'); showPromptsEdit.value=true; }
-      async function savePrompts(){ const L=t=>(t||'').split('\n').map(x=>x.trim()).filter(Boolean); const obj={ features:L(promptsDraft.features), retailer:L(promptsDraft.retailer), objections:L(promptsDraft.objections).map(l=>{ const i=l.indexOf('::'); return i<0?{o:l,s:''}:{o:l.slice(0,i).trim(),s:l.slice(i+2).trim()}; }), closing:L(promptsDraft.closing) }; const j=JSON.stringify(obj); const {error}=await sb.from('settings').upsert({key:'sales_prompts',value:j}); if(error){ flash('Save failed: '+error.message); return; } settings.sales_prompts=j; showPromptsEdit.value=false; flash('Sales prompts saved'); }
+      const promptsOpen=ref(true);
+      const salesPrompts=reactive({features:'',retailer:'',objections:'',closing:''});
+      let promptsLoaded=false;
+      function loadSalesPrompts(){ let q=null; try{ q=JSON.parse(settings.sales_prompts||''); }catch(e){} const setAll=(f,r,o,c)=>{ salesPrompts.features=f; salesPrompts.retailer=r; salesPrompts.objections=o; salesPrompts.closing=c; };
+        if(q && typeof q.features==='string') setAll(q.features||'', q.retailer||'', q.objections||'', q.closing||'');
+        else if(q && Array.isArray(q.features)) setAll((q.features||[]).join('\n'), (q.retailer||[]).join('\n'), (q.objections||[]).map(x=>(x&&x.o)?('❓ '+x.o+' → '+(x.s||'')):x).join('\n'), (q.closing||[]).join('\n'));
+        else setAll(DEFAULT_PROMPTS.features, DEFAULT_PROMPTS.retailer, DEFAULT_PROMPTS.objections, DEFAULT_PROMPTS.closing);
+        promptsLoaded=true; }
+      async function savePrompts(){ const j=JSON.stringify({features:salesPrompts.features,retailer:salesPrompts.retailer,objections:salesPrompts.objections,closing:salesPrompts.closing}); const {error}=await sb.from('settings').upsert({key:'sales_prompts',value:j}); if(error){ flash('Save failed: '+error.message); return; } settings.sales_prompts=j; flash('Sales notes saved'); }
       const DEFAULT_BANNER='https://revivealicious.com/cdn/shop/files/2x1_Banner_2026_75600d3d-3499-4602-af5f-77a29db1fd87.jpg?width=1000';
       const effectiveBanner=computed(()=> (settings.email_banner_url||'').trim()||DEFAULT_BANNER);
       const attachBytes=(ids)=> documents.value.filter(d=>ids.includes(d.id)).reduce((n,d)=>n+(Number(d.size_bytes)||0),0);
@@ -1281,6 +1269,7 @@
         templates.value=tp.data||[]; documents.value=dc.data||[];
         const sx=await sb.from('settings').select('*');
         (sx.data||[]).forEach(r=>{ if(r.key in settings) settings[r.key]=r.value||''; });
+        if(!promptsLoaded) loadSalesPrompts();
         const mq=await sb.from('motivation').select('*').order('created_at',{ascending:false});
         savedQuotes.value=mq.data||[];
         if(stores.value.some(s=>s.ai_priority)){ aiActionsOn.value=true; if(sortKey.value==='name'){ sortKey.value='priority'; sortDir.value='asc'; } }
@@ -1626,7 +1615,7 @@
         bulkCompose,bulkTemplate,bulkAiIntent,bulkAiBusy,bulkSendBusy,bulkAttachIds,bulkProgress,bulkRecipientCount,bulkNoNameCount,bulkRecipients,aiBulkSubject,toggleBulkAttach,applyBulkTemplate,aiDraftBulk,sendBulk,
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
-        typeLabel,noteTypeLabel,salesPrompts,promptsOpen,showPromptsEdit,promptsDraft,openPromptsEdit,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
+        typeLabel,noteTypeLabel,salesPrompts,promptsOpen,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
         openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
         toast };
     }
