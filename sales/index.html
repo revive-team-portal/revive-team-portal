@@ -1364,11 +1364,16 @@
         try{
           const r=await fetch('/.netlify/functions/gmail-inbox',{method:'POST',headers:{'Authorization':'Bearer '+(await portalToken())}});
           const d=await r.json(); const msgs=d.messages||[];
-          const have=new Set(activities.value.filter(a=>a.gmail_id).map(a=>a.gmail_id));
           const byEmail={}; for(const st of stores.value){ [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ if(e) byEmail[e.trim().toLowerCase()]=st.id; }); }
-          const rows=[];
-          for(const m of msgs){ const sid=byEmail[(m.email||'').toLowerCase()]; if(sid && m.id && !have.has(m.id)){ rows.push({store_id:sid,type:'email',result:'📥 '+decodeHtml(m.subject||'(no subject)')+(m.snippet? '\n'+decodeHtml(m.snippet) : ''),gmail_id:m.id,unread:true,created_by:'Gmail',occurred_at:m.date? new Date(m.date).toISOString(): new Date().toISOString()}); } }
-          if(rows.length){ await sb.from('activities').insert(rows); await loadAll(); flash(rows.length+' new email'+(rows.length>1?'s':'')+' synced'); }
+          const existing=new Map(); activities.value.forEach(a=>{ if(a.gmail_id) existing.set(a.gmail_id,a); });
+          const rows=[]; const flagIds=[];
+          for(const m of msgs){ const sid=byEmail[(m.email||'').toLowerCase()]; if(!sid||!m.id) continue; const ex=existing.get(m.id);
+            if(!ex){ rows.push({store_id:sid,type:'email',result:'📥 '+decodeHtml(m.subject||'(no subject)')+(m.snippet? '\n'+decodeHtml(m.snippet):''),gmail_id:m.id,unread:true,created_by:'Gmail',occurred_at:m.date? new Date(m.date).toISOString(): new Date().toISOString()}); }
+            else if(!ex.unread){ flagIds.push(m.id); }
+          }
+          if(rows.length) await sb.from('activities').insert(rows);
+          if(flagIds.length) await sb.from('activities').update({unread:true}).in('gmail_id',flagIds);
+          if(rows.length||flagIds.length){ await loadAll(); const n=rows.length+flagIds.length; flash(n+' new email'+(n>1?'s':'')+' flagged'); }
         }catch(e){}
       }
       async function markStoreRead(id){ if(!activities.value.some(a=>a.store_id===id&&a.unread)) return; await sb.from('activities').update({unread:false}).eq('store_id',id).eq('unread',true); activities.value=activities.value.map(a=>(a.store_id===id&&a.unread)?{...a,unread:false}:a); }
