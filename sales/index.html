@@ -24,7 +24,7 @@
 </script>
 
 <!-- Tailwind Play CDN safelist: ensures all dynamic status colours are generated -->
-<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600 bg-yellow-100 bg-yellow-50 border-yellow-300 bg-indigo-950 bg-indigo-900 bg-indigo-800 bg-indigo-700 bg-indigo-600 text-indigo-50 text-indigo-100 text-indigo-300 text-indigo-400 border-indigo-800 text-amber-300 bg-indigo-50 bg-indigo-100 bg-indigo-200 text-indigo-700 text-indigo-800 text-indigo-900 border-indigo-200"></div>
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600 bg-yellow-100 bg-yellow-50 border-yellow-300 text-stone-900 ring-yellow-400 bg-indigo-950 bg-indigo-900 bg-indigo-800 bg-indigo-700 bg-indigo-600 text-indigo-50 text-indigo-100 text-indigo-300 text-indigo-400 border-indigo-800 text-amber-300 bg-indigo-50 bg-indigo-100 bg-indigo-200 text-indigo-700 text-indigo-800 text-indigo-900 border-indigo-200"></div>
 
 <div id="app" v-cloak>
 
@@ -218,28 +218,16 @@
   <div v-if="cur" class="fixed inset-0 z-50 flex">
     <div v-if="promptsOpen" class="hidden xl:flex flex-col shrink-0 w-[28rem] 2xl:w-[32rem] bg-indigo-50 text-stone-700 h-full overflow-y-auto shadow-2xl border-r border-indigo-200">
       <div class="sticky top-0 bg-indigo-100 px-4 py-3 flex items-center justify-between border-b border-indigo-200 z-10">
-        <p class="font-bold text-sm text-indigo-900">💡 Sales Prompts</p>
+        <p class="font-bold text-sm text-indigo-900">💡 SALES INFO</p>
         <div class="flex gap-1 items-center">
           <button @click="promptsOpen=false" class="text-indigo-400 hover:text-indigo-800 px-1 text-lg leading-none" title="Hide">«</button>
         </div>
       </div>
       <div class="p-4 space-y-3">
-        <div>
-          <p class="uppercase tracking-wide text-indigo-700 font-bold text-[11px] mb-1">✅ Product benefits</p>
-          <textarea v-model="salesPrompts.features" @change="savePrompts" rows="6" placeholder="Type freely…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        </div>
-        <div>
-          <p class="uppercase tracking-wide text-indigo-700 font-bold text-[11px] mb-1">💰 Retailer benefits &amp; facts</p>
-          <textarea v-model="salesPrompts.retailer" @change="savePrompts" rows="6" placeholder="Type freely…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        </div>
-        <div>
-          <p class="uppercase tracking-wide text-indigo-700 font-bold text-[11px] mb-1">❓ Objections &amp; solutions</p>
-          <textarea v-model="salesPrompts.objections" @change="savePrompts" rows="7" placeholder="Type freely…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        </div>
-        <div>
-          <p class="uppercase tracking-wide text-indigo-700 font-bold text-[11px] mb-1">🎯 Closing &amp; next steps</p>
-          <textarea v-model="salesPrompts.closing" @change="savePrompts" rows="6" placeholder="Type freely…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        </div>
+        <textarea v-model="salesPrompts.features" @change="savePrompts" rows="6" placeholder="Product benefits…" class="w-full bg-yellow-100 text-stone-900 border border-yellow-300 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-yellow-400"></textarea>
+        <textarea v-model="salesPrompts.retailer" @change="savePrompts" rows="6" placeholder="Retailer benefits & facts…" class="w-full bg-yellow-100 text-stone-900 border border-yellow-300 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-yellow-400"></textarea>
+        <textarea v-model="salesPrompts.objections" @change="savePrompts" rows="7" placeholder="Objections & solutions…" class="w-full bg-yellow-100 text-stone-900 border border-yellow-300 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-yellow-400"></textarea>
+        <textarea v-model="salesPrompts.closing" @change="savePrompts" rows="6" placeholder="Closing & next steps…" class="w-full bg-yellow-100 text-stone-900 border border-yellow-300 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-yellow-400"></textarea>
       </div>
     </div>
     <div v-else class="hidden xl:flex flex-col items-center bg-indigo-100 text-indigo-700 h-full shrink-0 w-8 cursor-pointer hover:bg-indigo-200" @click="promptsOpen=true" title="Show sales prompts"><div class="mt-4 text-lg">💡</div></div>
