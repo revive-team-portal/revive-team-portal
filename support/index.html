@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revive — Customer Service</title>
+  <link rel="icon" href="https://revivealicious.com/cdn/shop/files/favicon_32x32.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>[v-cloak]{display:none}::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}</style>
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+<script>
+  const PORTAL_URL  = 'https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+
+<!-- Loading / auth gate -->
+<div id="gate" class="min-h-screen flex items-center justify-center" style="background:#0f766e">
+  <div class="text-center">
+    <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-56 max-w-[70vw] mx-auto mb-5" alt="Revive">
+    <p id="gateMsg" class="text-white/90 text-sm">Loading Customer Service…</p>
+  </div>
+</div>
+
+<div id="app" class="hidden min-h-screen flex flex-col">
+  <!-- NAV -->
+  <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#0f766e">
+    <div class="flex items-center gap-2">
+      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revive">
+      <span class="text-white/90 text-sm hidden sm:inline font-medium">Customer Service</span>
+    </div>
+    <div class="flex items-center gap-3 text-xs">
+      <span id="mailbox" class="hidden md:inline bg-white/15 rounded px-2 py-1">cafe@revive.co.nz</span>
+      <span id="me" class="text-white/80 hidden md:inline"></span>
+      <a href="/" class="text-white/80 hover:text-white">← Portal</a>
+    </div>
+  </nav>
+
+  <div class="flex-1 flex max-w-[100rem] mx-auto w-full">
+    <!-- SIDEBAR -->
+    <aside class="w-52 shrink-0 border-r border-stone-200 bg-white min-h-full py-3">
+      <nav id="sideNav" class="text-sm"></nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 px-6 py-6 min-w-0">
+      <div id="panel"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+const SECTIONS = [
+  {id:'dashboard', icon:'📥', label:'Inbox / Dashboard'},
+  {id:'ticket',    icon:'🎫', label:'Ticket + Customer'},
+  {id:'ops',       icon:'📦', label:'Order Ops / Fulfilment'},
+  {id:'naughty',   icon:'⚠️', label:'Naughty Box'},
+  {id:'claims',    icon:'🧾', label:'Claims'},
+  {id:'search',    icon:'🔎', label:'Search / Customers'},
+  {id:'insights',  icon:'📈', label:'Insights'},
+  {id:'settings',  icon:'⚙️', label:'Settings'},
+];
+
+const TICKET_STATUSES = ['Open','Awaiting Customer','Awaiting Fulfiller','Snoozed','Resolved'];
+const ORDER_STATUSES = ['New / Unprocessed','Ready to Pack','Packed – Awaiting Courier','In Transit','Out for Delivery','Delivered','Ready for Pickup','Collected','On Hold – eShip Fix Needed','Exception – Delayed / Lost / Failed','Cancelled / Refunded'];
+const NAUGHTY_RULES = [
+  'Order edited in Shopify after fulfilment → eShip mismatch (offers Re-sync to eShip)',
+  'Fulfilled but no tracking number / blank carrier',
+  'Tracking exists but no scan after X days (stuck/lost)',
+  'Paid but unfulfilled beyond SLA (e.g. 48h)',
+  'Address risk — rural, PO box, incomplete',
+  'Pickup not collected after N days',
+  'Courier reports failed / attempted delivery',
+];
+
+const SETUP = [
+  {k:'Supabase support schema', done:true, note:'13 tables + pgvector, built in Revive Apps project'},
+  {k:'Reason-code taxonomy', done:true, note:'15 codes seeded (Delivery / Product / Order / Payment / …)'},
+  {k:'Portal tile + access', done:true, note:'This app, gated by portal login'},
+  {k:'Claude AI proxy', done:true, note:'Reused from existing portal (triage + draft)'},
+  {k:'Shopify Admin token', done:false, note:'Create custom app → order panel goes live'},
+  {k:'Gmail — cafe@revive.co.nz', done:false, note:'Connect the support mailbox → ticket queue goes live'},
+  {k:'eShip / Starshipit keys', done:false, note:'API key + subscription key → tracking, re-sync, claims'},
+  {k:'Expose support schema in API', done:false, note:'Supabase → Settings → API → add "support" to exposed schemas'},
+];
+
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function chips(arr,cls){return arr.map(s=>'<span class="inline-block '+cls+' rounded-full px-2.5 py-1 text-xs mr-1.5 mb-1.5">'+esc(s)+'</span>').join('');}
+function card(title,inner){return '<div class="bg-white border border-stone-200 rounded-xl p-4 mb-4"><h3 class="font-semibold text-stone-800 mb-2">'+esc(title)+'</h3>'+inner+'</div>';}
+function pending(msg){return '<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2 mb-3">⏳ '+esc(msg)+'</div>';}
+
+function panelHTML(id){
+  if(id==='dashboard'){
+    const rows = SETUP.map(s=>'<div class="flex items-start gap-2 py-1.5 border-b border-stone-100 last:border-0"><span>'+(s.done?'✅':'⬜')+'</span><div><div class="text-sm font-medium '+(s.done?'text-stone-800':'text-stone-500')+'">'+esc(s.k)+'</div><div class="text-xs text-stone-500">'+esc(s.note)+'</div></div></div>').join('');
+    return '<h2 class="text-xl font-bold mb-1">Inbox / Dashboard</h2><p class="text-stone-500 text-sm mb-4">Ticket queue by priority & age, SLA + unread indicators, naughty-box badge, filters.</p>'
+      + card('Build progress', rows)
+      + card('Ticket statuses', chips(TICKET_STATUSES,'bg-teal-50 text-teal-700 border border-teal-200'))
+      + pending('Live queue appears once the cafe@ mailbox is connected and Shopify order lookup is on.');
+  }
+  if(id==='ticket'){
+    return '<h2 class="text-xl font-bold mb-1">Ticket + Customer detail</h2><p class="text-stone-500 text-sm mb-4">The core screen: thread + AI-suggested reply + order panel + notes.</p>'
+      + '<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">'
+      + card('Left — Email thread', '<p class="text-sm text-stone-500">Inbound + outbound, threaded via Gmail thread ID. Interaction log below.</p>')
+      + card('Centre — AI reply', '<p class="text-sm text-stone-500">Editable Claude draft grounded in past replies + best answers. One-click send.</p>')
+      + card('Right — Order panel', '<p class="text-sm text-stone-500">Line items, totals, tags, NZ Post live status, previous orders, internal notes.</p>')
+      + '</div>' + pending('Needs Shopify token + cafe@ Gmail.');
+  }
+  if(id==='ops'){
+    return '<h2 class="text-xl font-bold mb-1">Order Ops / Fulfilment</h2><p class="text-stone-500 text-sm mb-4">Order-centric view: today’s orders by fulfilment status, packer notes, "needs eShip fix" flags.</p>'
+      + card('Portal order statuses (richer than Shopify)', chips(ORDER_STATUSES,'bg-stone-100 text-stone-700 border border-stone-200'))
+      + pending('Populates from Shopify order sync.');
+  }
+  if(id==='naughty'){
+    return '<h2 class="text-xl font-bold mb-1">Naughty Box</h2><p class="text-stone-500 text-sm mb-4">Exception rules engine — flags orders needing a human. Each flag gets an operator Resolve tick (operator + timestamp + note), then moves to an audit log.</p>'
+      + card('Trigger rules', '<ul class="list-disc pl-5 text-sm text-stone-600 space-y-1">'+NAUGHTY_RULES.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>')
+      + pending('Runs on a schedule once Shopify + eShip are connected.');
+  }
+  if(id==='claims'){
+    return '<h2 class="text-xl font-bold mb-1">Claims</h2><p class="text-stone-500 text-sm mb-4">NZ Post claims register + one-click GST tax-invoice PDF.</p>'
+      + card('Claim lifecycle', chips(['To lodge','Lodged','Paid','Declined'],'bg-teal-50 text-teal-700 border border-teal-200'))
+      + card('Auto-spawn rule','<p class="text-sm text-stone-500">A claim is created automatically when fault = NZ Post and issue = lost/damaged.</p>')
+      + pending('Invoice generator wired after eShip tracking + Shopify order value are available.');
+  }
+  if(id==='search'){
+    return '<h2 class="text-xl font-bold mb-1">Search / All customers</h2><p class="text-stone-500 text-sm mb-4">Lookup by name, email, or order number across all history.</p>'
+      + '<input placeholder="Search name, email, order #…" class="w-full max-w-lg border border-stone-300 rounded-lg px-3 py-2 text-sm" disabled>'
+      + '<div class="mt-3">'+pending('Search turns on after the historical backfill (Shopify orders/customers + Gmail threads).')+'</div>';
+  }
+  if(id==='insights'){
+    return '<h2 class="text-xl font-bold mb-1">Insights</h2><p class="text-stone-500 text-sm mb-4">Rank recurring issues by volume (reason codes + AI clustering) → specific fixes → re-measure next period.</p>'
+      + pending('Needs a few weeks of resolved tickets to cluster.');
+  }
+  if(id==='settings'){
+    return '<h2 class="text-xl font-bold mb-1">Settings</h2><p class="text-stone-500 text-sm mb-4">Best-answer library, reason codes, SLA thresholds, tags, connections, roles.</p>'
+      + card('Reason codes (seeded)', '<div id="rcList" class="text-sm text-stone-600">Loading…</div>')
+      + card('Connections', '<ul class="text-sm text-stone-600 space-y-1"><li>Gmail (cafe@revive.co.nz) — <b class="text-amber-700">not connected</b></li><li>Shopify Admin — <b class="text-amber-700">not connected</b></li><li>eShip / Starshipit — <b class="text-amber-700">not connected</b></li><li>Claude AI — <b class="text-teal-700">connected</b></li></ul>');
+  }
+  return '';
+}
+
+function show(id){
+  document.querySelectorAll('#sideNav a').forEach(a=>{
+    a.className = a.dataset.id===id
+      ? 'flex items-center gap-2 px-4 py-2 font-medium text-teal-700 bg-teal-50 border-r-2 border-teal-600'
+      : 'flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50';
+  });
+  document.getElementById('panel').innerHTML = panelHTML(id);
+  if(id==='settings') loadReasonCodes();
+  location.hash = id;
+}
+
+async function loadReasonCodes(){
+  // reason codes live in the (not-yet-exposed) support schema; show the known seed set for now
+  const seed = ['Delivery — late/lost/damaged/wrong address','Product — quality/GF-allergen/missing/wrong item','Order — changed/cancelled/duplicate','Payment / refund','Subscription','Wholesale / enquiry','General enquiry (no fault)'];
+  const el = document.getElementById('rcList');
+  if(el) el.innerHTML = '<ul class="list-disc pl-5 space-y-1">'+seed.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul>';
+}
+
+(async function(){
+  const gateMsg = document.getElementById('gateMsg');
+  try{
+    const sb = supabase.createClient(PORTAL_URL, PORTAL_ANON);
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session){ gateMsg.textContent = 'Please sign in…'; location.href = '/'; return; }
+    document.getElementById('me').textContent = session.user.email || '';
+    // build sidebar
+    document.getElementById('sideNav').innerHTML = SECTIONS.map(s=>
+      '<a href="#'+s.id+'" data-id="'+s.id+'" onclick="show(\''+s.id+'\');return false;" class="flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50"><span>'+s.icon+'</span>'+esc(s.label)+'</a>'
+    ).join('');
+    document.getElementById('gate').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    show((location.hash||'#dashboard').slice(1));
+  }catch(e){
+    gateMsg.textContent = 'Could not load. Please return to the portal.';
+  }
+})();
+</script>
+</body>
+</html>
