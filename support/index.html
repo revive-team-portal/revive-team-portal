@@ -89,7 +89,7 @@ function panelHTML(id){
     return '<h2 class="text-xl font-bold mb-1">Inbox / Dashboard</h2><p class="text-stone-500 text-sm mb-4">Ticket queue by priority & age, SLA + unread indicators, naughty-box badge, filters.</p>'
       + card('Build progress', rows)
       + card('Ticket statuses', chips(TICKET_STATUSES,'bg-teal-50 text-teal-700 border border-teal-200'))
-      + card('Support inbox — cafe@revive.co.nz', '<div id="inboxLive"><div class="text-stone-400 text-sm">Checking mailbox…</div></div>');
+      + card('Tickets', '<div class="flex items-center gap-2 mb-3"><button onclick="syncInbox(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">⟳ Sync cafe@ inbox</button><span id="syncMsg" class="text-xs text-stone-500"></span></div><div id="ticketList"><div class="text-stone-400 text-sm">Loading tickets…</div></div>');
   }
   if(id==='ticket'){
     return '<h2 class="text-xl font-bold mb-1">Ticket + Customer detail</h2><p class="text-stone-500 text-sm mb-4">The core screen: thread + AI-suggested reply + order panel + notes.</p>'
@@ -185,20 +185,50 @@ function threadRow(t){
     +'<div class="text-sm '+(t.unread?'font-semibold text-stone-800':'text-stone-600')+' truncate">'+esc(t.subject)+'</div>'
     +'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div></div></div>';
 }
-async function loadInbox(){
-  const el = document.getElementById('inboxLive'); if(!el) return;
-  const r = await apiPost('support-inbox', {});
-  if(r.status===400 || (r.data && r.data.connected===false)){
-    el.innerHTML = '<p class="text-sm text-stone-500 mb-3">The support mailbox isn\'t connected yet. Sign in as <b>cafe@revive.co.nz</b> and authorise access.</p>'+connectBtn();
-    return;
-  }
-  if(!r.ok){ el.innerHTML = '<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load inbox.')+'</div>'; return; }
-  const threads = r.data.threads || [];
-  const unread = threads.filter(t=>t.unread).length;
-  let html = '<div class="text-xs text-stone-500 mb-2">'+esc(r.data.mailbox||'cafe@revive.co.nz')+' · '+threads.length+' threads · '+unread+' unread</div>';
-  html += threads.length ? threads.map(threadRow).join('') : '<div class="text-stone-400 text-sm">Inbox is empty.</div>';
-  el.innerHTML = html;
+async function loadTickets(){
+  const el=document.getElementById('ticketList'); if(!el) return;
+  const r=await apiPost('support-tickets',{});
+  if(!r.ok){ el.innerHTML='<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load tickets.')+'</div>'; return; }
+  const ts=r.data.tickets||[];
+  if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">No tickets yet. Click “Sync cafe@ inbox” to pull recent emails into tickets.</div>'; return; }
+  el.innerHTML=ts.map(ticketRow).join('');
 }
+function ticketRow(t){
+  const c=t.customer||{}; const when=t.updated_at?new Date(t.updated_at).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+  const sc={'Open':'bg-teal-100 text-teal-700','Resolved':'bg-stone-200 text-stone-600'}[t.status]||'bg-amber-100 text-amber-700';
+  return '<div onclick="openTicket(\''+t.id+'\')" class="flex gap-3 py-2 px-1 border-b border-stone-100 last:border-0 hover:bg-stone-50 cursor-pointer">'
+    +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate">'+esc(c.name||c.email||'(unknown)')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
+    +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div></div>'
+    +'<span class="shrink-0 self-center text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span></div>';
+}
+async function syncInbox(btn){
+  const msg=document.getElementById('syncMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Syncing…';
+  const r=await apiPost('support-ingest',{});
+  if(btn) btn.disabled=false;
+  if(!r.ok){ if(msg) msg.textContent=''; document.getElementById('ticketList').innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Sync failed.')+'</div>'; return; }
+  if(msg) msg.textContent='Synced '+r.data.tickets+' tickets · '+r.data.messages+' messages';
+  loadTickets();
+}
+async function openTicket(id){
+  document.querySelectorAll('#sideNav a').forEach(a=>{ a.className=a.dataset.id==='ticket'?'flex items-center gap-2 px-4 py-2 font-medium text-teal-700 bg-teal-50 border-r-2 border-teal-600':'flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50'; });
+  const panel=document.getElementById('panel'); panel.innerHTML='<div class="text-stone-400 text-sm">Loading ticket…</div>';
+  const r=await apiPost('support-ticket',{id});
+  if(!r.ok){ panel.innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load ticket.')+'</div>'; return; }
+  const t=r.data.ticket, msgs=r.data.messages||[], c=t.customer||{};
+  const thread=msgs.map(m=>{ const out=m.direction==='outbound';
+    return '<div class="mb-3 '+(out?'pl-8':'pr-8')+'"><div class="rounded-xl border '+(out?'bg-teal-50 border-teal-200':'bg-white border-stone-200')+' p-3"><div class="flex justify-between text-xs text-stone-500 mb-1"><span>'+esc(out?'Revive (cafe@)':(c.name||m.from_addr||'Customer'))+'</span><span>'+(m.sent_at?new Date(m.sent_at).toLocaleString('en-NZ'):'')+'</span></div><div class="text-sm text-stone-700 whitespace-pre-wrap">'+esc((m.body||'').slice(0,4000))+'</div></div></div>';
+  }).join('') || '<div class="text-stone-400 text-sm">No messages.</div>';
+  panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
+    +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
+    +'<p class="text-stone-500 text-sm mb-4">'+esc(c.name||'')+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
+    +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">'+card('Conversation', thread)+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div></div></div>';
+  if(c.email){
+    const o=await apiPost('support-shopify',{query:c.email}); const box=document.getElementById('ticketOrders');
+    if(o.ok){ let html=''; if(o.data.customers&&o.data.customers.length) html+=o.data.customers.map(customerCard).join(''); if(o.data.orders&&o.data.orders.length) html+='<h3 class="text-sm font-semibold text-stone-500 mb-2 mt-1">Orders</h3>'+o.data.orders.map(orderCard).join(''); box.innerHTML=html||'<div class="text-stone-400 text-sm">No Shopify orders.</div>'; }
+    else box.innerHTML='<div class="text-amber-700 text-xs">'+esc((o.data&&o.data.error)||'Order lookup failed.')+'</div>';
+  } else document.getElementById('ticketOrders').innerHTML='<div class="text-stone-400 text-sm">No customer email on file.</div>';
+}
+
 async function loadGmailStat(){
   const el=document.getElementById('gmailStat'); if(!el) return;
   const r=await apiPost('support-gmail-status',{});
@@ -213,7 +243,7 @@ function show(id){
       : 'flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50';
   });
   document.getElementById('panel').innerHTML = panelHTML(id);
-  if(id==='dashboard') loadInbox();
+  if(id==='dashboard') loadTickets();
   if(id==='settings') loadGmailStat();
   location.hash = id;
 }
