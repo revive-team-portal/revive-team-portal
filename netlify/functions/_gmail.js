@@ -1,17 +1,18 @@
-// Shared Gmail helpers. Reads the single shared refresh token from the portal DB
-// (service-role only) and exchanges it for a short-lived access token.
+// Shared Gmail helpers. Reads a shared refresh token from the portal DB (service-role only)
+// and exchanges it for a short-lived access token. Supports multiple mailboxes by id
+// (e.g. 'shared' = sales/hello@, 'cafe' = cafe@revive.co.nz support mailbox).
 const { sb } = require('./_supa');
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID;
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
 
-async function getToken() {
-  const r = await sb('/rest/v1/gmail_tokens?id=eq.shared&select=email,refresh_token');
+async function getToken(id = 'shared') {
+  const r = await sb('/rest/v1/gmail_tokens?id=eq.' + encodeURIComponent(id) + '&select=email,refresh_token');
   const rows = await r.json().catch(() => []);
   return Array.isArray(rows) ? rows[0] : null;
 }
-async function getAccessToken() {
-  const t = await getToken();
-  if (!t || !t.refresh_token) return { ok: false, error: 'Gmail is not connected yet.' };
+async function getAccessToken(id = 'shared') {
+  const t = await getToken(id);
+  if (!t || !t.refresh_token) return { ok: false, error: 'This mailbox is not connected yet.' };
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
