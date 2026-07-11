@@ -211,7 +211,7 @@ async function syncInbox(btn){
   const msg=document.getElementById('syncMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Syncing…';
   const r=await apiPost('support-ingest',{});
   if(btn) btn.disabled=false;
-  if(!r.ok){ if(msg) msg.textContent=''; document.getElementById('ticketList').innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Sync failed.')+'</div>'; return; }
+  if(!r.ok){ if(msg) msg.textContent=''; document.getElementById('ticketList').innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||('Sync failed ('+r.status+').'))+'</div>'; return; }
   if(msg) msg.textContent='Synced — '+(r.data.order||0)+' order + '+(r.data.nonOrder||0)+' non-order new, '+r.data.messages+' messages';
   loadTickets();
 }

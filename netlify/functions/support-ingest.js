@@ -1,6 +1,6 @@
 // Pulls recent cafe@ threads → support.customers/tickets/messages, classifying each
 // new thread as 'order' (known Shopify customer or order-number) or 'non_order'.
-// Portal-gated (support). Server-side only.
+// Portal-gated (support). Concurrency-bounded to fit the function time limit.
 const { json, validatePortalUser } = require('./_portal');
 const { getAccessToken } = require('./_gmail');
 const { rest, upsert, hasKey } = require('./_appsdb');
@@ -34,79 +34,79 @@ async function isKnownCustomer(email){
   knownCache[email]=known; return known;
 }
 
+async function processThread(token, tid){
+  const thread = await gapi(token, 'threads/' + tid + '?format=full');
+  const msgs = thread.messages || [];
+  if (!msgs.length) return { messages:0 };
+
+  let custEmail='', custName='', subject='', blob='';
+  const parsed = msgs.map(m => {
+    const h={}; ((m.payload&&m.payload.headers)||[]).forEach(x=>h[x.name.toLowerCase()]=x.value);
+    const bodyText=extractBody(m.payload);
+    if(!subject && h.subject) subject=h.subject;
+    blob += ' ' + (h.subject||'') + ' ' + bodyText.slice(0,500);
+    return { m, h, from:parseEmail(h.from), to:parseEmail(h.to), bodyText };
+  });
+  for(const pm of parsed){
+    const other = pm.from && pm.from!==MAILBOX ? pm.from : (pm.to && pm.to!==MAILBOX ? pm.to : '');
+    if(other && !custEmail){ custEmail=other; custName=parseName(pm.h.from)||parseName(pm.h.to)||''; }
+  }
+  if(!custEmail) custEmail='unknown@no-email.local';
+
+  const custRows = await upsert('customers', { email:custEmail, name:custName||null, first_seen:new Date(Number(msgs[0].internalDate||Date.now())).toISOString() }, 'email');
+  const customerId = custRows && custRows[0] && custRows[0].id;
+
+  const lastTs = new Date(Number(msgs[msgs.length-1].internalDate||Date.now())).toISOString();
+  const subj = (subject||'(no subject)').slice(0,300);
+
+  const existing = await rest('tickets?gmail_thread_id=eq.'+encodeURIComponent(tid)+'&select=id&limit=1');
+  let ticketId, created=false, triage='order';
+  if(existing && existing.length){
+    ticketId = existing[0].id;
+    await rest('tickets?id=eq.'+ticketId, { method:'PATCH', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ subject:subj, updated_at:lastTs }) });
+  } else {
+    const isOrder = ORDER_RE.test(blob) || await isKnownCustomer(custEmail);
+    triage = isOrder ? 'order' : 'non_order';
+    const ins = await rest('tickets', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ gmail_thread_id:tid, customer_id:customerId, subject:subj, status:'Open', triage, reviewed:false, updated_at:lastTs }) });
+    ticketId = ins && ins[0] && ins[0].id; created=true;
+  }
+
+  await Promise.all(parsed.map(pm => upsert('messages', {
+    gmail_message_id: pm.m.id, ticket_id: ticketId,
+    direction: pm.from===MAILBOX ? 'outbound' : 'inbound',
+    from_addr: pm.h.from||'', to_addr: pm.h.to||'',
+    body: (pm.bodyText||'').slice(0,20000),
+    sent_at: new Date(Number(pm.m.internalDate||Date.now())).toISOString(),
+  }, 'gmail_message_id')));
+
+  return { messages: parsed.length, created, triage };
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
   const a = await validatePortalUser(event, 'support');
   if (!a.ok) return json(a.status || 403, { error: a.error });
   if (!hasKey()) return json(500, { error: 'Ticket database not configured yet (APPS_SERVICE_ROLE_KEY missing in Netlify).' });
 
-  const at = await getAccessToken('cafe');
-  if (!at.ok) return json(400, { error: at.error, connected: false });
+  try {
+    const at = await getAccessToken('cafe');
+    if (!at.ok) return json(400, { error: at.error, connected: false });
 
-  let body; try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
-  // Skip Gmail's promo/social buckets and spam by default.
-  const q = body.q || 'in:inbox -category:promotions -category:social newer_than:60d';
-  const maxThreads = Math.min(Number(body.max) || 25, 40);
+    let body; try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
+    const q = body.q || 'in:inbox -category:promotions -category:social newer_than:60d';
+    const maxThreads = Math.min(Number(body.max) || 15, 20);
 
-  const list = await gapi(at.access_token, 'messages?maxResults=80&q=' + encodeURIComponent(q));
-  const threadIds = [...new Set((list.messages || []).map(m => m.threadId))].slice(0, maxThreads);
+    const list = await gapi(at.access_token, 'messages?maxResults=60&q=' + encodeURIComponent(q));
+    const threadIds = [...new Set((list.messages || []).map(m => m.threadId))].slice(0, maxThreads);
 
-  let orderN = 0, nonOrderN = 0, mCount = 0, newT = 0;
-  const custCache = {};
-
-  for (const tid of threadIds) {
-    const thread = await gapi(at.access_token, 'threads/' + tid + '?format=full');
-    const msgs = thread.messages || [];
-    if (!msgs.length) continue;
-
-    let custEmail = '', custName = '', subject = '', blob = '';
-    const parsed = msgs.map(m => {
-      const h = {}; ((m.payload && m.payload.headers) || []).forEach(x => h[x.name.toLowerCase()] = x.value);
-      const bodyText = extractBody(m.payload);
-      if (!subject && h.subject) subject = h.subject;
-      blob += ' ' + (h.subject || '') + ' ' + bodyText.slice(0, 500);
-      return { m, h, from: parseEmail(h.from), to: parseEmail(h.to), bodyText };
-    });
-    for (const pm of parsed) {
-      const other = pm.from && pm.from !== MAILBOX ? pm.from : (pm.to && pm.to !== MAILBOX ? pm.to : '');
-      if (other && !custEmail) { custEmail = other; custName = parseName(pm.h.from) || parseName(pm.h.to) || ''; }
+    let order=0, nonOrder=0, messages=0;
+    const CHUNK = 4;
+    for (let i=0; i<threadIds.length; i+=CHUNK) {
+      const res = await Promise.all(threadIds.slice(i, i+CHUNK).map(tid => processThread(at.access_token, tid)));
+      for (const r of res) { messages += r.messages||0; if (r.created) { if (r.triage==='order') order++; else nonOrder++; } }
     }
-    if (!custEmail) custEmail = 'unknown@no-email.local';
-
-    let customerId = custCache[custEmail];
-    if (!customerId) {
-      const rows = await upsert('customers', { email: custEmail, name: custName || null, first_seen: new Date(Number(msgs[0].internalDate||Date.now())).toISOString() }, 'email');
-      customerId = rows && rows[0] && rows[0].id; custCache[custEmail] = customerId;
-    }
-
-    const lastTs = new Date(Number(msgs[msgs.length-1].internalDate || Date.now())).toISOString();
-    const subj = (subject || '(no subject)').slice(0, 300);
-
-    // Get-or-insert ticket (do NOT clobber triage/reviewed on re-sync).
-    const existing = await rest('tickets?gmail_thread_id=eq.' + encodeURIComponent(tid) + '&select=id&limit=1');
-    let ticketId;
-    if (existing && existing.length) {
-      ticketId = existing[0].id;
-      await rest('tickets?id=eq.' + ticketId, { method:'PATCH', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ subject: subj, updated_at: lastTs }) });
-    } else {
-      const isOrder = ORDER_RE.test(blob) || await isKnownCustomer(custEmail);
-      const triage = isOrder ? 'order' : 'non_order';
-      const ins = await rest('tickets', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ gmail_thread_id: tid, customer_id: customerId, subject: subj, status:'Open', triage, reviewed:false, updated_at: lastTs }) });
-      ticketId = ins && ins[0] && ins[0].id; newT++;
-      if (triage === 'order') orderN++; else nonOrderN++;
-    }
-
-    for (const pm of parsed) {
-      await upsert('messages', {
-        gmail_message_id: pm.m.id, ticket_id: ticketId,
-        direction: pm.from === MAILBOX ? 'outbound' : 'inbound',
-        from_addr: pm.h.from || '', to_addr: pm.h.to || '',
-        body: (pm.bodyText || '').slice(0, 20000),
-        sent_at: new Date(Number(pm.m.internalDate || Date.now())).toISOString(),
-      }, 'gmail_message_id');
-      mCount++;
-    }
+    return json(200, { ok:true, threads: threadIds.length, order, nonOrder, messages });
+  } catch (e) {
+    return json(502, { error: 'Sync error: ' + String(e && e.message || e) });
   }
-
-  return json(200, { ok:true, threads: threadIds.length, newTickets: newT, order: orderN, nonOrder: nonOrderN, messages: mCount });
 };
