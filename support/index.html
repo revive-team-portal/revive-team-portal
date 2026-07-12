@@ -142,7 +142,7 @@ function panelHTML(id){
 
 function orderCard(o){
   const items = o.lineItems.map(li=>'<div class="flex justify-between text-xs text-stone-600"><span>'+(li.qty)+'× '+esc(li.title)+(li.sku?' <span class="text-stone-400">('+esc(li.sku)+')</span>':'')+'</span><span>'+money(li.price,o.currency)+'</span></div>').join('');
-  const track = o.tracking.length ? o.tracking.map(t=>'<a href="'+esc(t.url||'#')+'" target="_blank" class="text-teal-700 underline">'+esc(t.company||'Tracking')+' '+esc(t.number||'')+'</a> <span class="text-stone-400">('+esc(t.status||'')+')</span>').join('<br>') : '<span class="text-stone-400">no tracking yet</span>';
+  const track = o.tracking.length ? o.tracking.map(t=>'<span class="text-stone-500">'+esc(t.company||'Courier')+' '+esc(t.number||'')+'</span>').join('<br>') : '<span class="text-stone-400">no tracking yet</span>';
   const ship = o.shipTo ? esc([o.shipTo.name,o.shipTo.address1,o.shipTo.city,o.shipTo.zip].filter(Boolean).join(', ')) : '';
   const trackUI = (o.tracking||[]).filter(t=>t.number).map(t=>'<div class="mt-2"><button onclick="loadTrack(\''+esc(t.number)+'\',this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-2 py-1 rounded-lg">🚚 Live NZ Post status</button><div class="mt-2"></div></div>').join('');
   return '<div class="bg-white border border-stone-200 rounded-xl p-4 mb-3">'
@@ -231,7 +231,7 @@ async function openTicket(id){
     +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div></div></div>';
   if(c.email){
     const o=await apiPost('support-shopify',{query:c.email}); const box=document.getElementById('ticketOrders');
-    if(o.ok){ let html=''; if(o.data.customers&&o.data.customers.length) html+=o.data.customers.map(customerCard).join(''); if(o.data.orders&&o.data.orders.length) html+='<h3 class="text-sm font-semibold text-stone-500 mb-2 mt-1">Orders</h3>'+o.data.orders.map(orderCard).join(''); box.innerHTML=html||'<div class="text-stone-400 text-sm">No Shopify orders.</div>'; }
+    if(o.ok){ let html=''; if(o.data.customers&&o.data.customers.length) html+=o.data.customers.map(customerCard).join(''); if(o.data.orders&&o.data.orders.length) html+='<h3 class="text-sm font-semibold text-stone-500 mb-2 mt-1">Orders</h3>'+o.data.orders.map(orderCard).join(''); box.innerHTML=html||'<div class="text-stone-400 text-sm">No Shopify orders.</div>'; const b0=box.querySelector('button'); if(b0) b0.click(); }
     else box.innerHTML='<div class="text-amber-700 text-xs">'+esc((o.data&&o.data.error)||'Order lookup failed.')+'</div>';
   } else document.getElementById('ticketOrders').innerHTML='<div class="text-stone-400 text-sm">No customer email on file.</div>';
 }
@@ -294,11 +294,19 @@ async function loadTrack(number, btn){
   btn.disabled=false;
   if(!r.ok){ box.innerHTML='<span class="text-amber-700 text-xs">'+esc((r.data&&r.data.error)||'Tracking unavailable.')+'</span>'; return; }
   const d=r.data;
-  const fmt=v=>{ const dt=v?new Date(v):null; return (dt&&!isNaN(dt))?dt.toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):(v||''); };
+  const pretty=v=>String(v||'').replace(/([a-z])([A-Z])/g,'$1 $2');
+  const fmt=v=>{ const dt=v?new Date(v):null; return (dt&&!isNaN(dt))?dt.toLocaleString('en-NZ',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):(v||''); };
   const delivered=/deliver/i.test(d.status||'');
-  let html='<div class="border border-stone-200 rounded-lg p-2 bg-stone-50"><div class="text-xs font-semibold mb-1 '+(delivered?'text-green-700':'text-stone-700')+'">'+esc(d.status||'—')+(d.carrier?' · '+esc(d.carrier):'')+(d.trackingUrl?' · <a href="'+esc(d.trackingUrl)+'" target="_blank" class="text-teal-700 underline">track</a>':'')+'</div>';
-  const evs=(d.events||[]).slice(0,4);
-  html+= evs.length ? evs.map(e=>'<div class="text-xs text-stone-600 flex gap-2"><span class="text-stone-400 shrink-0 w-24">'+esc(fmt(e.date))+'</span><span>'+esc(e.detail||e.status||'')+(e.location?' — '+esc(e.location):'')+'</span></div>').join('') : '<div class="text-xs text-stone-400">No scan events yet.</div>';
+  let html='<div class="border border-stone-200 rounded-lg p-2 bg-stone-50">';
+  html+='<div class="text-sm font-semibold '+(delivered?'text-green-700':'text-stone-800')+'">'+esc(pretty(d.status)||'—')+'</div>';
+  const sub=[]; if(d.carrier) sub.push(esc(d.carrier)); if(d.service) sub.push(esc(d.service));
+  if(sub.length) html+='<div class="text-xs text-stone-500 mb-1">'+sub.join(' · ')+'</div>';
+  if(delivered && (d.deliveredDate||d.signedBy)){ html+='<div class="text-xs text-green-700 mb-1">Delivered'+(d.deliveredDate?' '+esc(fmt(d.deliveredDate)):'')+(d.signedBy?' · signed by '+esc(d.signedBy):'')+'</div>'; }
+  const evs=(d.events||[]).slice(0,6);
+  html+= evs.length ? '<div class="mt-1 space-y-0.5">'+evs.map(e=>'<div class="text-xs text-stone-600 flex gap-2"><span class="text-stone-400 shrink-0 w-28">'+esc(fmt(e.date))+'</span><span>'+esc(e.detail||pretty(e.status)||'')+(e.location?' — '+esc(e.location):'')+(e.signedBy?' (signed by '+esc(e.signedBy)+')':'')+'</span></div>').join('')+'</div>'
+    : '<div class="text-xs text-stone-400 mt-1">No scan events returned by the courier yet.</div>';
+  if(d.trackingUrl) html+='<div class="text-xs mt-1"><a href="'+esc(d.trackingUrl)+'" target="_blank" class="text-teal-700 underline">Open on carrier site ↗</a></div>';
+  if(!evs.length && d._raw){ html+='<details class="mt-1"><summary class="text-xs text-stone-400 cursor-pointer">raw response</summary><pre class="text-[10px] text-stone-500 overflow-auto max-h-40 whitespace-pre-wrap">'+esc(JSON.stringify(d._raw,null,1))+'</pre></details>'; }
   html+='</div>';
   box.innerHTML=html;
 }

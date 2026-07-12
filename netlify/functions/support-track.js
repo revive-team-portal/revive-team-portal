@@ -29,18 +29,23 @@ exports.handler = async (event) => {
     const rz = j.results || j;
     const rawEvents = rz.tracking_details || rz.events || rz.tracking_events || rz.trackingDetails || [];
     const events = rawEvents.map(e => ({
-      date: e.status_date || e.date || e.event_datetime || e.timestamp || '',
+      date: e.status_date || e.date || e.event_datetime || e.timestamp || e.datetime || '',
       status: e.status || e.tracking_status || '',
-      detail: e.status_details || e.details || e.description || e.message || e.status || '',
-      location: e.location || e.city || e.depot || '',
+      detail: e.status_details || e.details || e.description || e.message || e.event || e.status || '',
+      location: e.location || e.city || e.depot || e.facility || '',
+      signedBy: e.signed_by || e.signer || e.signature || e.signature_name || '',
     })).sort((x, y) => new Date(y.date) - new Date(x.date));
+    const signedBy = rz.signature || rz.signed_by || rz.signer || rz.signature_name || (events.find(e => e.signedBy) || {}).signedBy || '';
     return json(200, {
       status: rz.status || rz.tracking_status || (events[0] && events[0].status) || 'Unknown',
       carrier: rz.carrier_name || rz.carrier || '',
       service: rz.carrier_service || rz.service || '',
       trackingUrl: rz.tracking_url || '',
       trackingNumber: rz.tracking_number || tn,
+      deliveredDate: rz.delivered_date || rz.delivery_date || rz.date_delivered || '',
+      signedBy,
       events,
+      _raw: { keys: Object.keys(rz || {}), sampleEvent: rawEvents[0] || null },
     });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };
