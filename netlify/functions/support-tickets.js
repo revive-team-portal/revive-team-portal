@@ -6,7 +6,7 @@ exports.handler = async (event) => {
   if (!a.ok) return json(a.status || 403, { error: a.error });
   if (!hasKey()) return json(500, { error: 'Ticket database not configured yet (APPS_SERVICE_ROLE_KEY missing in Netlify).' });
   let body; try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
-  let path = 'tickets?select=id,subject,status,priority,triage,reviewed,updated_at,created_at,gmail_thread_id,customer:customers(email,name)&order=updated_at.desc&limit=300';
+  let path = 'tickets?select=id,subject,status,priority,triage,reviewed,matched_order,snippet,updated_at,created_at,gmail_thread_id,customer:customers(email,name)&order=updated_at.desc&limit=300';
   if (body.triage && body.triage !== 'all') path += '&triage=eq.' + encodeURIComponent(body.triage);
   if (body.status && body.status !== 'all') path += '&status=eq.' + encodeURIComponent(body.status);
   if (typeof body.reviewed === 'boolean') path += '&reviewed=is.' + body.reviewed;

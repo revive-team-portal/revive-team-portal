@@ -8,6 +8,12 @@ const { gql } = require('./_shopify');
 
 const MAILBOX = 'cafe@revive.co.nz';
 const ORDER_RE = /\b(?:WEB\d{3,}|#\s?\d{3,}|order\s+#?\d{3,})\b/i;
+function matchOrderRef(txt){
+  let m = (txt||'').match(/\b(WEB\d{3,})\b/i); if(m) return m[1].toUpperCase();
+  m = (txt||'').match(/#\s?(\d{3,})\b/); if(m) return '#'+m[1];
+  m = (txt||'').match(/\border\s+#?(\d{3,})\b/i); if(m) return '#'+m[1];
+  return null;
+}
 
 function b64(s){ return Buffer.from((s||'').replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8'); }
 function parseEmail(s){ const m=(s||'').match(/<([^>]+)>/); return (m?m[1]:(s||'')).trim().toLowerCase(); }
@@ -58,16 +64,19 @@ async function processThread(token, tid){
 
   const lastTs = new Date(Number(msgs[msgs.length-1].internalDate||Date.now())).toISOString();
   const subj = (subject||'(no subject)').slice(0,300);
+  const firstInbound = parsed.find(pm => pm.from !== MAILBOX) || parsed[0];
+  const snippet = ((firstInbound && firstInbound.bodyText) || '').replace(/\s+/g,' ').trim().slice(0,180);
+  const matchedOrder = matchOrderRef(blob);
 
   const existing = await rest('tickets?gmail_thread_id=eq.'+encodeURIComponent(tid)+'&select=id&limit=1');
   let ticketId, created=false, triage='order';
   if(existing && existing.length){
     ticketId = existing[0].id;
-    await rest('tickets?id=eq.'+ticketId, { method:'PATCH', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ subject:subj, updated_at:lastTs }) });
+    await rest('tickets?id=eq.'+ticketId, { method:'PATCH', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ subject:subj, snippet, matched_order:matchedOrder, updated_at:lastTs }) });
   } else {
     const isOrder = ORDER_RE.test(blob) || await isKnownCustomer(custEmail);
     triage = isOrder ? 'order' : 'non_order';
-    const ins = await rest('tickets', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ gmail_thread_id:tid, customer_id:customerId, subject:subj, status:'Open', triage, reviewed:false, updated_at:lastTs }) });
+    const ins = await rest('tickets', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ gmail_thread_id:tid, customer_id:customerId, subject:subj, status:'Open', triage, reviewed:false, matched_order:matchedOrder, snippet, updated_at:lastTs }) });
     ticketId = ins && ins[0] && ins[0].id; created=true;
   }
 

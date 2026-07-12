@@ -7,6 +7,7 @@
   <link rel="icon" href="https://revivealicious.com/cdn/shop/files/favicon_32x32.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="quotes.js"></script>
   <style>[v-cloak]{display:none}::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}</style>
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
@@ -16,17 +17,17 @@
   let PORTAL_TOKEN = null;
 </script>
 
-<div id="gate" class="min-h-screen flex items-center justify-center" style="background:#0f766e">
+<div id="gate" class="min-h-screen flex items-center justify-center" style="background:#007020">
   <div class="text-center">
-    <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-56 max-w-[70vw] mx-auto mb-5" alt="Revive">
+    <span style="background:#fff;border-radius:24px;padding:14px 20px;display:inline-block;margin-bottom:18px"><img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="w-44 max-w-[60vw]" alt="Revive Café"></span>
     <p id="gateMsg" class="text-white/90 text-sm">Loading Customer Service…</p>
   </div>
 </div>
 
 <div id="app" class="hidden min-h-screen flex flex-col">
-  <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#0f766e">
+  <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#007020">
     <div class="flex items-center gap-2">
-      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revive">
+      <span style="background:#fff;border-radius:9999px;padding:3px 7px;display:inline-flex;align-items:center"><img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="h-6" alt="Revive Café"></span>
       <span class="text-white/90 text-sm hidden sm:inline font-medium">Customer Service</span>
     </div>
     <div class="flex items-center gap-3 text-xs">
@@ -35,6 +36,13 @@
       <a href="/" class="text-white/80 hover:text-white">← Portal</a>
     </div>
   </nav>
+
+  <div id="inspoBar" class="flex items-center gap-3 px-5 py-2 text-sm border-b" style="background:#f0f7ef;border-color:#dbebd8">
+    <span style="color:#007020">★</span>
+    <div class="flex-1 min-w-0 truncate"><span id="inspoText" class="italic text-stone-700"></span> <span id="inspoSrc" class="text-stone-400 text-xs"></span></div>
+    <button onclick="inspoPrev()" class="text-xs border border-stone-300 bg-white rounded px-2 py-0.5 hover:bg-stone-50">‹ Prev</button>
+    <button onclick="inspoNext()" class="text-xs border border-stone-300 bg-white rounded px-2 py-0.5 hover:bg-stone-50">Next ›</button>
+  </div>
 
   <div class="flex-1 flex max-w-[100rem] mx-auto w-full">
     <aside class="w-52 shrink-0 border-r border-stone-200 bg-white min-h-full py-3">
@@ -138,7 +146,8 @@ function panelHTML(id){
       + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')
       + '<div class="mb-4"><button onclick="saveSettings(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save settings</button> <span id="setMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + card('Reason codes (seeded)', '<ul class="list-disc pl-5 text-sm text-stone-600 space-y-1"><li>Delivery — late / lost / damaged / wrong address</li><li>Product — quality / GF-allergen / missing / wrong item</li><li>Order — changed / cancelled / duplicate</li><li>Payment / refund</li><li>Subscription</li><li>Wholesale / enquiry</li><li>General enquiry (no fault)</li></ul>')
-      + card('Connections', '<ul class="text-sm text-stone-600 space-y-1"><li>Shopify Admin — <b class="text-teal-700">connected</b></li><li>eShip / Starshipit — <b class="text-teal-700">keys loaded</b></li><li>Claude AI — <b class="text-teal-700">connected</b></li><li>Gmail (cafe@revive.co.nz) — <span id="gmailStat" class="text-amber-700 font-semibold">checking…</span> <a href="/.netlify/functions/gmail-connect?mailbox=cafe" class="text-teal-700 underline ml-1">Connect / reconnect</a></li></ul>');
+      + card('Connections', '<ul class="text-sm text-stone-600 space-y-1"><li>Shopify Admin — <b class="text-teal-700">connected</b></li><li>eShip / Starshipit — <b class="text-teal-700">keys loaded</b></li><li>Claude AI — <b class="text-teal-700">connected</b></li><li>Gmail (cafe@revive.co.nz) — <span id="gmailStat" class="text-amber-700 font-semibold">checking…</span> <a href="/.netlify/functions/gmail-connect?mailbox=cafe" class="text-teal-700 underline ml-1">Connect / reconnect</a></li></ul>')
+      + card('NZ Post / CourierPost codes — editable', '<div id="codesList" class="text-sm">Loading…</div><div class="flex flex-wrap gap-2 mt-3 items-center"><input id="ncCode" placeholder="Code" class="border border-stone-300 rounded px-2 py-1 text-xs w-24"><input id="ncMean" placeholder="Meaning" class="border border-stone-300 rounded px-2 py-1 text-xs flex-1 min-w-[160px]"><label class="text-xs flex items-center gap-1"><input type="checkbox" id="ncPer"> perishable</label><button onclick="addCode()" class="text-xs bg-teal-700 text-white px-3 py-1 rounded-lg">Add / update</button></div>');
   }
   return '';
 }
@@ -206,10 +215,12 @@ async function loadTickets(){
 function ticketRow(t){
   const c=t.customer||{}; const when=t.updated_at?new Date(t.updated_at).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
   const sc={'Open':'bg-teal-100 text-teal-700','Resolved':'bg-stone-200 text-stone-600'}[t.status]||'bg-amber-100 text-amber-700';
+  const matched = t.matched_order ? '<div class="text-[11px] text-teal-700 mt-1 whitespace-nowrap">→ '+esc(t.matched_order)+'</div>' : '';
   return '<div onclick="openTicket(\''+t.id+'\')" class="flex gap-3 py-2 px-1 border-b border-stone-100 last:border-0 hover:bg-stone-50 cursor-pointer">'
     +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate">'+esc(c.name||c.email||'(unknown)')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
-    +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div></div>'
-    +'<span class="shrink-0 self-center text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span></div>';
+    +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div>'
+    +(t.snippet?'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div>':'')+'</div>'
+    +'<div class="shrink-0 self-start text-right"><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span>'+matched+'</div></div>';
 }
 async function syncInbox(btn){
   const msg=document.getElementById('syncMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Syncing…';
@@ -302,8 +313,8 @@ async function loadTrack(number, btn){
   const delivered=/deliver/i.test(d.status||'');
   let html='<div class="border border-stone-200 rounded-lg p-2 bg-stone-50">';
   html+='<div class="text-sm font-semibold '+(delivered?'text-green-700':'text-stone-800')+'">'+esc(pretty(d.status)||'—')+'</div>';
-  const sub=[]; if(d.carrier) sub.push(esc(d.carrier)); if(d.service) sub.push(esc(d.service));
-  if(sub.length) html+='<div class="text-xs text-stone-500 mb-1">'+sub.join(' · ')+'</div>';
+  if(d.carrier) html+='<div class="text-xs text-stone-500 mb-1">'+esc(d.carrier)+'</div>';
+  if(d.service){ const _svc=(d.service||'').toUpperCase().trim(); const ci=(window.NZCODES||{})[_svc]; html+='<div class="text-xs text-stone-600 mb-1">Service <b>'+esc(d.service)+'</b>'+(ci&&ci.meaning?' — '+esc(ci.meaning):'')+(ci&&ci.perishable?' <span class="bg-sky-100 text-sky-700 rounded px-1">🧊 Perishable</span>':'')+'</div>'; }
   if(delivered && (d.deliveredDate||d.signedBy)){ html+='<div class="text-xs text-green-700 mb-1">Delivered'+(d.deliveredDate?' '+esc(fmt(d.deliveredDate)):'')+(d.signedBy?' · signed by '+esc(d.signedBy):'')+'</div>'; }
   const evs=(d.events||[]).slice(0,6);
   html+= evs.length ? '<div class="mt-1 space-y-0.5">'+evs.map(e=>'<div class="text-xs text-stone-600 flex gap-2"><span class="text-stone-400 shrink-0 w-28">'+esc(fmt(e.date))+'</span><span>'+esc(e.detail||pretty(e.status)||'')+(e.location?' — '+esc(e.location):'')+(e.signedBy?' (signed by '+esc(e.signedBy)+')':'')+'</span></div>').join('')+'</div>'
@@ -339,6 +350,24 @@ async function saveSettings(btn){
   if(btn) btn.disabled=false; if(msg) msg.textContent = r.ok ? 'Saved ✓' : ((r.data&&r.data.error)||'Save failed');
 }
 
+let INSPO_I=0;
+function inspoRender(){ const arr=window.SUPPORT_QUOTES||[]; const q=arr[INSPO_I]||{t:'',s:''}; const tEl=document.getElementById('inspoText'), sEl=document.getElementById('inspoSrc'); if(tEl) tEl.textContent='“'+q.t+'”'; if(sEl) sEl.textContent=q.s?('— '+q.s):''; }
+function inspoNext(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=(INSPO_I+1)%n; inspoRender(); }
+function inspoPrev(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=(INSPO_I-1+n)%n; inspoRender(); }
+function inspoInit(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=Math.floor(Date.now()/3600000)%n; inspoRender(); }
+async function loadCodes(){
+  const r=await apiPost('support-codes',{});
+  if(!r.ok) return; window.NZCODES={}; (r.data.codes||[]).forEach(c=>window.NZCODES[(c.code||'').toUpperCase()]={meaning:c.meaning,perishable:c.perishable});
+  renderCodes(r.data.codes||[]);
+}
+function renderCodes(codes){
+  const el=document.getElementById('codesList'); if(!el) return;
+  el.innerHTML = codes.length ? codes.map(c=>'<div class="flex items-center gap-2 py-1 border-b border-stone-100 last:border-0"><span class="font-mono text-xs w-24 shrink-0">'+esc(c.code)+'</span><span class="flex-1 text-xs text-stone-600">'+esc(c.meaning||'')+'</span><label class="text-xs flex items-center gap-1" title="perishable"><input type="checkbox" '+(c.perishable?'checked':'')+' onchange="togglePerish(\''+esc(c.code)+'\',this.checked)"> 🧊</label><button onclick="removeCode(\''+esc(c.code)+'\')" class="text-xs text-red-400 hover:text-red-600">✕</button></div>').join('') : '<div class="text-stone-400 text-xs">No codes yet.</div>';
+}
+async function addCode(){ const code=(document.getElementById('ncCode').value||'').trim(); if(!code) return; const meaning=(document.getElementById('ncMean').value||'').trim(); const per=document.getElementById('ncPer').checked; await apiPost('support-codes',{upsert:{code,meaning,perishable:per}}); document.getElementById('ncCode').value=''; document.getElementById('ncMean').value=''; document.getElementById('ncPer').checked=false; loadCodes(); }
+async function togglePerish(code,val){ await apiPost('support-codes',{upsert:{code,perishable:val}}); loadCodes(); }
+async function removeCode(code){ if(!confirm('Remove '+code+'?')) return; await apiPost('support-codes',{remove:code}); loadCodes(); }
+
 function show(id){
   document.querySelectorAll('#sideNav a').forEach(a=>{
     a.className = a.dataset.id===id
@@ -348,7 +377,7 @@ function show(id){
   document.getElementById('panel').innerHTML = panelHTML(id);
   if(id==='dashboard') loadTickets();
   if(id==='nonorder') loadNonOrder();
-  if(id==='settings'){ loadGmailStat(); loadSettings(); }
+  if(id==='settings'){ loadGmailStat(); loadSettings(); loadCodes(); }
   location.hash = id;
 }
 
@@ -367,6 +396,7 @@ function show(id){
     ).join('');
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
+    inspoInit(); loadCodes();
     show((location.hash||'#dashboard').slice(1) || 'dashboard');
   }catch(e){ gateMsg.textContent = 'Could not load. Please return to the portal.'; }
 })();
