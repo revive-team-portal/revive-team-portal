@@ -106,8 +106,8 @@ exports.handler = async (event) => {
     if (!at.ok) return json(400, { error: at.error, connected: false });
 
     let body; try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
-    const q = body.q || 'in:inbox -category:promotions -category:social newer_than:60d';
-    const maxThreads = Math.min(Number(body.max) || 12, 20);
+    const q = body.q || 'in:inbox -category:promotions -category:social';
+    const maxThreads = Math.min(Number(body.max) || 18, 30);
 
     const list = await gapi(at.access_token, 'messages?maxResults=60&q=' + encodeURIComponent(q));
     const threadIds = [...new Set((list.messages || []).map(m => m.threadId))].slice(0, maxThreads);

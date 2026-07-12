@@ -10,6 +10,7 @@ exports.handler = async (event) => {
   if (body.triage && body.triage !== 'all') path += '&triage=eq.' + encodeURIComponent(body.triage);
   if (body.status && body.status !== 'all') path += '&status=eq.' + encodeURIComponent(body.status);
   if (typeof body.reviewed === 'boolean') path += '&reviewed=is.' + body.reviewed;
+  if (body.excludeResolved) path += '&status=neq.Resolved';
   try {
     const rows = await rest(path);
     return json(200, { tickets: rows || [] });

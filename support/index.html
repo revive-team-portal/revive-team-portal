@@ -196,8 +196,16 @@ async function runLookup(){
 }
 
 
+async function freshToken(){
+  try{ if(window.SB){ const {data:{session}}=await window.SB.auth.getSession(); if(session&&session.access_token){ PORTAL_TOKEN=session.access_token; } } }catch(e){}
+  return PORTAL_TOKEN;
+}
 async function apiPost(fn, body){
-  const res = await fetch('/.netlify/functions/'+fn, { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+PORTAL_TOKEN }, body: JSON.stringify(body||{}) });
+  let token=await freshToken();
+  let res = await fetch('/.netlify/functions/'+fn, { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body||{}) });
+  if(res.status===401 && window.SB){
+    try{ const { data } = await window.SB.auth.refreshSession(); if(data&&data.session){ PORTAL_TOKEN=data.session.access_token; res = await fetch('/.netlify/functions/'+fn, { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+PORTAL_TOKEN }, body: JSON.stringify(body||{}) }); } }catch(e){}
+  }
   let d={}; try{ d=await res.json(); }catch(e){}
   return { ok:res.ok, status:res.status, data:d };
 }
@@ -213,7 +221,7 @@ function threadRow(t){
 }
 async function loadTickets(){
   const el=document.getElementById('ticketList'); if(!el) return;
-  const r=await apiPost('support-tickets',{triage:'order'});
+  const r=await apiPost('support-tickets',{triage:'order', excludeResolved:true});
   if(!r.ok){ el.innerHTML='<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load tickets.')+'</div>'; return; }
   const ts=r.data.tickets||[];
   if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">No tickets yet. Click “Sync cafe@ inbox” to pull recent emails into tickets.</div>'; return; }
@@ -264,7 +272,8 @@ async function openTicket(id){
   }
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
-    +'<p class="text-stone-500 text-sm mb-4">'+esc(c.name||'')+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
+    +'<p class="text-stone-500 text-sm mb-2">'+esc(c.name||'')+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
+    +'<div class="mb-4"><button onclick="resolveTicket()" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">\u2713 Resolve &amp; archive</button></div>'
     +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2"><div id="testiBox"></div>'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
   loadActivity(); detectTestimonial();
   if(c.email){
@@ -465,6 +474,13 @@ async function addCode(){ const code=(document.getElementById('ncCode').value||'
 async function togglePerish(code,val){ await apiPost('support-codes',{upsert:{code,perishable:val}}); loadCodes(); }
 async function removeCode(code){ if(!confirm('Remove '+code+'?')) return; await apiPost('support-codes',{remove:code}); loadCodes(); }
 
+async function resolveTicket(){
+  if(!confirm('Resolve this ticket? It will be archived out of the cafe@ inbox and labelled Revive/Resolved.')) return;
+  const r=await apiPost('support-resolve',{id:window.CUR.id});
+  if(!r.ok){ alert((r.data&&r.data.error)||'Could not resolve.'); return; }
+  show('dashboard'); loadTickets();
+}
+
 function show(id){
   document.querySelectorAll('#sideNav a').forEach(a=>{
     a.className = a.dataset.id===id
@@ -482,7 +498,7 @@ function show(id){
 (async function(){
   const gateMsg = document.getElementById('gateMsg');
   try{
-    const sb = supabase.createClient(PORTAL_URL, PORTAL_ANON);
+    const sb = supabase.createClient(PORTAL_URL, PORTAL_ANON); window.SB = sb;
     const { data:{ session } } = await sb.auth.getSession();
     if(!session){ gateMsg.textContent = 'Please sign in…'; location.href = '/'; return; }
     PORTAL_TOKEN = session.access_token;
