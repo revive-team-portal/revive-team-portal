@@ -152,13 +152,15 @@ function panelHTML(id){
   return '';
 }
 
+function orderPerishable(o){ const kw=window.PERISH_KW||['perishable','chilled','frozen','cold','fresh']; const hay=(((o.tags||[]).join(' '))+' '+((o.lineItems||[]).map(li=>li.title||'').join(' '))).toLowerCase(); return kw.some(k=>k&&hay.includes(k)); }
 function orderCard(o){
   const items = o.lineItems.map(li=>'<div class="flex justify-between text-xs text-stone-600"><span>'+(li.qty)+'× '+esc(li.title)+(li.sku?' <span class="text-stone-400">('+esc(li.sku)+')</span>':'')+'</span><span>'+money(li.price,o.currency)+'</span></div>').join('');
   const track = o.tracking.length ? o.tracking.map(t=>'<span class="text-stone-500">'+esc(t.company||'Courier')+' '+esc(t.number||'')+'</span>').join('<br>') : '<span class="text-stone-400">no tracking yet</span>';
   const ship = o.shipTo ? esc([o.shipTo.name,o.shipTo.address1,o.shipTo.city,o.shipTo.zip].filter(Boolean).join(', ')) : '';
   const trackUI = (o.tracking||[]).filter(t=>t.number).map(t=>'<div class="mt-2"><button onclick="loadTrack(\''+esc(t.number)+'\',this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-2 py-1 rounded-lg">🚚 Live NZ Post status</button><div class="mt-2"></div></div>').join('');
+  const perish = orderPerishable(o) ? ' <span class="inline-block text-[11px] font-bold text-red-600 border border-red-300 bg-red-50 rounded px-1.5 py-0.5">PERISHABLE</span>' : '';
   return '<div class="bg-white border border-stone-200 rounded-xl p-4 mb-3">'
-    + '<div class="flex justify-between items-start mb-2"><div><span class="font-semibold text-stone-800">'+esc(o.name)+'</span> <span class="text-xs text-stone-400 ml-1">'+new Date(o.createdAt).toLocaleDateString()+'</span></div><div class="text-right"><div class="font-semibold text-sm">'+money(o.total,o.currency)+'</div></div></div>'
+    + '<div class="flex justify-between items-start mb-2"><div><span class="font-semibold text-stone-800">'+esc(o.name)+'</span> <span class="text-xs text-stone-400 ml-1">'+new Date(o.createdAt).toLocaleDateString()+'</span>'+perish+'</div><div class="text-right"><div class="font-semibold text-sm">'+money(o.total,o.currency)+'</div></div></div>'
     + '<div class="flex flex-wrap gap-1.5 mb-2">'+chips([o.financial||'—',o.fulfillment||'—'],'bg-stone-100 text-stone-600 border border-stone-200')+'</div>'
     + (ship?'<div class="text-xs text-stone-500 mb-2">📍 '+ship+'</div>':'')
     + '<div class="border-t border-stone-100 pt-2 mb-2">'+items+'</div>'
@@ -212,15 +214,23 @@ async function loadTickets(){
   if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">No tickets yet. Click “Sync cafe@ inbox” to pull recent emails into tickets.</div>'; return; }
   el.innerHTML=ts.map(ticketRow).join('');
 }
+function lastEvents(t){
+  const evs=[];
+  (t.messages||[]).forEach(m=>evs.push({icon:m.direction==='outbound'?'📤':'📥', time:m.sent_at}));
+  ((t.customer&&t.customer.interactions)||[]).forEach(i=>evs.push({icon:i.channel==='phone'?'📞':(i.channel==='sms'?'💬':'🗒️'), time:i.occurred_at}));
+  evs.sort((a,b)=>new Date(b.time)-new Date(a.time));
+  return evs.slice(0,3);
+}
 function ticketRow(t){
   const c=t.customer||{}; const when=t.updated_at?new Date(t.updated_at).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
   const sc={'Open':'bg-teal-100 text-teal-700','Resolved':'bg-stone-200 text-stone-600'}[t.status]||'bg-amber-100 text-amber-700';
-  const matched = t.matched_order ? '<div class="text-[11px] text-teal-700 mt-1 whitespace-nowrap">→ '+esc(t.matched_order)+'</div>' : '';
+  const matched = t.matched_order ? '<div class="mt-1"><span class="inline-block text-[11px] bg-teal-50 text-teal-700 border border-teal-200 rounded px-1.5 py-0.5 whitespace-nowrap">→ '+esc(t.matched_order)+'</span></div>' : '';
+  const evs=lastEvents(t); const evHtml = evs.length?'<div class="mt-1 text-right" title="last 3 events">'+evs.map(e=>e.icon).join(' ')+'</div>':'';
   return '<div onclick="openTicket(\''+t.id+'\')" class="flex gap-3 py-2 px-1 border-b border-stone-100 last:border-0 hover:bg-stone-50 cursor-pointer">'
     +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate">'+esc(c.name||c.email||'(unknown)')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
     +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div>'
     +(t.snippet?'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div>':'')+'</div>'
-    +'<div class="shrink-0 self-start text-right"><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span>'+matched+'</div></div>';
+    +'<div class="shrink-0 self-start text-right min-w-[100px]"><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span>'+matched+evHtml+'</div></div>';
 }
 async function syncInbox(btn){
   const msg=document.getElementById('syncMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Syncing…';
@@ -235,19 +245,54 @@ async function openTicket(id){
   const panel=document.getElementById('panel'); panel.innerHTML='<div class="text-stone-400 text-sm">Loading ticket…</div>';
   const r=await apiPost('support-ticket',{id});
   if(!r.ok){ panel.innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load ticket.')+'</div>'; return; }
-  const t=r.data.ticket, msgs=r.data.messages||[], c=t.customer||{}; window.CUR={id:t.id, email:(c.email||'')};
-  const thread=msgs.map(m=>{ const out=m.direction==='outbound';
-    return '<div class="mb-3 '+(out?'pl-8':'pr-8')+'"><div class="rounded-xl border '+(out?'bg-teal-50 border-teal-200':'bg-white border-stone-200')+' p-3"><div class="flex justify-between text-xs text-stone-500 mb-1"><span>'+esc(out?'Revive (cafe@)':(c.name||m.from_addr||'Customer'))+'</span><span>'+(m.sent_at?new Date(m.sent_at).toLocaleString('en-NZ'):'')+'</span></div><div class="text-sm text-stone-700 whitespace-pre-wrap">'+esc((m.body||'').slice(0,4000))+'</div></div></div>';
-  }).join('') || '<div class="text-stone-400 text-sm">No messages.</div>';
+  const t=r.data.ticket, msgs=r.data.messages||[], c=t.customer||{}; window.CUR={id:t.id, email:(c.email||''), customerId:(t.customer_id||c.id||null)};
+  const bubble=m=>{ const out=m.direction==='outbound'; return '<div class="mb-3 '+(out?'pl-8':'pr-8')+'"><div class="rounded-xl border '+(out?'bg-teal-50 border-teal-200':'bg-white border-stone-200')+' p-3"><div class="flex justify-between text-xs text-stone-500 mb-1"><span>'+esc(out?'Revive (cafe@)':(c.name||m.from_addr||'Customer'))+'</span><span>'+(m.sent_at?new Date(m.sent_at).toLocaleString('en-NZ'):'')+'</span></div><div class="text-sm text-stone-700 whitespace-pre-wrap">'+esc((m.body||'').slice(0,4000))+'</div></div></div>'; };
+  let thread;
+  if(!msgs.length){ thread='<div class="text-stone-400 text-sm">No messages.</div>'; }
+  else { const latest=msgs[msgs.length-1]; const earlier=msgs.slice(0,-1);
+    thread=(earlier.length?'<button onclick="toggleEarlier()" id="earlierBtn" class="text-xs text-teal-700 underline mb-2">▸ Show '+earlier.length+' earlier message'+(earlier.length>1?'s':'')+'</button><div id="earlierMsgs" style="display:none">'+earlier.map(bubble).join('')+'</div>':'')+bubble(latest);
+  }
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
     +'<p class="text-stone-500 text-sm mb-4">'+esc(c.name||'')+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
-    +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+notesCard(r.data.notes||[])+'</div></div>';
+    +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
+  loadActivity();
   if(c.email){
     const o=await apiPost('support-shopify',{query:c.email}); const box=document.getElementById('ticketOrders');
     if(o.ok){ let html=''; if(o.data.customers&&o.data.customers.length) html+=o.data.customers.map(customerCard).join(''); if(o.data.orders&&o.data.orders.length) html+='<h3 class="text-sm font-semibold text-stone-500 mb-2 mt-1">Orders</h3>'+o.data.orders.map(orderCard).join(''); box.innerHTML=html||'<div class="text-stone-400 text-sm">No Shopify orders.</div>'; const b0=box.querySelector('button'); if(b0) b0.click(); }
     else box.innerHTML='<div class="text-amber-700 text-xs">'+esc((o.data&&o.data.error)||'Order lookup failed.')+'</div>';
   } else document.getElementById('ticketOrders').innerHTML='<div class="text-stone-400 text-sm">No customer email on file.</div>';
+  draftReply();
+}
+function toggleEarlier(){ const el=document.getElementById('earlierMsgs'), b=document.getElementById('earlierBtn'); if(!el) return; const sh=el.style.display==='none'; el.style.display=sh?'block':'none'; if(b) b.textContent=(sh?'▾ Hide earlier messages':'▸ Show earlier messages'); }
+function activityCard(){
+  return '<div class="bg-white border border-stone-200 rounded-xl p-4 mt-4"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-stone-800 text-sm">Activity</h3><div class="flex gap-1"><button onclick="logCall(\'in\')" class="text-xs border border-stone-300 rounded px-2 py-0.5 hover:bg-stone-50">📞 In</button><button onclick="logCall(\'out\')" class="text-xs border border-stone-300 rounded px-2 py-0.5 hover:bg-stone-50">📞 Out</button></div></div>'
+    +'<div id="activityList" class="text-xs text-stone-500 mb-2">Loading…</div>'
+    +'<textarea id="noteText" rows="2" placeholder="Add an internal note (feeds the AI draft)…" class="w-full border border-stone-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-stone-400"></textarea>'
+    +'<button onclick="addNote()" class="mt-1 text-xs bg-stone-700 hover:bg-stone-800 text-white px-3 py-1 rounded-lg">Add note</button></div>';
+}
+async function loadActivity(){
+  const el=document.getElementById('activityList'); if(!el) return;
+  const r=await apiPost('support-events',{customerId:window.CUR.customerId, email:window.CUR.email});
+  if(!r.ok){ el.innerHTML='<span class="text-amber-700">'+esc((r.data&&r.data.error)||'Could not load activity.')+'</span>'; return; }
+  const evs=r.data.events||[];
+  el.innerHTML = evs.length ? evs.map(eventRow).join('') : '<span class="text-stone-400">No activity yet.</span>';
+}
+function eventRow(e){
+  const t=e.time?new Date(e.time).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+  let icon='•', label='';
+  if(e.type==='email_in'){icon='📥';label='Email in';}
+  else if(e.type==='email_out'){icon='📤';label='Email out';}
+  else if(e.type==='note'){icon='📝';label='Note';}
+  else if(e.type==='order'){icon='📦';label='Order';}
+  else if(e.type==='interaction'){ const d=(e.direction||''); icon = e.channel==='phone'?'📞':(e.channel==='sms'?'💬':'🗒️'); label=(e.channel||'contact')+(d?' '+d:''); }
+  return '<div class="flex gap-2 py-1 border-b border-stone-100 last:border-0"><span class="shrink-0">'+icon+'</span><div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-stone-600">'+esc(label+(e.who?' · '+e.who:''))+'</span><span class="text-stone-400 shrink-0">'+t+'</span></div>'+(e.text?'<div class="text-stone-500 truncate">'+esc(e.text)+'</div>':'')+'</div></div>';
+}
+async function logCall(dir){
+  const note=prompt((dir==='out'?'Outbound':'Inbound')+' phone call — quick note:'); if(note===null) return;
+  const r=await apiPost('support-interaction-add',{customerId:window.CUR.customerId, ticketId:window.CUR.id, channel:'phone', direction:dir, note});
+  if(!r.ok){ alert((r.data&&r.data.error)||'Could not log call.'); return; }
+  loadActivity();
 }
 
 async function loadGmailStat(){
@@ -314,7 +359,7 @@ async function loadTrack(number, btn){
   let html='<div class="border border-stone-200 rounded-lg p-2 bg-stone-50">';
   html+='<div class="text-sm font-semibold '+(delivered?'text-green-700':'text-stone-800')+'">'+esc(pretty(d.status)||'—')+'</div>';
   if(d.carrier) html+='<div class="text-xs text-stone-500 mb-1">'+esc(d.carrier)+'</div>';
-  if(d.service){ const _svc=(d.service||'').toUpperCase().trim(); const ci=(window.NZCODES||{})[_svc]; html+='<div class="text-xs text-stone-600 mb-1">Service <b>'+esc(d.service)+'</b>'+(ci&&ci.meaning?' — '+esc(ci.meaning):'')+(ci&&ci.perishable?' <span class="bg-sky-100 text-sky-700 rounded px-1">🧊 Perishable</span>':'')+'</div>'; }
+  if(d.service){ const _svc=(d.service||'').toUpperCase().trim(); const ci=(window.NZCODES||{})[_svc]; html+='<div class="text-xs text-stone-600 mb-1">Service <b>'+esc(d.service)+'</b>'+(ci&&ci.meaning?' — '+esc(ci.meaning):'')+(ci&&ci.perishable?' <span class="text-red-600 font-bold">PERISHABLE</span>':'')+'</div>'; }
   if(delivered && (d.deliveredDate||d.signedBy)){ html+='<div class="text-xs text-green-700 mb-1">Delivered'+(d.deliveredDate?' '+esc(fmt(d.deliveredDate)):'')+(d.signedBy?' · signed by '+esc(d.signedBy):'')+'</div>'; }
   const evs=(d.events||[]).slice(0,6);
   html+= evs.length ? '<div class="mt-1 space-y-0.5">'+evs.map(e=>'<div class="text-xs text-stone-600 flex gap-2"><span class="text-stone-400 shrink-0 w-28">'+esc(fmt(e.date))+'</span><span>'+esc(e.detail||pretty(e.status)||'')+(e.location?' — '+esc(e.location):'')+(e.signedBy?' (signed by '+esc(e.signedBy)+')':'')+'</span></div>').join('')+'</div>'
@@ -335,7 +380,7 @@ async function addNote(){
   const ta=document.getElementById('noteText'); const text=((ta&&ta.value)||'').trim(); if(!text) return;
   const r=await apiPost('support-note-add',{id:window.CUR.id, body:text});
   if(!r.ok){ alert((r.data&&r.data.error)||'Could not add note.'); return; }
-  openTicket(window.CUR.id);
+  if(ta) ta.value=''; loadActivity();
 }
 
 async function loadSettings(){
@@ -355,6 +400,10 @@ function inspoRender(){ const arr=window.SUPPORT_QUOTES||[]; const q=arr[INSPO_I
 function inspoNext(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=(INSPO_I+1)%n; inspoRender(); }
 function inspoPrev(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=(INSPO_I-1+n)%n; inspoRender(); }
 function inspoInit(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=Math.floor(Date.now()/3600000)%n; inspoRender(); }
+async function loadPerishKw(){
+  const r=await apiPost('support-settings',{}); const kw=(r.ok&&r.data.settings&&r.data.settings.perishable_keywords)||'perishable,chilled,frozen,cold,fresh';
+  window.PERISH_KW = kw.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+}
 async function loadCodes(){
   const r=await apiPost('support-codes',{});
   if(!r.ok) return; window.NZCODES={}; (r.data.codes||[]).forEach(c=>window.NZCODES[(c.code||'').toUpperCase()]={meaning:c.meaning,perishable:c.perishable});
@@ -396,7 +445,7 @@ function show(id){
     ).join('');
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
-    inspoInit(); loadCodes();
+    inspoInit(); loadCodes(); loadPerishKw();
     show((location.hash||'#dashboard').slice(1) || 'dashboard');
   }catch(e){ gateMsg.textContent = 'Could not load. Please return to the portal.'; }
 })();

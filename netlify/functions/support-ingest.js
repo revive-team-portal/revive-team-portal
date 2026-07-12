@@ -30,14 +30,17 @@ function extractBody(payload){
 }
 async function gapi(token, path){ const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{headers:{Authorization:'Bearer '+token}}); return r.json().catch(()=>({})); }
 
-const knownCache = {};
-async function isKnownCustomer(email){
-  if(!email || email.endsWith('@no-email.local')) return false;
-  if(email in knownCache) return knownCache[email];
-  let known=false;
-  try{ const d=await gql('query($q:String!){ customers(first:1, query:$q){ edges { node { id } } } }', { q:'email:'+email });
-    known=((d.customers&&d.customers.edges)||[]).length>0; }catch(e){ known=false; }
-  knownCache[email]=known; return known;
+const infoCache = {};
+async function customerOrderInfo(email){
+  if(!email || email.endsWith('@no-email.local')) return { known:false, latestOrder:null };
+  if(email in infoCache) return infoCache[email];
+  let info={ known:false, latestOrder:null };
+  try{
+    const d=await gql('query($q:String!){ orders(first:1, query:$q, sortKey:CREATED_AT, reverse:true){ edges { node { name } } } customers(first:1, query:$q){ edges { node { id } } } }', { q:'email:'+email });
+    const on=(d.orders&&d.orders.edges&&d.orders.edges[0]&&d.orders.edges[0].node.name)||null;
+    info={ known: (((d.customers&&d.customers.edges)||[]).length>0) || !!on, latestOrder: on };
+  }catch(e){}
+  infoCache[email]=info; return info;
 }
 
 async function processThread(token, tid){
@@ -66,7 +69,8 @@ async function processThread(token, tid){
   const subj = (subject||'(no subject)').slice(0,300);
   const firstInbound = parsed.find(pm => pm.from !== MAILBOX) || parsed[0];
   const snippet = ((firstInbound && firstInbound.bodyText) || '').replace(/\s+/g,' ').trim().slice(0,180);
-  const matchedOrder = matchOrderRef(blob);
+  const info = await customerOrderInfo(custEmail);
+  const matchedOrder = matchOrderRef(blob) || info.latestOrder || null;
 
   const existing = await rest('tickets?gmail_thread_id=eq.'+encodeURIComponent(tid)+'&select=id&limit=1');
   let ticketId, created=false, triage='order';
@@ -74,7 +78,7 @@ async function processThread(token, tid){
     ticketId = existing[0].id;
     await rest('tickets?id=eq.'+ticketId, { method:'PATCH', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ subject:subj, snippet, matched_order:matchedOrder, updated_at:lastTs }) });
   } else {
-    const isOrder = ORDER_RE.test(blob) || await isKnownCustomer(custEmail);
+    const isOrder = ORDER_RE.test(blob) || info.known;
     triage = isOrder ? 'order' : 'non_order';
     const ins = await rest('tickets', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ gmail_thread_id:tid, customer_id:customerId, subject:subj, status:'Open', triage, reviewed:false, matched_order:matchedOrder, snippet, updated_at:lastTs }) });
     ticketId = ins && ins[0] && ins[0].id; created=true;
@@ -103,7 +107,7 @@ exports.handler = async (event) => {
 
     let body; try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
     const q = body.q || 'in:inbox -category:promotions -category:social newer_than:60d';
-    const maxThreads = Math.min(Number(body.max) || 15, 20);
+    const maxThreads = Math.min(Number(body.max) || 12, 20);
 
     const list = await gapi(at.access_token, 'messages?maxResults=60&q=' + encodeURIComponent(q));
     const threadIds = [...new Set((list.messages || []).map(m => m.threadId))].slice(0, maxThreads);
