@@ -1342,7 +1342,7 @@
       // ===== email =====
       function mergeStore(str, st, fb){ if(!str) return ''; let nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); if(!nm && fb) nm=fb; const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(firstname|first_name|contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,''); return out; }
       function merge(str){ return mergeStore(str, cur.value); }
-      function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim()).filter(Boolean))]; }
+      function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim().toLowerCase()).filter(e=>e.includes('@')))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
       function finalBody(){ return email.body; }
       const _decEl=(typeof document!=='undefined')?document.createElement('textarea'):null;
@@ -1364,7 +1364,7 @@
         try{
           const r=await fetch('/.netlify/functions/gmail-inbox',{method:'POST',headers:{'Authorization':'Bearer '+(await portalToken())}});
           const d=await r.json(); const msgs=d.messages||[];
-          const byEmail={}; for(const st of stores.value){ [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ if(e) byEmail[e.trim().toLowerCase()]=st.id; }); }
+          const byEmail={}; for(const st of stores.value){ [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ const v=(e||'').trim().toLowerCase(); if(v.includes('@')) byEmail[v]=st.id; }); }
           const existing=new Map(); activities.value.forEach(a=>{ if(a.gmail_id) existing.set(a.gmail_id,a); });
           const rows=[]; const flagIds=[];
           for(const m of msgs){ const sid=byEmail[(m.email||'').toLowerCase()]; if(!sid||!m.id) continue; const ex=existing.get(m.id);
