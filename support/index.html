@@ -134,6 +134,9 @@ function panelHTML(id){
   }
   if(id==='settings'){
     return '<h2 class="text-xl font-bold mb-1">Settings</h2><p class="text-stone-500 text-sm mb-4">Best-answer library, reason codes, SLA thresholds, tags, connections, roles.</p>'
+      + card('AI reply tone — editable (steers every ✨ draft)', '<textarea id="setTone" rows="6" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')
+      + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')
+      + '<div class="mb-4"><button onclick="saveSettings(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save settings</button> <span id="setMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + card('Reason codes (seeded)', '<ul class="list-disc pl-5 text-sm text-stone-600 space-y-1"><li>Delivery — late / lost / damaged / wrong address</li><li>Product — quality / GF-allergen / missing / wrong item</li><li>Order — changed / cancelled / duplicate</li><li>Payment / refund</li><li>Subscription</li><li>Wholesale / enquiry</li><li>General enquiry (no fault)</li></ul>')
       + card('Connections', '<ul class="text-sm text-stone-600 space-y-1"><li>Shopify Admin — <b class="text-teal-700">connected</b></li><li>eShip / Starshipit — <b class="text-teal-700">keys loaded</b></li><li>Claude AI — <b class="text-teal-700">connected</b></li><li>Gmail (cafe@revive.co.nz) — <span id="gmailStat" class="text-amber-700 font-semibold">checking…</span> <a href="/.netlify/functions/gmail-connect?mailbox=cafe" class="text-teal-700 underline ml-1">Connect / reconnect</a></li></ul>');
   }
@@ -269,10 +272,10 @@ function replyBox(){
 async function draftReply(){
   const b=document.getElementById('draftBtn'), ta=document.getElementById('replyText'), msg=document.getElementById('replyMsg');
   if(b) b.disabled=true; if(msg) msg.textContent='Drafting…';
-  const r=await apiPost('support-ai-draft',{id:window.CUR.id});
+  const r=await apiPost('support-ai-draft',{id:window.CUR.id, operatorName:window.OPERATOR});
   if(b) b.disabled=false;
   if(!r.ok){ if(msg) msg.textContent=''; alert((r.data&&r.data.error)||'Draft failed.'); return; }
-  if(ta) ta.value=r.data.draft||''; if(msg) msg.textContent='Draft ready — edit before sending.';
+  if(ta) ta.value=(r.data.draft||'')+(r.data.footer?('\n\n'+r.data.footer):''); if(msg) msg.textContent='Draft ready — edit before sending.';
 }
 async function sendReply(){
   const ta=document.getElementById('replyText'), msg=document.getElementById('replyMsg'), b=document.getElementById('sendBtn');
@@ -324,6 +327,18 @@ async function addNote(){
   openTicket(window.CUR.id);
 }
 
+async function loadSettings(){
+  const r=await apiPost('support-settings',{}); if(!r.ok) return; const st=r.data.settings||{};
+  const tone=document.getElementById('setTone'), foot=document.getElementById('setFooter');
+  if(tone) tone.value=st.ai_tone_prompt||''; if(foot) foot.value=st.reply_footer||'';
+}
+async function saveSettings(btn){
+  const tone=(document.getElementById('setTone')||{}).value||''; const footer=(document.getElementById('setFooter')||{}).value||''; const msg=document.getElementById('setMsg');
+  if(btn) btn.disabled=true; if(msg) msg.textContent='Saving…';
+  const r=await apiPost('support-settings',{updates:{ai_tone_prompt:tone, reply_footer:footer}});
+  if(btn) btn.disabled=false; if(msg) msg.textContent = r.ok ? 'Saved ✓' : ((r.data&&r.data.error)||'Save failed');
+}
+
 function show(id){
   document.querySelectorAll('#sideNav a').forEach(a=>{
     a.className = a.dataset.id===id
@@ -333,7 +348,7 @@ function show(id){
   document.getElementById('panel').innerHTML = panelHTML(id);
   if(id==='dashboard') loadTickets();
   if(id==='nonorder') loadNonOrder();
-  if(id==='settings') loadGmailStat();
+  if(id==='settings'){ loadGmailStat(); loadSettings(); }
   location.hash = id;
 }
 
@@ -345,6 +360,8 @@ function show(id){
     if(!session){ gateMsg.textContent = 'Please sign in…'; location.href = '/'; return; }
     PORTAL_TOKEN = session.access_token;
     document.getElementById('me').textContent = session.user.email || '';
+    const _em=(session.user.email||''); const _meta=session.user.user_metadata||{}; const _local=_em.split('@')[0]||'there';
+    window.OPERATOR = ((_meta.full_name||_meta.name||'').split(' ')[0]) || (_local.charAt(0).toUpperCase()+_local.slice(1));
     document.getElementById('sideNav').innerHTML = SECTIONS.map(s=>
       '<a href="#'+s.id+'" data-id="'+s.id+'" onclick="show(\''+s.id+'\');return false;" class="flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50"><span>'+s.icon+'</span>'+esc(s.label)+'</a>'
     ).join('');
