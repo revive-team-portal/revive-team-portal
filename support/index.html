@@ -95,10 +95,7 @@ function money(a,c){ if(a==null) return ''; return (c||'NZD')+' '+Number(a).toFi
 
 function panelHTML(id){
   if(id==='dashboard'){
-    const rows = SETUP.map(s=>'<div class="flex items-start gap-2 py-1.5 border-b border-stone-100 last:border-0"><span>'+(s.done?'✅':'⬜')+'</span><div><div class="text-sm font-medium '+(s.done?'text-stone-800':'text-stone-500')+'">'+esc(s.k)+'</div><div class="text-xs text-stone-500">'+esc(s.note)+'</div></div></div>').join('');
-    return '<h2 class="text-xl font-bold mb-1">Inbox / Dashboard</h2><p class="text-stone-500 text-sm mb-4">Ticket queue by priority & age, SLA + unread indicators, naughty-box badge, filters.</p>'
-      + card('Build progress', rows)
-      + card('Ticket statuses', chips(TICKET_STATUSES,'bg-teal-50 text-teal-700 border border-teal-200'))
+    return '<h2 class="text-xl font-bold mb-1">Inbox / Dashboard</h2><p class="text-stone-500 text-sm mb-4">Order tickets from the cafe@ inbox — matched order, NZ Post status and recent activity at a glance.</p>'
       + card('Tickets', '<div class="flex items-center gap-2 mb-3"><button onclick="syncInbox(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">⟳ Sync cafe@ inbox</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="border border-stone-300 text-stone-600 text-xs px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post statuses</button><span id="syncMsg" class="text-xs text-stone-500"></span></div><div id="ticketList"><div class="text-stone-400 text-sm">Loading tickets…</div></div>');
   }
   if(id==='ticket'){
