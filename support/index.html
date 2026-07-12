@@ -61,6 +61,7 @@ const SECTIONS = [
   {id:'naughty',   icon:'⚠️', label:'Naughty Box'},
   {id:'claims',    icon:'🧾', label:'Claims'},
   {id:'search',    icon:'🔎', label:'Search / Customers'},
+  {id:'testimonials', icon:'🌟', label:'Testimonials'},
   {id:'insights',  icon:'📈', label:'Insights'},
   {id:'settings',  icon:'⚙️', label:'Settings'},
 ];
@@ -98,7 +99,7 @@ function panelHTML(id){
     return '<h2 class="text-xl font-bold mb-1">Inbox / Dashboard</h2><p class="text-stone-500 text-sm mb-4">Ticket queue by priority & age, SLA + unread indicators, naughty-box badge, filters.</p>'
       + card('Build progress', rows)
       + card('Ticket statuses', chips(TICKET_STATUSES,'bg-teal-50 text-teal-700 border border-teal-200'))
-      + card('Tickets', '<div class="flex items-center gap-2 mb-3"><button onclick="syncInbox(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">⟳ Sync cafe@ inbox</button><span id="syncMsg" class="text-xs text-stone-500"></span></div><div id="ticketList"><div class="text-stone-400 text-sm">Loading tickets…</div></div>');
+      + card('Tickets', '<div class="flex items-center gap-2 mb-3"><button onclick="syncInbox(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">⟳ Sync cafe@ inbox</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="border border-stone-300 text-stone-600 text-xs px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post statuses</button><span id="syncMsg" class="text-xs text-stone-500"></span></div><div id="ticketList"><div class="text-stone-400 text-sm">Loading tickets…</div></div>');
   }
   if(id==='ticket'){
     return '<h2 class="text-xl font-bold mb-1">Ticket + Customer detail</h2><p class="text-stone-500 text-sm mb-4">The core screen: thread + AI-suggested reply + order panel + notes.</p>'
@@ -135,6 +136,9 @@ function panelHTML(id){
       + '<input id="lookupInput" placeholder="e.g. jane@email.com  or  #1042" onkeydown="if(event.key===\'Enter\')runLookup()" class="flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">'
       + '<button onclick="runLookup()" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">Search</button></div>'
       + '<div id="lookupResults"></div>';
+  }
+  if(id==='testimonials'){
+    return '<h2 class="text-xl font-bold mb-1">Testimonials</h2><p class="text-stone-500 text-sm mb-4">Saved customer praise — excerpt, who, when, and the product referred to.</p><div id="testiList"><div class="text-stone-400 text-sm">Loading…</div></div>';
   }
   if(id==='insights'){
     return '<h2 class="text-xl font-bold mb-1">Insights</h2><p class="text-stone-500 text-sm mb-4">Rank recurring issues by volume (reason codes + AI clustering) → specific fixes → re-measure.</p>'
@@ -213,7 +217,7 @@ async function loadTickets(){
   if(!r.ok){ el.innerHTML='<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load tickets.')+'</div>'; return; }
   const ts=r.data.tickets||[];
   if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">No tickets yet. Click “Sync cafe@ inbox” to pull recent emails into tickets.</div>'; return; }
-  el.innerHTML=ts.map(ticketRow).join('');
+  el.innerHTML=ts.map(ticketRow).join(''); window.LAST_TICKETS=ts; queueCourier(ts,false);
 }
 function lastEvents(t){
   const evs=[];
@@ -222,16 +226,20 @@ function lastEvents(t){
   evs.sort((a,b)=>new Date(b.time)-new Date(a.time));
   return evs.slice(0,3);
 }
+function courierBadge(s){ if(!s) return ''; const S=String(s); const cls=/deliver/i.test(S)?'bg-green-100 text-green-700':/transit|out for|dispatch|onboard|board/i.test(S)?'bg-sky-100 text-sky-700':/fail|exception|delay|lost|attempt|hold/i.test(S)?'bg-red-100 text-red-700':'bg-stone-100 text-stone-600'; return '<span class="inline-block text-[11px] '+cls+' rounded px-1.5 py-0.5 whitespace-nowrap">'+esc(S.toUpperCase())+'</span>'; }
 function ticketRow(t){
   const c=t.customer||{}; const when=t.updated_at?new Date(t.updated_at).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
   const sc={'Open':'bg-teal-100 text-teal-700','Resolved':'bg-stone-200 text-stone-600'}[t.status]||'bg-amber-100 text-amber-700';
-  const matched = t.matched_order ? '<div class="mt-1"><span class="inline-block text-[11px] bg-teal-50 text-teal-700 border border-teal-200 rounded px-1.5 py-0.5 whitespace-nowrap">→ '+esc(t.matched_order)+'</span></div>' : '';
-  const evs=lastEvents(t); const evHtml = evs.length?'<div class="mt-1 text-right" title="last 3 events">'+evs.map(e=>e.icon).join(' ')+'</div>':'';
+  const tick = t.matched_order ? '✅' : '❌';
+  const matched = t.matched_order ? '<span class="inline-block text-[11px] bg-teal-50 text-teal-700 border border-teal-200 rounded px-1.5 py-0.5 whitespace-nowrap">→ '+esc(t.matched_order)+'</span>' : '<span class="text-[11px] text-stone-400">no order</span>';
+  const evs=lastEvents(t); const evHtml = evs.length?'<div class="mt-1" title="last 3 events">'+evs.map(e=>e.icon).join(' ')+'</div>':'';
   return '<div onclick="openTicket(\''+t.id+'\')" class="flex gap-3 py-2 px-1 border-b border-stone-100 last:border-0 hover:bg-stone-50 cursor-pointer">'
     +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate">'+esc(c.name||c.email||'(unknown)')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
     +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div>'
     +(t.snippet?'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div>':'')+'</div>'
-    +'<div class="shrink-0 self-start text-right min-w-[100px]"><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span>'+matched+evHtml+'</div></div>';
+    +'<div class="shrink-0 self-start text-right min-w-[120px]"><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span>'
+    +'<div class="mt-1 flex items-center justify-end gap-1">'+tick+' '+matched+'</div>'
+    +'<div id="cs_'+t.id+'" class="mt-1">'+courierBadge(t.courier_status)+'</div>'+evHtml+'</div></div>';
 }
 async function syncInbox(btn){
   const msg=document.getElementById('syncMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Syncing…';
@@ -246,8 +254,9 @@ async function openTicket(id){
   const panel=document.getElementById('panel'); panel.innerHTML='<div class="text-stone-400 text-sm">Loading ticket…</div>';
   const r=await apiPost('support-ticket',{id});
   if(!r.ok){ panel.innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load ticket.')+'</div>'; return; }
-  const t=r.data.ticket, msgs=r.data.messages||[], c=t.customer||{}; window.CUR={id:t.id, email:(c.email||''), customerId:(t.customer_id||c.id||null)};
-  const bubble=m=>{ const out=m.direction==='outbound'; return '<div class="mb-3 '+(out?'pl-8':'pr-8')+'"><div class="rounded-xl border '+(out?'bg-teal-50 border-teal-200':'bg-white border-stone-200')+' p-3"><div class="flex justify-between text-xs text-stone-500 mb-1"><span>'+esc(out?'Revive (cafe@)':(c.name||m.from_addr||'Customer'))+'</span><span>'+(m.sent_at?new Date(m.sent_at).toLocaleString('en-NZ'):'')+'</span></div><div class="text-sm text-stone-700 whitespace-pre-wrap">'+esc((m.body||'').slice(0,4000))+'</div></div></div>'; };
+  const t=r.data.ticket, msgs=r.data.messages||[], c=t.customer||{}; window.CUR={id:t.id, email:(c.email||''), customerId:(t.customer_id||c.id||null)}; window.MSGFULL={};
+  const bubble=m=>{ const out=m.direction==='outbound'; const full=(m.body||'').slice(0,6000); const isLong=full.length>260; const bid='mb'+(window.__mbc=(window.__mbc||0)+1); window.MSGFULL[bid]=full; const shown=isLong?full.slice(0,260)+'…':full;
+    return '<div class="mb-3 '+(out?'pl-8':'pr-8')+'"><div class="rounded-xl border '+(out?'bg-teal-50 border-teal-200':'bg-white border-stone-200')+' p-3"><div class="flex justify-between text-xs text-stone-500 mb-1"><span>'+esc(out?'Revive (cafe@)':(c.name||m.from_addr||'Customer'))+'</span><span>'+(m.sent_at?new Date(m.sent_at).toLocaleString('en-NZ'):'')+'</span></div><div class="text-sm text-stone-700 whitespace-pre-wrap" id="'+bid+'">'+esc(shown)+'</div>'+(isLong?'<button onclick="expandMsg(\''+bid+'\',this)" class="text-teal-700 text-xs underline mt-1">see more</button>':'')+'</div></div>'; };
   let thread;
   if(!msgs.length){ thread='<div class="text-stone-400 text-sm">No messages.</div>'; }
   else { const latest=msgs[msgs.length-1]; const earlier=msgs.slice(0,-1);
@@ -256,14 +265,51 @@ async function openTicket(id){
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
     +'<p class="text-stone-500 text-sm mb-4">'+esc(c.name||'')+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
-    +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
-  loadActivity();
+    +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2"><div id="testiBox"></div>'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
+  loadActivity(); detectTestimonial();
   if(c.email){
     const o=await apiPost('support-shopify',{query:c.email}); const box=document.getElementById('ticketOrders');
     if(o.ok){ let html=''; if(o.data.customers&&o.data.customers.length) html+=o.data.customers.map(customerCard).join(''); if(o.data.orders&&o.data.orders.length) html+='<h3 class="text-sm font-semibold text-stone-500 mb-2 mt-1">Orders</h3>'+o.data.orders.map(orderCard).join(''); box.innerHTML=html||'<div class="text-stone-400 text-sm">No Shopify orders.</div>'; const b0=box.querySelector('button'); if(b0) b0.click(); }
     else box.innerHTML='<div class="text-amber-700 text-xs">'+esc((o.data&&o.data.error)||'Order lookup failed.')+'</div>';
   } else document.getElementById('ticketOrders').innerHTML='<div class="text-stone-400 text-sm">No customer email on file.</div>';
   draftReply();
+}
+function expandMsg(bid, btn){ const el=document.getElementById(bid); if(!el) return; const full=(window.MSGFULL||{})[bid]||''; const collapsed=btn.textContent==='see more'; el.textContent = collapsed ? full : (full.slice(0,260)+'…'); btn.textContent = collapsed ? 'see less' : 'see more'; }
+async function detectTestimonial(){
+  const box=document.getElementById('testiBox'); if(!box) return;
+  const r=await apiPost('support-testimonial-detect',{id:window.CUR.id});
+  if(!r.ok || !r.data || !r.data.isTestimonial){ box.innerHTML=''; return; }
+  const d=r.data; window.TESTI=d; const dt=d.date?new Date(d.date).toLocaleDateString('en-NZ'):'';
+  box.innerHTML='<div class="bg-yellow-50 border border-yellow-300 rounded-xl p-4 mb-4"><div class="flex items-center justify-between mb-1"><h3 class="font-semibold text-yellow-800 text-sm">🌟 Testimonial detected</h3><button onclick="saveTestimonial(this)" class="text-xs bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-3 py-1 rounded-lg">SAVE TESTIMONIAL</button></div><div class="text-sm text-stone-700 italic">“'+esc(d.excerpt||'')+'”</div><div class="text-xs text-stone-500 mt-1">'+esc(d.name||'')+(dt?' · '+dt:'')+(d.product?' · product: <b>'+esc(d.product)+'</b>':'')+'</div></div>';
+}
+async function saveTestimonial(btn){
+  if(btn) btn.disabled=true; const d=window.TESTI||{};
+  const r=await apiPost('support-testimonial-save',{ticketId:window.CUR.id, customerId:window.CUR.customerId, name:d.name, email:d.email, excerpt:d.excerpt, product:d.product, date:d.date});
+  const box=document.getElementById('testiBox');
+  if(!r.ok){ if(btn) btn.disabled=false; alert((r.data&&r.data.error)||'Could not save.'); return; }
+  if(box) box.innerHTML='<div class="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-3 py-2 mb-4">✓ Testimonial saved.</div>';
+}
+async function loadTestimonials(){
+  const el=document.getElementById('testiList'); if(!el) return;
+  const r=await apiPost('support-testimonials',{});
+  if(!r.ok){ el.innerHTML='<div class="text-amber-700 text-sm">'+esc((r.data&&r.data.error)||'Could not load.')+'</div>'; return; }
+  const ts=r.data.testimonials||[];
+  if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">No testimonials saved yet. Open a ticket with positive feedback and click SAVE TESTIMONIAL.</div>'; return; }
+  el.innerHTML='<table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200"><th class="py-1 pr-2">Excerpt</th><th class="py-1 pr-2">Who</th><th class="py-1 pr-2">Product</th><th class="py-1">Date</th></tr></thead><tbody>'
+    +ts.map(x=>'<tr class="border-b border-stone-100 align-top"><td class="py-2 pr-2 text-stone-700 italic">“'+esc(x.excerpt||'')+'”</td><td class="py-2 pr-2 text-stone-600 whitespace-nowrap">'+esc(x.name||x.email||'')+'</td><td class="py-2 pr-2 text-stone-600">'+esc(x.product||'')+'</td><td class="py-2 text-stone-400 whitespace-nowrap">'+(x.source_date?new Date(x.source_date).toLocaleDateString('en-NZ'):(x.created_at?new Date(x.created_at).toLocaleDateString('en-NZ'):''))+'</td></tr>').join('')+'</tbody></table>';
+}
+let CS_QUEUE=[], CS_RUNNING=false;
+function queueCourier(tickets, force){
+  const todo=(tickets||[]).filter(t=>t.matched_order && (force || !t.courier_status)).map(t=>t.id).filter(id=>CS_QUEUE.indexOf(id)<0);
+  CS_QUEUE=CS_QUEUE.concat(todo); runCourierQueue();
+}
+async function runCourierQueue(){
+  if(CS_RUNNING) return; CS_RUNNING=true;
+  while(CS_QUEUE.length){ const id=CS_QUEUE.shift(); const cell=document.getElementById('cs_'+id);
+    try{ const r=await apiPost('support-ticket-status',{id, refresh:true}); if(r.ok && cell) cell.innerHTML=courierBadge(r.data.status); }catch(e){}
+    await new Promise(res=>setTimeout(res,550));
+  }
+  CS_RUNNING=false;
 }
 function toggleEarlier(){ const el=document.getElementById('earlierMsgs'), b=document.getElementById('earlierBtn'); if(!el) return; const sh=el.style.display==='none'; el.style.display=sh?'block':'none'; if(b) b.textContent=(sh?'▾ Hide earlier messages':'▸ Show earlier messages'); }
 function activityCard(){
@@ -428,6 +474,7 @@ function show(id){
   document.getElementById('panel').innerHTML = panelHTML(id);
   if(id==='dashboard') loadTickets();
   if(id==='nonorder') loadNonOrder();
+  if(id==='testimonials') loadTestimonials();
   if(id==='settings'){ loadGmailStat(); loadSettings(); loadCodes(); }
   location.hash = id;
 }
