@@ -1,21 +1,44 @@
-// Drafts a suggested reply for a ticket using Claude, grounded in the thread + order context.
-// Portal-gated (support).
+// Drafts a reply using Claude, grounded in: the email thread, internal staff notes,
+// the customer's Shopify orders, and the REAL eShip/NZ Post courier status. Portal-gated (support).
 const { json, validatePortalUser } = require('./_portal');
 const { rest, hasKey } = require('./_appsdb');
 const { gql } = require('./_shopify');
+const { track } = require('./_eship');
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
-async function orderContext(email){
-  if(!email || email.endsWith('@no-email.local')) return '';
+function fmt(v){ const d=v?new Date(v):null; return (d&&!isNaN(d))?d.toLocaleString('en-NZ',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):(v||''); }
+
+// Returns { ordersText, courierText } for a customer email.
+async function orderAndCourier(email){
+  if(!email || email.endsWith('@no-email.local')) return { ordersText:'No customer email on file.', courierText:'' };
+  let orders=[];
   try{
-    const d = await gql('query($q:String!){ orders(first:5, query:$q, sortKey:CREATED_AT, reverse:true){ edges { node { name displayFinancialStatus displayFulfillmentStatus createdAt fulfillments(first:3){ trackingInfo{ number company url } } } } } }', { q:'email:'+email });
-    const orders = (d.orders&&d.orders.edges||[]).map(e=>e.node);
-    if(!orders.length) return 'No Shopify orders found for this customer.';
-    return orders.map(o=>{
-      const tr = (o.fulfillments||[]).flatMap(f=>(f.trackingInfo||[]).map(t=>`${t.company||''} ${t.number||''}`.trim())).filter(Boolean).join('; ');
-      return `Order ${o.name} — ${o.displayFinancialStatus||'?'}/${o.displayFulfillmentStatus||'?'}, placed ${new Date(o.createdAt).toLocaleDateString('en-NZ')}${tr?', tracking: '+tr:''}`;
-    }).join('\n');
-  }catch(e){ return 'Order context unavailable.'; }
+    const d = await gql('query($q:String!){ orders(first:5, query:$q, sortKey:CREATED_AT, reverse:true){ edges { node { name displayFinancialStatus displayFulfillmentStatus createdAt fulfillments(first:3){ trackingInfo{ number company } } } } } }', { q:'email:'+email });
+    orders = (d.orders&&d.orders.edges||[]).map(e=>e.node);
+  }catch(e){ return { ordersText:'Order lookup unavailable.', courierText:'' }; }
+  if(!orders.length) return { ordersText:'No Shopify orders found for this customer.', courierText:'' };
+
+  const ordersText = orders.map(o=>{
+    const tn = (o.fulfillments||[]).flatMap(f=>(f.trackingInfo||[]).map(t=>t.number)).filter(Boolean);
+    return `Order ${o.name} — Shopify says ${o.displayFinancialStatus||'?'}/${o.displayFulfillmentStatus||'?'}, placed ${new Date(o.createdAt).toLocaleDateString('en-NZ')}${tn.length?', tracking '+tn.join(', '):''}`;
+  }).join('\n');
+
+  // Real courier status for up to the 2 most recent orders that have a tracking number.
+  const courierLines=[]; let checked=0;
+  for(const o of orders){
+    const tn = (o.fulfillments||[]).flatMap(f=>(f.trackingInfo||[]).map(t=>t.number)).filter(Boolean)[0];
+    if(tn && checked<2){
+      checked++;
+      const tr = await track({ trackingNumber: tn });
+      if(tr.ok){
+        const scans = tr.events.slice(0,4).map(e=>`${fmt(e.date)}: ${e.detail||e.status}${e.location?' ('+e.location+')':''}`).join(' | ');
+        courierLines.push(`Order ${o.name} [${tn}] — COURIER STATUS: ${tr.status}${tr.deliveredDate?', delivered '+fmt(tr.deliveredDate):''}${tr.signedBy?', signed by '+tr.signedBy:''}. Recent scans: ${scans||'none'}`);
+      } else {
+        courierLines.push(`Order ${o.name} [${tn}] — courier status unavailable (${tr.error}).`);
+      }
+    }
+  }
+  return { ordersText, courierText: courierLines.join('\n') || 'No live courier tracking available.' };
 }
 
 exports.handler = async (event) => {
@@ -31,25 +54,36 @@ exports.handler = async (event) => {
     const t = await rest('tickets?id=eq.'+encodeURIComponent(body.id)+'&select=*,customer:customers(*)&limit=1');
     if (!t || !t.length) return json(404, { error: 'Ticket not found.' });
     const ticket = t[0]; const cust = ticket.customer || {};
-    const msgs = await rest('messages?ticket_id=eq.'+encodeURIComponent(body.id)+'&select=direction,from_addr,body,sent_at&order=sent_at.asc');
+    const [msgs, notes] = await Promise.all([
+      rest('messages?ticket_id=eq.'+encodeURIComponent(body.id)+'&select=direction,from_addr,body,sent_at&order=sent_at.asc'),
+      rest('notes?ticket_id=eq.'+encodeURIComponent(body.id)+'&select=body,type,author,created_at&order=created_at.asc'),
+    ]);
 
-    const convo = (msgs||[]).map(m => (m.direction==='outbound'?'Revive':'Customer')+': '+(m.body||'').slice(0,1500)).join('\n\n');
-    const orders = await orderContext(cust.email);
+    const convo = (msgs||[]).map(m => (m.direction==='outbound'?'Revive':'Customer')+' ('+fmt(m.sent_at)+'): '+(m.body||'').slice(0,1500)).join('\n\n');
+    const notesText = (notes||[]).length ? notes.map(n=>`- [${n.type||'note'}, ${n.author||'staff'}] ${n.body}`).join('\n') : 'None.';
+    const { ordersText, courierText } = await orderAndCourier(cust.email);
 
     const prompt = `You are drafting a reply for the Revive Cafe / Revivealicious Foods customer service inbox (a New Zealand gluten-free food company). Write a warm, concise, professional reply to the customer's most recent message, in New Zealand English.
 
-Rules:
-- Use the order context below where relevant, but NEVER invent tracking numbers, refund amounts, dates, or promises you cannot verify. If something isn't known, say you're looking into it or ask politely.
-- Be genuinely helpful and empathetic; keep it brief.
-- Sign off as "The Revive Team". Do not include a subject line or email headers — return only the reply body.
+How to reason:
+- The COURIER STATUS below is the source of truth for where a parcel is — trust it over the Shopify fulfilment field, which is often stale. If the customer is asking where their order is and the courier shows it delivered, tell them clearly (with the date and who signed, if available). If it's in transit or out for delivery, say so specifically.
+- Use the INTERNAL STAFF NOTES for context and any actions already taken or promised — but never quote them verbatim or reveal internal wording to the customer.
+- NEVER invent tracking numbers, delivery dates, refund amounts, or promises. If the facts don't answer the question, say you're looking into it or ask a clarifying question.
+- Be genuinely helpful and empathetic; keep it brief. Sign off as "The Revive Team". Return only the reply body — no subject line or headers.
 
 Customer: ${cust.name||''} <${cust.email||'unknown'}>
-Ticket subject: ${ticket.subject||''}
+Ticket: ${ticket.subject||''} (status ${ticket.status||''}${ticket.category?', category '+ticket.category:''})
 
-Order context:
-${orders}
+ORDERS (Shopify):
+${ordersText}
 
-Conversation so far:
+COURIER STATUS (eShip / NZ Post — source of truth):
+${courierText}
+
+INTERNAL STAFF NOTES (context only, do not quote to customer):
+${notesText}
+
+CONVERSATION SO FAR:
 ${convo || '(no prior messages)'}
 
 Draft the next reply from cafe@revive.co.nz:`;
@@ -61,6 +95,6 @@ Draft the next reply from cafe@revive.co.nz:`;
     const d = await res.json().catch(()=>({}));
     if (!res.ok) return json(502, { error: (d&&d.error&&d.error.message)||'AI request failed.' });
     const text = (d.content && d.content[0] && d.content[0].text) || '';
-    return json(200, { draft: text, orderContext: orders });
+    return json(200, { draft: text, usedCourier: courierText, usedNotes: notesText !== 'None.' });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };
