@@ -11,7 +11,10 @@ exports.handler = async (event) => {
   try {
     const t = await rest('tickets?id=eq.' + encodeURIComponent(body.id) + '&select=*,customer:customers(*)&limit=1');
     if (!t || !t.length) return json(404, { error: 'Ticket not found.' });
-    const msgs = await rest('messages?ticket_id=eq.' + encodeURIComponent(body.id) + '&select=*&order=sent_at.asc');
-    return json(200, { ticket: t[0], messages: msgs || [] });
+    const [msgs, notes] = await Promise.all([
+      rest('messages?ticket_id=eq.' + encodeURIComponent(body.id) + '&select=*&order=sent_at.asc'),
+      rest('notes?ticket_id=eq.' + encodeURIComponent(body.id) + '&select=*&order=created_at.asc'),
+    ]);
+    return json(200, { ticket: t[0], messages: msgs || [], notes: notes || [] });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };

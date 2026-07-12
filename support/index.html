@@ -228,7 +228,7 @@ async function openTicket(id){
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
     +'<p class="text-stone-500 text-sm mb-4">'+esc(c.name||'')+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
-    +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div></div></div>';
+    +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+notesCard(r.data.notes||[])+'</div></div>';
   if(c.email){
     const o=await apiPost('support-shopify',{query:c.email}); const box=document.getElementById('ticketOrders');
     if(o.ok){ let html=''; if(o.data.customers&&o.data.customers.length) html+=o.data.customers.map(customerCard).join(''); if(o.data.orders&&o.data.orders.length) html+='<h3 class="text-sm font-semibold text-stone-500 mb-2 mt-1">Orders</h3>'+o.data.orders.map(orderCard).join(''); box.innerHTML=html||'<div class="text-stone-400 text-sm">No Shopify orders.</div>'; const b0=box.querySelector('button'); if(b0) b0.click(); }
@@ -309,6 +309,19 @@ async function loadTrack(number, btn){
   if(!evs.length && d._raw){ html+='<details class="mt-1"><summary class="text-xs text-stone-400 cursor-pointer">raw response</summary><pre class="text-[10px] text-stone-500 overflow-auto max-h-40 whitespace-pre-wrap">'+esc(JSON.stringify(d._raw,null,1))+'</pre></details>'; }
   html+='</div>';
   box.innerHTML=html;
+}
+
+function notesCard(notes){
+  const list=(notes&&notes.length)? notes.map(n=>'<div class="text-xs text-stone-600 border-b border-stone-100 py-1 last:border-0"><span class="text-stone-400">'+esc(n.author||'staff')+' · '+(n.created_at?new Date(n.created_at).toLocaleDateString('en-NZ'):'')+(n.type==='fulfiller'?' · fulfiller':'')+'</span><br>'+esc(n.body||'')+'</div>').join('') : '<div class="text-xs text-stone-400">No notes yet.</div>';
+  return '<div class="bg-white border border-stone-200 rounded-xl p-4 mt-4"><h3 class="font-semibold text-stone-800 mb-2 text-sm">Internal notes</h3><div id="notesList">'+list+'</div>'
+    +'<textarea id="noteText" rows="2" placeholder="Add an internal note (feeds the AI draft)…" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-xs mt-2 focus:outline-none focus:ring-2 focus:ring-stone-400"></textarea>'
+    +'<button onclick="addNote()" class="mt-1 text-xs bg-stone-700 hover:bg-stone-800 text-white px-3 py-1 rounded-lg">Add note</button></div>';
+}
+async function addNote(){
+  const ta=document.getElementById('noteText'); const text=((ta&&ta.value)||'').trim(); if(!text) return;
+  const r=await apiPost('support-note-add',{id:window.CUR.id, body:text});
+  if(!r.ok){ alert((r.data&&r.data.error)||'Could not add note.'); return; }
+  openTicket(window.CUR.id);
 }
 
 function show(id){
