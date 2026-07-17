@@ -29,8 +29,9 @@
 <div id="app" v-cloak>
 
   <!-- ============ GATE ============ -->
-  <div v-if="!ready" class="min-h-screen flex items-center justify-center revive-waffle">
-    <div class="text-center">
+  <div v-if="!ready" class="min-h-screen flex items-center justify-center revive-waffle relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="text-center relative z-10">
       <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
       <p v-if="!gateError" class="text-white/90 text-sm">Loading Sales CRM…</p>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
