@@ -44,9 +44,10 @@ async function customerOrderInfo(email){
   if(email in infoCache) return infoCache[email];
   let info={ known:false, latestOrder:null };
   try{
-    const d=await gql('query($q:String!){ orders(first:1, query:$q, sortKey:CREATED_AT, reverse:true){ edges { node { name } } } customers(first:1, query:$q){ edges { node { id } } } }', { q:'email:'+email });
+    const d=await gql('query($q:String!){ orders(first:1, query:$q, sortKey:CREATED_AT, reverse:true){ edges { node { name } } } customers(first:1, query:$q){ edges { node { id numberOfOrders } } } }', { q:'email:'+email });
     const on=(d.orders&&d.orders.edges&&d.orders.edges[0]&&d.orders.edges[0].node.name)||null;
-    info={ known: (((d.customers&&d.customers.edges)||[]).length>0) || !!on, latestOrder: on };
+    const cnode=(d.customers&&d.customers.edges&&d.customers.edges[0]&&d.customers.edges[0].node)||null;
+    info={ known: !!cnode || !!on, latestOrder: on, count: cnode ? Number(cnode.numberOfOrders||0) : null };
   }catch(e){}
   infoCache[email]=info; return info;
 }
@@ -79,6 +80,7 @@ async function processThread(token, tid){
   const snippet = ((firstInbound && firstInbound.bodyText) || '').replace(/\s+/g,' ').trim().slice(0,180);
   const info = await customerOrderInfo(custEmail);
   const matchedOrder = matchOrderRef(blob) || info.latestOrder || null;
+  if(customerId && info.count!=null){ try{ await rest('customers?id=eq.'+customerId, { method:'PATCH', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ orders_count: info.count }) }); }catch(e){} }
 
   const existing = await rest('tickets?gmail_thread_id=eq.'+encodeURIComponent(tid)+'&select=id&limit=1');
   let ticketId, created=false, triage='order';
