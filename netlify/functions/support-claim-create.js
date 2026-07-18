@@ -10,7 +10,7 @@ exports.handler = async (event) => {
     await rest('claims', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({
       ticket_id: body.ticketId || null, order_name: body.orderName || '', customer_name: body.customerName || '',
       customer_email: body.customerEmail || '', tracking_number: body.trackingNumber || '', value: body.value || null,
-      reason: body.reason || '', status: 'To lodge' }) });
+      reason: body.reason || '', cause: body.cause || null, resend_order: body.resendOrder || '', status: body.status || 'Open' }) });
     return json(200, { ok:true });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };

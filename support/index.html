@@ -55,7 +55,7 @@
 <script>
 const SECTIONS = [
   {id:'dashboard', icon:'📥', label:'Inbox'},
-  {id:'claims',    icon:'🧾', label:'Claims'},
+  {id:'claims',    icon:'🔁', label:'Resends'},
   {id:'search',    icon:'🔎', label:'Search / Customers'},
   {id:'testimonials', icon:'🌟', label:'Testimonials'},
   {id:'settings',  icon:'⚙️', label:'Settings'},
@@ -99,7 +99,7 @@ function panelHTML(id){
       + '<div id="ticketList"><div class="text-stone-400 text-sm">Loading…</div></div>';
   }
   if(id==='claims'){
-    return '<h2 class="text-xl font-bold mb-1">Claims</h2><p class="text-stone-500 text-sm mb-4">NZ Post claims raised from order tickets.</p><div id="claimsList"><div class="text-stone-400 text-sm">Loading…</div></div>';
+    return '<h2 class="text-xl font-bold mb-1">Resends</h2><p class="text-stone-500 text-sm mb-4">Every order re-sent or with an issue. Set the cause on each; weekly value totals up top.</p><div id="claimsList"><div class="text-stone-400 text-sm">Loading…</div></div>';
   }
   if(id==='ticket'){
     return '<h2 class="text-xl font-bold mb-1">Ticket + Customer detail</h2><p class="text-stone-500 text-sm mb-4">The core screen: thread + AI-suggested reply + order panel + notes.</p>'
@@ -174,7 +174,7 @@ function orderCard(o){
 function orderActions(o){
   const num=(o.id||'').split('/').pop();
   return '<div class="flex flex-wrap gap-1.5 mt-2 border-t border-stone-100 pt-2">'
-    +'<button onclick="raiseClaim(\''+esc(o.name||'')+'\','+(Number(o.total)||0)+')" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">⚠ Raise claim</button>'
+    +'<button onclick="raiseClaim(\''+esc(o.name||'')+'\','+(Number(o.total)||0)+')" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">🔁 Log resend</button>'
     +(num?'<a href="https://admin.shopify.com/store/revive-cafe/orders/'+num+'" target="_blank" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">Shopify ↗</a>':'')
     +'</div>';
 }
@@ -497,17 +497,18 @@ async function retagType(type){ try{ await apiPost('support-ticket-type',{id:win
 async function replaceOrder(orderId, orderName){
   if(!orderId){ alert('No Shopify order id for this order.'); return; }
   if(!confirm('Create a NEW $0 replacement order in Shopify for '+orderName+'?\n\nThis copies the items + shipping address at 100% discount and creates a REAL order.')) return;
-  const r=await apiPost('support-create-replacement',{orderId});
+  const cur=window.CUR||{};
+  const r=await apiPost('support-create-replacement',{orderId, ticketId:cur.id||null, customerName:cur.name||'', customerEmail:cur.email||''});
   if(!r.ok){ alert((r.data&&r.data.error)||'Could not create replacement.'); return; }
-  alert('✓ Created free replacement order '+r.data.orderName+' (from '+r.data.from+').');
+  alert('✓ Created free replacement order '+r.data.orderName+' (from '+r.data.from+'). Logged to Resends — set the cause there.');
   if(window.CUR&&window.CUR.id){ apiPost('support-note-add',{id:window.CUR.id, body:'Created free replacement order '+r.data.orderName+' for '+r.data.from}); if(document.getElementById('activityList')) loadActivity(); }
 }
 async function raiseClaim(orderName, value){
-  const reason=prompt('Claim reason for '+orderName+':','Lost/damaged in transit'); if(reason===null) return;
   const cur=window.CUR||{};
-  const r=await apiPost('support-claim-create',{ticketId:cur.id||null, orderName, value, reason, customerName:cur.name||'', customerEmail:cur.email||''});
-  if(!r.ok){ alert((r.data&&r.data.error)||'Could not raise claim.'); return; }
-  alert('✓ Claim raised for '+orderName+'. See the Claims tab.');
+  if(!confirm('Log a resend/issue for '+orderName+'? You can set the cause in the Resends tab.')) return;
+  const r=await apiPost('support-claim-create',{ticketId:cur.id||null, orderName, value, status:'Open', customerName:cur.name||'', customerEmail:cur.email||''});
+  if(!r.ok){ alert((r.data&&r.data.error)||'Could not log resend.'); return; }
+  alert('✓ Logged to Resends — set the cause in the Resends tab.');
 }
 function openNewTicket(){
   const m=document.createElement('div'); m.id='ntModal'; m.className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'; m.onclick=closeNewTicket;
@@ -530,15 +531,27 @@ async function submitNewTicket(btn){
   if(!r.ok){ if(btn) btn.disabled=false; alert((r.data&&r.data.error)||'Could not create.'); return; }
   closeNewTicket(); openTicket(r.data.id);
 }
+const CAUSES=['Picking error','Damage in transit','Perishable not delivered in time','Wrong item sent','Lost in transit','Customer error','Other'];
+function isoWeekKey(d){ d=new Date(d); const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=dt.getUTCDay()||7; dt.setUTCDate(dt.getUTCDate()+4-day); const ys=new Date(Date.UTC(dt.getUTCFullYear(),0,1)); const wk=Math.ceil((((dt-ys)/86400000)+1)/7); return dt.getUTCFullYear()+'-W'+String(wk).padStart(2,'0'); }
 async function loadClaims(){
   const el=document.getElementById('claimsList'); if(!el) return;
   const r=await apiPost('support-claims',{});
   if(!r.ok){ el.innerHTML='<div class="text-amber-700 text-sm">'+esc((r.data&&r.data.error)||'Could not load.')+'</div>'; return; }
   const cs=r.data.claims||[];
-  if(!cs.length){ el.innerHTML='<div class="text-stone-400 text-sm">No claims yet. Raise one from an order (⚠ Raise claim).</div>'; return; }
-  el.innerHTML='<table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200"><th class="py-1 pr-2">Order</th><th class="py-1 pr-2">Customer</th><th class="py-1 pr-2">Reason</th><th class="py-1 pr-2">Value</th><th class="py-1 pr-2">Status</th><th class="py-1">Raised</th></tr></thead><tbody>'
-    +cs.map(x=>'<tr class="border-b border-stone-100"><td class="py-2 pr-2 font-medium">'+esc(x.order_name||'')+'</td><td class="py-2 pr-2 text-stone-600">'+esc(x.customer_name||x.customer_email||'')+'</td><td class="py-2 pr-2 text-stone-600">'+esc(x.reason||'')+'</td><td class="py-2 pr-2 whitespace-nowrap">'+(x.value?('NZD '+Number(x.value).toFixed(2)):'')+'</td><td class="py-2 pr-2"><span class="text-xs bg-stone-100 rounded px-1.5 py-0.5">'+esc(x.status||'')+'</span></td><td class="py-2 text-stone-400 whitespace-nowrap">'+(x.created_at?new Date(x.created_at).toLocaleDateString('en-NZ'):'')+'</td></tr>').join('')+'</tbody></table>';
+  if(!cs.length){ el.innerHTML='<div class="text-stone-400 text-sm">No resends yet. Create one via ↩ Replace order (free) or 🔁 Log resend on an order.</div>'; return; }
+  const byWeek={}; cs.forEach(x=>{ const k=isoWeekKey(x.created_at||Date.now()); byWeek[k]=(byWeek[k]||0)+(Number(x.value)||0); });
+  const weeks=Object.keys(byWeek).sort().reverse().slice(0,6); const thisWeek=isoWeekKey(Date.now());
+  const wk='<div class="flex flex-wrap gap-2 mb-4">'+weeks.map(w=>'<div class="border rounded-lg px-3 py-2 '+(w===thisWeek?'border-teal-400 bg-teal-50':'border-stone-200 bg-white')+'"><div class="text-[11px] text-stone-400">'+esc(w)+(w===thisWeek?' (this week)':'')+'</div><div class="font-semibold text-sm">NZD '+byWeek[w].toFixed(2)+'</div></div>').join('')+'</div>';
+  const total=cs.reduce((a,x)=>a+(Number(x.value)||0),0);
+  const rows=cs.map(x=>{
+    const causeSel='<select onchange="updateCause(\''+x.id+'\',this.value)" class="text-xs border border-stone-300 rounded px-1 py-0.5"><option value="">— cause —</option>'+CAUSES.map(c=>'<option'+(x.cause===c?' selected':'')+'>'+c+'</option>').join('')+'</select>';
+    const doneBtn='<button onclick="setResendStatus(\''+x.id+'\',\''+(x.status==='Done'?'Open':'Done')+'\')" class="text-xs '+(x.status==='Done'?'bg-green-100 text-green-700':'bg-stone-100 text-stone-600')+' rounded px-2 py-0.5">'+(x.status==='Done'?'✓ Done':'Mark done')+'</button>';
+    return '<tr class="border-b border-stone-100 align-top"><td class="py-2 pr-2 font-medium whitespace-nowrap">'+esc(x.order_name||'')+(x.resend_order?' → '+esc(x.resend_order):'')+'</td><td class="py-2 pr-2 text-stone-600">'+esc(x.customer_name||x.customer_email||'')+'</td><td class="py-2 pr-2">'+causeSel+'</td><td class="py-2 pr-2 whitespace-nowrap">'+(x.value?('NZD '+Number(x.value).toFixed(2)):'')+'</td><td class="py-2 pr-2">'+doneBtn+'</td><td class="py-2 text-stone-400 whitespace-nowrap">'+(x.created_at?new Date(x.created_at).toLocaleDateString('en-NZ'):'')+'</td></tr>';
+  }).join('');
+  el.innerHTML=wk+'<table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200"><th class="py-1 pr-2">Order → Resend</th><th class="py-1 pr-2">Customer</th><th class="py-1 pr-2">Cause</th><th class="py-1 pr-2">Value</th><th class="py-1 pr-2">Status</th><th class="py-1">Date</th></tr></thead><tbody>'+rows+'</tbody></table><div class="text-right text-xs text-stone-500 mt-2">Total logged: NZD '+total.toFixed(2)+'</div>';
 }
+async function updateCause(id,cause){ await apiPost('support-claim-update',{id,cause}); }
+async function setResendStatus(id,status){ await apiPost('support-claim-update',{id,status}); loadClaims(); }
 
 function replaceHeader(){ const po=window.CUR&&window.CUR.primaryOrder; if(!po||!po.id){ alert('No order loaded for this customer yet — give the order panel a moment.'); return; } replaceOrder(po.id, po.name); }
 function orderStars(n){ n=Number(n)||0; return n>=16?5:n>=11?4:n>=6?3:n>=2?2:n>=1?1:0; }

@@ -2,6 +2,7 @@
 // Copies line items + shipping address, tags 'replacement', notes the original. Portal-gated (support).
 const { json, validatePortalUser } = require('./_portal');
 const { gql } = require('./_shopify');
+const { rest, hasKey } = require('./_appsdb');
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
@@ -13,7 +14,7 @@ exports.handler = async (event) => {
 
   try {
     const d = await gql(`query($id:ID!){ order(id:$id){ name email
-      shippingAddress{ firstName lastName address1 address2 city province provinceCode zip country countryCodeV2 phone company }
+      totalPriceSet{ shopMoney{ amount } } shippingAddress{ firstName lastName address1 address2 city province provinceCode zip country countryCodeV2 phone company }
       lineItems(first:60){ edges { node { quantity title variant{ id } } } } } }`, { id: orderId });
     const o = d.order;
     if (!o) return json(404, { error: 'Original order not found.' });
@@ -45,6 +46,14 @@ exports.handler = async (event) => {
     const cErr = comp.draftOrderComplete.userErrors;
     if (cErr && cErr.length) return json(502, { error: 'Complete error: '+cErr.map(e=>e.message).join('; ') });
     const order = comp.draftOrderComplete.draftOrder.order;
+    // auto-log this replacement into the Resends register
+    if (hasKey()) { try {
+      const val = o.totalPriceSet && o.totalPriceSet.shopMoney ? Number(o.totalPriceSet.shopMoney.amount) : null;
+      await rest('claims', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({
+        ticket_id: body.ticketId || null, order_name: o.name, resend_order: order.name,
+        customer_name: body.customerName || '', customer_email: body.customerEmail || o.email || '',
+        value: val, cause: null, status: 'Open', reason: 'Free replacement' }) });
+    } catch(e){} }
     return json(200, { ok:true, orderName: order.name, orderId: order.id, from: o.name });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };
