@@ -54,17 +54,13 @@
 
 <script>
 const SECTIONS = [
-  {id:'dashboard', icon:'📥', label:'Inbox / Dashboard'},
-  {id:'ticket',    icon:'🎫', label:'Ticket + Customer'},
-  {id:'nonorder',  icon:'🗂️', label:'Non-Order'},
-  {id:'ops',       icon:'📦', label:'Order Ops / Fulfilment'},
-  {id:'naughty',   icon:'⚠️', label:'Naughty Box'},
+  {id:'dashboard', icon:'📥', label:'Inbox'},
   {id:'claims',    icon:'🧾', label:'Claims'},
   {id:'search',    icon:'🔎', label:'Search / Customers'},
   {id:'testimonials', icon:'🌟', label:'Testimonials'},
-  {id:'insights',  icon:'📈', label:'Insights'},
   {id:'settings',  icon:'⚙️', label:'Settings'},
 ];
+const TYPE_META={order:{i:'📦',c:'bg-teal-50 text-teal-700 border-teal-200'},enquiry:{i:'💬',c:'bg-indigo-50 text-indigo-700 border-indigo-200'},misc:{i:'🗂️',c:'bg-stone-100 text-stone-600 border-stone-200'},unknown:{i:'❓',c:'bg-amber-50 text-amber-700 border-amber-200'}};
 const TICKET_STATUSES = ['Open','Awaiting Customer','Awaiting Fulfiller','Snoozed','Resolved'];
 const ORDER_STATUSES = ['New / Unprocessed','Ready to Pack','Packed – Awaiting Courier','In Transit','Out for Delivery','Delivered','Ready for Pickup','Collected','On Hold – eShip Fix Needed','Exception – Delayed / Lost / Failed','Cancelled / Refunded'];
 const NAUGHTY_RULES = [
@@ -95,8 +91,15 @@ function money(a,c){ if(a==null) return ''; return (c||'NZD')+' '+Number(a).toFi
 
 function panelHTML(id){
   if(id==='dashboard'){
-    return '<h2 class="text-xl font-bold mb-1">Inbox / Dashboard</h2><p class="text-stone-500 text-sm mb-4">Order tickets from the cafe@ inbox — matched order, NZ Post status and recent activity at a glance.</p>'
-      + card('Tickets', '<div class="flex items-center gap-2 mb-3"><button onclick="syncInbox(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">⟳ Sync cafe@ inbox</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="border border-stone-300 text-stone-600 text-xs px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post statuses</button><span id="syncMsg" class="text-xs text-stone-500"></span></div><div id="ticketList"><div class="text-stone-400 text-sm">Loading tickets…</div></div>');
+    const f=window.FILTER||'open';
+    const btn=(k,l)=>'<button onclick="setFilter(\''+k+'\')" class="text-xs px-2.5 py-1 rounded-full border '+(f===k?'bg-teal-700 text-white border-teal-700':'bg-white text-stone-600 border-stone-300 hover:bg-stone-50')+'">'+l+'</button>';
+    return '<div class="flex items-center justify-between mb-3 flex-wrap gap-2"><h2 class="text-xl font-bold">Inbox</h2><div class="flex gap-2"><button onclick="openNewTicket()" class="text-xs bg-stone-800 hover:bg-stone-900 text-white px-3 py-1.5 rounded-lg">＋ New ticket</button><button onclick="syncInbox(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">⟳ Sync</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="text-xs border border-stone-300 text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post</button></div></div>'
+      + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+btn('done','✓ Done')+'</div>'
+      + '<div class="text-xs text-stone-500 mb-1"><span id="syncMsg"></span></div>'
+      + '<div id="ticketList"><div class="text-stone-400 text-sm">Loading…</div></div>';
+  }
+  if(id==='claims'){
+    return '<h2 class="text-xl font-bold mb-1">Claims</h2><p class="text-stone-500 text-sm mb-4">NZ Post claims raised from order tickets.</p><div id="claimsList"><div class="text-stone-400 text-sm">Loading…</div></div>';
   }
   if(id==='ticket'){
     return '<h2 class="text-xl font-bold mb-1">Ticket + Customer detail</h2><p class="text-stone-500 text-sm mb-4">The core screen: thread + AI-suggested reply + order panel + notes.</p>'
@@ -166,7 +169,15 @@ function orderCard(o){
     + '<div class="flex flex-wrap gap-1.5 mb-2">'+chips([o.financial||'—',o.fulfillment||'—'],'bg-stone-100 text-stone-600 border border-stone-200')+'</div>'
     + (ship?'<div class="text-xs text-stone-500 mb-2">📍 '+ship+'</div>':'')
     + '<div class="border-t border-stone-100 pt-2 mb-2">'+items+'</div>'
-    + '<div class="text-xs">'+track+'</div>'+trackUI+'</div>';
+    + '<div class="text-xs">'+track+'</div>'+trackUI+orderActions(o)+'</div>';
+}
+function orderActions(o){
+  const num=(o.id||'').split('/').pop();
+  return '<div class="flex flex-wrap gap-1.5 mt-2 border-t border-stone-100 pt-2">'
+    +'<button onclick="replaceOrder(\''+esc(o.id||'')+'\',\''+esc(o.name||'')+'\')" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">↩ Replace (free)</button>'
+    +'<button onclick="raiseClaim(\''+esc(o.name||'')+'\','+(Number(o.total)||0)+')" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">⚠ Raise claim</button>'
+    +(num?'<a href="https://admin.shopify.com/store/revive-cafe/orders/'+num+'" target="_blank" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">Shopify ↗</a>':'')
+    +'</div>';
 }
 function customerCard(c){
   return '<div class="bg-teal-50 border border-teal-200 rounded-xl p-4 mb-3"><div class="flex justify-between"><div><div class="font-semibold text-stone-800">'+esc(c.name||'(no name)')+'</div><div class="text-sm text-stone-600">'+esc(c.email||'')+(c.phone?' · '+esc(c.phone):'')+'</div></div><div class="text-right text-xs text-stone-600"><div><b>'+(c.orders||0)+'</b> orders</div><div>'+money(c.spent,c.currency)+' lifetime</div></div></div>'+(c.tags&&c.tags.length?'<div class="mt-2">'+chips(c.tags,'bg-white text-teal-700 border border-teal-200')+'</div>':'')+'</div>';
@@ -218,12 +229,15 @@ function threadRow(t){
 }
 async function loadTickets(){
   const el=document.getElementById('ticketList'); if(!el) return;
-  const r=await apiPost('support-tickets',{triage:'order', excludeResolved:true});
+  const f=window.FILTER||'open';
+  const req = f==='done' ? {status:'Resolved'} : (f==='open' ? {excludeResolved:true} : {type:f, excludeResolved:true});
+  const r=await apiPost('support-tickets',req);
   if(!r.ok){ el.innerHTML='<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load tickets.')+'</div>'; return; }
   const ts=r.data.tickets||[];
-  if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">No tickets yet. Click “Sync cafe@ inbox” to pull recent emails into tickets.</div>'; return; }
+  if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">Nothing here — '+(f==='open'?'inbox is clear 🎉':'no tickets in this filter.')+'</div>'; window.LAST_TICKETS=ts; return; }
   el.innerHTML=ts.map(ticketRow).join(''); window.LAST_TICKETS=ts; queueCourier(ts,false);
 }
+function setFilter(k){ window.FILTER=k; const panel=document.getElementById('panel'); if(panel) panel.innerHTML=panelHTML('dashboard'); loadTickets(); }
 function lastEvents(t){
   const evs=[];
   (t.messages||[]).forEach(m=>evs.push({icon:m.direction==='outbound'?'📤':'📥', time:m.sent_at}));
@@ -238,8 +252,9 @@ function ticketRow(t){
   const tick = t.matched_order ? '✅' : '❌';
   const matched = t.matched_order ? '<span class="inline-block text-[11px] bg-teal-50 text-teal-700 border border-teal-200 rounded px-1.5 py-0.5 whitespace-nowrap">→ '+esc(t.matched_order)+'</span>' : '<span class="text-[11px] text-stone-400">no order</span>';
   const evs=lastEvents(t); const evHtml = evs.length?'<div class="mt-1" title="last 3 events">'+evs.map(e=>e.icon).join(' ')+'</div>':'';
+  const tm=TYPE_META[t.ticket_type||'enquiry']||TYPE_META.enquiry;
   return '<div onclick="openTicket(\''+t.id+'\')" class="flex gap-3 py-2 px-1 border-b border-stone-100 last:border-0 hover:bg-stone-50 cursor-pointer">'
-    +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate">'+esc(c.name||c.email||'(unknown)')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
+    +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate"><span class="mr-1" title="'+(t.ticket_type||'')+'">'+tm.i+'</span>'+esc(c.name||c.email||'(unknown)')+(t.source==='manual'?' <span class="text-[10px] text-stone-400">(manual)</span>':'')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
     +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div>'
     +(t.snippet?'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div>':'')+'</div>'
     +'<div class="shrink-0 self-start text-right min-w-[120px]"><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span>'
@@ -250,8 +265,8 @@ async function syncInbox(btn){
   const msg=document.getElementById('syncMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Syncing…';
   const r=await apiPost('support-ingest',{});
   if(btn) btn.disabled=false;
-  if(!r.ok){ if(msg) msg.textContent=''; document.getElementById('ticketList').innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||('Sync failed ('+r.status+').'))+'</div>'; return; }
-  if(msg) msg.textContent='Synced — '+(r.data.order||0)+' order + '+(r.data.nonOrder||0)+' non-order new, '+r.data.messages+' messages';
+  if(!r.ok){ if(msg) msg.textContent=''; const tl=document.getElementById('ticketList'); if(tl) tl.innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||('Sync failed ('+r.status+').'))+'</div>'; return; }
+  if(msg) msg.textContent='Synced '+(r.data.threads||0)+' threads · '+(r.data.messages||0)+' messages';
   loadTickets();
 }
 async function openTicket(id){
@@ -259,7 +274,7 @@ async function openTicket(id){
   const panel=document.getElementById('panel'); panel.innerHTML='<div class="text-stone-400 text-sm">Loading ticket…</div>';
   const r=await apiPost('support-ticket',{id});
   if(!r.ok){ panel.innerHTML='<div class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load ticket.')+'</div>'; return; }
-  const t=r.data.ticket, msgs=r.data.messages||[], c=t.customer||{}; window.CUR={id:t.id, email:(c.email||''), customerId:(t.customer_id||c.id||null)}; window.MSGFULL={};
+  const t=r.data.ticket, msgs=r.data.messages||[], c=t.customer||{}; window.CUR={id:t.id, email:(c.email||''), name:(c.name||''), customerId:(t.customer_id||c.id||null)}; window.MSGFULL={};
   const bubble=m=>{ const out=m.direction==='outbound'; const full=(m.body||'').slice(0,6000); const isLong=full.length>260; const bid='mb'+(window.__mbc=(window.__mbc||0)+1); window.MSGFULL[bid]=full; const shown=isLong?full.slice(0,260)+'…':full;
     return '<div class="mb-3 '+(out?'pl-8':'pr-8')+'"><div class="rounded-xl border '+(out?'bg-teal-50 border-teal-200':'bg-white border-stone-200')+' p-3"><div class="flex justify-between text-xs text-stone-500 mb-1"><span>'+esc(out?'Revive (cafe@)':(c.name||m.from_addr||'Customer'))+'</span><span>'+(m.sent_at?new Date(m.sent_at).toLocaleString('en-NZ'):'')+'</span></div><div class="text-sm text-stone-700 whitespace-pre-wrap" id="'+bid+'">'+esc(shown)+'</div>'+(isLong?'<button onclick="expandMsg(\''+bid+'\',this)" class="text-teal-700 text-xs underline mt-1">see more</button>':'')+'</div></div>'; };
   let thread;
@@ -270,7 +285,7 @@ async function openTicket(id){
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
     +'<p class="text-stone-500 text-sm mb-2">'+esc(c.name||'')+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
-    +'<div class="mb-4"><button onclick="resolveTicket()" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">\u2713 Resolve &amp; archive</button></div>'
+    +'<div class="mb-4 flex items-center gap-2 flex-wrap"><button onclick="resolveTicket()" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">✓ Resolve &amp; archive</button><span class="text-xs text-stone-400">Type:</span>'+typeSelect(t.ticket_type)+'</div>'
     +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2"><div id="testiBox"></div>'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
   loadActivity(); detectTestimonial();
   if(c.email){
@@ -478,6 +493,54 @@ async function resolveTicket(){
   show('dashboard'); loadTickets();
 }
 
+function typeSelect(cur){ const o=[['order','📦 Order'],['enquiry','💬 Enquiry'],['misc','🗂️ Misc'],['unknown','❓ Unsure']]; return '<select onchange="retagType(this.value)" class="text-xs border border-stone-300 rounded px-2 py-1">'+o.map(x=>'<option value="'+x[0]+'"'+(cur===x[0]?' selected':'')+'>'+x[1]+'</option>').join('')+'</select>'; }
+async function retagType(type){ try{ await apiPost('support-ticket-type',{id:window.CUR.id, type}); }catch(e){} }
+async function replaceOrder(orderId, orderName){
+  if(!orderId){ alert('No Shopify order id for this order.'); return; }
+  if(!confirm('Create a NEW $0 replacement order in Shopify for '+orderName+'?\n\nThis copies the items + shipping address at 100% discount and creates a REAL order.')) return;
+  const r=await apiPost('support-create-replacement',{orderId});
+  if(!r.ok){ alert((r.data&&r.data.error)||'Could not create replacement.'); return; }
+  alert('✓ Created free replacement order '+r.data.orderName+' (from '+r.data.from+').');
+  if(window.CUR&&window.CUR.id){ apiPost('support-note-add',{id:window.CUR.id, body:'Created free replacement order '+r.data.orderName+' for '+r.data.from}); if(document.getElementById('activityList')) loadActivity(); }
+}
+async function raiseClaim(orderName, value){
+  const reason=prompt('Claim reason for '+orderName+':','Lost/damaged in transit'); if(reason===null) return;
+  const cur=window.CUR||{};
+  const r=await apiPost('support-claim-create',{ticketId:cur.id||null, orderName, value, reason, customerName:cur.name||'', customerEmail:cur.email||''});
+  if(!r.ok){ alert((r.data&&r.data.error)||'Could not raise claim.'); return; }
+  alert('✓ Claim raised for '+orderName+'. See the Claims tab.');
+}
+function openNewTicket(){
+  const m=document.createElement('div'); m.id='ntModal'; m.className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'; m.onclick=closeNewTicket;
+  m.innerHTML='<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()"><h3 class="font-bold text-lg mb-3">New ticket (phone / walk-in)</h3>'
+    +'<input id="ntName" placeholder="Customer name" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-2">'
+    +'<input id="ntEmail" placeholder="Email (optional — links their orders)" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-2">'
+    +'<input id="ntOrder" placeholder="Order # (optional)" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-2">'
+    +'<select id="ntType" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-2"><option value="enquiry">💬 Enquiry</option><option value="order">📦 Order</option><option value="misc">🗂️ Misc</option></select>'
+    +'<textarea id="ntNote" rows="3" placeholder="Note — what was the call/enquiry about?" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-3"></textarea>'
+    +'<div class="flex justify-end gap-2"><button onclick="closeNewTicket()" class="text-sm px-3 py-1.5 rounded border border-stone-300">Cancel</button><button onclick="submitNewTicket(this)" class="text-sm px-3 py-1.5 rounded bg-teal-700 text-white font-semibold">Create ticket</button></div></div>';
+  document.body.appendChild(m);
+}
+function closeNewTicket(){ const m=document.getElementById('ntModal'); if(m) m.remove(); }
+function ntVal(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
+async function submitNewTicket(btn){
+  const name=ntVal('ntName'),email=ntVal('ntEmail'),order=ntVal('ntOrder'),type=ntVal('ntType'),note=ntVal('ntNote');
+  if(!name && !email){ alert('Enter a name or email.'); return; }
+  if(btn) btn.disabled=true;
+  const r=await apiPost('support-ticket-create',{name,email,orderName:order,type,note,channel:'phone',direction:'in'});
+  if(!r.ok){ if(btn) btn.disabled=false; alert((r.data&&r.data.error)||'Could not create.'); return; }
+  closeNewTicket(); openTicket(r.data.id);
+}
+async function loadClaims(){
+  const el=document.getElementById('claimsList'); if(!el) return;
+  const r=await apiPost('support-claims',{});
+  if(!r.ok){ el.innerHTML='<div class="text-amber-700 text-sm">'+esc((r.data&&r.data.error)||'Could not load.')+'</div>'; return; }
+  const cs=r.data.claims||[];
+  if(!cs.length){ el.innerHTML='<div class="text-stone-400 text-sm">No claims yet. Raise one from an order (⚠ Raise claim).</div>'; return; }
+  el.innerHTML='<table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200"><th class="py-1 pr-2">Order</th><th class="py-1 pr-2">Customer</th><th class="py-1 pr-2">Reason</th><th class="py-1 pr-2">Value</th><th class="py-1 pr-2">Status</th><th class="py-1">Raised</th></tr></thead><tbody>'
+    +cs.map(x=>'<tr class="border-b border-stone-100"><td class="py-2 pr-2 font-medium">'+esc(x.order_name||'')+'</td><td class="py-2 pr-2 text-stone-600">'+esc(x.customer_name||x.customer_email||'')+'</td><td class="py-2 pr-2 text-stone-600">'+esc(x.reason||'')+'</td><td class="py-2 pr-2 whitespace-nowrap">'+(x.value?('NZD '+Number(x.value).toFixed(2)):'')+'</td><td class="py-2 pr-2"><span class="text-xs bg-stone-100 rounded px-1.5 py-0.5">'+esc(x.status||'')+'</span></td><td class="py-2 text-stone-400 whitespace-nowrap">'+(x.created_at?new Date(x.created_at).toLocaleDateString('en-NZ'):'')+'</td></tr>').join('')+'</tbody></table>';
+}
+
 function show(id){
   document.querySelectorAll('#sideNav a').forEach(a=>{
     a.className = a.dataset.id===id
@@ -488,6 +551,7 @@ function show(id){
   if(id==='dashboard') loadTickets();
   if(id==='nonorder') loadNonOrder();
   if(id==='testimonials') loadTestimonials();
+  if(id==='claims') loadClaims();
   if(id==='settings'){ loadGmailStat(); loadSettings(); loadCodes(); }
   location.hash = id;
 }
@@ -509,6 +573,7 @@ function show(id){
     document.getElementById('app').classList.remove('hidden');
     inspoInit(); loadCodes(); loadPerishKw();
     show((location.hash||'#dashboard').slice(1) || 'dashboard');
+    setTimeout(()=>{ try{ syncInbox(null); }catch(e){} }, 500);
   }catch(e){ gateMsg.textContent = 'Could not load. Please return to the portal.'; }
 })();
 </script>

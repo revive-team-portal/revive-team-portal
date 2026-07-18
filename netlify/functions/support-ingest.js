@@ -8,6 +8,14 @@ const { gql } = require('./_shopify');
 
 const MAILBOX = 'cafe@revive.co.nz';
 const ORDER_RE = /\b(?:WEB\d{3,}|#\s?\d{3,}|order\s+#?\d{3,})\b/i;
+function classifyType(isOrder, fromAddr, blob){
+  if(isOrder) return 'order';
+  const f=(fromAddr||'').toLowerCase();
+  if(/(no-?reply|noreply|do-?not-?reply|donotreply|notification|mailer|newsletter|mailchimp|klaviyo|updates@|marketing@|team@)/.test(f)) return 'misc';
+  if(/unsubscribe|view (this )?(email )?in (your )?browser|newsletter|©|to stop receiving/i.test(blob||'')) return 'misc';
+  if(((blob||'').trim().length) < 15) return 'unknown';
+  return 'enquiry';
+}
 function matchOrderRef(txt){
   let m = (txt||'').match(/\b(WEB\d{3,})\b/i); if(m) return m[1].toUpperCase();
   m = (txt||'').match(/#\s?(\d{3,})\b/); if(m) return '#'+m[1];
@@ -80,7 +88,7 @@ async function processThread(token, tid){
   } else {
     const isOrder = ORDER_RE.test(blob) || info.known;
     triage = isOrder ? 'order' : 'non_order';
-    const ins = await rest('tickets', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ gmail_thread_id:tid, customer_id:customerId, subject:subj, status:'Open', triage, reviewed:false, matched_order:matchedOrder, snippet, updated_at:lastTs }) });
+    const ins = await rest('tickets', { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify({ gmail_thread_id:tid, customer_id:customerId, subject:subj, status:'Open', triage, ticket_type: classifyType(isOrder, custEmail, blob), source:'email', reviewed:false, matched_order:matchedOrder, snippet, updated_at:lastTs }) });
     ticketId = ins && ins[0] && ins[0].id; created=true;
   }
 
