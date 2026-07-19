@@ -125,19 +125,19 @@ exports.handler = async (event) => {
     }
 
     if (action === 'save_recipe_version') {
-      const { base_recipe_id, sku, flavour, version_label, change_note, cook_sec, blend_min, viscosity_sec, g_per_waffle, ingredients } = body;
+      const { base_recipe_id, sku, flavour, short_code, version_label, change_note, cook_sec, blend_min, viscosity_sec, g_per_waffle, ingredients } = body;
       if (!version_label || !change_note) return json(400, { error: 'Version label and change note are required.' });
       if (!Array.isArray(ingredients) || !ingredients.length) return json(400, { error: 'At least one ingredient is required.' });
       const created = await appsDb('recipe', {
         method: 'POST', headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({ sku, flavour, version_label, is_current: true, active: true,
+        body: JSON.stringify({ sku, flavour, short_code: short_code || null, version_label, is_current: true, active: true,
           cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null,
           g_per_waffle: g_per_waffle || 70, change_note }),
       });
       const newId = created[0].id;
       const rows = ingredients
         .filter(i => i.ingredient && i.batch_g)
-        .map((i, idx) => ({ recipe_id: newId, ingredient: String(i.ingredient).trim(), batch_g: Number(i.batch_g), sort: idx + 1 }));
+        .map((i, idx) => ({ recipe_id: newId, ingredient: String(i.ingredient).trim(), batch_g: Math.round(Number(i.batch_g)), sort: idx + 1 }));
       await appsDb('recipe_ingredient', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
       if (base_recipe_id) {
         await appsDb('recipe?id=eq.' + encodeURIComponent(base_recipe_id), {
