@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revivealicious Foods — Production</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    [v-cloak]{display:none}
+    ::-webkit-scrollbar{width:9px;height:9px}
+    ::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
+  </style>
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+
+<script>
+  const SUPABASE_URL    = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
+  const SUPABASE_ANON   = 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
+  const PORTAL_URL      = 'https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+
+<!-- Tailwind Play CDN safelist -->
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-yellow-100 bg-yellow-50 border-yellow-300 border-yellow-200 ring-yellow-400 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-indigo-100 text-indigo-700 bg-indigo-600"></div>
+
+<div id="app" v-cloak>
+
+  <!-- ============ GATE ============ -->
+  <div v-if="!ready" class="min-h-screen flex items-center justify-center relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="text-center relative z-10">
+      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
+      <p v-if="!gateError" class="text-white/90 text-sm">Loading Production…</p>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
+        <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
+        <a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a>
+      </div>
+    </div>
+  </div>
+
+  <div v-else class="min-h-screen flex flex-col">
+    <!-- NAV -->
+    <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#15803d">
+      <div class="flex items-center gap-2">
+        <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
+        <span class="text-white/90 text-sm hidden sm:inline font-medium">Production</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-semibold px-2 py-1 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-700'">{{ roleLabel }}</span>
+        <span class="text-white/80 text-xs hidden md:inline">{{ me }}</span>
+        <a href="/" class="text-white/80 hover:text-white text-xs">Portal</a>
+      </div>
+    </nav>
+
+    <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
+      <h1 class="text-xl font-bold text-stone-800 mb-1">Wopples Production Tracking</h1>
+      <p class="text-sm text-stone-500 mb-5">Signed in as <b>{{ me }}</b> &middot; {{ roleLabel }}</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-white border border-stone-200 rounded-xl p-5">
+          <div class="text-2xl mb-1">📋</div>
+          <h3 class="font-semibold text-stone-800">Production Records</h3>
+          <p class="text-sm text-stone-500 mt-1">Live table of every shift with true cost per pack. Coming next.</p>
+        </div>
+        <div class="bg-white border border-stone-200 rounded-xl p-5">
+          <div class="text-2xl mb-1">🧇</div>
+          <h3 class="font-semibold text-stone-800">Recipes &amp; Costing</h3>
+          <p class="text-sm text-stone-500 mt-1">Versioned Wopples recipes with change history and costings.</p>
+        </div>
+        <div class="bg-white border border-stone-200 rounded-xl p-5">
+          <div class="text-2xl mb-1">📅</div>
+          <h3 class="font-semibold text-stone-800">Planning Calendar</h3>
+          <p class="text-sm text-stone-500 mt-1">Plan flavours &amp; pack quantities ahead; plan vs actual.</p>
+        </div>
+        <div class="bg-white border border-stone-200 rounded-xl p-5">
+          <div class="text-2xl mb-1">📷</div>
+          <h3 class="font-semibold text-stone-800">Shift Capture</h3>
+          <p class="text-sm text-stone-500 mt-1">Scan the checksheet on your phone; photos of stock, kitchen &amp; waste.</p>
+        </div>
+      </div>
+
+      <p class="text-center text-xs text-stone-400 mt-8">Production app connected &middot; build in progress</p>
+    </main>
+  </div>
+</div>
+
+<script>
+  const { createApp, ref, computed, onMounted } = Vue;
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'production' } });
+  const portal = createClient(PORTAL_URL, PORTAL_ANON);
+
+  createApp({
+    setup(){
+      const ready = ref(false), gateError = ref(''), me = ref(''), isAdmin = ref(false), role = ref('operator');
+      const isSupervisor = computed(()=> isAdmin.value || role.value === 'supervisor');
+      const roleLabel = computed(()=> isAdmin.value ? 'Administrator' : (role.value === 'supervisor' ? 'Supervisor' : 'Operator'));
+
+      onMounted(async ()=>{
+        const { data:{ session:p } } = await portal.auth.getSession();
+        if(!p){ window.location.href = '/'; return; }
+        me.value = p.user.email || '';
+
+        let allowed = false;
+        const { data:prof } = await portal.from('profiles').select('is_admin, full_name').eq('id', p.user.id).single();
+        if(prof && prof.full_name) me.value = prof.full_name;
+        if(prof && prof.is_admin){ allowed = true; isAdmin.value = true; }
+        else {
+          const { data:acc } = await portal.from('user_app_access').select('app_id, role').eq('user_id', p.user.id).eq('app_id', 'production');
+          if(acc && acc.length){ allowed = true; role.value = acc[0].role || 'operator'; }
+        }
+        if(!allowed){ window.location.href = '/?denied=production'; return; }
+
+        try{
+          const r = await fetch('/.netlify/functions/production-session', { method:'POST', headers:{ 'Authorization':'Bearer '+p.access_token } });
+          if(!r.ok) throw new Error('session');
+          const s = await r.json();
+          await sb.auth.setSession({ access_token:s.access_token, refresh_token:s.refresh_token });
+        }catch(e){ gateError.value = 'Could not open the production database. Please reload.'; ready.value = true; return; }
+
+        ready.value = true;
+      });
+
+      return { ready, gateError, me, isAdmin, role, isSupervisor, roleLabel };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>
