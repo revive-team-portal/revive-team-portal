@@ -12,6 +12,13 @@
     [v-cloak]{display:none}
     ::-webkit-scrollbar{width:9px;height:9px}
     ::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
+    #printArea{display:none}
+    @media print{
+      body *{visibility:hidden}
+      #printArea,#printArea *{visibility:visible}
+      #printArea{display:block;visibility:visible;position:absolute;left:0;top:0;width:100%;padding:14px}
+      .no-print{display:none !important}
+    }
   </style>
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
@@ -23,12 +30,11 @@
   const PORTAL_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
 </script>
 
-<!-- Tailwind Play CDN safelist -->
-<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-yellow-100 bg-yellow-50 border-yellow-300 border-yellow-200 ring-yellow-400 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-indigo-100 text-indigo-700 bg-indigo-600"></div>
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 text-white bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-yellow-100 bg-yellow-50 border-yellow-300 ring-yellow-400 bg-sky-100 text-sky-700"></div>
 
 <div id="app" v-cloak>
 
-  <!-- ============ GATE ============ -->
+  <!-- GATE -->
   <div v-if="!ready" class="min-h-screen flex items-center justify-center relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
     <div class="absolute inset-0 bg-black/40"></div>
     <div class="text-center relative z-10">
@@ -43,88 +49,277 @@
 
   <div v-else class="min-h-screen flex flex-col">
     <!-- NAV -->
-    <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#15803d">
+    <nav class="text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow no-print" style="background:#15803d">
       <div class="flex items-center gap-2">
         <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
         <span class="text-white/90 text-sm hidden sm:inline font-medium">Production</span>
       </div>
       <div class="flex items-center gap-3">
-        <span class="text-xs font-semibold px-2 py-1 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-700'">{{ roleLabel }}</span>
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ roleLabel }}</span>
         <span class="text-white/80 text-xs hidden md:inline">{{ me }}</span>
         <a href="/" class="text-white/80 hover:text-white text-xs">Portal</a>
       </div>
     </nav>
 
-    <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
-      <h1 class="text-xl font-bold text-stone-800 mb-1">Wopples Production Tracking</h1>
-      <p class="text-sm text-stone-500 mb-5">Signed in as <b>{{ me }}</b> &middot; {{ roleLabel }}</p>
+    <!-- MENU BUTTONS -->
+    <div class="bg-white border-b border-stone-200 px-3 py-2 flex flex-wrap gap-2 no-print sticky top-[44px] z-30">
+      <button v-for="t in tabs" :key="t.id" @click="screen=t.id"
+        class="text-sm font-medium px-3 py-1.5 rounded-lg border"
+        :class="screen===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">
+        {{ t.label }}
+      </button>
+    </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="bg-white border border-stone-200 rounded-xl p-5">
-          <div class="text-2xl mb-1">📋</div>
-          <h3 class="font-semibold text-stone-800">Production Records</h3>
-          <p class="text-sm text-stone-500 mt-1">Live table of every shift with true cost per pack. Coming next.</p>
-        </div>
-        <div class="bg-white border border-stone-200 rounded-xl p-5">
-          <div class="text-2xl mb-1">🧇</div>
-          <h3 class="font-semibold text-stone-800">Recipes &amp; Costing</h3>
-          <p class="text-sm text-stone-500 mt-1">Versioned Wopples recipes with change history and costings.</p>
-        </div>
-        <div class="bg-white border border-stone-200 rounded-xl p-5">
-          <div class="text-2xl mb-1">📅</div>
-          <h3 class="font-semibold text-stone-800">Planning Calendar</h3>
-          <p class="text-sm text-stone-500 mt-1">Plan flavours &amp; pack quantities ahead; plan vs actual.</p>
-        </div>
-        <div class="bg-white border border-stone-200 rounded-xl p-5">
-          <div class="text-2xl mb-1">📷</div>
-          <h3 class="font-semibold text-stone-800">Shift Capture</h3>
-          <p class="text-sm text-stone-500 mt-1">Scan the checksheet on your phone; photos of stock, kitchen &amp; waste.</p>
-        </div>
-      </div>
+    <main class="flex-1 max-w-[100rem] mx-auto w-full px-3 py-5 no-print">
 
-      <p class="text-center text-xs text-stone-400 mt-8">Production app connected &middot; build in progress</p>
+      <!-- ===== RECORDS (default) ===== -->
+      <section v-if="screen==='records'">
+        <div class="flex items-center justify-between mb-3">
+          <h1 class="text-lg font-bold text-stone-800">Production Records</h1>
+          <span class="text-xs text-stone-500">{{ runs.length }} shift(s)</span>
+        </div>
+        <div v-if="!runs.length" class="bg-white border border-dashed border-stone-300 rounded-xl p-10 text-center text-stone-500">
+          <div class="text-3xl mb-2">📋</div>
+          <p class="font-medium text-stone-700">No production runs yet.</p>
+          <p class="text-sm mt-1">Once shift capture is live, every scanned checksheet appears here — one line per shift, with true cost per pack.</p>
+        </div>
+        <div v-else class="bg-white border border-stone-200 rounded-xl overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-stone-50 text-stone-500 text-xs uppercase">
+              <tr>
+                <th class="text-left px-3 py-2">Date</th><th class="text-left px-3 py-2">Flavour</th>
+                <th class="text-left px-3 py-2">Ver</th>
+                <th class="text-right px-3 py-2">Packs</th><th class="text-right px-3 py-2">Batches</th>
+                <th class="text-right px-3 py-2">Hours</th><th class="text-right px-3 py-2">Packs/hr</th>
+                <th class="text-right px-3 py-2">Reject</th><th class="text-right px-3 py-2">Waste kg</th>
+                <th class="text-right px-3 py-2">Cost/pack</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in runs" :key="r.id" class="border-t border-stone-100 hover:bg-stone-50">
+                <td class="px-3 py-2 whitespace-nowrap">{{ fmtDate(r.run_date) }}</td>
+                <td class="px-3 py-2">{{ r.flavour }}</td>
+                <td class="px-3 py-2 text-stone-500">{{ verLabel(r.recipe_id) }}</td>
+                <td class="px-3 py-2 text-right font-medium">{{ r.output_packs }}</td>
+                <td class="px-3 py-2 text-right">{{ r.batches }}</td>
+                <td class="px-3 py-2 text-right">{{ r.hours }}</td>
+                <td class="px-3 py-2 text-right">{{ r.packs_per_hour }}</td>
+                <td class="px-3 py-2 text-right">{{ r.reject_packs }}</td>
+                <td class="px-3 py-2 text-right">{{ r.batter_waste_kg }}</td>
+                <td class="px-3 py-2 text-right font-semibold text-green-800">${{ money(r.cost_per_pack) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== RECIPES ===== -->
+      <section v-if="screen==='recipes'">
+        <h1 class="text-lg font-bold text-stone-800 mb-3">Recipes &amp; Costing</h1>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div v-for="rec in recipes" :key="rec.id" class="bg-white border border-stone-200 rounded-xl p-4">
+            <div class="flex items-start justify-between mb-2">
+              <div>
+                <h3 class="font-semibold text-stone-800">{{ rec.flavour }}</h3>
+                <span class="text-xs bg-stone-100 text-stone-600 rounded px-2 py-0.5">{{ rec.sku }} &middot; {{ rec.version_label }}</span>
+              </div>
+              <button @click="printRecipeSheet(rec)" class="text-xs border border-stone-300 rounded-lg px-2.5 py-1 hover:bg-stone-50">🖨 Print</button>
+            </div>
+            <p class="text-xs text-stone-500 mb-2">Cook {{ rec.cook_sec }}s &middot; Blend {{ rec.blend_min }}min &middot; Viscosity {{ rec.viscosity_sec }}s</p>
+            <table class="w-full text-xs">
+              <thead class="text-stone-400"><tr>
+                <th class="text-left py-1">Ingredient</th><th class="text-right">Batch g</th><th class="text-right">Half g</th>
+                <th v-if="isSupervisor" class="text-right">$/kg</th>
+              </tr></thead>
+              <tbody>
+                <tr v-for="ing in ingsFor(rec.id)" :key="ing.ingredient" class="border-t border-stone-50">
+                  <td class="py-1">{{ ing.ingredient }}</td>
+                  <td class="text-right">{{ num(ing.batch_g) }}</td>
+                  <td class="text-right text-stone-400">{{ num(ing.batch_g/2) }}</td>
+                  <td v-if="isSupervisor" class="text-right text-stone-500">{{ costKg(rec.id, ing.ingredient) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="isSupervisor && recCost(rec.id)" class="mt-2 pt-2 border-t border-stone-100 flex gap-4 text-xs">
+              <span>Batch cost <b class="text-green-800">${{ recCost(rec.id).batch_cost }}</b></span>
+              <span>Ingredient cost/pack <b class="text-green-800">${{ recCost(rec.id).cost_per_pack }}</b></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== PLANNING ===== -->
+      <section v-if="screen==='planning'" class="bg-white border border-dashed border-stone-300 rounded-xl p-10 text-center text-stone-500">
+        <div class="text-3xl mb-2">📅</div><p class="font-medium text-stone-700">Planning calendar — coming next.</p>
+        <p class="text-sm mt-1">Plan flavours &amp; pack quantities 7+ days ahead, with plan vs actual.</p>
+      </section>
+
+      <!-- ===== CAPTURE ===== -->
+      <section v-if="screen==='capture'" class="bg-white border border-dashed border-stone-300 rounded-xl p-10 text-center text-stone-500">
+        <div class="text-3xl mb-2">📷</div><p class="font-medium text-stone-700">Shift capture — coming next.</p>
+        <p class="text-sm mt-1">Scan the checksheet on your phone; photos of finished stock, kitchen &amp; waste.</p>
+      </section>
+
+      <!-- ===== SETTINGS (supervisor) ===== -->
+      <section v-if="screen==='settings' && isSupervisor">
+        <h1 class="text-lg font-bold text-stone-800 mb-3">Settings</h1>
+        <div class="bg-white border border-stone-200 rounded-xl p-4 mb-4 max-w-md">
+          <h3 class="font-semibold text-stone-700 mb-2 text-sm">Rates</h3>
+          <div v-for="rt in rates" :key="rt.key" class="flex items-center justify-between py-1.5">
+            <label class="text-sm text-stone-600">{{ rateLabel(rt.key) }}</label>
+            <div class="flex items-center gap-2">
+              <span class="text-stone-400 text-sm">$</span>
+              <input v-model="rt.value" type="number" step="0.01" class="w-24 border border-stone-300 rounded px-2 py-1 text-sm text-right">
+              <button @click="saveRate(rt)" class="text-xs bg-green-700 text-white rounded px-2 py-1">Save</button>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white border border-stone-200 rounded-xl p-4 overflow-x-auto">
+          <h3 class="font-semibold text-stone-700 mb-2 text-sm">Ingredient costs</h3>
+          <table class="w-full text-sm">
+            <thead class="text-stone-400 text-xs"><tr>
+              <th class="text-left py-1">Ingredient</th><th class="text-right">$/kg</th>
+              <th class="text-left pl-3">Supplier</th><th class="text-right">Unit kg</th><th></th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="ic in ingredients" :key="ic.ingredient" class="border-t border-stone-100">
+                <td class="py-1.5">{{ ic.ingredient }}<span v-if="ic.derived_from" class="text-stone-400 text-xs"> (= {{ ic.derived_from }} × {{ ic.derived_ratio }})</span></td>
+                <td class="text-right"><input v-if="!ic.derived_from" v-model="ic.cost_per_kg" type="number" step="0.01" class="w-20 border border-stone-300 rounded px-1 py-0.5 text-right"><span v-else class="text-stone-400">derived</span></td>
+                <td class="pl-3"><input v-model="ic.supplier" type="text" class="w-24 border border-stone-300 rounded px-1 py-0.5"></td>
+                <td class="text-right"><input v-model="ic.unit_size_kg" type="number" class="w-16 border border-stone-300 rounded px-1 py-0.5 text-right"></td>
+                <td class="text-right"><button @click="saveIngredient(ic)" class="text-xs bg-green-700 text-white rounded px-2 py-1">Save</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <p v-if="msg" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow">{{ msg }}</p>
     </main>
   </div>
+
+  <!-- PRINT AREA (line production sheet) -->
+<div id="printArea" v-if="printRec">
+  <div style="font-family:sans-serif;color:#111">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:6px">
+      <div>
+        <div style="font-size:22px;font-weight:800">WOPPLES — {{ printRec.flavour }}</div>
+        <div style="font-size:13px">SKU {{ printRec.sku }} &nbsp;|&nbsp; Recipe Version <b>{{ printRec.version_label }}</b></div>
+      </div>
+      <div style="font-size:12px;text-align:right">
+        Cook: {{ printRec.cook_sec }}s &nbsp; Blend: {{ printRec.blend_min }}min &nbsp; Viscosity: {{ printRec.viscosity_sec }}s<br>
+        Operator: __________ &nbsp; Date: __________
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:14px">
+      <thead>
+        <tr style="background:#eee">
+          <th style="border:1px solid #999;padding:5px;text-align:left">Ingredient</th>
+          <th style="border:1px solid #999;padding:5px;text-align:right">Batch (g)</th>
+          <th style="border:1px solid #999;padding:5px;text-align:right">Half (g)</th>
+          <th style="border:1px solid #999;padding:5px">Batch 1</th>
+          <th style="border:1px solid #999;padding:5px">Batch 2</th>
+          <th style="border:1px solid #999;padding:5px">Batch 3</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="ing in printIngs" :key="ing.ingredient">
+          <td style="border:1px solid #999;padding:6px;font-weight:600">{{ ing.ingredient }}</td>
+          <td style="border:1px solid #999;padding:6px;text-align:right">{{ num(ing.batch_g) }}</td>
+          <td style="border:1px solid #999;padding:6px;text-align:right;color:#555">{{ num(ing.batch_g/2) }}</td>
+          <td style="border:1px solid #999;padding:6px"></td>
+          <td style="border:1px solid #999;padding:6px"></td>
+          <td style="border:1px solid #999;padding:6px"></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size:11px;margin-top:6px;color:#555">Revivealicious Foods — production line sheet. Recipe {{ printRec.version_label }}. Print date {{ today }}.</div>
+  </div>
+</div>
 </div>
 
 <script>
-  const { createApp, ref, computed, onMounted } = Vue;
+  const { createApp, ref, computed, onMounted, nextTick } = Vue;
   const { createClient } = supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'production' } });
   const portal = createClient(PORTAL_URL, PORTAL_ANON);
 
   createApp({
     setup(){
-      const ready = ref(false), gateError = ref(''), me = ref(''), isAdmin = ref(false), role = ref('operator');
-      const isSupervisor = computed(()=> isAdmin.value || role.value === 'supervisor');
-      const roleLabel = computed(()=> isAdmin.value ? 'Administrator' : (role.value === 'supervisor' ? 'Supervisor' : 'Operator'));
+      const ready=ref(false), gateError=ref(''), me=ref(''), isAdmin=ref(false), role=ref('operator');
+      const screen=ref('records'), msg=ref('');
+      const recipes=ref([]), recipeIngs=ref({}), runs=ref([]);
+      const ingredients=ref([]), rates=ref([]), recipeCosts=ref({});
+      const printRec=ref(null), printIngs=ref([]);
+      const today=new Date().toISOString().slice(0,10);
 
-      onMounted(async ()=>{
-        const { data:{ session:p } } = await portal.auth.getSession();
-        if(!p){ window.location.href = '/'; return; }
-        me.value = p.user.email || '';
-
-        let allowed = false;
-        const { data:prof } = await portal.from('profiles').select('is_admin, full_name').eq('id', p.user.id).single();
-        if(prof && prof.full_name) me.value = prof.full_name;
-        if(prof && prof.is_admin){ allowed = true; isAdmin.value = true; }
-        else {
-          const { data:acc } = await portal.from('user_app_access').select('app_id, role').eq('user_id', p.user.id).eq('app_id', 'production');
-          if(acc && acc.length){ allowed = true; role.value = acc[0].role || 'operator'; }
-        }
-        if(!allowed){ window.location.href = '/?denied=production'; return; }
-
-        try{
-          const r = await fetch('/.netlify/functions/production-session', { method:'POST', headers:{ 'Authorization':'Bearer '+p.access_token } });
-          if(!r.ok) throw new Error('session');
-          const s = await r.json();
-          await sb.auth.setSession({ access_token:s.access_token, refresh_token:s.refresh_token });
-        }catch(e){ gateError.value = 'Could not open the production database. Please reload.'; ready.value = true; return; }
-
-        ready.value = true;
+      const isSupervisor=computed(()=> isAdmin.value || role.value==='supervisor');
+      const roleLabel=computed(()=> isAdmin.value?'Administrator':(role.value==='supervisor'?'Supervisor':'Operator'));
+      const tabs=computed(()=>{
+        const t=[{id:'records',label:'Records'},{id:'recipes',label:'Recipes'},{id:'planning',label:'Planning'},{id:'capture',label:'Capture'}];
+        if(isSupervisor.value) t.push({id:'settings',label:'Settings'});
+        return t;
       });
 
-      return { ready, gateError, me, isAdmin, role, isSupervisor, roleLabel };
+      function fmtDate(d){ if(!d) return ''; const x=new Date(d); return x.toLocaleDateString('en-NZ',{day:'2-digit',month:'short',year:'2-digit'}); }
+      function num(n){ return (n==null)?'':Math.round(Number(n)).toLocaleString(); }
+      function money(n){ return (n==null)?'—':Number(n).toFixed(2); }
+      function ingsFor(id){ return (recipeIngs.value[id]||[]); }
+      function verLabel(id){ const r=recipes.value.find(r=>r.id===id); return r?r.version_label:''; }
+      function recCost(id){ return recipeCosts.value[id]||null; }
+      function costKg(id,ing){ const c=recCost(id); if(!c) return ''; const l=c.lines.find(x=>x.ingredient===ing); return l?('$'+l.cost_per_kg):''; }
+      function rateLabel(k){ return ({labour_rate:'Labour rate / hour',pack_cost:'Packaging / pack',power_cost:'Power / pack'})[k]||k; }
+
+      async function portalToken(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
+      async function callData(payload){
+        const r=await fetch('/.netlify/functions/production-data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await portalToken()},body:JSON.stringify(payload)});
+        if(!r.ok) throw new Error('request failed'); return r.json();
+      }
+
+      function printRecipeSheet(rec){ printRec.value=rec; printIngs.value=ingsFor(rec.id); nextTick(()=>{ window.print(); }); }
+
+      async function saveRate(rt){ try{ await callData({action:'save_rate',key:rt.key,value:rt.value}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
+      async function saveIngredient(ic){ try{ await callData({action:'save_ingredient',ingredient:ic.ingredient,cost_per_kg:ic.cost_per_kg,supplier:ic.supplier,unit_size_kg:ic.unit_size_kg}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
+      function flash(t){ msg.value=t; setTimeout(()=>msg.value='',1800); }
+
+      async function loadRecipes(){
+        const { data:recs }=await sb.from('recipe').select('id,sku,flavour,version_label,cook_sec,blend_min,viscosity_sec,g_per_waffle').eq('active',true).order('sku');
+        recipes.value=recs||[];
+        const { data:ings }=await sb.from('recipe_ingredient').select('recipe_id,ingredient,batch_g,sort').order('sort');
+        const map={}; (ings||[]).forEach(i=>{ (map[i.recipe_id]=map[i.recipe_id]||[]).push(i); }); recipeIngs.value=map;
+      }
+      async function loadRuns(){ const { data }=await sb.from('production_run').select('*').order('run_date',{ascending:false}); runs.value=data||[]; }
+      async function loadSupervisor(){
+        if(!isSupervisor.value) return;
+        try{
+          const p=await callData({action:'get_pricing'}); ingredients.value=p.ingredients||[]; rates.value=p.rates||[];
+          const c=await callData({action:'get_recipe_costs'}); const m={}; (c.recipes||[]).forEach(x=>{ m[x.id]=x; }); recipeCosts.value=m;
+        }catch(e){}
+      }
+
+      onMounted(async()=>{
+        const { data:{ session:p } }=await portal.auth.getSession();
+        if(!p){ window.location.href='/'; return; }
+        me.value=p.user.email||'';
+        let allowed=false;
+        const { data:prof }=await portal.from('profiles').select('is_admin, full_name').eq('id',p.user.id).single();
+        if(prof&&prof.full_name) me.value=prof.full_name;
+        if(prof&&prof.is_admin){ allowed=true; isAdmin.value=true; }
+        else{ const { data:acc }=await portal.from('user_app_access').select('app_id, role').eq('user_id',p.user.id).eq('app_id','production'); if(acc&&acc.length){ allowed=true; role.value=acc[0].role||'operator'; } }
+        if(!allowed){ window.location.href='/?denied=production'; return; }
+        try{
+          const r=await fetch('/.netlify/functions/production-session',{method:'POST',headers:{'Authorization':'Bearer '+p.access_token}});
+          if(!r.ok) throw new Error('session'); const s=await r.json();
+          await sb.auth.setSession({access_token:s.access_token,refresh_token:s.refresh_token});
+        }catch(e){ gateError.value='Could not open the production database. Please reload.'; ready.value=true; return; }
+        await loadRecipes(); await loadRuns(); await loadSupervisor();
+        ready.value=true;
+      });
+
+      return { ready,gateError,me,isAdmin,role,isSupervisor,roleLabel,screen,tabs,msg,
+        recipes,runs,ingredients,rates,printRec,printIngs,today,
+        fmtDate,num,money,ingsFor,verLabel,recCost,costKg,rateLabel,
+        printRecipeSheet,saveRate,saveIngredient };
     }
   }).mount('#app');
 </script>
