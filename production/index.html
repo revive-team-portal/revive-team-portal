@@ -10,93 +10,61 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     [v-cloak]{display:none}
-    ::-webkit-scrollbar{width:9px;height:9px}
-    ::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
+    ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
     #printArea{display:none}
-    @media print{
-      body *{visibility:hidden}
-      #printArea,#printArea *{visibility:visible}
-      #printArea{display:block;visibility:visible;position:absolute;left:0;top:0;width:100%;padding:16px}
-      .no-print{display:none !important}
-    }
+    @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible} #printArea{display:block;visibility:visible;position:absolute;left:0;top:0;width:100%;padding:16px} .no-print{display:none !important} }
   </style>
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
 
 <script>
-  const SUPABASE_URL    = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
-  const SUPABASE_ANON   = 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
-  const PORTAL_URL      = 'https://zpcbtfdjcsbdeqnizrpr.supabase.co';
-  const PORTAL_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+  const SUPABASE_URL='https://xcwrawjdfajlmbkdwlbm.supabase.co';
+  const SUPABASE_ANON='sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
 </script>
 
-<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 text-white bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-yellow-100 bg-yellow-50 border-yellow-300 ring-yellow-400 bg-sky-100 text-sky-700"></div>
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 bg-stone-50 bg-emerald-100 text-emerald-700 bg-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 text-white bg-amber-100 text-amber-700 bg-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 bg-red-50 bg-yellow-100 bg-yellow-50 border-yellow-300 bg-sky-100 text-sky-700 bg-indigo-50 text-indigo-700"></div>
 
 <div id="app" v-cloak>
 
-  <!-- GATE -->
   <div v-if="!ready" class="min-h-screen flex items-center justify-center relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
     <div class="absolute inset-0 bg-black/40"></div>
     <div class="text-center relative z-10">
       <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
       <p v-if="!gateError" class="text-white/90 text-sm">Loading Production…</p>
-      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
-        <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
-        <a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a>
-      </div>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
     </div>
   </div>
 
   <div v-else class="min-h-screen flex flex-col">
     <nav class="text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow no-print" style="background:#15803d">
-      <div class="flex items-center gap-2">
-        <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
-        <span class="text-white/90 text-sm hidden sm:inline font-medium">Production</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ roleLabel }}</span>
-        <span class="text-white/80 text-xs hidden md:inline">{{ me }}</span>
-        <a href="/" class="text-white/80 hover:text-white text-xs">Portal</a>
-      </div>
+      <div class="flex items-center gap-2"><img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods"><span class="text-white/90 text-sm hidden sm:inline font-medium">Production</span></div>
+      <div class="flex items-center gap-3"><span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ roleLabel }}</span><span class="text-white/80 text-xs hidden md:inline">{{ me }}</span><a href="/" class="text-white/80 hover:text-white text-xs">Portal</a></div>
     </nav>
 
     <div class="bg-white border-b border-stone-200 px-3 py-2 flex flex-wrap gap-2 no-print sticky top-[44px] z-30">
-      <button v-for="t in tabs" :key="t.id" @click="screen=t.id"
-        class="text-sm font-medium px-3 py-1.5 rounded-lg border"
-        :class="screen===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">
-        {{ t.label }}
-      </button>
+      <button v-for="t in tabs" :key="t.id" @click="screen=t.id" class="text-sm font-medium px-3 py-1.5 rounded-lg border" :class="screen===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">{{ t.label }}</button>
     </div>
 
     <main class="flex-1 max-w-[100rem] mx-auto w-full px-3 py-5 no-print">
 
-      <!-- ===== RECORDS ===== -->
+      <!-- RECORDS -->
       <section v-if="screen==='records'">
         <div class="flex items-center justify-between mb-3">
           <h1 class="text-lg font-bold text-stone-800">Production Records</h1>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-stone-500">{{ runs.length }} shift(s)</span>
-            <button @click="screen='capture'" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ New shift</button>
-          </div>
+          <div class="flex items-center gap-2"><span class="text-xs text-stone-500">{{ runs.length }} shift(s)</span><button @click="screen='capture'" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ New shift</button></div>
         </div>
-        <div v-if="!runs.length" class="bg-white border border-dashed border-stone-300 rounded-xl p-10 text-center text-stone-500">
-          <div class="text-3xl mb-2">📋</div>
-          <p class="font-medium text-stone-700">No production runs yet.</p>
-          <p class="text-sm mt-1">Use <b>+ New shift</b> to record one, or scan a checksheet once capture-by-photo is live.</p>
-        </div>
+        <div v-if="!runs.length" class="bg-white border border-dashed border-stone-300 rounded-xl p-10 text-center text-stone-500"><div class="text-3xl mb-2">📋</div><p class="font-medium text-stone-700">No production runs yet.</p></div>
         <div v-else class="bg-white border border-stone-200 rounded-xl overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-stone-50 text-stone-500 text-xs uppercase">
-              <tr>
-                <th class="text-left px-3 py-2">Date</th><th class="text-left px-3 py-2">Flavour</th><th class="text-left px-3 py-2">Ver</th>
-                <th class="text-right px-3 py-2">Packs</th><th class="text-right px-3 py-2">Batches</th>
-                <th class="text-right px-3 py-2">Hours</th><th class="text-right px-3 py-2">Packs/hr</th>
-                <th class="text-right px-3 py-2">Reject</th><th class="text-right px-3 py-2">Waste kg</th>
-                <th class="text-right px-3 py-2">Cost/pack</th>
-              </tr>
-            </thead>
+            <thead class="bg-stone-50 text-stone-500 text-xs uppercase"><tr>
+              <th class="text-left px-3 py-2">Date</th><th class="text-left px-3 py-2">Flavour</th><th class="text-left px-3 py-2">Ver</th>
+              <th class="text-right px-3 py-2">Packs</th><th class="text-right px-3 py-2">Batches</th><th class="text-right px-3 py-2">Hours</th>
+              <th class="text-right px-3 py-2">Packs/hr</th><th class="text-right px-3 py-2">g/waffle</th><th class="text-right px-3 py-2">Cost/pack</th><th></th>
+            </tr></thead>
             <tbody>
-              <tr v-for="r in runs" :key="r.id" class="border-t border-stone-100 hover:bg-stone-50">
+              <tr v-for="r in runs" :key="r.id" class="border-t border-stone-100 hover:bg-stone-50 cursor-pointer" @click="openDetail(r)">
                 <td class="px-3 py-2 whitespace-nowrap">{{ fmtDate(r.run_date) }}</td>
                 <td class="px-3 py-2">{{ r.flavour }}</td>
                 <td class="px-3 py-2 text-stone-500">{{ verLabel(r.recipe_id) }}</td>
@@ -104,28 +72,23 @@
                 <td class="px-3 py-2 text-right">{{ r.batches }}</td>
                 <td class="px-3 py-2 text-right">{{ r.hours }}</td>
                 <td class="px-3 py-2 text-right">{{ r.packs_per_hour }}</td>
-                <td class="px-3 py-2 text-right">{{ r.reject_packs }}</td>
-                <td class="px-3 py-2 text-right">{{ r.batter_waste_kg }}</td>
+                <td class="px-3 py-2 text-right" :class="yieldClass(r)">{{ effYield(r) }}</td>
                 <td class="px-3 py-2 text-right font-semibold text-green-800">${{ money(r.cost_per_pack) }}</td>
+                <td class="px-3 py-2 text-right text-stone-300">›</td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <!-- ===== CAPTURE ===== -->
+      <!-- CAPTURE -->
       <section v-if="screen==='capture'" class="max-w-xl">
         <h1 class="text-lg font-bold text-stone-800 mb-1">Record a shift</h1>
-        <p class="text-sm text-stone-500 mb-4">Enter the key numbers from the checksheet. Cost per pack is calculated automatically. (Photo scan coming next.)</p>
+        <p class="text-sm text-stone-500 mb-4">Enter the key numbers from the checksheet. Cost per pack is calculated automatically.</p>
         <div class="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
           <div class="grid grid-cols-2 gap-3">
             <label class="text-sm">Date<input v-model="cap.run_date" type="date" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
-            <label class="text-sm">Flavour
-              <select v-model="cap.flavour" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5 bg-white">
-                <option value="">Select…</option>
-                <option v-for="r in recipes" :key="r.id" :value="r.flavour">{{ r.flavour }} ({{ r.version_label }})</option>
-              </select>
-            </label>
+            <label class="text-sm">Flavour<select v-model="cap.flavour" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5 bg-white"><option value="">Select…</option><option v-for="r in recipes" :key="r.id" :value="r.flavour">{{ r.flavour }}</option></select></label>
             <label class="text-sm">Output packs<input v-model.number="cap.output_packs" type="number" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
             <label class="text-sm">Batches<input v-model.number="cap.batches" type="number" step="0.5" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
             <label class="text-sm">Hours<input v-model.number="cap.hours" type="number" step="0.25" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
@@ -134,138 +97,143 @@
             <label class="text-sm">Packaging version<input v-model="cap.packaging_version" type="text" placeholder="e.g. WOP-SP-V3" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
           </div>
           <label class="text-sm block">Notes<textarea v-model="cap.notes" rows="2" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></textarea></label>
-          <p v-if="capErr" class="text-sm text-red-600">{{ capErr }}</p>
-          <div class="flex justify-end gap-2">
-            <button @click="screen='records'" class="text-sm px-3 py-1.5 rounded-lg border border-stone-300">Cancel</button>
-            <button @click="saveCapture" :disabled="capSaving" class="text-sm bg-green-700 text-white px-4 py-1.5 rounded-lg disabled:opacity-50">{{ capSaving ? 'Saving…' : 'Save shift' }}</button>
+          <div class="border-t border-stone-100 pt-3">
+            <p class="text-sm font-semibold text-stone-700 mb-2">Verification checks</p>
+            <div class="space-y-1.5">
+              <div v-for="c in checkDefs" :key="c.key" class="flex items-center justify-between text-sm">
+                <span class="text-stone-600">{{ c.label }}</span>
+                <span class="flex items-center gap-3 text-xs">
+                  <label class="flex items-center gap-1"><input type="checkbox" v-model="cap.verification[c.key+'_done']"> Done</label>
+                  <label class="flex items-center gap-1"><input type="checkbox" v-model="cap.verification[c.key+'_verified']"> Verified</label>
+                </span>
+              </div>
+            </div>
           </div>
+          <p v-if="capErr" class="text-sm text-red-600">{{ capErr }}</p>
+          <div class="flex justify-end gap-2"><button @click="screen='records'" class="text-sm px-3 py-1.5 rounded-lg border border-stone-300">Cancel</button><button @click="saveCapture" :disabled="capSaving" class="text-sm bg-green-700 text-white px-4 py-1.5 rounded-lg disabled:opacity-50">{{ capSaving ? 'Saving…' : 'Save shift' }}</button></div>
         </div>
       </section>
 
-      <!-- ===== RECIPES ===== -->
+      <!-- RECIPES -->
       <section v-if="screen==='recipes'">
         <h1 class="text-lg font-bold text-stone-800 mb-3">Recipes &amp; Costing</h1>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div v-for="rec in recipes" :key="rec.id" class="bg-white border border-stone-200 rounded-xl p-4">
-            <div class="flex items-start justify-between mb-2">
-              <div><h3 class="font-semibold text-stone-800">{{ rec.flavour }}</h3>
-                <span class="text-xs bg-stone-100 text-stone-600 rounded px-2 py-0.5">{{ rec.sku }} &middot; {{ rec.version_label }}</span></div>
-              <button @click="printRecipeSheet(rec)" class="text-xs border border-stone-300 rounded-lg px-2.5 py-1 hover:bg-stone-50">🖨 Print</button>
-            </div>
+            <div class="flex items-start justify-between mb-2"><div><h3 class="font-semibold text-stone-800">{{ rec.flavour }}</h3><span class="text-xs bg-stone-100 text-stone-600 rounded px-2 py-0.5">{{ rec.sku }} &middot; {{ rec.version_label }}</span></div><button @click="printRecipeSheet(rec)" class="text-xs border border-stone-300 rounded-lg px-2.5 py-1 hover:bg-stone-50">🖨 Print</button></div>
             <p class="text-xs text-stone-500 mb-2">Cook {{ rec.cook_sec }}s &middot; Blend {{ rec.blend_min }}min &middot; Viscosity {{ rec.viscosity_sec }}s</p>
-            <table class="w-full text-xs">
-              <thead class="text-stone-400"><tr><th class="text-left py-1">Ingredient</th><th class="text-right">Batch g</th><th class="text-right">Half g</th><th v-if="isSupervisor" class="text-right">$/kg</th></tr></thead>
-              <tbody>
-                <tr v-for="ing in ingsFor(rec.id)" :key="ing.ingredient" class="border-t border-stone-50">
-                  <td class="py-1">{{ ing.ingredient }}</td>
-                  <td class="text-right">{{ num(ing.batch_g) }}</td>
-                  <td class="text-right text-stone-400">{{ num(ing.batch_g/2) }}</td>
-                  <td v-if="isSupervisor" class="text-right text-stone-500">{{ costKg(rec.id, ing.ingredient) }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div v-if="isSupervisor && recCost(rec.id)" class="mt-2 pt-2 border-t border-stone-100 flex gap-4 text-xs">
-              <span>Batch cost <b class="text-green-800">${{ recCost(rec.id).batch_cost }}</b></span>
-              <span>Ingredient cost/pack <b class="text-green-800">${{ recCost(rec.id).cost_per_pack }}</b></span>
-            </div>
+            <table class="w-full text-xs"><thead class="text-stone-400"><tr><th class="text-left py-1">Ingredient</th><th class="text-right">Batch g</th><th class="text-right">Half g</th><th v-if="isSupervisor" class="text-right">$/kg</th></tr></thead>
+              <tbody><tr v-for="ing in ingsFor(rec.id)" :key="ing.ingredient" class="border-t border-stone-50"><td class="py-1">{{ ing.ingredient }}</td><td class="text-right">{{ num(ing.batch_g) }}</td><td class="text-right text-stone-400">{{ num(ing.batch_g/2) }}</td><td v-if="isSupervisor" class="text-right text-stone-500">{{ costKg(rec.id, ing.ingredient) }}</td></tr></tbody></table>
+            <div v-if="isSupervisor && recCost(rec.id)" class="mt-2 pt-2 border-t border-stone-100 flex gap-4 text-xs"><span>Batch cost <b class="text-green-800">${{ recCost(rec.id).batch_cost }}</b></span><span>Ingredient cost/pack <b class="text-green-800">${{ recCost(rec.id).cost_per_pack }}</b></span></div>
           </div>
         </div>
-        <p class="text-xs text-stone-400 mt-3">Recipe editing (new versions + costings) is coming next.</p>
+        <p class="text-xs text-stone-400 mt-3">Recipe editing (new version on each change) is the next feature.</p>
       </section>
 
-      <!-- ===== PLANNING ===== -->
+      <!-- PLANNING (editable spreadsheet) -->
       <section v-if="screen==='planning'">
-        <div class="flex items-center justify-between mb-3">
-          <h1 class="text-lg font-bold text-stone-800">Planning — next 14 days</h1>
-        </div>
-        <div v-if="isSupervisor" class="bg-white border border-stone-200 rounded-xl p-3 mb-4 flex flex-wrap items-end gap-2">
-          <label class="text-sm">Date<input v-model="planForm.plan_date" type="date" class="mt-1 block border border-stone-300 rounded px-2 py-1.5"></label>
-          <label class="text-sm">Flavour
-            <select v-model="planForm.flavour" class="mt-1 block border border-stone-300 rounded px-2 py-1.5 bg-white">
-              <option value="">Select…</option>
-              <option v-for="r in recipes" :key="r.id" :value="r.flavour">{{ r.flavour }}</option>
-            </select>
-          </label>
-          <label class="text-sm">Planned packs<input v-model.number="planForm.planned_packs" type="number" class="mt-1 block w-28 border border-stone-300 rounded px-2 py-1.5"></label>
-          <button @click="savePlan" class="text-sm bg-green-700 text-white px-3 py-1.5 rounded-lg">Add to plan</button>
-        </div>
-        <div class="space-y-2">
-          <div v-for="d in planDays" :key="d.date" class="bg-white border border-stone-200 rounded-xl px-3 py-2">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium" :class="d.isToday ? 'text-green-700' : 'text-stone-700'">{{ d.label }}<span v-if="d.isToday" class="text-xs ml-1">(today)</span></span>
-              <span class="text-xs text-stone-400" v-if="!d.items.length">—</span>
-            </div>
-            <div v-for="it in d.items" :key="it.key" class="flex items-center justify-between text-sm mt-1 pl-1">
-              <span>{{ it.flavour }}</span>
-              <span class="flex items-center gap-3">
-                <span class="text-stone-500">plan <b>{{ it.planned }}</b></span>
-                <span :class="it.actual>0 ? 'text-green-700' : 'text-stone-300'">actual <b>{{ it.actual }}</b></span>
-                <span v-if="it.actual>0" class="text-xs px-1.5 rounded" :class="it.actual>=it.planned ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">{{ it.actual-it.planned>=0 ? '+' : '' }}{{ it.actual-it.planned }}</span>
-                <button v-if="isSupervisor && it.planId" @click="delPlan(it.planId)" class="text-stone-300 hover:text-red-500 text-xs">✕</button>
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ===== SETTINGS ===== -->
-      <section v-if="screen==='settings' && isSupervisor">
-        <h1 class="text-lg font-bold text-stone-800 mb-3">Settings</h1>
-        <p v-if="supErr" class="text-sm text-red-600 mb-3 bg-red-50 border border-red-200 rounded p-2">Couldn't load pricing: {{ supErr }}</p>
-        <div class="bg-white border border-stone-200 rounded-xl p-4 mb-4 max-w-md">
-          <h3 class="font-semibold text-stone-700 mb-2 text-sm">Rates</h3>
-          <div v-for="rt in rates" :key="rt.key" class="flex items-center justify-between py-1.5">
-            <label class="text-sm text-stone-600">{{ rateLabel(rt.key) }}</label>
-            <div class="flex items-center gap-2"><span class="text-stone-400 text-sm">$</span>
-              <input v-model="rt.value" type="number" step="0.01" class="w-24 border border-stone-300 rounded px-2 py-1 text-sm text-right">
-              <button @click="saveRate(rt)" class="text-xs bg-green-700 text-white rounded px-2 py-1">Save</button>
-            </div>
-          </div>
-          <p v-if="!rates.length && !supErr" class="text-sm text-stone-400">Loading…</p>
-        </div>
-        <div class="bg-white border border-stone-200 rounded-xl p-4 overflow-x-auto">
-          <h3 class="font-semibold text-stone-700 mb-2 text-sm">Ingredient costs</h3>
+        <h1 class="text-lg font-bold text-stone-800 mb-3">Production Plan</h1>
+        <div class="bg-white border border-stone-200 rounded-xl overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="text-stone-400 text-xs"><tr><th class="text-left py-1">Ingredient</th><th class="text-right">$/kg</th><th class="text-left pl-3">Supplier</th><th class="text-right">Unit kg</th><th></th></tr></thead>
+            <thead class="bg-stone-50 text-stone-500 text-xs uppercase"><tr>
+              <th class="text-left px-2 py-2">Date</th><th class="text-left px-2 py-2">Flavour</th>
+              <th class="text-right px-2 py-2">Planned</th><th class="text-right px-2 py-2">Actual</th>
+              <th class="text-left px-2 py-2">Notes</th><th></th>
+            </tr></thead>
             <tbody>
-              <tr v-for="ic in ingredients" :key="ic.ingredient" class="border-t border-stone-100">
-                <td class="py-1.5">{{ ic.ingredient }}<span v-if="ic.derived_from" class="text-stone-400 text-xs"> (= {{ ic.derived_from }} × {{ ic.derived_ratio }})</span></td>
-                <td class="text-right"><input v-if="!ic.derived_from" v-model="ic.cost_per_kg" type="number" step="0.01" class="w-20 border border-stone-300 rounded px-1 py-0.5 text-right"><span v-else class="text-stone-400">derived</span></td>
-                <td class="pl-3"><input v-model="ic.supplier" type="text" class="w-24 border border-stone-300 rounded px-1 py-0.5"></td>
-                <td class="text-right"><input v-model="ic.unit_size_kg" type="number" class="w-16 border border-stone-300 rounded px-1 py-0.5 text-right"></td>
-                <td class="text-right"><button @click="saveIngredient(ic)" class="text-xs bg-green-700 text-white rounded px-2 py-1">Save</button></td>
+              <tr v-for="p in plans" :key="p.id" class="border-t border-stone-100">
+                <td class="px-2 py-1"><input v-if="isSupervisor" v-model="p.plan_date" type="date" @change="savePlanRow(p)" class="border border-transparent hover:border-stone-300 rounded px-1 py-0.5 text-sm"><span v-else>{{ fmtDate(p.plan_date) }}</span></td>
+                <td class="px-2 py-1"><select v-if="isSupervisor" v-model="p.flavour" @change="savePlanRow(p)" class="border border-transparent hover:border-stone-300 rounded px-1 py-0.5 bg-white text-sm"><option v-for="r in recipes" :key="r.id" :value="r.flavour">{{ r.flavour }}</option></select><span v-else>{{ p.flavour }}</span></td>
+                <td class="px-2 py-1 text-right"><input v-if="isSupervisor" v-model.number="p.planned_packs" type="number" @change="savePlanRow(p)" class="w-20 border border-stone-200 rounded px-1 py-0.5 text-right"><span v-else>{{ p.planned_packs }}</span></td>
+                <td class="px-2 py-1 text-right" :class="planActual(p)>0 ? 'text-green-700 font-medium' : 'text-stone-300'">{{ planActual(p) }}</td>
+                <td class="px-2 py-1"><input v-if="isSupervisor" v-model="p.notes" type="text" placeholder="recipe / ingredient changes…" @change="savePlanRow(p)" class="w-full border border-transparent hover:border-stone-300 rounded px-1 py-0.5 text-sm"><span v-else class="text-stone-500">{{ p.notes }}</span></td>
+                <td class="px-2 py-1 text-right"><button v-if="isSupervisor" @click="delPlan(p.id)" class="text-stone-300 hover:text-red-500">✕</button></td>
+              </tr>
+              <tr v-if="isSupervisor" class="border-t border-stone-200 bg-stone-50">
+                <td class="px-2 py-1.5"><input v-model="planForm.plan_date" type="date" class="border border-stone-300 rounded px-1 py-0.5 text-sm"></td>
+                <td class="px-2 py-1.5"><select v-model="planForm.flavour" class="border border-stone-300 rounded px-1 py-0.5 bg-white text-sm"><option value="">Flavour…</option><option v-for="r in recipes" :key="r.id" :value="r.flavour">{{ r.flavour }}</option></select></td>
+                <td class="px-2 py-1.5 text-right"><input v-model.number="planForm.planned_packs" type="number" class="w-20 border border-stone-300 rounded px-1 py-0.5 text-right"></td>
+                <td></td>
+                <td class="px-2 py-1.5"><input v-model="planForm.notes" type="text" placeholder="notes…" class="w-full border border-stone-300 rounded px-1 py-0.5 text-sm"></td>
+                <td class="px-2 py-1.5 text-right"><button @click="addPlan" class="text-xs bg-green-700 text-white rounded px-2 py-1">Add</button></td>
               </tr>
             </tbody>
           </table>
+          <p v-if="!plans.length && !isSupervisor" class="text-sm text-stone-400 p-4">No plan set.</p>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section v-if="screen==='settings' && isSupervisor">
+        <h1 class="text-lg font-bold text-stone-800 mb-3">Settings</h1>
+        <p v-if="supErr" class="text-sm text-red-600 mb-3 bg-red-50 border border-red-200 rounded p-2">Couldn't load pricing: {{ supErr }}</p>
+        <div class="bg-white border border-stone-200 rounded-xl p-4 mb-4 max-w-md"><h3 class="font-semibold text-stone-700 mb-2 text-sm">Rates</h3>
+          <div v-for="rt in rates" :key="rt.key" class="flex items-center justify-between py-1.5"><label class="text-sm text-stone-600">{{ rateLabel(rt.key) }}</label><div class="flex items-center gap-2"><span class="text-stone-400 text-sm">$</span><input v-model="rt.value" type="number" step="0.01" class="w-24 border border-stone-300 rounded px-2 py-1 text-sm text-right"><button @click="saveRate(rt)" class="text-xs bg-green-700 text-white rounded px-2 py-1">Save</button></div></div>
+          <p v-if="!rates.length && !supErr" class="text-sm text-stone-400">Loading…</p>
+        </div>
+        <div class="bg-white border border-stone-200 rounded-xl p-4 overflow-x-auto"><h3 class="font-semibold text-stone-700 mb-2 text-sm">Ingredient costs</h3>
+          <table class="w-full text-sm"><thead class="text-stone-400 text-xs"><tr><th class="text-left py-1">Ingredient</th><th class="text-right">$/kg</th><th class="text-left pl-3">Supplier</th><th class="text-right">Unit kg</th><th></th></tr></thead>
+            <tbody><tr v-for="ic in ingredients" :key="ic.ingredient" class="border-t border-stone-100"><td class="py-1.5">{{ ic.ingredient }}<span v-if="ic.derived_from" class="text-stone-400 text-xs"> (= {{ ic.derived_from }} × {{ ic.derived_ratio }})</span></td><td class="text-right"><input v-if="!ic.derived_from" v-model="ic.cost_per_kg" type="number" step="0.01" class="w-20 border border-stone-300 rounded px-1 py-0.5 text-right"><span v-else class="text-stone-400">derived</span></td><td class="pl-3"><input v-model="ic.supplier" type="text" class="w-24 border border-stone-300 rounded px-1 py-0.5"></td><td class="text-right"><input v-model="ic.unit_size_kg" type="number" class="w-16 border border-stone-300 rounded px-1 py-0.5 text-right"></td><td class="text-right"><button @click="saveIngredient(ic)" class="text-xs bg-green-700 text-white rounded px-2 py-1">Save</button></td></tr></tbody></table>
           <p v-if="!ingredients.length && !supErr" class="text-sm text-stone-400 mt-2">Loading…</p>
         </div>
       </section>
 
-      <p v-if="msg" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow">{{ msg }}</p>
+      <p v-if="msg" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow z-50">{{ msg }}</p>
     </main>
 
-    <!-- PRINT AREA (simple line recipe) -->
+    <!-- RUN DETAIL MODAL -->
+    <div v-if="detail" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto no-print" @click.self="detail=null">
+      <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full my-6">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-stone-100">
+          <div><h2 class="font-bold text-stone-800">{{ detail.flavour }} — {{ fmtDate(detail.run_date) }}</h2><span class="text-xs text-stone-500">{{ verLabel(detail.recipe_id) }} · {{ detail.packaging_version || 'no pkg version' }}</span></div>
+          <button @click="detail=null" class="text-stone-400 hover:text-stone-700 text-xl">×</button>
+        </div>
+        <div class="p-5 space-y-4">
+          <div class="grid grid-cols-3 gap-2 text-sm">
+            <div class="bg-stone-50 rounded-lg p-2"><div class="text-xs text-stone-400">Packs</div><div class="font-semibold">{{ detail.output_packs }}</div></div>
+            <div class="bg-stone-50 rounded-lg p-2"><div class="text-xs text-stone-400">Batches</div><div class="font-semibold">{{ detail.batches }}</div></div>
+            <div class="bg-stone-50 rounded-lg p-2"><div class="text-xs text-stone-400">Hours</div><div class="font-semibold">{{ detail.hours }}</div></div>
+            <div class="bg-stone-50 rounded-lg p-2"><div class="text-xs text-stone-400">Packs/hr</div><div class="font-semibold">{{ detail.packs_per_hour }}</div></div>
+            <div class="bg-stone-50 rounded-lg p-2"><div class="text-xs text-stone-400">Reject</div><div class="font-semibold">{{ detail.reject_packs }}</div></div>
+            <div class="bg-stone-50 rounded-lg p-2"><div class="text-xs text-stone-400">Waste kg</div><div class="font-semibold">{{ detail.batter_waste_kg }}</div></div>
+          </div>
+
+          <div class="bg-indigo-50 rounded-lg p-3">
+            <div class="text-xs font-semibold text-indigo-700 mb-1">Batch utilisation</div>
+            <div class="grid grid-cols-2 gap-1 text-sm">
+              <span class="text-stone-500">Waffles made</span><span class="text-right font-medium">{{ util.waffles }}</span>
+              <span class="text-stone-500">Batter used</span><span class="text-right font-medium">{{ util.batterKg }} kg</span>
+              <span class="text-stone-500">Effective yield</span><span class="text-right font-medium">{{ util.effYield }} g/waffle</span>
+              <span class="text-stone-500">Recipe target</span><span class="text-right text-stone-500">{{ util.target }} g/waffle</span>
+              <span class="text-stone-500">Variance</span><span class="text-right font-medium" :class="util.variance>0 ? 'text-amber-600' : 'text-green-700'">{{ util.variance>0?'+':'' }}{{ util.variance }} g/waffle</span>
+            </div>
+          </div>
+
+          <div v-if="isSupervisor && detail.cost_per_pack" class="flex gap-4 text-sm px-1"><span class="text-stone-500">Cost/pack <b class="text-green-800">${{ money(detail.cost_per_pack) }}</b></span><span class="text-stone-500">Total <b class="text-green-800">${{ money(detail.total_cost) }}</b></span></div>
+
+          <div class="bg-stone-50 rounded-lg p-3">
+            <div class="text-xs font-semibold text-stone-600 mb-1.5">Verification</div>
+            <div v-for="c in checkDefs" :key="c.key" class="flex items-center justify-between text-sm py-0.5">
+              <span class="text-stone-600">{{ c.label }}</span>
+              <span class="text-xs flex gap-2"><span :class="vget(detail,c.key,'done')?'text-green-600':'text-stone-300'">✓ Done</span><span :class="vget(detail,c.key,'verified')?'text-green-600':'text-stone-300'">✓ Verified</span></span>
+            </div>
+          </div>
+
+          <div class="border border-indigo-100 rounded-lg p-3">
+            <div class="text-xs font-semibold text-indigo-700 mb-1">AI commentary</div>
+            <p v-if="aiLoading" class="text-sm text-stone-400">Checking the report…</p>
+            <div v-else class="text-sm text-stone-700 whitespace-pre-line">{{ aiText || 'No commentary.' }}</div>
+          </div>
+
+          <div v-if="detail.notes" class="text-sm text-stone-600"><span class="text-xs text-stone-400">Notes:</span> {{ detail.notes }}</div>
+        </div>
+      </div>
+    </div>
+
     <div id="printArea" v-if="printRec">
       <div style="font-family:sans-serif;color:#111">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:6px">
-          <div><div style="font-size:24px;font-weight:800">WOPPLES — {{ printRec.flavour }}</div>
-            <div style="font-size:13px">SKU {{ printRec.sku }} &nbsp;|&nbsp; Recipe Version <b>{{ printRec.version_label }}</b></div></div>
-          <div style="font-size:12px;text-align:right">Cook {{ printRec.cook_sec }}s &nbsp; Blend {{ printRec.blend_min }}min &nbsp; Viscosity {{ printRec.viscosity_sec }}s</div>
-        </div>
-        <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:16px">
-          <thead><tr style="background:#eee">
-            <th style="border:1px solid #999;padding:7px;text-align:left">Ingredient</th>
-            <th style="border:1px solid #999;padding:7px;text-align:right;width:130px">Batch (g)</th>
-            <th style="border:1px solid #999;padding:7px;text-align:right;width:130px">Half (g)</th>
-          </tr></thead>
-          <tbody>
-            <tr v-for="ing in printIngs" :key="ing.ingredient">
-              <td style="border:1px solid #999;padding:8px;font-weight:600">{{ ing.ingredient }}</td>
-              <td style="border:1px solid #999;padding:8px;text-align:right">{{ num(ing.batch_g) }}</td>
-              <td style="border:1px solid #999;padding:8px;text-align:right;color:#555">{{ num(ing.batch_g/2) }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:6px"><div><div style="font-size:24px;font-weight:800">WOPPLES — {{ printRec.flavour }}</div><div style="font-size:13px">SKU {{ printRec.sku }} &nbsp;|&nbsp; Recipe Version <b>{{ printRec.version_label }}</b></div></div><div style="font-size:12px;text-align:right">Cook {{ printRec.cook_sec }}s &nbsp; Blend {{ printRec.blend_min }}min &nbsp; Viscosity {{ printRec.viscosity_sec }}s</div></div>
+        <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:16px"><thead><tr style="background:#eee"><th style="border:1px solid #999;padding:7px;text-align:left">Ingredient</th><th style="border:1px solid #999;padding:7px;text-align:right;width:130px">Batch (g)</th><th style="border:1px solid #999;padding:7px;text-align:right;width:130px">Half (g)</th></tr></thead>
+          <tbody><tr v-for="ing in printIngs" :key="ing.ingredient"><td style="border:1px solid #999;padding:8px;font-weight:600">{{ ing.ingredient }}</td><td style="border:1px solid #999;padding:8px;text-align:right">{{ num(ing.batch_g) }}</td><td style="border:1px solid #999;padding:8px;text-align:right;color:#555">{{ num(ing.batch_g/2) }}</td></tr></tbody></table>
         <div style="font-size:11px;margin-top:8px;color:#555">Revivealicious Foods — line recipe {{ printRec.version_label }}. Batch actuals recorded on the checksheet. Printed {{ today }}.</div>
       </div>
     </div>
@@ -285,10 +253,13 @@
       const recipes=ref([]), recipeIngs=ref({}), runs=ref([]), plans=ref([]);
       const ingredients=ref([]), rates=ref([]), recipeCosts=ref({});
       const printRec=ref(null), printIngs=ref([]);
+      const detail=ref(null), aiText=ref(''), aiLoading=ref(false);
       const today=new Date().toISOString().slice(0,10);
-      const cap=reactive({run_date:today,flavour:'',output_packs:null,batches:null,hours:null,reject_packs:0,batter_waste_kg:0,packaging_version:'',notes:''});
+      const checkDefs=[{key:'recipe',label:'Recipe — all ingredients used & match file'},{key:'date',label:'Date is correct'},{key:'plan',label:'Lines up with production plan'}];
+      const blankVer=()=>({recipe_done:false,recipe_verified:false,date_done:false,date_verified:false,plan_done:false,plan_verified:false});
+      const cap=reactive({run_date:today,flavour:'',output_packs:null,batches:null,hours:null,reject_packs:0,batter_waste_kg:0,packaging_version:'',notes:'',verification:blankVer()});
       const capSaving=ref(false), capErr=ref('');
-      const planForm=reactive({plan_date:today,flavour:'',planned_packs:null});
+      const planForm=reactive({plan_date:today,flavour:'',planned_packs:100,notes:''});
 
       const isSupervisor=computed(()=> isAdmin.value || role.value==='supervisor');
       const roleLabel=computed(()=> isAdmin.value?'Administrator':(role.value==='supervisor'?'Supervisor':'Operator'));
@@ -298,71 +269,64 @@
       function num(n){ return (n==null)?'':Math.round(Number(n)).toLocaleString(); }
       function money(n){ return (n==null)?'—':Number(n).toFixed(2); }
       function ingsFor(id){ return (recipeIngs.value[id]||[]); }
+      function recipeTotalG(id){ return ingsFor(id).reduce((s,i)=>s+Number(i.batch_g),0); }
       function verLabel(id){ const r=recipes.value.find(r=>r.id===id); return r?r.version_label:''; }
+      function recFor(id){ return recipes.value.find(r=>r.id===id); }
       function recCost(id){ return recipeCosts.value[id]||null; }
       function costKg(id,ing){ const c=recCost(id); if(!c) return ''; const l=c.lines.find(x=>x.ingredient===ing); return l?('$'+l.cost_per_kg):''; }
       function rateLabel(k){ return ({labour_rate:'Labour rate / hour',pack_cost:'Packaging / pack',power_cost:'Power / pack'})[k]||k; }
       function currentRecipe(flavour){ return recipes.value.find(r=>r.flavour===flavour); }
+      function vget(run,key,which){ const v=run.verification||{}; return !!v[key+'_'+which]; }
+
+      function yieldStats(run){ const g=recipeTotalG(run.recipe_id); const waffles=(run.output_packs||0)*8; const batter=(run.batches||0)*g; const eff=waffles>0?batter/waffles:0; const target=Number((recFor(run.recipe_id)||{}).g_per_waffle)||70; return {waffles,batterKg:+(batter/1000).toFixed(1),effYield:+eff.toFixed(1),target,variance:+(eff-target).toFixed(1)}; }
+      function effYield(run){ return yieldStats(run).effYield || ''; }
+      function yieldClass(run){ const v=yieldStats(run).variance; return Math.abs(v)>10 ? 'text-amber-600 font-medium':'text-stone-500'; }
+      const util=computed(()=> detail.value ? yieldStats(detail.value) : {});
 
       async function portalToken(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
-      async function callData(payload){
-        const r=await fetch('/.netlify/functions/production-data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await portalToken()},body:JSON.stringify(payload)});
-        const j=await r.json().catch(()=>({error:'bad response'})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j;
-      }
+      async function callData(payload){ const r=await fetch('/.netlify/functions/production-data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await portalToken()},body:JSON.stringify(payload)}); const j=await r.json().catch(()=>({error:'bad response'})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j; }
+      async function callAI(system,userText){ const r=await fetch('/.netlify/functions/production-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await portalToken()},body:JSON.stringify({model:'haiku',system,messages:[{role:'user',content:userText}]})}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||'AI failed'); return j.text||''; }
       function flash(t){ msg.value=t; setTimeout(()=>msg.value='',1800); }
+
+      async function openDetail(run){
+        detail.value=run; aiText.value=''; aiLoading.value=true;
+        const y=yieldStats(run); const rec=recFor(run.recipe_id)||{};
+        const plan=plans.value.filter(p=>p.plan_date===run.run_date && p.flavour===run.flavour);
+        const ctx={ date:run.run_date, flavour:run.flavour, recipe_version:rec.version_label, output_packs:run.output_packs, reject_packs:run.reject_packs, batter_waste_kg:run.batter_waste_kg, batches:run.batches, hours:run.hours, packs_per_hour:run.packs_per_hour, waffles_made:y.waffles, effective_g_per_waffle:y.effYield, target_g_per_waffle:y.target, verification:run.verification||{}, planned_for_day:plan.map(p=>({flavour:p.flavour,planned:p.planned_packs})) };
+        try{ aiText.value=await callAI(
+          'You are a production QA assistant for Wopples gluten-free waffle manufacturing. Review one shift record and reply with 2-4 short bullet points ONLY, flagging errors, missing data, or anomalies (missing waste/reject, unusual yield vs target g/waffle, low packs/hour, unticked verification, plan mismatch). If all looks fine, say so in one line. Be concise and specific, no preamble.',
+          JSON.stringify(ctx));
+        }catch(e){ aiText.value='(commentary unavailable: '+e.message+')'; }
+        aiLoading.value=false;
+      }
 
       function printRecipeSheet(rec){ printRec.value=rec; printIngs.value=ingsFor(rec.id); nextTick(()=>window.print()); }
 
       async function saveCapture(){
         capErr.value='';
-        if(!cap.flavour || !cap.output_packs || !cap.batches || !cap.hours){ capErr.value='Flavour, packs, batches and hours are required.'; return; }
+        if(!cap.flavour||!cap.output_packs||!cap.batches||!cap.hours){ capErr.value='Flavour, packs, batches and hours are required.'; return; }
         const rec=currentRecipe(cap.flavour); if(!rec){ capErr.value='Unknown flavour.'; return; }
         const bb=new Date(cap.run_date); bb.setFullYear(bb.getFullYear()+1);
         capSaving.value=true;
-        const { error }=await sb.from('production_run').insert({
-          run_date:cap.run_date, flavour:cap.flavour, recipe_id:rec.id, packaging_version:cap.packaging_version||null,
-          output_packs:cap.output_packs, reject_packs:cap.reject_packs||0, batter_waste_kg:cap.batter_waste_kg||0,
-          batches:cap.batches, hours:cap.hours, best_before:bb.toISOString().slice(0,10), notes:cap.notes||null });
+        const { error }=await sb.from('production_run').insert({ run_date:cap.run_date, flavour:cap.flavour, recipe_id:rec.id, packaging_version:cap.packaging_version||null, output_packs:cap.output_packs, reject_packs:cap.reject_packs||0, batter_waste_kg:cap.batter_waste_kg||0, batches:cap.batches, hours:cap.hours, best_before:bb.toISOString().slice(0,10), notes:cap.notes||null, verification:cap.verification });
         capSaving.value=false;
         if(error){ capErr.value=error.message; return; }
-        Object.assign(cap,{flavour:'',output_packs:null,batches:null,hours:null,reject_packs:0,batter_waste_kg:0,packaging_version:'',notes:''});
+        Object.assign(cap,{flavour:'',output_packs:null,batches:null,hours:null,reject_packs:0,batter_waste_kg:0,packaging_version:'',notes:'',verification:blankVer()});
         await loadRuns(); screen.value='records'; flash('Shift saved');
       }
 
-      async function savePlan(){ if(!planForm.flavour||!planForm.planned_packs) return; try{ await callData({action:'save_plan',plan_date:planForm.plan_date,flavour:planForm.flavour,planned_packs:planForm.planned_packs}); planForm.flavour=''; planForm.planned_packs=null; await loadPlans(); flash('Added to plan'); }catch(e){ flash('Failed: '+e.message); } }
+      function planActual(p){ return runs.value.filter(r=>r.run_date===p.plan_date && r.flavour===p.flavour).reduce((s,r)=>s+(r.output_packs||0),0); }
+      async function addPlan(){ if(!planForm.flavour){ flash('Pick a flavour'); return; } try{ await callData({action:'save_plan',plan_date:planForm.plan_date,flavour:planForm.flavour,planned_packs:planForm.planned_packs||100,notes:planForm.notes}); planForm.flavour=''; planForm.planned_packs=100; planForm.notes=''; await loadPlans(); flash('Added'); }catch(e){ flash('Failed: '+e.message); } }
+      async function savePlanRow(p){ try{ await callData({action:'save_plan',id:p.id,plan_date:p.plan_date,flavour:p.flavour,planned_packs:p.planned_packs,notes:p.notes}); flash('Saved'); }catch(e){ flash('Failed'); } }
       async function delPlan(id){ try{ await callData({action:'delete_plan',id}); await loadPlans(); }catch(e){ flash('Failed'); } }
-
-      const planDays=computed(()=>{
-        const out=[]; const base=new Date(today);
-        for(let i=0;i<14;i++){
-          const d=new Date(base); d.setDate(base.getDate()+i); const ds=d.toISOString().slice(0,10);
-          const dayPlans=plans.value.filter(p=>p.plan_date===ds);
-          const items=dayPlans.map(p=>{
-            const actual=runs.value.filter(r=>r.run_date===ds && r.flavour===p.flavour).reduce((s,r)=>s+(r.output_packs||0),0);
-            return { key:p.id, planId:p.id, flavour:p.flavour, planned:p.planned_packs, actual };
-          });
-          out.push({ date:ds, label:d.toLocaleDateString('en-NZ',{weekday:'short',day:'2-digit',month:'short'}), isToday:i===0, items });
-        }
-        return out;
-      });
 
       async function saveRate(rt){ try{ await callData({action:'save_rate',key:rt.key,value:rt.value}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
       async function saveIngredient(ic){ try{ await callData({action:'save_ingredient',ingredient:ic.ingredient,cost_per_kg:ic.cost_per_kg,supplier:ic.supplier,unit_size_kg:ic.unit_size_kg}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
 
-      async function loadRecipes(){
-        const { data:recs }=await sb.from('recipe').select('id,sku,flavour,version_label,cook_sec,blend_min,viscosity_sec,g_per_waffle').eq('active',true).order('sku');
-        recipes.value=recs||[];
-        const { data:ings }=await sb.from('recipe_ingredient').select('recipe_id,ingredient,batch_g,sort').order('sort');
-        const map={}; (ings||[]).forEach(i=>{ (map[i.recipe_id]=map[i.recipe_id]||[]).push(i); }); recipeIngs.value=map;
-      }
+      async function loadRecipes(){ const { data:recs }=await sb.from('recipe').select('id,sku,flavour,version_label,cook_sec,blend_min,viscosity_sec,g_per_waffle').eq('active',true).order('sku'); recipes.value=recs||[]; const { data:ings }=await sb.from('recipe_ingredient').select('recipe_id,ingredient,batch_g,sort').order('sort'); const map={}; (ings||[]).forEach(i=>{ (map[i.recipe_id]=map[i.recipe_id]||[]).push(i); }); recipeIngs.value=map; }
       async function loadRuns(){ const { data }=await sb.from('production_run').select('*').order('run_date',{ascending:false}); runs.value=data||[]; }
       async function loadPlans(){ const { data }=await sb.from('production_plan').select('*').order('plan_date'); plans.value=data||[]; }
-      async function loadSupervisor(){
-        if(!isSupervisor.value) return; supErr.value='';
-        try{ const p=await callData({action:'get_pricing'}); ingredients.value=p.ingredients||[]; rates.value=p.rates||[];
-             const c=await callData({action:'get_recipe_costs'}); const m={}; (c.recipes||[]).forEach(x=>{ m[x.id]=x; }); recipeCosts.value=m;
-        }catch(e){ supErr.value=e.message; }
-      }
+      async function loadSupervisor(){ if(!isSupervisor.value) return; supErr.value=''; try{ const p=await callData({action:'get_pricing'}); ingredients.value=p.ingredients||[]; rates.value=p.rates||[]; const c=await callData({action:'get_recipe_costs'}); const m={}; (c.recipes||[]).forEach(x=>{ m[x.id]=x; }); recipeCosts.value=m; }catch(e){ supErr.value=e.message; } }
 
       onMounted(async()=>{
         const { data:{ session:p } }=await portal.auth.getSession();
@@ -374,19 +338,15 @@
         if(prof&&prof.is_admin){ allowed=true; isAdmin.value=true; }
         else{ const { data:acc }=await portal.from('user_app_access').select('app_id, role').eq('user_id',p.user.id).eq('app_id','production'); if(acc&&acc.length){ allowed=true; role.value=acc[0].role||'operator'; } }
         if(!allowed){ window.location.href='/?denied=production'; return; }
-        try{
-          const r=await fetch('/.netlify/functions/production-session',{method:'POST',headers:{'Authorization':'Bearer '+p.access_token}});
-          if(!r.ok) throw new Error('session'); const s=await r.json();
-          await sb.auth.setSession({access_token:s.access_token,refresh_token:s.refresh_token});
-        }catch(e){ gateError.value='Could not open the production database. Please reload.'; ready.value=true; return; }
+        try{ const r=await fetch('/.netlify/functions/production-session',{method:'POST',headers:{'Authorization':'Bearer '+p.access_token}}); if(!r.ok) throw new Error('session'); const s=await r.json(); await sb.auth.setSession({access_token:s.access_token,refresh_token:s.refresh_token}); }catch(e){ gateError.value='Could not open the production database. Please reload.'; ready.value=true; return; }
         await loadRecipes(); await loadRuns(); await loadPlans(); await loadSupervisor();
         ready.value=true;
       });
 
-      return { ready,gateError,me,isAdmin,role,isSupervisor,roleLabel,screen,tabs,msg,supErr,
-        recipes,runs,ingredients,rates,printRec,printIngs,today,cap,capSaving,capErr,planForm,planDays,
-        fmtDate,num,money,ingsFor,verLabel,recCost,costKg,rateLabel,
-        printRecipeSheet,saveCapture,savePlan,delPlan,saveRate,saveIngredient };
+      return { ready,gateError,me,isAdmin,role,isSupervisor,roleLabel,screen,tabs,msg,supErr,checkDefs,
+        recipes,runs,plans,ingredients,rates,printRec,printIngs,today,cap,capSaving,capErr,planForm,detail,aiText,aiLoading,util,
+        fmtDate,num,money,ingsFor,verLabel,recCost,costKg,rateLabel,effYield,yieldClass,vget,
+        openDetail,printRecipeSheet,saveCapture,planActual,addPlan,savePlanRow,delPlan,saveRate,saveIngredient };
     }
   }).mount('#app');
 </script>
