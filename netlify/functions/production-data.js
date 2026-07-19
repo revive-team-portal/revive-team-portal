@@ -124,6 +124,33 @@ exports.handler = async (event) => {
       return json(200, { ok: true });
     }
 
+    if (action === 'save_recipe_version') {
+      const { base_recipe_id, sku, flavour, version_label, change_note, cook_sec, blend_min, viscosity_sec, g_per_waffle, ingredients } = body;
+      if (!version_label || !change_note) return json(400, { error: 'Version label and change note are required.' });
+      if (!Array.isArray(ingredients) || !ingredients.length) return json(400, { error: 'At least one ingredient is required.' });
+      const created = await appsDb('recipe', {
+        method: 'POST', headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ sku, flavour, version_label, is_current: true, active: true,
+          cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null,
+          g_per_waffle: g_per_waffle || 70, change_note }),
+      });
+      const newId = created[0].id;
+      const rows = ingredients
+        .filter(i => i.ingredient && i.batch_g)
+        .map((i, idx) => ({ recipe_id: newId, ingredient: String(i.ingredient).trim(), batch_g: Number(i.batch_g), sort: idx + 1 }));
+      await appsDb('recipe_ingredient', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
+      if (base_recipe_id) {
+        await appsDb('recipe?id=eq.' + encodeURIComponent(base_recipe_id), {
+          method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ is_current: false, active: false }) });
+      }
+      return json(200, { ok: true, id: newId });
+    }
+
+    if (action === 'get_recipe_history') {
+      const hist = await appsDb('recipe?select=id,version_label,change_note,created_at,created_by,is_current,active&sku=eq.' + encodeURIComponent(body.sku) + '&order=created_at.desc');
+      return json(200, { history: hist });
+    }
+
     return json(400, { error: 'Unknown action.' });
   } catch (e) {
     return json(502, { error: String(e.message || e).slice(0, 200) });
