@@ -75,10 +75,10 @@ exports.handler = async (event) => {
         const packs_per_batch = batch_g / gpw / 8;
         return {
           id: r.id, flavour: r.flavour, version_label: r.version_label,
-          batch_cost: +batch_cost.toFixed(2),
+          batch_cost: +batch_cost.toFixed(3),
           packs_per_batch: +packs_per_batch.toFixed(1),
           cost_per_pack: packs_per_batch > 0 ? +(batch_cost / packs_per_batch).toFixed(3) : null,
-          lines: mine.map(i => ({ ingredient: i.ingredient, batch_g: Number(i.batch_g), cost_per_kg: +effCost(i.ingredient, byName).toFixed(4) })),
+          lines: mine.map(i => ({ ingredient: i.ingredient, batch_g: Number(i.batch_g), cost_per_kg: +effCost(i.ingredient, byName).toFixed(3) })),
         };
       });
       return json(200, { recipes: out });
