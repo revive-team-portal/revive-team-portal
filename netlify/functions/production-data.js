@@ -106,6 +106,24 @@ exports.handler = async (event) => {
       return json(200, { ok: true });
     }
 
+    if (action === 'save_plan') {
+      const { id, plan_date, flavour, planned_packs, notes } = body;
+      if (!plan_date || !flavour) return json(400, { error: 'Missing date or flavour.' });
+      const row = { plan_date, flavour, planned_packs: Number(planned_packs) || 0, notes: notes || null };
+      if (id) {
+        await appsDb('production_plan?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) });
+      } else {
+        await appsDb('production_plan', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) });
+      }
+      return json(200, { ok: true });
+    }
+
+    if (action === 'delete_plan') {
+      if (!body.id) return json(400, { error: 'Missing id.' });
+      await appsDb('production_plan?id=eq.' + encodeURIComponent(body.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      return json(200, { ok: true });
+    }
+
     return json(400, { error: 'Unknown action.' });
   } catch (e) {
     return json(502, { error: String(e.message || e).slice(0, 200) });

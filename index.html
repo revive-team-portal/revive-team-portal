@@ -329,11 +329,13 @@ async function loadUsers(){
   const rows=$('userRows');
   const [{data:profiles}, {data:access}] = await Promise.all([
     sb.from('profiles').select('*').order('created_at'),
-    sb.from('user_app_access').select('user_id,app_id')
+    sb.from('user_app_access').select('user_id,app_id,role')
   ]);
   const appName = Object.fromEntries(allApps.map(a=>[a.id,a.name]));
   const byUser = {};
   (access||[]).forEach(r=>{ (byUser[r.user_id]=byUser[r.user_id]||[]).push(r.app_id); });
+  const roleByUser={};
+  (access||[]).forEach(r=>{ (roleByUser[r.user_id]=roleByUser[r.user_id]||{})[r.app_id]=r.role; });
   if(!profiles||!profiles.length){ rows.innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No team members yet.</td></tr>`; return; }
   rows.innerHTML = profiles.map(p=>{
     const apps=(byUser[p.id]||[]).map(id=>`<span class="pill app">${esc(appName[id]||id)}</span>`).join('') || '<span class="pill">none</span>';
@@ -350,16 +352,23 @@ async function loadUsers(){
       </div></td>
     </tr>`;
   }).join('');
-  rows.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.edit, profiles, byUser)));
+  rows.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.edit, profiles, byUser, roleByUser)));
   rows.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>delUser(b.dataset.del, b.dataset.email)));
 }
 
 /* ===== ADMIN: modal ===== */
-function appCheckHTML(checkedIds){
-  return allApps.map(a=>`<div class="check-row">
+function appCheckHTML(checkedIds, prodRole){
+  return allApps.map(a=>{
+    const sel = a.id==='production' ? `<select id="prodRole" style="margin-left:8px;font-size:12px;padding:2px 5px;border:1px solid #ccc;border-radius:6px"><option value="operator"${prodRole!=='supervisor'?' selected':''}>Operator</option><option value="supervisor"${prodRole==='supervisor'?' selected':''}>Supervisor</option></select>` : '';
+    return `<div class="check-row">
     <input type="checkbox" class="appChk" id="chk_${a.id}" value="${a.id}" ${checkedIds.has(a.id)?'checked':''}/>
-    <label for="chk_${a.id}">${a.icon||''} ${esc(a.name)} <small>${esc(a.description)}</small></label>
-  </div>`).join('');
+    <label for="chk_${a.id}" style="flex:1">${a.icon||''} ${esc(a.name)} <small>${esc(a.description)}</small></label>${sel}
+  </div>`;
+  }).join('');
+}
+function syncProdRoleLock(){
+  const sel=document.getElementById('prodRole'); if(!sel) return;
+  if($('mAdmin').checked){ sel.value='supervisor'; sel.disabled=true; } else { sel.disabled=false; }
 }
 function openAdd(){
   editingUserId=null;
@@ -369,11 +378,12 @@ function openAdd(){
   $('mPassword').value=''; $('mPwLabel').textContent='Password';
   $('mPwHint').textContent='They can change this later. Minimum 6 characters.';
   $('mAdmin').checked=false; $('mActive').checked=true;
-  $('appChecks').innerHTML=appCheckHTML(new Set());
+  $('appChecks').innerHTML=appCheckHTML(new Set(), 'operator');
+  syncProdRoleLock();
   msg($('modalMsg'),'','');
   show($('userModal'));
 }
-function openEdit(id, profiles, byUser){
+function openEdit(id, profiles, byUser, roleByUser){
   const p=profiles.find(x=>x.id===id); if(!p) return;
   editingUserId=id;
   $('modalTitle').textContent='Edit team member';
@@ -382,7 +392,8 @@ function openEdit(id, profiles, byUser){
   $('mPassword').value=''; $('mPwLabel').textContent='Reset password (optional)';
   $('mPwHint').textContent='Leave blank to keep current password. Minimum 6 characters.';
   $('mAdmin').checked=!!p.is_admin; $('mActive').checked=p.active!==false;
-  $('appChecks').innerHTML=appCheckHTML(new Set(byUser[id]||[]));
+  $('appChecks').innerHTML=appCheckHTML(new Set(byUser[id]||[]), ((roleByUser||{})[id]||{}).production);
+  syncProdRoleLock();
   msg($('modalMsg'),'','');
   show($('userModal'));
 }
@@ -405,13 +416,17 @@ async function submitUser(e){
   const btn=$('saveUser'); btn.disabled=true; const orig=btn.textContent; btn.innerHTML='<span class="loader"></span>Saving…';
   msg($('modalMsg'),'','');
   const apps=[...document.querySelectorAll('.appChk:checked')].map(c=>c.value);
+  const roles={};
+  const prodSel=document.getElementById('prodRole');
+  if(prodSel && apps.includes('production')) roles.production = $('mAdmin').checked ? 'supervisor' : prodSel.value;
   const payload={
     full_name:$('mName').value.trim(),
     email:$('mEmail').value.trim(),
     password:$('mPassword').value,
     is_admin:$('mAdmin').checked,
     active:$('mActive').checked,
-    apps
+    apps,
+    roles
   };
   try{
     if(editingUserId){ payload.user_id=editingUserId; await callFn('admin-update-user',payload); toast('Team member updated'); }

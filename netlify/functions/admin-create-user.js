@@ -41,7 +41,8 @@ exports.handler = async (event) => {
 
   // 3. Grant app access.
   if (apps.length) {
-    const recs = apps.map((a) => ({ user_id: uid, app_id: a }));
+    const roles = (body.roles && typeof body.roles==='object') ? body.roles : {};
+    const recs = apps.map((a) => ({ user_id: uid, app_id: a, role: roles[a] || null }));
     await sb('/rest/v1/user_app_access', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
