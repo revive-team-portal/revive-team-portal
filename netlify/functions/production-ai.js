@@ -6,7 +6,7 @@ const { json, validatePortalUser } = require('./_portal');
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const MODELS = {
   haiku:  'claude-haiku-4-5-20251001',  // trend / anomaly analysis
-  sonnet: 'claude-sonnet-5',            // handwriting OCR of the CHK001 sheet
+  sonnet: 'claude-sonnet-4-6',          // handwriting OCR of the CHK001 sheet (proven vision model)
 };
 
 exports.handler = async (event) => {
@@ -34,6 +34,7 @@ exports.handler = async (event) => {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return json(502, { error: (data && data.error && data.error.message) || 'AI request failed.' });
 
-  const text = (data.content && data.content[0] && data.content[0].text) || '';
-  return json(200, { text });
+  const blocks = Array.isArray(data.content) ? data.content : [];
+  const text = blocks.filter((b) => b && b.type === 'text').map((b) => b.text).join('');
+  return json(200, { text, stop_reason: data.stop_reason || null, block_types: blocks.map((b) => b && b.type) });
 };
