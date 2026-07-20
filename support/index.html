@@ -575,7 +575,7 @@ function setSort(k){ window.SORT=k; const panel=document.getElementById('panel')
 async function loadFulfilReport(){
   const el=document.getElementById('fulfilReport'); if(!el) return;
   const r=await apiPost('support-fulfil-report',{});
-  if(!r.ok){ window.FULFIL_HTML='<div class="text-amber-700 text-xs">Fulfilment report unavailable.</div>'; el.innerHTML=window.FULFIL_HTML; return; }
+  if(!r.ok){ window.FULFIL_HTML='<div class="text-amber-700 text-xs">Fulfilment report: '+esc((r.data&&r.data.error)||'unavailable')+'</div>'; el.innerHTML=window.FULFIL_HTML; return; }
   const d=r.data;
   const skus=(d.topSkus||[]).map((x,i)=>'<div class="flex justify-between text-xs py-0.5"><span class="truncate">'+(i+1)+'. '+esc(x.sku||x.title||'(no sku)')+'</span><span class="font-semibold ml-2 shrink-0">'+x.qty+'</span></div>').join('');
   const types=(d.byType||[]).map(x=>'<div class="flex justify-between text-xs py-0.5"><span class="truncate">'+esc(x.type||'Other')+'</span><span class="ml-2 shrink-0">'+x.skuCount+' SKUs</span></div>').join('');
