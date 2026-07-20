@@ -164,6 +164,20 @@ exports.handler = async (event) => {
       return json(200, { ok: true });
     }
 
+    if (action === 'update_run') {
+      if (!body.id) return json(400, { error: 'id required.' });
+      const allowed = {};
+      ['run_date','flavour','recipe_id','packaging_version','output_packs','reject_packs','batter_waste_kg','batches','hours','best_before','notes'].forEach(k => { if (k in body) allowed[k] = body[k]; });
+      await appsDb('production_run?id=eq.' + encodeURIComponent(body.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(allowed) });
+      return json(200, { ok: true });
+    }
+
+    if (action === 'delete_run') {
+      if (!body.id) return json(400, { error: 'id required.' });
+      await appsDb('production_run?id=eq.' + encodeURIComponent(body.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      return json(200, { ok: true });
+    }
+
     if (action === 'get_recipe_history') {
       const hist = await appsDb('recipe?select=id,version_label,change_note,created_at,created_by,is_current,active&sku=eq.' + encodeURIComponent(body.sku) + '&order=created_at.desc');
       return json(200, { history: hist });
