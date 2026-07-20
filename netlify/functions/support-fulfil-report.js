@@ -22,7 +22,7 @@ async function scan(withType){
         const sku = (n.sku && n.sku.trim()) || ('(no SKU) ' + (n.title || '').slice(0, 24));
         if (!skuMap[sku]) skuMap[sku] = { sku: (n.sku || '').trim(), title: n.title || '', qty: 0 };
         skuMap[sku].qty += qty;
-        if (withType) { const type = (n.product && n.product.productType) || 'Other'; (typeMap[type] = typeMap[type] || new Set()).add(sku); }
+        if (withType) { const type = (n.product && n.product.productType) || 'Other'; const tm = (typeMap[type] = typeMap[type] || { skus:new Set(), items:0 }); tm.skus.add(sku); tm.items += qty; }
       }
     }
     pages++;
@@ -40,7 +40,7 @@ exports.handler = async (event) => {
     try { res = await scan(true); }
     catch (e) { productTypeUnavailable = true; typeError = String(e && e.message || e).slice(0,240); res = await scan(false); }
     const topSkus = Object.values(res.skuMap).sort((x, y) => y.qty - x.qty).slice(0, 10);
-    const byType = Object.keys(res.typeMap).map(t => ({ type: t, skuCount: res.typeMap[t].size })).sort((x, y) => y.skuCount - x.skuCount);
+    const byType = Object.keys(res.typeMap).map(t => ({ type: t, skuCount: res.typeMap[t].skus.size, itemCount: res.typeMap[t].items })).sort((x, y) => y.itemCount - x.itemCount);
     return json(200, { orderCount: res.orderCount, topSkus, byType, productTypeUnavailable, typeError });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };
