@@ -246,7 +246,10 @@ function lastEvents(t){
 }
 function courierBadge(s){ if(!s) return ''; const S=String(s); const cls=/deliver/i.test(S)?'bg-green-100 text-green-700':/transit|out for|dispatch|onboard|board/i.test(S)?'bg-sky-100 text-sky-700':/fail|exception|delay|lost|attempt|hold/i.test(S)?'bg-red-100 text-red-700':'bg-stone-100 text-stone-600'; return '<span class="inline-block text-[11px] '+cls+' rounded px-1.5 py-0.5 whitespace-nowrap">'+esc(S.toUpperCase())+'</span>'; }
 function ticketRow(t){
-  const c=t.customer||{}; const when=t.updated_at?new Date(t.updated_at).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+  const c=t.customer||{};
+  const _lastMsg=(t.messages||[]).reduce((mx,m)=>(m.sent_at&&(!mx||new Date(m.sent_at)>new Date(mx)))?m.sent_at:mx,null);
+  const _dv=_lastMsg||t.created_at||t.updated_at;
+  const when=_dv?new Date(_dv).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
   const sc={'Open':'bg-teal-100 text-teal-700','Resolved':'bg-stone-200 text-stone-600'}[t.status]||'bg-amber-100 text-amber-700';
   const tick = t.matched_order ? '✅' : '❌';
   const matched = t.matched_order ? '<span class="inline-block text-[11px] bg-teal-50 text-teal-700 border border-teal-200 rounded px-1.5 py-0.5 whitespace-nowrap">→ '+esc(t.matched_order)+'</span>' : '<span class="text-[11px] text-stone-400">no order</span>';
