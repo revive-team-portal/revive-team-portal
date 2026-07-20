@@ -13,10 +13,11 @@ exports.handler = async (event) => {
       if (u.meaning !== undefined) row.meaning = String(u.meaning||'');
       if (u.category !== undefined) row.category = u.category||'service';
       if (u.perishable !== undefined) row.perishable = !!u.perishable;
+      if (u.rural !== undefined) row.rural = !!u.rural;
       await rest('nzpost_codes?on_conflict=code', { method:'POST', headers:{ Prefer:'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) });
     }
     if (body.remove) await rest('nzpost_codes?code=eq.'+encodeURIComponent(String(body.remove).toUpperCase()), { method:'DELETE', headers:{ Prefer:'return=minimal' } });
-    const rows = await rest('nzpost_codes?select=code,meaning,category,perishable&order=code.asc');
+    const rows = await rest('nzpost_codes?select=code,meaning,category,perishable,rural&order=code.asc');
     return json(200, { codes: rows || [] });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };
