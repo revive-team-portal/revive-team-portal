@@ -4,3 +4,7 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# Server-side inbox sync + reconcile every 5 minutes
+[functions."scheduled-sync"]
+  schedule = "*/5 * * * *"

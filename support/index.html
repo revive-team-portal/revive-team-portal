@@ -294,7 +294,7 @@ async function openTicket(id){
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
     +'<p class="text-stone-500 text-sm mb-2">'+esc(c.name||'')+ratingHtml(c.orders_count)+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
-    +'<div class="mb-4 flex items-center gap-2 flex-wrap">'+'<button onclick="resolveTicket()" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">✓ Resolve &amp; archive</button>'+'<button onclick="replaceHeader()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-1.5 rounded-lg">↩ Replace order (free)</button>'+'<button onclick="forwardTicket()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg">➡ Forward</button>'+'<button onclick="escalateTicket('+(t.escalated?'false':'true')+')" class="text-xs '+(t.escalated?'bg-stone-500 hover:bg-stone-600':'bg-red-600 hover:bg-red-700')+' text-white font-semibold px-3 py-1.5 rounded-lg">'+(t.escalated?'↩ Un-escalate':'🚑 Escalate')+'</button>'+'<span class="text-xs text-stone-400 ml-1">Type:</span>'+typeSelect(t.ticket_type)+'</div>'
+    +'<div class="mb-4 flex items-center gap-2 flex-wrap">'+'<button onclick="resolveTicket()" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">✓ Resolve &amp; archive</button>'+'<button onclick="replaceHeader()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-1.5 rounded-lg">↩ Replace order (free)</button>'+'<button onclick="forwardTicket()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg">➡ Forward</button>'+'<button onclick="historyModal()" class="text-xs bg-stone-600 hover:bg-stone-700 text-white font-semibold px-3 py-1.5 rounded-lg">📜 Past emails</button>'+'<button onclick="escalateTicket('+(t.escalated?'false':'true')+')" class="text-xs '+(t.escalated?'bg-stone-500 hover:bg-stone-600':'bg-red-600 hover:bg-red-700')+' text-white font-semibold px-3 py-1.5 rounded-lg">'+(t.escalated?'↩ Un-escalate':'🚑 Escalate')+'</button>'+'<span class="text-xs text-stone-400 ml-1">Type:</span>'+typeSelect(t.ticket_type)+'</div>'
     +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2"><div id="testiBox"></div>'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
   loadActivity(); detectTestimonial();
   if(c.email){
@@ -610,6 +610,20 @@ async function loadFulfilReport(){
     +'<div class="bg-white border border-stone-200 rounded-xl p-3"><div class="text-xs font-semibold text-stone-700 mb-1">⛔ Out of stock <span class="text-stone-400 font-normal">('+oosCount+' active)</span></div>'+oosHtml+'</div>'
     +'</div>';
   el.innerHTML=window.FULFIL_HTML;
+}
+
+async function historyModal(){
+  const email=(window.CUR&&window.CUR.email)||'';
+  if(!email){ alert('No customer email on this ticket.'); return; }
+  const m=document.createElement('div'); m.id='histModal'; m.className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'; m.onclick=()=>m.remove();
+  m.innerHTML='<div class="bg-white rounded-xl p-5 w-full max-w-2xl max-h-[80vh] overflow-auto" onclick="event.stopPropagation()"><div class="flex items-center justify-between mb-3"><h3 class="font-bold text-base">📜 Past emails — '+esc(email)+'</h3><button onclick="var x=document.getElementById(\'histModal\');if(x)x.remove();" class="text-stone-400 hover:text-stone-700">✕</button></div><div id="histBody" class="text-sm text-stone-400">Searching all mail…</div></div>';
+  document.body.appendChild(m);
+  const r=await apiPost('support-history',{email});
+  const b=document.getElementById('histBody'); if(!b) return;
+  if(!r.ok){ b.innerHTML='<div class="text-amber-700">'+esc((r.data&&r.data.error)||'Search failed.')+'</div>'; return; }
+  const ts=r.data.threads||[];
+  if(!ts.length){ b.innerHTML='<div class="text-stone-400">No past emails found (last 12 months).</div>'; return; }
+  b.innerHTML=ts.map(t=>'<a href="https://mail.google.com/mail/u/0/#all/'+esc(t.threadId)+'" target="_blank" class="block border-b border-stone-100 py-2 hover:bg-stone-50"><div class="flex justify-between gap-2"><span class="font-medium text-stone-800 truncate">'+esc(t.subject)+'</span><span class="text-xs text-stone-400 shrink-0">'+(t.date?new Date(t.date).toLocaleDateString("en-NZ"):"")+'</span></div><div class="text-xs text-stone-500 truncate">'+esc(t.from)+'</div><div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div></a>').join('');
 }
 
 function show(id){
