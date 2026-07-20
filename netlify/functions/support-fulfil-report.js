@@ -36,11 +36,11 @@ exports.handler = async (event) => {
   const a = await validatePortalUser(event, 'support');
   if (!a.ok) return json(a.status || 403, { error: a.error });
   try {
-    let res, productTypeUnavailable = false;
+    let res, productTypeUnavailable = false, typeError = null;
     try { res = await scan(true); }
-    catch (e) { productTypeUnavailable = true; res = await scan(false); }
+    catch (e) { productTypeUnavailable = true; typeError = String(e && e.message || e).slice(0,240); res = await scan(false); }
     const topSkus = Object.values(res.skuMap).sort((x, y) => y.qty - x.qty).slice(0, 10);
     const byType = Object.keys(res.typeMap).map(t => ({ type: t, skuCount: res.typeMap[t].size })).sort((x, y) => y.skuCount - x.skuCount);
-    return json(200, { orderCount: res.orderCount, topSkus, byType, productTypeUnavailable });
+    return json(200, { orderCount: res.orderCount, topSkus, byType, productTypeUnavailable, typeError });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };
