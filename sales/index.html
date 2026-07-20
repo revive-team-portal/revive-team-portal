@@ -24,7 +24,7 @@
 </script>
 
 <!-- Tailwind Play CDN safelist: ensures all dynamic status colours are generated -->
-<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600 bg-yellow-100 bg-yellow-50 border-yellow-300 border-yellow-200 text-stone-900 ring-yellow-400 bg-indigo-950 bg-indigo-900 bg-indigo-800 bg-indigo-700 bg-indigo-600 text-indigo-50 text-indigo-100 text-indigo-300 text-indigo-400 border-indigo-800 text-amber-300 bg-indigo-50 bg-indigo-100 bg-indigo-200 text-indigo-700 text-indigo-800 text-indigo-900 border-indigo-200"></div>
+<div class="hidden bg-stone-200 text-stone-700 bg-stone-500 border-stone-500 bg-stone-50 bg-sky-100 text-sky-700 bg-sky-600 border-sky-600 bg-sky-50 bg-indigo-100 text-indigo-700 bg-indigo-600 border-indigo-600 bg-indigo-50 bg-violet-100 text-violet-700 bg-violet-600 border-violet-600 bg-violet-50 bg-emerald-100 text-emerald-700 bg-emerald-600 border-emerald-600 bg-emerald-50 bg-green-200 text-green-800 bg-green-700 border-green-700 bg-green-50 bg-amber-100 text-amber-700 bg-amber-500 border-amber-500 bg-amber-50 bg-red-100 text-red-700 bg-red-600 border-red-600 bg-red-50 bg-teal-700 border-teal-700 bg-purple-700 bg-purple-600 bg-purple-400 bg-purple-100 bg-purple-50 text-purple-800 text-purple-700 border-purple-600 bg-yellow-100 bg-yellow-50 border-yellow-300 border-yellow-200 text-stone-900 ring-yellow-400 bg-indigo-950 bg-indigo-900 bg-indigo-800 bg-indigo-700 bg-indigo-600 text-indigo-50 text-indigo-100 text-indigo-300 text-indigo-400 border-indigo-800 text-amber-300 bg-indigo-50 bg-indigo-100 bg-indigo-200 text-indigo-700 text-indigo-800 text-indigo-900 border-indigo-200 bg-orange-500 border-orange-500 bg-orange-50 text-orange-700 text-orange-800 border-orange-300 bg-green-50 border-green-200 text-green-700 line-through"></div>
 
 <div id="app" v-cloak>
 
@@ -127,6 +127,8 @@
         <label v-if="hasAiActions" class="flex items-center gap-1 text-xs text-stone-600 select-none cursor-pointer whitespace-nowrap" title="Show/hide AI recommendations and priority ordering"><input type="checkbox" v-model="aiActionsOn" class="w-4 h-4 accent-purple-600"> Show actions</label>
         <button @click="newEmailsOnly=!newEmailsOnly" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
           :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">📥 New emails {{ newCount }}</button>
+        <button @click="actionsOnly=!actionsOnly" title="Show customers with outstanding actions" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
+          :class="actionsOnly?'bg-orange-500 text-white border-orange-500':(actionsOutstanding?'bg-orange-50 text-orange-700 border-orange-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">📌 Actions {{ actionsOutstanding }}</button>
         <div class="relative flex-1 min-w-[180px]">
           <button v-if="search" @click="search=''" class="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-sm" title="Clear search">✕</button>
           <input v-model="search" placeholder="Search name, contact, area…" class="w-full border border-stone-300 rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" :class="search?'pl-7 pr-3':'px-3'">
@@ -180,7 +182,7 @@
                 <div v-if="s.ai_action" class="rounded-lg px-2 py-1.5 text-xs font-medium leading-snug" :class="aiBoxClass(s.ai_priority)">{{ s.ai_action }}</div>
               </td>
               <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
-                <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}</p>
+                <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}<span v-if="outstandingActions(s.id)" class="no-underline ml-1.5 inline-flex items-center gap-0.5 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500 text-white" :title="outstandingActions(s.id)+' outstanding action(s)'">📌 {{ outstandingActions(s.id) }}</span></p>
                 <p class="text-xs text-stone-400">{{ s.store_type }}<span v-if="s.contact_name"> · {{ s.contact_name }}</span></p>
                 <p v-if="s.contact_email" class="text-xs text-stone-400">{{ s.contact_email }}</p>
               </td>
@@ -208,7 +210,7 @@
                 <span v-else class="text-stone-300">—</span>
               </td>
               <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs text-stone-500">
-                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-xl" :class="a.type==='action'?'text-amber-700 font-semibold':''" :title="a.result || cap(a.type)">
+                <p v-for="a in recentNotes(s.id)" :key="a.id" class="truncate max-w-xl" :class="a.type==='action'?(a.done?'text-stone-400 line-through':'text-orange-700 font-semibold'):''" :title="a.result || cap(a.type)">
                   <span v-if="a.unread" class="text-red-600 font-bold">● NEW </span><span class="text-stone-400">{{ typeIcon(a.type) }} {{ shortDate(a.occurred_at) }}</span> {{ a.result || cap(a.type) }}
                 </p>
                 <span v-if="!recentNotes(s.id).length" class="text-stone-300">—</span>
@@ -385,7 +387,7 @@
           <!-- HISTORY: notes + Gmail emails interleaved -->
           <p v-if="loadingEmails" class="text-sm text-red-600 font-semibold">⏳ Downloading emails from Gmail — please wait…</p>
           <div v-if="!curTimeline.length" class="text-stone-400 text-sm text-center py-6">No notes or emails yet.</div>
-          <div v-for="it in curTimeline" :key="it.kind+it.id" class="rounded-lg border px-3 py-2 mb-2" :class="it.kind==='email'?'bg-white border-sky-200':(it.raw&&it.raw.type==='action'?'bg-amber-50 border-amber-300':'bg-white border-stone-200')">
+          <div v-for="it in curTimeline" :key="it.kind+it.id" class="rounded-lg border px-3 py-2 mb-2" :class="it.kind==='email'?'bg-white border-sky-200':(it.raw&&it.raw.type==='action'?(it.raw.done?'bg-green-50 border-green-200':'bg-amber-50 border-amber-300'):'bg-white border-stone-200')">
             <template v-if="it.kind==='note'">
               <div class="flex justify-between items-center gap-2">
                 <span class="text-sm">{{ typeIcon(it.raw.type) }} <span class="text-xs text-stone-400">{{ typeLabel(it.raw.type) }}</span></span>
@@ -394,7 +396,11 @@
                   <button @click="delActivity(it.raw)" class="text-stone-300 hover:text-red-500 text-sm">✕</button>
                 </div>
               </div>
-              <p v-if="it.raw.result" class="text-[13px] text-stone-700 whitespace-pre-wrap mt-1">{{ it.raw.result }}</p>
+              <p v-if="it.raw.result" class="text-[13px] text-stone-700 whitespace-pre-wrap mt-1" :class="(it.raw.type==='action'&&it.raw.done)?'line-through text-stone-400':''">{{ it.raw.result }}</p>
+              <label v-if="it.raw.type==='action'" class="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none mt-1" :class="it.raw.done?'text-green-700':'text-orange-700 font-semibold'">
+                <input type="checkbox" :checked="!!it.raw.done" @change="toggleActionDone(it.raw)" class="w-4 h-4 accent-green-600">
+                {{ it.raw.done ? ('✓ Completed '+shortDate(it.raw.done_at)) : 'Mark complete' }}
+              </label>
               <p class="text-[11px] text-stone-400 mt-0.5">{{ fmtDateTime(it.raw.occurred_at) }} · {{ it.raw.created_by || '—' }}</p>
             </template>
             <template v-else>
@@ -1021,6 +1027,7 @@
       function clearTypes(){ activeTypes.value=[]; }
       const countByType=(t)=> stores.value.filter(s=>(s.store_type||'')===t).length;
       const newEmailsOnly=ref(false);
+      const actionsOnly=ref(false);
       const aiActionsOn=ref(false), aiActionsBusy=ref(false);
       const newCount=computed(()=> activities.value.filter(a=>a.unread).length);
       const storeHasNew=(id)=> activities.value.some(a=>a.store_id===id && a.unread);
@@ -1153,7 +1160,11 @@
       const eventCount=(id)=> activities.value.filter(a=>a.store_id===id && EVENT_TYPES.includes(a.type)).length;
       const daysSinceEvent=(id)=>{ const a=activities.value.find(x=>x.store_id===id && EVENT_TYPES.includes(x.type)); if(!a) return null; return Math.floor((Date.now()-new Date(a.occurred_at).getTime())/86400000); };
       const daysEventLabel=(id)=>{ const n=daysSinceEvent(id); return n===null?'—':(n<=0?'Today':(n===1?'1':n)); };
-      const recentNotes=(id)=>{ const arr=activities.value.filter(x=>x.store_id===id); const acts=arr.filter(a=>a.type==='action'); const rest=arr.filter(a=>a.type!=='action'); return acts.concat(rest).slice(0,3); };
+      const recentNotes=(id)=>{ const arr=activities.value.filter(x=>x.store_id===id); const acts=arr.filter(a=>a.type==='action'&&!a.done); const rest=arr.filter(a=>!(a.type==='action'&&!a.done)); return acts.concat(rest).slice(0,3); };
+      const outstandingActions=(id)=> activities.value.filter(a=>a.store_id===id && a.type==='action' && !a.done).length;
+      const storeHasAction=(id)=> outstandingActions(id)>0;
+      const actionsOutstanding=computed(()=> activities.value.filter(a=>a.type==='action' && !a.done).length);
+      async function toggleActionDone(a){ const done=!a.done; const done_at=done? new Date().toISOString():null; const { error }=await sb.from('activities').update({done,done_at}).eq('id',a.id); if(error){ flash('Could not update action: '+error.message); return; } activities.value=activities.value.map(x=> x.id===a.id? {...x,done,done_at}:x); flash(done?'Action completed ✓':'Action reopened'); }
       function lastChangeISO(s){ const a=activities.value.filter(x=>x.store_id===s.id)[0]; return a? a.occurred_at : s.updated_at; }
       function daysSince(s){ const d=lastChangeISO(s); if(!d) return null; return Math.floor((Date.now()-new Date(d).getTime())/86400000); }
 
@@ -1167,6 +1178,7 @@
         if(activeStatuses.value.length) list=list.filter(s=>activeStatuses.value.includes(s.status));
         if(activeTypes.value.length) list=list.filter(s=>activeTypes.value.includes(s.store_type||''));
         if(newEmailsOnly.value) list=list.filter(s=>storeHasNew(s.id));
+        if(actionsOnly.value) list=list.filter(s=>storeHasAction(s.id));
         const sOrder=STATUSES.map(s=>s.key), k2=sortKey.value;
         list.sort((a,b)=>{
           let r=0;
@@ -1183,7 +1195,7 @@
       });
       const displayStores=ref([]);
       function refreshOrder(){ displayStores.value = filteredStores.value.slice(); }
-      watch([search,areaFilter,activeStatuses,activeTypes,newEmailsOnly,sortKey,sortDir,aiActionsOn, ()=>stores.value.map(s=>s.id).join(',')], refreshOrder, {immediate:true});
+      watch([search,areaFilter,activeStatuses,activeTypes,newEmailsOnly,actionsOnly,sortKey,sortDir,aiActionsOn, ()=>stores.value.map(s=>s.id).join(','), ()=>activities.value.filter(a=>a.type==='action').map(a=>a.id+(a.done?'1':'0')).join(',')], refreshOrder, {immediate:true});
       const hasAiActions=computed(()=> stores.value.some(s=>s.ai_priority));
       function aiBoxClass(pri){ return pri===1?'bg-purple-700 text-white':(pri===2?'bg-purple-400 text-white':'bg-purple-100 text-purple-800'); }
       async function runAiActions(){
@@ -1438,8 +1450,8 @@
       const curTimeline=computed(()=>{
         if(!cur.value) return [];
         const rawNotes=activities.value.filter(a=>a.store_id===cur.value.id && !a.gmail_id);
-        const pinned=rawNotes.filter(a=>a.type==='action').map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a})).sort((a,b)=>(b.when||'').localeCompare(a.when||''));
-        const notes=rawNotes.filter(a=>a.type!=='action').map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
+        const pinned=rawNotes.filter(a=>a.type==='action' && !a.done).map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a})).sort((a,b)=>(b.when||'').localeCompare(a.when||''));
+        const notes=rawNotes.filter(a=>!(a.type==='action' && !a.done)).map(a=>({kind:'note',id:a.id,when:a.occurred_at||'',raw:a}));
         const emails=curEmails.value.map(m=>({kind:'email',id:m.id,direction:m.direction,subject:m.subject,snippet:m.snippet,when:m.date? new Date(m.date).toISOString():''}));
         const all=notes.concat(emails); all.sort((a,b)=>(a.when||'').localeCompare(b.when||''));
         const rest=noteSortDesc.value? all.reverse():all;
@@ -1606,7 +1618,7 @@
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,reply,decodeHtml,
         MERGE_FIELDS,bodyRef,bulkBodyRef,insertMerge,setCaret,clearBulkCompose,bulkPreviewRecip,bulkPreviewSubject,bulkPreviewBody,
         openNewStore,openStore,openStoreById,closeStore,onStatusChange,saveStore,saveAndClose,deleteStore,
-        addActivity,addAction,delActivity,syncAllEmails,syncBusy,syncProgress,
+        addActivity,addAction,delActivity,toggleActionDone,outstandingActions,actionsOnly,actionsOutstanding,syncAllEmails,syncBusy,syncProgress,
         applyTemplate,openGmail,copyEmail,logEmail,aiDraft,clearCompose,
         showImport,showDocs,showAdmin,importStep,importRows,importBusy,importError,docBusy,
         resetImport,onFile,doImport,openDocs,uploadDoc,downloadDoc,delDoc,
