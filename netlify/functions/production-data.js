@@ -100,9 +100,13 @@ exports.handler = async (event) => {
     if (action === 'save_rate') {
       const { key, value } = body;
       if (!key) return json(400, { error: 'Missing key.' });
-      await appsDb('rate_setting?key=eq.' + encodeURIComponent(key), {
-        method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ value: Number(value) }),
+      const patched = await appsDb('rate_setting?key=eq.' + encodeURIComponent(key), {
+        method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ value: Number(value) }),
       });
+      if (!Array.isArray(patched) || !patched.length) {
+        await appsDb('rate_setting', { method: 'POST', headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ key, value: Number(value), effective_from: new Date().toISOString().slice(0, 10) }) });
+      }
       return json(200, { ok: true });
     }
 
@@ -144,6 +148,20 @@ exports.handler = async (event) => {
           method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ is_current: false, active: false }) });
       }
       return json(200, { ok: true, id: newId });
+    }
+
+    if (action === 'update_recipe_inplace') {
+      const { recipe_id, flavour, short_code, version_label, cook_sec, blend_min, viscosity_sec, g_per_waffle, ingredients } = body;
+      if (!recipe_id) return json(400, { error: 'recipe_id required.' });
+      await appsDb('recipe?id=eq.' + encodeURIComponent(recipe_id), {
+        method: 'PATCH', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ flavour, short_code: short_code || null, version_label,
+          cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null, g_per_waffle: g_per_waffle || 70 }) });
+      await appsDb('recipe_ingredient?recipe_id=eq.' + encodeURIComponent(recipe_id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      const rows = (ingredients || []).filter(i => i.ingredient && i.batch_g)
+        .map((i, idx) => ({ recipe_id, ingredient: String(i.ingredient).trim(), batch_g: Math.round(Number(i.batch_g)), sort: idx + 1 }));
+      if (rows.length) await appsDb('recipe_ingredient', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
+      return json(200, { ok: true });
     }
 
     if (action === 'get_recipe_history') {
