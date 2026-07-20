@@ -87,7 +87,8 @@ function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 function chips(arr,cls){return arr.map(s=>'<span class="inline-block '+cls+' rounded-full px-2.5 py-1 text-xs mr-1.5 mb-1.5">'+esc(s)+'</span>').join('');}
 function card(title,inner){return '<div class="bg-white border border-stone-200 rounded-xl p-4 mb-4"><h3 class="font-semibold text-stone-800 mb-2">'+esc(title)+'</h3>'+inner+'</div>';}
 function pending(msg){return '<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2 mb-3">⏳ '+esc(msg)+'</div>';}
-function money(a,c){ if(a==null) return ''; return (c||'NZD')+' '+Number(a).toFixed(2); }
+function money(a,c){ if(a==null) return ''; return '$'+Number(a).toFixed(2); }
+function fmtDate(v){ const d=v?new Date(v):null; return (d&&!isNaN(d))?d.toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'long'}):''; }
 
 function panelHTML(id){
   if(id==='dashboard'){
@@ -161,13 +162,13 @@ function panelHTML(id){
 
 function orderPerishable(o){ const kw=window.PERISH_KW||['perishable','chilled','frozen','cold','fresh']; const hay=(((o.tags||[]).join(' '))+' '+((o.lineItems||[]).map(li=>li.title||'').join(' '))).toLowerCase(); return kw.some(k=>k&&hay.includes(k)); }
 function orderCard(o){
-  const items = o.lineItems.map(li=>'<div class="flex justify-between text-xs text-stone-600"><span>'+(li.qty)+'× '+esc(li.title)+(li.sku?' <span class="text-stone-400">('+esc(li.sku)+')</span>':'')+'</span><span>'+money(li.price,o.currency)+'</span></div>').join('');
+  const items = o.lineItems.map(li=>'<div class="flex justify-between gap-2 text-xs text-stone-600"><span class="truncate">'+(li.qty)+'× '+esc(li.title)+'</span><span class="shrink-0">'+money(li.price,o.currency)+'</span></div>').join('');
   const track = o.tracking.length ? o.tracking.map(t=>'<span class="text-stone-500">'+esc(t.company||'Courier')+' '+esc(t.number||'')+'</span>').join('<br>') : '<span class="text-stone-400">no tracking yet</span>';
   const ship = o.shipTo ? esc([o.shipTo.name,o.shipTo.address1,o.shipTo.city,o.shipTo.zip].filter(Boolean).join(', ')) : '';
   const trackUI = (o.tracking||[]).filter(t=>t.number).map(t=>'<div class="mt-2"><button onclick="loadTrack(\''+esc(t.number)+'\',this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-2 py-1 rounded-lg">🚚 Live NZ Post status</button><div class="mt-2"></div></div>').join('');
   const perish = orderPerishable(o) ? ' <span class="inline-block text-[11px] font-bold text-red-600 border border-red-300 bg-red-50 rounded px-1.5 py-0.5">PERISHABLE</span>' : '';
   return '<div class="bg-white border border-stone-200 rounded-xl p-4 mb-3">'
-    + '<div class="flex justify-between items-start mb-2"><div><span class="font-semibold text-stone-800">'+esc(o.name)+'</span> <span class="text-xs text-stone-400 ml-1">'+new Date(o.createdAt).toLocaleDateString()+'</span>'+perish+'</div><div class="text-right"><div class="font-semibold text-sm">'+money(o.total,o.currency)+'</div></div></div>'
+    + '<div class="flex justify-between items-start mb-2"><div><span class="font-semibold text-stone-800">'+esc(o.name)+'</span> <span class="text-xs text-stone-400 ml-1">'+fmtDate(o.createdAt)+'</span>'+perish+'</div><div class="text-right"><div class="font-semibold text-sm">'+money(o.total,o.currency)+'</div></div></div>'
     + '<div class="flex flex-wrap gap-1.5 mb-2">'+chips([o.financial||'—',o.fulfillment||'—'],'bg-stone-100 text-stone-600 border border-stone-200')+'</div>'
     + (ship?'<div class="text-xs text-stone-500 mb-2">📍 '+ship+'</div>':'')
     + '<div class="border-t border-stone-100 pt-2 mb-2">'+items+'</div>'
@@ -255,7 +256,7 @@ function ticketRow(t){
   const c=t.customer||{};
   const _lastMsg=(t.messages||[]).reduce((mx,m)=>(m.sent_at&&(!mx||new Date(m.sent_at)>new Date(mx)))?m.sent_at:mx,null);
   const _dv=_lastMsg||t.created_at||t.updated_at;
-  const when=_dv?new Date(_dv).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+  const when=_dv?(fmtDate(_dv)+' '+new Date(_dv).toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'})):'';
   const sc={'Open':'bg-teal-100 text-teal-700','Resolved':'bg-stone-200 text-stone-600'}[t.status]||'bg-amber-100 text-amber-700';
   const tick = t.matched_order ? '✅' : '❌';
   const matched = t.matched_order ? '<span class="inline-block text-[11px] bg-teal-50 text-teal-700 border border-teal-200 rounded px-1.5 py-0.5 whitespace-nowrap">→ '+esc(t.matched_order)+'</span>' : '<span class="text-[11px] text-stone-400">no order</span>';
@@ -444,7 +445,7 @@ async function loadTrack(number, btn){
   if(d.trackingUrl) html+='<div class="text-xs mt-1"><a href="'+esc(d.trackingUrl)+'" target="_blank" class="text-teal-700 underline">Open on carrier site ↗</a></div>';
   if(!evs.length && d._raw){ html+='<details class="mt-1"><summary class="text-xs text-stone-400 cursor-pointer">raw response</summary><pre class="text-[10px] text-stone-500 overflow-auto max-h-40 whitespace-pre-wrap">'+esc(JSON.stringify(d._raw,null,1))+'</pre></details>'; }
   html+='</div>';
-  box.innerHTML=html;
+  box.innerHTML=html; if(btn) btn.style.display='none';
 }
 
 function notesCard(notes){
@@ -572,7 +573,7 @@ async function loadClaims(){
   const rows=cs.map(x=>{
     const causeSel='<select onchange="updateCause(\''+x.id+'\',this.value)" class="text-xs border border-stone-300 rounded px-1 py-0.5"><option value="">— cause —</option>'+CAUSES.map(c=>'<option'+(x.cause===c?' selected':'')+'>'+c+'</option>').join('')+'</select>';
     const doneBtn='<button onclick="setResendStatus(\''+x.id+'\',\''+(x.status==='Done'?'Open':'Done')+'\')" class="text-xs '+(x.status==='Done'?'bg-green-100 text-green-700':'bg-stone-100 text-stone-600')+' rounded px-2 py-0.5">'+(x.status==='Done'?'✓ Done':'Mark done')+'</button>';
-    return '<tr class="border-b border-stone-100 align-top"><td class="py-2 pr-2 font-medium whitespace-nowrap">'+esc(x.order_name||'')+(x.resend_order?' → '+esc(x.resend_order):'')+'</td><td class="py-2 pr-2 text-stone-600">'+esc(x.customer_name||x.customer_email||'')+'</td><td class="py-2 pr-2">'+causeSel+'</td><td class="py-2 pr-2 whitespace-nowrap">'+(x.value?('NZD '+Number(x.value).toFixed(2)):'')+'</td><td class="py-2 pr-2">'+doneBtn+'</td><td class="py-2 text-stone-400 whitespace-nowrap">'+(x.created_at?new Date(x.created_at).toLocaleDateString('en-NZ'):'')+'</td></tr>';
+    return '<tr class="border-b border-stone-100 align-top"><td class="py-2 pr-2 font-medium whitespace-nowrap">'+esc(x.order_name||'')+(x.resend_order?' → '+esc(x.resend_order):'')+'</td><td class="py-2 pr-2 text-stone-600">'+esc(x.customer_name||x.customer_email||'')+'</td><td class="py-2 pr-2">'+causeSel+'</td><td class="py-2 pr-2 whitespace-nowrap">'+(x.value?('$'+Number(x.value).toFixed(2)):'')+'</td><td class="py-2 pr-2">'+doneBtn+'</td><td class="py-2 text-stone-400 whitespace-nowrap">'+(x.created_at?new Date(x.created_at).toLocaleDateString('en-NZ'):'')+'</td></tr>';
   }).join('');
   el.innerHTML=wk+'<table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200"><th class="py-1 pr-2">Order → Resend</th><th class="py-1 pr-2">Customer</th><th class="py-1 pr-2">Cause</th><th class="py-1 pr-2">Value</th><th class="py-1 pr-2">Status</th><th class="py-1">Date</th></tr></thead><tbody>'+rows+'</tbody></table><div class="text-right text-xs text-stone-500 mt-2">Total logged: NZD '+total.toFixed(2)+'</div>';
 }
