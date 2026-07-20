@@ -96,7 +96,7 @@ function panelHTML(id){
     const sbtn=(k,l)=>'<button onclick="setSort(\''+k+'\')" class="text-xs px-2 py-0.5 rounded border '+(so===k?'bg-stone-700 text-white border-stone-700':'bg-white text-stone-600 border-stone-300 hover:bg-stone-50')+'">'+l+'</button>';
     return '<div class="flex items-center justify-between mb-3 flex-wrap gap-2"><h2 class="text-xl font-bold">Inbox</h2><div class="flex gap-2"><button onclick="openNewTicket()" class="text-xs bg-stone-800 hover:bg-stone-900 text-white px-3 py-1.5 rounded-lg">＋ New ticket</button><button onclick="syncInbox(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">⟳ Sync</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="text-xs border border-stone-300 text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post</button></div></div>'
       + '<div id="fulfilReport" class="mb-4">'+(window.FULFIL_HTML||'<div class="text-stone-400 text-xs">Loading fulfilment report…</div>')+'</div>'
-      + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+btn('done','✓ Done')+'</div>'
+      + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+'<button onclick="setFilter(\'escalate\')" class="text-xs px-2.5 py-1 rounded-full border '+(f==='escalate'?'bg-red-600 text-white border-red-600':'bg-white text-red-600 border-red-300 hover:bg-red-50')+'">🚑 Escalate<span id="escCount">'+(window.ESC_COUNT?(' '+window.ESC_COUNT):'')+'</span></button>'+btn('done','✓ Done')+'</div>'
       + '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs text-stone-400">Sort:</span>'+sbtn('date','Date')+sbtn('stars','★ Stars')+sbtn('order','Order #')+'<span id="syncMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + '<div id="ticketList"><div class="text-stone-400 text-sm">Loading…</div></div>';
   }
@@ -231,12 +231,16 @@ function threadRow(t){
 async function loadTickets(){
   const el=document.getElementById('ticketList'); if(!el) return;
   const f=window.FILTER||'open';
-  const req = f==='done' ? {status:'Resolved'} : (f==='open' ? {excludeResolved:true} : {type:f, excludeResolved:true});
+  let req;
+  if(f==='done') req={status:'Resolved'};
+  else if(f==='escalate') req={escalated:true, excludeResolved:true};
+  else if(f==='open') req={excludeResolved:true, escalated:false};
+  else req={type:f, excludeResolved:true, escalated:false};
   const r=await apiPost('support-tickets',req);
   if(!r.ok){ el.innerHTML='<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load tickets.')+'</div>'; return; }
   const ts=sortTickets(r.data.tickets||[]);
   if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">Nothing here — '+(f==='open'?'inbox is clear 🎉':'no tickets in this filter.')+'</div>'; window.LAST_TICKETS=ts; return; }
-  el.innerHTML=ts.map(ticketRow).join(''); window.LAST_TICKETS=ts; queueCourier(ts,false);
+  el.innerHTML=ts.map(ticketRow).join(''); window.LAST_TICKETS=ts; queueCourier(ts,false); refreshEscalateCount();
 }
 function setFilter(k){ window.FILTER=k; const panel=document.getElementById('panel'); if(panel) panel.innerHTML=panelHTML('dashboard'); loadTickets(); }
 function lastEvents(t){
@@ -290,7 +294,7 @@ async function openTicket(id){
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
     +'<p class="text-stone-500 text-sm mb-2">'+esc(c.name||'')+ratingHtml(c.orders_count)+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
-    +'<div class="mb-4 flex items-center gap-2 flex-wrap"><button onclick="resolveTicket()" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">✓ Resolve &amp; archive</button><button onclick="replaceHeader()" class="text-xs border border-stone-300 hover:bg-stone-50 px-3 py-1.5 rounded-lg">↩ Replace order (free)</button><span class="text-xs text-stone-400">Type:</span>'+typeSelect(t.ticket_type)+'</div>'
+    +'<div class="mb-4 flex items-center gap-2 flex-wrap">'+'<button onclick="resolveTicket()" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">✓ Resolve &amp; archive</button>'+'<button onclick="replaceHeader()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-1.5 rounded-lg">↩ Replace order (free)</button>'+'<button onclick="forwardTicket()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg">➡ Forward</button>'+'<button onclick="escalateTicket('+(t.escalated?'false':'true')+')" class="text-xs '+(t.escalated?'bg-stone-500 hover:bg-stone-600':'bg-red-600 hover:bg-red-700')+' text-white font-semibold px-3 py-1.5 rounded-lg">'+(t.escalated?'↩ Un-escalate':'🚑 Escalate')+'</button>'+'<span class="text-xs text-stone-400 ml-1">Type:</span>'+typeSelect(t.ticket_type)+'</div>'
     +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2"><div id="testiBox"></div>'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
   loadActivity(); detectTestimonial();
   if(c.email){
@@ -499,6 +503,22 @@ async function resolveTicket(){
 }
 
 function typeSelect(cur){ const o=[['order','📦 Order'],['enquiry','💬 Enquiry'],['misc','🗂️ Misc'],['unknown','❓ Unsure']]; return '<select onchange="retagType(this.value)" class="text-xs border border-stone-300 rounded px-2 py-1">'+o.map(x=>'<option value="'+x[0]+'"'+(cur===x[0]?' selected':'')+'>'+x[1]+'</option>').join('')+'</select>'; }
+async function refreshEscalateCount(){
+  const r=await apiPost('support-tickets',{escalated:true, excludeResolved:true});
+  if(r.ok){ window.ESC_COUNT=(r.data.tickets||[]).length; const e=document.getElementById('escCount'); if(e) e.textContent=window.ESC_COUNT?(' '+window.ESC_COUNT):''; }
+}
+async function escalateTicket(val){
+  const r=await apiPost('support-ticket-escalate',{id:window.CUR.id, escalated:val});
+  if(!r.ok){ alert((r.data&&r.data.error)||'Could not update.'); return; }
+  if(val){ show('dashboard'); loadTickets(); } else { openTicket(window.CUR.id); }
+}
+async function forwardTicket(){
+  const to=prompt('Forward this email to (address):',''); if(!to) return;
+  const note=prompt('Add a note for them (optional):','')||'';
+  const r=await apiPost('support-forward',{id:window.CUR.id, to, note});
+  if(!r.ok){ alert((r.data&&r.data.error)||'Could not forward.'); return; }
+  alert('✓ Forwarded to '+to+'.'); if(document.getElementById('activityList')) loadActivity();
+}
 async function retagType(type){ try{ await apiPost('support-ticket-type',{id:window.CUR.id, type}); }catch(e){} }
 async function replaceOrder(orderId, orderName){
   if(!orderId){ alert('No Shopify order id for this order.'); return; }
@@ -578,14 +598,14 @@ async function loadFulfilReport(){
   if(!r.ok){ window.FULFIL_HTML='<div class="text-amber-700 text-xs">Fulfilment report: '+esc((r.data&&r.data.error)||'unavailable')+'</div>'; el.innerHTML=window.FULFIL_HTML; return; }
   const d=r.data;
   const skus=(d.topSkus||[]).map((x,i)=>'<div class="flex justify-between text-xs py-0.5"><span class="truncate">'+(i+1)+'. '+esc(x.title||x.sku||'(no name)')+'</span><span class="font-semibold ml-2 shrink-0">'+x.qty+'</span></div>').join('');
-  const types=(d.byType||[]).map(x=>'<div class="flex justify-between text-xs py-0.5"><span class="truncate">'+esc(x.type||'Other')+'</span><span class="ml-2 shrink-0">'+x.itemCount+' items</span></div>').join('');
+  const types=(d.byType||[]).map(x=>'<div class="flex justify-between text-xs py-0.5"><span class="truncate">'+esc(x.type||'Other')+'</span><span class="font-semibold ml-2 shrink-0">'+x.itemCount+'</span></div>').join('');
   let oosHtml;
   if(!ro.ok){ oosHtml='<span class="text-xs text-amber-600">'+esc((ro.data&&ro.data.error)||'unavailable')+'</span>'; }
   else { const its=ro.data.items||[]; oosHtml = its.length ? its.slice(0,40).map(x=>'<div class="text-xs py-0.5 truncate">'+esc(x.name)+'</div>').join('')+(its.length>40?'<div class="text-xs text-stone-400 mt-1">+ '+(its.length-40)+' more</div>':'') : '<span class="text-xs text-stone-400">Everything in stock 🎉</span>'; }
   const oosCount=(ro.ok&&ro.data.count)||0;
   window.FULFIL_HTML='<div class="grid grid-cols-1 md:grid-cols-3 gap-3">'
     +'<div class="bg-white border border-stone-200 rounded-xl p-3"><div class="text-xs font-semibold text-stone-700 mb-1">📦 Top 10 SKUs to fulfil <span class="text-stone-400 font-normal">('+(d.orderCount||0)+' open orders)</span></div>'+(skus||'<span class="text-xs text-stone-400">Nothing to fulfil 🎉</span>')+'</div>'
-    +'<div class="bg-white border border-stone-200 rounded-xl p-3"><div class="text-xs font-semibold text-stone-700 mb-1">Items by product type</div>'+(d.productTypeUnavailable?'<span class="text-xs text-amber-600">Product-type unavailable: '+esc(d.typeError||'read_products scope needed')+'</span>':(types||'<span class="text-xs text-stone-400">—</span>'))+'</div>'
+    +'<div class="bg-white border border-stone-200 rounded-xl p-3"><div class="text-xs font-semibold text-stone-700 mb-1">🍽️ Items to fulfil by product type</div>'+(d.productTypeUnavailable?'<span class="text-xs text-amber-600">Product-type unavailable: '+esc(d.typeError||'read_products scope needed')+'</span>':(types||'<span class="text-xs text-stone-400">—</span>'))+'</div>'
     +'<div class="bg-white border border-stone-200 rounded-xl p-3"><div class="text-xs font-semibold text-stone-700 mb-1">⛔ Out of stock <span class="text-stone-400 font-normal">('+oosCount+' active)</span></div>'+oosHtml+'</div>'
     +'</div>';
   el.innerHTML=window.FULFIL_HTML;
