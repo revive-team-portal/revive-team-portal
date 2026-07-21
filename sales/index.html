@@ -1060,7 +1060,7 @@
       const bodyCaret=ref(0), bulkCaret=ref(0);
       function setCaret(e, which){ const el=e.target; const pos=(el && typeof el.selectionStart==='number')? el.selectionStart : 0; if(which==='b') bulkCaret.value=pos; else bodyCaret.value=pos; }
       function insertMerge(which, token){ const isB=which==='b'; const obj=isB?bulkCompose:email; const v=obj.body||''; let pos=isB?bulkCaret.value:bodyCaret.value; pos=Math.min(Math.max(pos||0,0),v.length); obj.body=v.slice(0,pos)+token+v.slice(pos); const np=pos+token.length; if(isB) bulkCaret.value=np; else bodyCaret.value=np; nextTick(()=>{ const el=(isB?bulkBodyRef:bodyRef).value; if(el){ try{ el.focus(); el.setSelectionRange(np,np); }catch(e){} } }); }
-      function clearBulkCompose(){ bulkCompose.subject=''; bulkCompose.body=''; bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAttachIds.value=[]; flash('Cleared'); }
+      function clearBulkCompose(){ bulkCompose.subject=''; bulkCompose.body=sigBody(); bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAttachIds.value=[]; flash('Cleared'); }
       const bulkPreviewRecip=computed(()=> bulkRecipients.value.find(r=>r.included && (r.emails||'').trim()) || null);
       const bulkPreviewSubject=computed(()=>{ const r=bulkPreviewRecip.value; return r? mergeStore(bulkCompose.subject||'', {contact_first:r.name,store_name:r.store_name}, 'there') : (bulkCompose.subject||''); });
       const bulkPreviewBody=computed(()=>{ const r=bulkPreviewRecip.value; const raw=(bulkCompose.body||''); return r? mergeStore(raw,{contact_first:r.name,store_name:r.store_name}, 'there') : raw; });
@@ -1085,7 +1085,7 @@
       function prevQuote(){ if(quotePtr.value>0) quotePtr.value--; }
       const bulkEmails=computed(()=> selectedIds.value.map(id=>{ const s=stores.value.find(x=>x.id===id); return s&&(s.contact_email||s.store_email); }).filter(Boolean));
       const bulkEmailsStr=computed(()=> bulkEmails.value.join(', '));
-      function openBulkEmail(){ const L=lastEmail.value; bulkCompose.subject=L?(L.subject||''):''; bulkCompose.body=L?(L.body||''):''; bulkCompose.ps=L?(L.ps||''):(psList.value[0]||''); bulkTemplate.value=''; bulkAttachIds.value=L?(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)):[]; bulkProgress.value=''; bulkRecipients.value=selectedIds.value.map(id=>{ const st=stores.value.find(s=>s.id===id); if(!st) return null; const ems=storeEmails(st); return { id, store_name:st.store_name, name:(st.contact_first||(st.contact_name||'').trim().split(/\s+/)[0]||''), emails:ems.join(', '), included:ems.length>0 }; }).filter(Boolean); showBulkEmail.value=true; }
+      function openBulkEmail(){ bulkCompose.subject=''; bulkCompose.body=sigBody(); bulkCompose.ps=psList.value[0]||''; bulkTemplate.value=''; bulkAttachIds.value=[]; bulkProgress.value=''; bulkRecipients.value=selectedIds.value.map(id=>{ const st=stores.value.find(s=>s.id===id); if(!st) return null; const ems=storeEmails(st); return { id, store_name:st.store_name, name:(st.contact_first||(st.contact_name||'').trim().split(/\s+/)[0]||''), emails:ems.join(', '), included:ems.length>0 }; }).filter(Boolean); showBulkEmail.value=true; }
       async function copyBulkEmails(){ await navigator.clipboard.writeText(bulkEmailsStr.value); flash('Addresses copied'); }
       async function applyBulkNote(){ const txt=bulkNote.value.trim(); if(!txt){ flash('Enter a note'); return; } const rows=selectedIds.value.map(id=>({store_id:id,type:'email',result:txt,created_by:me.value,occurred_at:new Date().toISOString()})); await sb.from('activities').insert(rows); await loadAll(); flash('Note added to '+rows.length+' stores'); }
       const bulkCompose=reactive({subject:'',body:'',ps:''});
@@ -1300,7 +1300,7 @@
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
       function openStoreById(id){ const st=stores.value.find(x=>x.id===id); if(st){ showAnalytics.value=false; openStore(st); } }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); prefillFromLast(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); blankCompose(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; }
