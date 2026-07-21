@@ -23,15 +23,16 @@ function matchOrderRef(txt){
 function b64(s){ return Buffer.from((s||'').replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8'); }
 function parseEmail(s){ const m=(s||'').match(/<([^>]+)>/); return (m?m[1]:(s||'')).trim().toLowerCase(); }
 function parseName(s){ const m=(s||'').match(/^\s*"?([^"<]+?)"?\s*</); return m?m[1].trim():''; }
-function extractBody(payload){
-  if(!payload) return '';
-  let plain='', html='';
-  (function walk(p){ if(!p) return; if(p.parts) p.parts.forEach(walk);
+function extractParts(payload){
+  let plain='', html='', attachments=[];
+  (function walk(p){ if(!p) return;
+    if(p.filename && p.body && p.body.attachmentId){ attachments.push({ filename:p.filename, mimeType:p.mimeType||'application/octet-stream', attachmentId:p.body.attachmentId, size:p.body.size||0 }); }
+    if(p.parts) p.parts.forEach(walk);
     if(p.mimeType==='text/plain' && p.body && p.body.data) plain += b64(p.body.data);
     else if(p.mimeType==='text/html' && p.body && p.body.data) html += b64(p.body.data);
   })(payload);
-  if(plain.trim()) return plain.trim();
-  return html.replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+  const text = plain.trim() ? plain.trim() : html.replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+  return { text, html: html.trim(), attachments };
 }
 async function gapi(token, path){ const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{headers:{Authorization:'Bearer '+token}}); return r.json().catch(()=>({})); }
 
@@ -54,9 +55,9 @@ async function processThread(token, tid){
   const msgs=thread.messages||[]; if(!msgs.length) return { messages:0 };
   let custEmail='', custName='', subject='', blob='';
   const parsed=msgs.map(m=>{ const h={}; ((m.payload&&m.payload.headers)||[]).forEach(x=>h[x.name.toLowerCase()]=x.value);
-    const bodyText=extractBody(m.payload); if(!subject && h.subject) subject=h.subject;
+    const parts=extractParts(m.payload); const bodyText=parts.text; if(!subject && h.subject) subject=h.subject;
     blob+=' '+(h.subject||'')+' '+bodyText.slice(0,500);
-    return { m, h, from:parseEmail(h.from), to:parseEmail(h.to), bodyText }; });
+    return { m, h, from:parseEmail(h.from), to:parseEmail(h.to), bodyText, html:parts.html, attachments:parts.attachments }; });
   for(const pm of parsed){ const other=pm.from&&pm.from!==MAILBOX?pm.from:(pm.to&&pm.to!==MAILBOX?pm.to:''); if(other&&!custEmail){ custEmail=other; custName=parseName(pm.h.from)||parseName(pm.h.to)||''; } }
   if(!custEmail) custEmail='unknown@no-email.local';
   const custRows=await upsert('customers',{ email:custEmail, name:custName||null, first_seen:new Date(Number(msgs[0].internalDate||Date.now())).toISOString() },'email');
@@ -78,7 +79,7 @@ async function processThread(token, tid){
     const ins=await rest('tickets',{ method:'POST', headers:{Prefer:'return=representation'}, body:JSON.stringify({ gmail_thread_id:tid, customer_id:customerId, subject:subj, status:'Open', triage, ticket_type:classifyType(isOrder,custEmail,blob), source:'email', reviewed:false, matched_order:matchedOrder, snippet, updated_at:lastTs }) });
     ticketId=ins&&ins[0]&&ins[0].id; created=true;
   }
-  await Promise.all(parsed.map(pm=>upsert('messages',{ gmail_message_id:pm.m.id, ticket_id:ticketId, direction:pm.from===MAILBOX?'outbound':'inbound', from_addr:pm.h.from||'', to_addr:pm.h.to||'', body:(pm.bodyText||'').slice(0,20000), sent_at:new Date(Number(pm.m.internalDate||Date.now())).toISOString() },'gmail_message_id')));
+  await Promise.all(parsed.map(pm=>upsert('messages',{ gmail_message_id:pm.m.id, ticket_id:ticketId, direction:pm.from===MAILBOX?'outbound':'inbound', from_addr:pm.h.from||'', to_addr:pm.h.to||'', body:(pm.bodyText||'').slice(0,20000), body_html:(pm.html||'').slice(0,120000), attachments:(pm.attachments||[]), sent_at:new Date(Number(pm.m.internalDate||Date.now())).toISOString() },'gmail_message_id')));
   return { messages:parsed.length, created, triage };
 }
 
