@@ -236,10 +236,10 @@
         </div>
       </div>
       <div class="p-4 space-y-3">
-        <textarea v-model="salesPrompts.features" @change="savePrompts" rows="6" placeholder="Product benefits…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        <textarea v-model="salesPrompts.retailer" @change="savePrompts" rows="6" placeholder="Retailer benefits & facts…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        <textarea v-model="salesPrompts.objections" @change="savePrompts" rows="7" placeholder="Objections & solutions…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
-        <textarea v-model="salesPrompts.closing" @change="savePrompts" rows="6" placeholder="Closing & next steps…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[15px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
+        <textarea v-model="salesPrompts.features" @change="savePrompts" rows="10" placeholder="Product benefits…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[12px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
+        <textarea v-model="salesPrompts.retailer" @change="savePrompts" rows="10" placeholder="Retailer benefits & facts…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[12px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
+        <textarea v-model="salesPrompts.objections" @change="savePrompts" rows="12" placeholder="Objections & solutions…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[12px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
+        <textarea v-model="salesPrompts.closing" @change="savePrompts" rows="10" placeholder="Closing & next steps…" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-[12px] leading-snug focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
       </div>
     </div>
     <div v-else class="hidden xl:flex flex-col items-center bg-indigo-100 text-indigo-700 h-full shrink-0 w-8 cursor-pointer hover:bg-indigo-200" @click="promptsOpen=true" title="Show sales prompts"><div class="mt-4 text-lg">💡</div></div>
