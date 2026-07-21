@@ -119,6 +119,23 @@
   .hint{font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:14px}
   .section-label{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin:18px 0 6px}
 
+  /* ---------- FEATURES / BUGS BOARD ---------- */
+  .fr-new{display:flex;gap:10px;align-items:flex-start;margin-bottom:20px}
+  .fr-new textarea{flex:1;width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:10px;font-size:14.5px;font-family:inherit;background:#fff;color:var(--ink);resize:vertical;line-height:1.45}
+  .fr-new textarea:focus{outline:none;border-color:var(--green-l);box-shadow:0 0 0 3px rgba(47,138,106,.15)}
+  .fr-new .btn{align-self:stretch}
+  .fr-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .fr-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:9px}
+  .fr-card.done{background:#f4f8f5;border-color:#c5e6d7}
+  .fr-card .fr-body{font-size:14.5px;line-height:1.5;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+  .fr-card.done .fr-body{text-decoration:line-through;color:var(--muted)}
+  .fr-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+  .fr-who{font-weight:600;color:var(--green-d)}
+  .fr-actions{display:flex;gap:6px}
+  .fr-actions .btn{width:auto;padding:5px 10px;font-size:12.5px;border-radius:8px}
+  .fr-done-pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:14px;background:#eaf6f0;color:var(--green-d)}
+  .fr-empty{grid-column:1/-1;background:#fff;border:1px dashed var(--line);border-radius:14px;padding:28px;text-align:center;color:var(--muted);font-size:13.5px}
+
   /* ---------- TOAST + LOADER ---------- */
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:100}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -174,6 +191,17 @@
     <div class="page-head"><h2>Your apps</h2></div>
     <p class="sub" id="dashSub">Choose an app to get started.</p>
     <div class="tiles" id="tiles"></div>
+
+    <!-- FEATURES / BUGS BOARD -->
+    <div class="fr-board">
+      <div class="page-head" style="margin-top:38px"><h2>Features &amp; bugs</h2></div>
+      <p class="sub" style="margin-bottom:16px">Spot something to fix or improve? Type it below — everyone can see the list.</p>
+      <div class="fr-new">
+        <textarea id="frInput" rows="2" placeholder="Describe the change, feature or bug…"></textarea>
+        <button class="btn btn-sm" id="frAddBtn" style="width:auto">Add</button>
+      </div>
+      <div id="frList" class="fr-list"></div>
+    </div>
   </div>
 
   <!-- ADMIN -->
@@ -294,6 +322,54 @@ async function loadDashboard(){
     visible = allApps.filter(a=>ids.has(a.id));
   }
   renderTiles(visible);
+  loadFeatures();
+}
+
+/* ===== FEATURES / BUGS BOARD ===== */
+function frDate(ts){ try{ return new Date(ts).toLocaleDateString('en-NZ',{day:'numeric',month:'short'}); }catch(e){ return ''; } }
+async function loadFeatures(){
+  const wrap=$('frList'); if(!wrap) return;
+  const { data, error } = await sb.from('feature_requests').select('*').order('done',{ascending:true}).order('created_at',{ascending:false});
+  if(error){ wrap.innerHTML=`<div class="fr-empty">Could not load the list.</div>`; return; }
+  if(!data.length){ wrap.innerHTML=`<div class="fr-empty">Nothing logged yet — be the first to add something above.</div>`; return; }
+  wrap.innerHTML = data.map(r=>{
+    const admin = me && me.is_admin;
+    const donePill = r.done ? `<span class="fr-done-pill">✓ Done${r.done_at?' · '+frDate(r.done_at):''}</span>` : '';
+    const adminActions = admin ? `<div class="fr-actions">
+        <button class="btn btn-ghost" data-fr-toggle="${r.id}" data-done="${r.done?1:0}">${r.done?'Reopen':'Mark done'}</button>
+        <button class="btn btn-danger" data-fr-del="${r.id}">Delete</button>
+      </div>` : '';
+    return `<div class="fr-card ${r.done?'done':''}">
+      <div class="fr-body">${esc(r.body)}</div>
+      <div class="fr-meta">
+        <span><span class="fr-who">${esc(r.created_by_name||'Someone')}</span> · ${frDate(r.created_at)}</span>
+        ${donePill}
+      </div>
+      ${adminActions}
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-fr-toggle]').forEach(b=>b.addEventListener('click',()=>toggleFeature(b.dataset.frToggle, b.dataset.done==='1')));
+  wrap.querySelectorAll('[data-fr-del]').forEach(b=>b.addEventListener('click',()=>deleteFeature(b.dataset.frDel)));
+}
+async function submitFeature(){
+  const el=$('frInput'); const body=(el.value||'').trim();
+  if(!body){ el.focus(); return; }
+  const btn=$('frAddBtn'); btn.disabled=true;
+  const { error } = await sb.from('feature_requests').insert({ body, created_by_id: me.id, created_by_name: (me.full_name||me.email||'') });
+  btn.disabled=false;
+  if(error){ toast('Could not add — please try again'); return; }
+  el.value=''; toast('Added to the list'); loadFeatures();
+}
+async function toggleFeature(id, isDone){
+  const { error } = await sb.from('feature_requests').update({ done: !isDone, done_at: !isDone ? new Date().toISOString() : null }).eq('id', id);
+  if(error){ toast('Only admins can change this'); return; }
+  loadFeatures();
+}
+async function deleteFeature(id){
+  if(!confirm('Delete this item?')) return;
+  const { error } = await sb.from('feature_requests').delete().eq('id', id);
+  if(error){ toast('Only admins can delete'); return; }
+  loadFeatures();
 }
 function renderTiles(apps){
   const wrap=$('tiles');
@@ -467,6 +543,8 @@ $('addUserBtn').addEventListener('click', openAdd);
 $('cancelModal').addEventListener('click', closeModal);
 $('userForm').addEventListener('submit', submitUser);
 $('userModal').addEventListener('click', e=>{ if(e.target===$('userModal')) closeModal(); });
+$('frAddBtn').addEventListener('click', submitFeature);
+$('frInput').addEventListener('keydown', e=>{ if((e.metaKey||e.ctrlKey) && e.key==='Enter') submitFeature(); });
 
 start();
 </script>
