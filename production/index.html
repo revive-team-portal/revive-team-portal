@@ -11,7 +11,17 @@
     [v-cloak]{display:none}
     ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
     #printArea{display:none}
-    @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible} #printArea{display:block;visibility:visible;position:absolute;left:0;top:0;width:100%;padding:16px} .no-print{display:none !important} }
+    @media print{
+      @page{size:A4 portrait;margin:10mm}
+      html,body{height:auto !important;margin:0 !important;padding:0 !important;background:#fff !important}
+      .no-print{display:none !important}
+      .min-h-screen{min-height:0 !important}
+      body *{visibility:hidden}
+      #printArea,#printArea *{visibility:visible}
+      #printArea{display:block !important;position:static !important;width:auto !important;padding:0 !important;overflow:visible !important}
+      #printArea table{page-break-inside:auto}
+      #printArea tr{page-break-inside:avoid}
+    }
   </style>
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
@@ -211,7 +221,7 @@
 
     <datalist id="ingList"><option v-for="n in ingredientNames" :value="n"></option></datalist>
 
-    <div id="printArea" v-if="printRec"><div style="font-family:sans-serif;color:#111"><div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:6px"><div><div style="font-size:24px;font-weight:800">WOPPLES — {{ printRec.flavour }}</div><div style="font-size:13px">SKU {{ printRec.sku }} &nbsp;|&nbsp; Recipe Version <b>{{ printRec.version_label }}</b></div></div><div style="font-size:12px;text-align:right">Cook {{ printRec.cook_sec }}s ({{ mmss(printRec.cook_sec) }}) &nbsp; Blend {{ printRec.blend_min }}min ({{ mmss(printRec.blend_min*60) }}) &nbsp; Viscosity {{ printRec.viscosity_sec }}s ({{ mmss(printRec.viscosity_sec) }})</div></div><table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:16px"><thead><tr style="background:#eee"><th style="border:1px solid #999;padding:7px;text-align:left">Ingredient</th><th style="border:1px solid #999;padding:7px;text-align:right;width:130px">Batch (g)</th><th style="border:1px solid #999;padding:7px;text-align:right;width:130px">Half (g)</th><th v-if="printScale" style="border:1px solid #999;padding:7px;text-align:right;width:140px;background:#ddd">Custom {{ num(printCustomG) }}g</th></tr></thead><tbody><tr v-for="ing in printIngs" :key="ing.ingredient"><td style="border:1px solid #999;padding:8px;font-weight:600">{{ ing.ingredient }}</td><td style="border:1px solid #999;padding:8px;text-align:right">{{ num(ing.batch_g) }}</td><td style="border:1px solid #999;padding:8px;text-align:right;color:#555">{{ num(ing.batch_g/2) }}</td><td v-if="printScale" style="border:1px solid #999;padding:8px;text-align:right;font-weight:700;background:#f4f4f4">{{ num(ing.batch_g*printScale) }}</td></tr></tbody></table><div style="font-size:11px;margin-top:8px;color:#555">Revivealicious Foods — line recipe {{ printRec.version_label }}. Batch actuals recorded on the checksheet. Printed {{ today }}.<span v-if="printScale"> Custom column scaled to {{ num(printCustomG) }}g total ({{ (printScale*100).toFixed(1) }}% of full batch).</span></div></div></div>
+    <div id="printArea" v-if="printRec"><div style="font-family:sans-serif;color:#111"><div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:6px"><div><div style="font-size:20px;font-weight:800">WOPPLES — {{ printRec.flavour }}</div><div style="font-size:13px">SKU {{ printRec.sku }} &nbsp;|&nbsp; Recipe Version <b>{{ printRec.version_label }}</b></div></div><div style="font-size:12px;text-align:right">Cook {{ printRec.cook_sec }}s ({{ mmss(printRec.cook_sec) }}) &nbsp; Blend {{ printRec.blend_min }}min ({{ mmss(printRec.blend_min*60) }}) &nbsp; Viscosity {{ printRec.viscosity_sec }}s ({{ mmss(printRec.viscosity_sec) }})</div></div><table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px"><thead><tr style="background:#eee"><th style="border:1px solid #999;padding:4px 6px;text-align:left">Ingredient</th><th style="border:1px solid #999;padding:4px 6px;text-align:right;width:110px">Batch (g)</th><th style="border:1px solid #999;padding:4px 6px;text-align:right;width:110px">Half (g)</th><th v-if="printScale" style="border:1px solid #999;padding:4px 6px;text-align:right;width:120px;background:#ddd">Custom {{ num(printCustomG) }}g</th></tr></thead><tbody><tr v-for="ing in printIngs" :key="ing.ingredient"><td style="border:1px solid #999;padding:4px 6px;font-weight:600">{{ ing.ingredient }}</td><td style="border:1px solid #999;padding:4px 6px;text-align:right">{{ num(ing.batch_g) }}</td><td style="border:1px solid #999;padding:4px 6px;text-align:right;color:#555">{{ num(ing.batch_g/2) }}</td><td v-if="printScale" style="border:1px solid #999;padding:4px 6px;text-align:right;font-weight:700;background:#f4f4f4">{{ num(ing.batch_g*printScale) }}</td></tr></tbody></table><div style="font-size:11px;margin-top:8px;color:#555">Revivealicious Foods — line recipe {{ printRec.version_label }}. Batch actuals recorded on the checksheet. Printed {{ today }}.<span v-if="printScale"> Custom column scaled to {{ num(printCustomG) }}g total ({{ (printScale*100).toFixed(1) }}% of full batch).</span></div></div></div>
   </div>
 </div>
 
