@@ -176,7 +176,7 @@ async function openSurvey(id){
 async function getCounts(){ const c={}; for(const s of surveys){ const {count}=await sb.from('responses').select('*',{count:'exact',head:true}).eq('survey_id',s.id); c[s.id]=count||0;} return c; }
 
 function tabs(){
-  const t=[['results','Results'],['responses','Responses'],['setup','Setup & questions'],['share','Share']];
+  const t=[['results','Results'],['responses','Responses'],['collectors','Collector links'],['setup','Setup & questions']];
   if(current.type==='competition') t.push(['draw','Prize draw']);
   return `<div class="tabs">${t.map(([k,l])=>`<button class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')">${l}</button>`).join('')}</div>`;
 }
@@ -189,8 +189,8 @@ async function render(){
   $('main').innerHTML=html;
   if(activeTab==='results') await renderResults();
   else if(activeTab==='responses') await renderResponses();
+  else if(activeTab==='collectors') await renderCollectors();
   else if(activeTab==='setup') await renderSetup();
-  else if(activeTab==='share') renderShare();
   else if(activeTab==='draw') await renderDraw();
 }
 
@@ -246,19 +246,22 @@ async function renderResults(){
 async function renderResponses(){
   const {questions,responses,answers}=await loadFull();
   const qs=questions.filter(q=>q.type!=='info');
+  const { data:cols }=await sb.from('collectors').select('id,label').eq('survey_id',current.id);
+  const colMap=Object.fromEntries((cols||[]).map(c=>[c.id,c.label||'—']));
+  const src=r=>r.collector_id?(colMap[r.collector_id]||'—'):'Direct';
   const byR={}; answers.forEach(a=>{(byR[a.response_id]=byR[a.response_id]||{})[a.question_id]=a;});
   const cell=a=>!a?'':(a.value_options?a.value_options.join(', '):(a.value??a.value_number??''));
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><p class="sub" style="margin:0">${responses.length} responses</p><button class="btn small" onclick="exportCSV()">⬇ Export CSV</button></div>`;
-  html+='<div class="card" style="overflow:auto;max-height:65vh;padding:0"><table><thead><tr><th>When</th><th>Name</th><th>Email</th>'+qs.map((q,i)=>`<th>Q${i+1}</th>`).join('')+'</tr></thead><tbody>';
-  html+=responses.slice(0,300).map(r=>`<tr><td>${new Date(r.submitted_at).toLocaleDateString('en-NZ')}</td><td>${esc(r.respondent_name||'')}</td><td>${esc(r.respondent_email||'')}</td>`+qs.map(q=>`<td>${esc(cell((byR[r.id]||{})[q.id])).slice(0,120)}</td>`).join('')+'</tr>').join('');
+  html+='<div class="card" style="overflow:auto;max-height:65vh;padding:0"><table><thead><tr><th>When</th><th>Source</th><th>Name</th><th>Email</th>'+qs.map((q,i)=>`<th>Q${i+1}</th>`).join('')+'</tr></thead><tbody>';
+  html+=responses.slice(0,300).map(r=>`<tr><td>${new Date(r.submitted_at).toLocaleDateString('en-NZ')}</td><td>${esc(src(r))}</td><td>${esc(r.respondent_name||'')}</td><td>${esc(r.respondent_email||'')}</td>`+qs.map(q=>`<td>${esc(cell((byR[r.id]||{})[q.id])).slice(0,120)}</td>`).join('')+'</tr>').join('');
   html+='</tbody></table></div>';
-  window._exp={questions:qs,responses,byR,cell};
+  window._exp={questions:qs,responses,byR,cell,src};
   $('tabbody').innerHTML=html;
 }
 function exportCSV(){
-  const {questions,responses,byR,cell}=window._exp;
-  const head=['submitted_at','name','email',...questions.map(q=>q.label)];
-  const rows=responses.map(r=>[r.submitted_at,r.respondent_name||'',r.respondent_email||'',...questions.map(q=>cell((byR[r.id]||{})[q.id]))]);
+  const {questions,responses,byR,cell,src}=window._exp;
+  const head=['submitted_at','source','name','email',...questions.map(q=>q.label)];
+  const rows=responses.map(r=>[r.submitted_at,src(r),r.respondent_name||'',r.respondent_email||'',...questions.map(q=>cell((byR[r.id]||{})[q.id]))]);
   const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=(current.slug||'survey')+'.csv';a.click();
 }
@@ -347,6 +350,36 @@ function renderShare(){
   </div>`;
 }
 function copyTxt(t){ navigator.clipboard.writeText(t); toast('Copied'); }
+
+// ---------- COLLECTORS ----------
+async function renderCollectors(){
+  const { data:cols }=await sb.from('collectors').select('*').eq('survey_id',current.id).order('created_at');
+  const counts={};
+  for(const c of (cols||[])){ const {count}=await sb.from('responses').select('*',{count:'exact',head:true}).eq('collector_id',c.id); counts[c.id]=count||0; }
+  let h=`<div class="card"><p class="sub">Each collector is a separate, hard-to-guess link to this survey (e.g. <code>${PUBLIC_BASE}/482913</code>). Responses are tagged by collector so you can compare sources. Status must be <strong>open</strong> — this survey is <strong>${current.status}</strong>.</p>
+    <button class="btn primary" onclick="addCollector()">+ New collector link</button></div>`;
+  h+=`<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>Label</th><th>Customer link</th><th>Responses</th><th>Active</th><th></th></tr></thead><tbody>`;
+  h+=(cols||[]).map(c=>{ const url=`${PUBLIC_BASE}/${c.code}`;
+    return `<tr>
+      <td><input value="${esc(c.label||'')}" onchange="colLabel('${c.id}',this.value)" style="border:1px solid var(--line);border-radius:7px;padding:5px 8px;width:170px"></td>
+      <td><code>${esc(url)}</code><br><span class="muted" style="font-size:11px">works now at: ${FALLBACK_BASE}/${c.code}</span></td>
+      <td>${counts[c.id]||0}</td>
+      <td><input type="checkbox" ${c.active?'checked':''} onchange="colActive('${c.id}',this.checked)"></td>
+      <td><button class="btn small" onclick="copyTxt('${url}')">Copy</button></td>
+    </tr>`; }).join('')||'<tr><td colspan="5" class="muted" style="padding:14px">No collectors yet. Add one to get a shareable link.</td></tr>';
+  h+='</tbody></table></div>';
+  $('tabbody').innerHTML=h;
+}
+function gen6(){ return String(Math.floor(100000+Math.random()*900000)); }
+async function addCollector(){
+  const label=(prompt('Label for this collector (e.g. "Repeat Customers"):')||'').trim();
+  for(let a=0;a<5;a++){ const code=gen6();
+    const { error }=await sb.from('collectors').insert({survey_id:current.id,code,label});
+    if(!error){ toast('Collector created'); return renderCollectors(); } }
+  toast('Could not generate a unique code, try again');
+}
+async function colLabel(id,v){ await sb.from('collectors').update({label:v}).eq('id',id); toast('Saved'); }
+async function colActive(id,v){ await sb.from('collectors').update({active:v}).eq('id',id); toast(v?'Active':'Disabled'); }
 
 // ---------- DRAW ----------
 async function renderDraw(){

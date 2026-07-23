@@ -58,22 +58,29 @@
 // Config — points at the Supabase Edge Function
 const FN_URL = "https://xcwrawjdfajlmbkdwlbm.supabase.co/functions/v1/pulse-public";
 
-// slug from path (/my-survey) or ?s=my-survey
-function getSlug(){
-  const parts = location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(x=>x&&x!=="index.html"&&x!=="pulse-form");
-  if(parts.length) return parts[parts.length-1];
-  return new URLSearchParams(location.search).get("s") || "";
+// Target = a collector code (pulse.revive.co.nz/193464 or ?c=) or a survey slug (?s=).
+function getTarget(){
+  const qs=new URLSearchParams(location.search);
+  if(qs.get("c")) return {code:qs.get("c")};
+  if(qs.get("s")) return {slug:qs.get("s")};
+  const parts=location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(x=>x&&x!=="index.html"&&x!=="pulse-form");
+  const last=parts[parts.length-1];
+  if(last && /^\d{4,8}$/.test(last)) return {code:last};
+  if(last) return {slug:last};
+  return {};
 }
+let TARGET={};
 const app = document.getElementById("app");
 const esc = s => (s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 let SURVEY=null, QUESTIONS=[];
 
 async function init(){
-  const slug=getSlug();
-  if(!slug){ app.innerHTML='<div class="state">No survey specified.</div>'; return; }
+  TARGET=getTarget();
+  if(!TARGET.code&&!TARGET.slug){ app.innerHTML='<div class="state">No survey specified.</div>'; return; }
+  const q=TARGET.code?("code="+encodeURIComponent(TARGET.code)):("slug="+encodeURIComponent(TARGET.slug));
   try{
-    const r=await fetch(FN_URL+"?slug="+encodeURIComponent(slug));
+    const r=await fetch(FN_URL+"?"+q);
     if(r.status===404){ app.innerHTML='<div class="state">Survey not found.</div>'; return; }
     if(r.status===403){ const d=await r.json(); app.innerHTML='<div class="state"><h2>'+esc(d.survey?.title||"This survey")+'</h2><p>is not currently accepting responses.</p></div>'; return; }
     const d=await r.json();
@@ -205,7 +212,7 @@ async function submit(ev){
     if(q.type==='email' && a.value) email=a.value;
     if(q.type==='short_text' && /name/i.test(q.label||'') && a.value) name=a.value;
   }
-  const payload={ slug:getSlug(), answers, respondent_email:email, respondent_name:name,
+  const payload={ ...TARGET, answers, respondent_email:email, respondent_name:name,
     consent_marketing:document.getElementById('consent_marketing')?.checked||false,
     consent_review:document.getElementById('consent_review')?.checked||false };
 
