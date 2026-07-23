@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Revive — Pulse</title>
+<style>
+  :root{
+    --bg:#f6f5f1; --card:#ffffff; --ink:#23241f; --muted:#7c7d75;
+    --accent:#6b8f3d; --accent-dark:#567030; --line:#e6e5df; --err:#c0483b;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5}
+  .wrap{max-width:620px;margin:0 auto;padding:32px 18px 80px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:28px 26px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  h1{font-size:1.5rem;margin:0 0 6px}
+  .intro{color:var(--muted);margin:0 0 22px}
+  .q{padding:18px 0;border-top:1px solid var(--line)}
+  .q:first-of-type{border-top:none}
+  .q .label{font-weight:600;margin-bottom:4px}
+  .q .help{color:var(--muted);font-size:.9rem;margin-bottom:10px}
+  .req{color:var(--err);margin-left:2px}
+  input[type=text],input[type=email],input[type=number],input[type=date],textarea,select{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+    font-size:1rem;font-family:inherit;background:#fff;color:var(--ink)}
+  textarea{min-height:100px;resize:vertical}
+  .opt{display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer}
+  .opt input{width:18px;height:18px;accent-color:var(--accent)}
+  .other-row{margin-top:6px;padding-left:28px}
+  .stars{display:flex;gap:6px;font-size:2rem;color:#d8d7cf}
+  .stars span{cursor:pointer;transition:transform .05s}
+  .stars span.on{color:#e0a92e}
+  .stars span:active{transform:scale(.9)}
+  .info-block{color:var(--ink);background:#f0efe8;border-radius:10px;padding:12px 14px}
+  button.submit{margin-top:24px;width:100%;padding:14px;border:none;border-radius:12px;
+    background:var(--accent);color:#fff;font-size:1.05rem;font-weight:600;cursor:pointer}
+  button.submit:hover{background:var(--accent-dark)}
+  button.submit:disabled{opacity:.6;cursor:default}
+  .field-err{color:var(--err);font-size:.85rem;margin-top:6px;display:none}
+  .field-err.show{display:block}
+  .state{text-align:center;padding:60px 20px;color:var(--muted)}
+  .done h2{color:var(--accent-dark)}
+  .brand{text-align:center;color:var(--muted);font-size:.8rem;margin-top:22px;letter-spacing:.04em}
+  .consent{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="app" class="card"><div class="state">Loading…</div></div>
+  <div class="brand">REVIVE · PULSE</div>
+</div>
+
+<script>
+// Config — points at the Supabase Edge Function
+const FN_URL = "https://xcwrawjdfajlmbkdwlbm.supabase.co/functions/v1/pulse-public";
+
+// slug from path (/my-survey) or ?s=my-survey
+function getSlug(){
+  const parts = location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(x=>x&&x!=="index.html"&&x!=="pulse-form");
+  if(parts.length) return parts[parts.length-1];
+  return new URLSearchParams(location.search).get("s") || "";
+}
+const app = document.getElementById("app");
+const esc = s => (s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let SURVEY=null, QUESTIONS=[];
+
+async function init(){
+  const slug=getSlug();
+  if(!slug){ app.innerHTML='<div class="state">No survey specified.</div>'; return; }
+  try{
+    const r=await fetch(FN_URL+"?slug="+encodeURIComponent(slug));
+    if(r.status===404){ app.innerHTML='<div class="state">Survey not found.</div>'; return; }
+    if(r.status===403){ const d=await r.json(); app.innerHTML='<div class="state"><h2>'+esc(d.survey?.title||"This survey")+'</h2><p>is not currently accepting responses.</p></div>'; return; }
+    const d=await r.json();
+    SURVEY=d.survey; QUESTIONS=d.questions;
+    render();
+  }catch(e){ app.innerHTML='<div class="state">Something went wrong loading this survey.</div>'; }
+}
+
+function ratingMax(q){ return Number(q.settings?.scale)||5; }
+
+function render(){
+  let h='<h1>'+esc(SURVEY.title)+'</h1>';
+  if(SURVEY.intro) h+='<p class="intro">'+esc(SURVEY.intro)+'</p>';
+  h+='<form id="f">';
+  QUESTIONS.forEach(q=>{ h+=renderQ(q); });
+
+  // competition / consent extras
+  if(SURVEY.type==='competition'){
+    h+='<div class="consent"><label class="opt"><input type="checkbox" id="consent_marketing"><span>I agree to be contacted about this competition and Revive news.</span></label></div>';
+  }
+  if(SURVEY.judgeme_enabled){
+    h+='<div class="consent"><label class="opt"><input type="checkbox" id="consent_review"><span>Happy for my comments to be shared as a review on the Revive website.</span></label></div>';
+  }
+  h+='<button class="submit" type="submit">Submit</button></form>';
+  app.innerHTML=h;
+
+  // star widgets
+  document.querySelectorAll('.stars').forEach(st=>{
+    const qid=st.dataset.qid;
+    st.querySelectorAll('span').forEach((s,i)=>{
+      s.onclick=()=>{ st.dataset.val=i+1;
+        st.querySelectorAll('span').forEach((x,j)=>x.classList.toggle('on',j<=i)); };
+    });
+  });
+  document.getElementById('f').addEventListener('submit',submit);
+}
+
+function renderQ(q){
+  if(q.type==='info') return '<div class="q"><div class="info-block">'+esc(q.label)+'</div></div>';
+  let inner='';
+  const name='q_'+q.id;
+  if(q.type==='short_text') inner='<input type="text" data-qid="'+q.id+'">';
+  else if(q.type==='long_text') inner='<textarea data-qid="'+q.id+'"></textarea>';
+  else if(q.type==='number') inner='<input type="number" data-qid="'+q.id+'">';
+  else if(q.type==='date') inner='<input type="date" data-qid="'+q.id+'">';
+  else if(q.type==='email') inner='<input type="email" data-qid="'+q.id+'">';
+  else if(q.type==='yes_no'){
+    inner='<label class="opt"><input type="radio" name="'+name+'" value="Yes" data-qid="'+q.id+'"><span>Yes</span></label>'+
+          '<label class="opt"><input type="radio" name="'+name+'" value="No" data-qid="'+q.id+'"><span>No</span></label>';
+  }
+  else if(q.type==='rating'){
+    let stars=''; for(let i=0;i<ratingMax(q);i++) stars+='<span>&#9733;</span>';
+    inner='<div class="stars" data-qid="'+q.id+'" data-val="0">'+stars+'</div>';
+  }
+  else if(q.type==='dropdown'){
+    inner='<select data-qid="'+q.id+'"><option value="">— select —</option>'+
+      (q.options||[]).map(o=>'<option value="'+esc(o.label)+'">'+esc(o.label)+'</option>').join('')+'</select>';
+  }
+  else if(q.type==='radio'||q.type==='checkbox'){
+    const t=q.type==='radio'?'radio':'checkbox';
+    inner=(q.options||[]).map(o=>{
+      if(o.is_other) return '<label class="opt"><input type="'+t+'" name="'+name+'" value="__other__" data-qid="'+q.id+'" data-other="1"><span>Other</span></label>'+
+        '<div class="other-row"><input type="text" placeholder="Please specify" data-otherfor="'+q.id+'"></div>';
+      return '<label class="opt"><input type="'+t+'" name="'+name+'" value="'+esc(o.label)+'" data-qid="'+q.id+'"><span>'+esc(o.label)+'</span></label>';
+    }).join('');
+  }
+  return '<div class="q" data-q="'+q.id+'"><div class="label">'+esc(q.label)+(q.required?'<span class="req">*</span>':'')+'</div>'+
+    (q.help_text?'<div class="help">'+esc(q.help_text)+'</div>':'')+inner+
+    '<div class="field-err" data-errfor="'+q.id+'">This question is required.</div></div>';
+}
+
+function collect(q){
+  if(q.type==='info') return null;
+  if(['short_text','long_text','number','date','email'].includes(q.type)){
+    const el=document.querySelector('[data-qid="'+q.id+'"]');
+    const v=el.value.trim();
+    if(!v) return {question_id:q.id};
+    if(q.type==='number'||q.type==='rating') return {question_id:q.id,value_number:Number(v)};
+    return {question_id:q.id,value:v};
+  }
+  if(q.type==='rating'){
+    const st=document.querySelector('.stars[data-qid="'+q.id+'"]');
+    const v=Number(st.dataset.val)||0; return v?{question_id:q.id,value_number:v}:{question_id:q.id};
+  }
+  if(q.type==='yes_no'){
+    const el=document.querySelector('input[name="q_'+q.id+'"]:checked');
+    return el?{question_id:q.id,value:el.value}:{question_id:q.id};
+  }
+  if(q.type==='dropdown'){
+    const el=document.querySelector('select[data-qid="'+q.id+'"]');
+    return el.value?{question_id:q.id,value:el.value}:{question_id:q.id};
+  }
+  if(q.type==='radio'){
+    const el=document.querySelector('input[name="q_'+q.id+'"]:checked');
+    if(!el) return {question_id:q.id};
+    let val=el.value;
+    if(el.dataset.other){ const o=document.querySelector('[data-otherfor="'+q.id+'"]'); val=o.value.trim()||"Other"; }
+    return {question_id:q.id,value:val};
+  }
+  if(q.type==='checkbox'){
+    const els=[...document.querySelectorAll('input[name="q_'+q.id+'"]:checked')];
+    if(!els.length) return {question_id:q.id};
+    const vals=els.map(e=>{ if(e.dataset.other){ const o=document.querySelector('[data-otherfor="'+q.id+'"]'); return o.value.trim()||"Other"; } return e.value; });
+    return {question_id:q.id,value_options:vals};
+  }
+  return {question_id:q.id};
+}
+
+function isEmpty(a){ return !a || (a.value===undefined && !a.value_options && a.value_number===undefined); }
+
+async function submit(ev){
+  ev.preventDefault();
+  document.querySelectorAll('.field-err').forEach(e=>e.classList.remove('show'));
+  const answers=[]; let firstErr=null;
+  for(const q of QUESTIONS){
+    const a=collect(q); if(a===null) continue;
+    if(q.required && q.type!=='info' && isEmpty(a)){
+      const e=document.querySelector('[data-errfor="'+q.id+'"]'); e.classList.add('show');
+      if(!firstErr) firstErr=e;
+    }
+    if(!isEmpty(a)) answers.push(a);
+  }
+  if(firstErr){ firstErr.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+
+  // derive respondent identity
+  let email=null,name=null;
+  for(const q of QUESTIONS){
+    const a=answers.find(x=>x.question_id===q.id); if(!a) continue;
+    if(q.type==='email' && a.value) email=a.value;
+    if(q.type==='short_text' && /name/i.test(q.label||'') && a.value) name=a.value;
+  }
+  const payload={ slug:getSlug(), answers, respondent_email:email, respondent_name:name,
+    consent_marketing:document.getElementById('consent_marketing')?.checked||false,
+    consent_review:document.getElementById('consent_review')?.checked||false };
+
+  const btn=document.querySelector('button.submit'); btn.disabled=true; btn.textContent='Submitting…';
+  try{
+    const r=await fetch(FN_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!r.ok){ btn.disabled=false; btn.textContent='Submit';
+      if(d.error==='required_missing'){ const e=document.querySelector('[data-errfor="'+d.question_id+'"]'); e?.classList.add('show'); e?.scrollIntoView({behavior:'smooth',block:'center'}); }
+      else alert('Sorry, something went wrong. Please try again.'); return; }
+    app.innerHTML='<div class="state done"><h2>Thank you!</h2><p>'+esc(d.thankyou)+'</p></div>';
+  }catch(e){ btn.disabled=false; btn.textContent='Submit'; alert('Network error. Please try again.'); }
+}
+
+init();
+</script>
+</body>
+</html>
