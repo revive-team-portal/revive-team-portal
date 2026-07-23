@@ -96,7 +96,7 @@ function panelHTML(id){
     const f=window.FILTER||'open'; const so=window.SORT||'date';
     const btn=(k,l)=>'<button onclick="setFilter(\''+k+'\')" class="text-xs px-2.5 py-1 rounded-full border '+(f===k?'bg-teal-700 text-white border-teal-700':'bg-white text-stone-600 border-stone-300 hover:bg-stone-50')+'">'+l+'</button>';
     const sbtn=(k,l)=>'<button onclick="setSort(\''+k+'\')" class="text-xs px-2 py-0.5 rounded border '+(so===k?'bg-stone-700 text-white border-stone-700':'bg-white text-stone-600 border-stone-300 hover:bg-stone-50')+'">'+l+'</button>';
-    return '<div class="flex items-center justify-between mb-3 flex-wrap gap-2"><h2 class="text-xl font-bold">Inbox</h2><div class="flex gap-2"><button onclick="openNewTicket()" class="text-xs bg-stone-800 hover:bg-stone-900 text-white px-3 py-1.5 rounded-lg">＋ New ticket</button><button onclick="syncInbox(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">⟳ Sync</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="text-xs border border-stone-300 text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post</button></div></div>'
+    return '<div id="analyticsBar" class="mb-3">'+(window.ANALYTICS_HTML||'<div class="text-stone-400 text-xs">Loading analytics…</div>')+'</div>'+'<div class="flex items-center justify-between mb-3 flex-wrap gap-2"><h2 class="text-xl font-bold">Inbox</h2><div class="flex gap-2"><button onclick="openNewTicket()" class="text-xs bg-stone-800 hover:bg-stone-900 text-white px-3 py-1.5 rounded-lg">＋ New ticket</button><button onclick="syncInbox(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">⟳ Sync</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="text-xs border border-stone-300 text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post</button></div></div>'
       + '<div id="fulfilReport" class="mb-4">'+(window.FULFIL_HTML||'<div class="text-stone-400 text-xs">Loading fulfilment report…</div>')+'</div>'
       + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+'<button onclick="setFilter(\'escalate\')" class="text-xs px-2.5 py-1 rounded-full border '+(f==='escalate'?'bg-red-600 text-white border-red-600':'bg-white text-red-600 border-red-300 hover:bg-red-50')+'">🚑 Escalate<span id="escCount">'+(window.ESC_COUNT?(' '+window.ESC_COUNT):'')+'</span></button>'+btn('done','✓ Done')+'</div>'
       + '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs text-stone-400">Sort:</span>'+sbtn('date','Date')+sbtn('stars','★ Stars')+sbtn('order','Order #')+'<span id="syncMsg" class="text-xs text-stone-500 ml-2"></span></div>'
@@ -157,7 +157,7 @@ function panelHTML(id){
   if(id==='settings'){
     return '<h2 class="text-xl font-bold mb-1">Settings</h2><p class="text-stone-500 text-sm mb-4">Best-answer library, reason codes, SLA thresholds, tags, connections, roles.</p>'
       + card('AI reply tone — editable (steers every ✨ draft)', '<textarea id="setTone" rows="6" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')
-      + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')
+      + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')      + card('Analytics targets', '<div class="grid grid-cols-2 gap-2 text-xs"><label>Resolved / day<input id="anaResolved" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Outstanding max<input id="anaOutstanding" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Fulfilled / day<input id="anaFulfilled" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Resends / day<input id="anaResends" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>1st response hours<input id="anaResponse" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label></div>')
       + '<div class="mb-4"><button onclick="saveSettings(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save settings</button> <span id="setMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + card('Reason codes (seeded)', '<ul class="list-disc pl-5 text-sm text-stone-600 space-y-1"><li>Delivery — late / lost / damaged / wrong address</li><li>Product — quality / GF-allergen / missing / wrong item</li><li>Order — changed / cancelled / duplicate</li><li>Payment / refund</li><li>Subscription</li><li>Wholesale / enquiry</li><li>General enquiry (no fault)</li></ul>')
       + card('Connections', '<ul class="text-sm text-stone-600 space-y-1"><li>Shopify Admin — <b class="text-teal-700">connected</b></li><li>eShip / Starshipit — <b class="text-teal-700">keys loaded</b></li><li>Claude AI — <b class="text-teal-700">connected</b></li><li>Gmail (cafe@revive.co.nz) — <span id="gmailStat" class="text-amber-700 font-semibold">checking…</span> <a href="/.netlify/functions/gmail-connect?mailbox=cafe" class="text-teal-700 underline ml-1">Connect / reconnect</a></li></ul>')
@@ -480,12 +480,12 @@ async function addNote(){
 async function loadSettings(){
   const r=await apiPost('support-settings',{}); if(!r.ok) return; const st=r.data.settings||{};
   const tone=document.getElementById('setTone'), foot=document.getElementById('setFooter');
-  if(tone) tone.value=st.ai_tone_prompt||''; if(foot) foot.value=st.reply_footer||''; const per=document.getElementById('setPerish'); if(per) per.value=st.perishable_keywords||'';
+  if(tone) tone.value=st.ai_tone_prompt||''; if(foot) foot.value=st.reply_footer||''; const per=document.getElementById('setPerish'); if(per) per.value=st.perishable_keywords||''; try{ const tg=JSON.parse(st.analytics_targets||'{}'); const sv=(id,v)=>{ const e=document.getElementById(id); if(e&&v!=null) e.value=v; }; sv('anaResolved',tg.resolved_per_day); sv('anaOutstanding',tg.outstanding_max); sv('anaFulfilled',tg.fulfilled_per_day); sv('anaResends',tg.resends_per_day); sv('anaResponse',tg.response_hours); }catch(e){}
 }
 async function saveSettings(btn){
   const tone=(document.getElementById('setTone')||{}).value||''; const footer=(document.getElementById('setFooter')||{}).value||''; const perish=(document.getElementById('setPerish')||{}).value||''; const msg=document.getElementById('setMsg');
   if(btn) btn.disabled=true; if(msg) msg.textContent='Saving…';
-  const r=await apiPost('support-settings',{updates:{ai_tone_prompt:tone, reply_footer:footer, perishable_keywords:perish}});
+  const gv=(id)=>{ const e=document.getElementById(id); return e&&e.value!==''?Number(e.value):undefined; }; const targets=JSON.stringify({resolved_per_day:gv('anaResolved'),outstanding_max:gv('anaOutstanding'),fulfilled_per_day:gv('anaFulfilled'),resends_per_day:gv('anaResends'),response_hours:gv('anaResponse')}); const r=await apiPost('support-settings',{updates:{ai_tone_prompt:tone, reply_footer:footer, perishable_keywords:perish, analytics_targets:targets}}); window.ANALYTICS_HTML=null;
   if(r.ok) window.PERISH_KW=perish.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
   if(btn) btn.disabled=false; if(msg) msg.textContent = r.ok ? 'Saved ✓' : ((r.data&&r.data.error)||'Save failed');
 }
@@ -679,6 +679,21 @@ async function loadAiInsights(btn){
     +'<div class="bg-white border border-stone-200 rounded-xl p-4 mb-4"><div class="text-sm font-semibold text-stone-700 mb-1">AI commentary</div><div class="text-sm text-stone-600">'+esc(d.commentary||'')+'</div><div class="text-xs text-stone-400 mt-1">Based on '+(d.sampleIn||0)+' emails in · '+(d.sampleOut||0)+' replies out (last 3 months).</div></div>'
     +'<div class="bg-white border border-stone-200 rounded-xl p-4"><div class="text-sm font-semibold text-stone-700 mb-2">Issues by type</div>'+issuesTable+'</div>';
 }
+function anaPeriodOpts(cur){ const o=[['wtd','This week to date'],['today','Today'],['yesterday','Yesterday'],['lastweek','Last week'],['mtd','Month to date'],['last7','Last 7 days'],['last30','Last 30 days'],['lifetime','Lifetime']]; return o.map(x=>'<option value="'+x[0]+'"'+(cur===x[0]?' selected':'')+'>'+x[1]+'</option>').join(''); }
+function setAnaPeriod(v){ window.ANA_PERIOD=v; loadAnalytics(); }
+function setAnaExWk(v){ window.ANA_EXWK=v; loadAnalytics(); }
+async function loadAnalytics(){
+  const el=document.getElementById('analyticsBar'); if(!el) return;
+  const period=window.ANA_PERIOD||'wtd'; const ex=!!window.ANA_EXWK;
+  const r=await apiPost('support-analytics',{period, excludeWeekends:ex});
+  const ctrls='<div class="ml-auto flex items-center gap-2"><select onchange="setAnaPeriod(this.value)" class="text-xs border border-stone-300 rounded px-2 py-1 bg-white">'+anaPeriodOpts(period)+'</select><label class="text-xs text-stone-500 flex items-center gap-1"><input type="checkbox" '+(ex?'checked':'')+' onchange="setAnaExWk(this.checked)"> excl. weekends</label></div>';
+  if(!r.ok){ window.ANALYTICS_HTML='<div class="flex items-center gap-2"><span class="text-amber-700 text-xs">Analytics unavailable</span>'+ctrls+'</div>'; el.innerHTML=window.ANALYTICS_HTML; return; }
+  const d=r.data;
+  const colorOf=st=>st==='good'?'#16a34a':st==='bad'?'#dc2626':'#292524';
+  const boxes=(d.metrics||[]).map(m=>'<div class="bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-center min-w-[88px]"><div class="text-lg font-bold leading-tight" style="color:'+colorOf(m.status)+'">'+esc(m.value)+'</div><div class="text-[11px] text-stone-500 leading-tight">'+esc(m.label)+'</div><div class="text-[10px] text-stone-400 leading-tight">'+(m.target?esc(m.target):'&nbsp;')+'</div></div>').join('');
+  window.ANALYTICS_HTML='<div class="flex items-center gap-2 flex-wrap">'+boxes+ctrls.replace('ml-auto','ml-auto')+'<span class="text-[11px] text-stone-400 w-full sm:w-auto">'+esc((d.period&&d.period.label)||'')+' · '+((d.period&&d.period.days)||0)+'d</span></div>';
+  el.innerHTML=window.ANALYTICS_HTML;
+}
 function show(id){
   document.querySelectorAll('#sideNav a').forEach(a=>{
     a.className = a.dataset.id===id
@@ -686,7 +701,7 @@ function show(id){
       : 'flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50';
   });
   document.getElementById('panel').innerHTML = panelHTML(id);
-  if(id==='dashboard'){ if(!window.FULFIL_HTML) loadFulfilReport(); if(window.PENDING_SYNC){ const el=document.getElementById('ticketList'); if(el) el.innerHTML='<div class="text-stone-400 text-sm">🔄 Syncing inbox…</div>'; } else loadTickets(); }
+  if(id==='dashboard'){ if(!window.ANALYTICS_HTML) loadAnalytics(); if(!window.FULFIL_HTML) loadFulfilReport(); if(window.PENDING_SYNC){ const el=document.getElementById('ticketList'); if(el) el.innerHTML='<div class="text-stone-400 text-sm">🔄 Syncing inbox…</div>'; } else loadTickets(); }
   if(id==='nonorder') loadNonOrder();
   if(id==='testimonials') loadTestimonials();
   if(id==='claims') loadClaims();
