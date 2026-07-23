@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pulse — Revive Surveys</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root{
+    --green:#1f6f54; --green-d:#16543f; --green-l:#2f8a6a;
+    --cream:#faf7f0; --ink:#243029; --muted:#6b7b72;
+    --line:#e6e0d4; --card:#fff; --danger:#c0392b; --amber:#b7791f;
+    --shadow:0 1px 3px rgba(20,40,30,.08),0 6px 18px rgba(20,40,30,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--cream);color:var(--ink);min-height:100vh}
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit}
+  a{color:var(--green)}
+  .hidden{display:none!important}
+  /* top bar */
+  header{background:var(--green);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+  header .mark{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:20px}
+  header h1{font-size:17px;margin:0;font-weight:700;flex:1}
+  header .who{font-size:13px;opacity:.9}
+  header a.back{color:#fff;opacity:.85;text-decoration:none;font-size:13px;margin-right:6px}
+  .wrap{display:flex;min-height:calc(100vh - 58px)}
+  /* sidebar */
+  aside{width:290px;border-right:1px solid var(--line);background:#fff;padding:16px;overflow-y:auto}
+  aside .newbtn{width:100%;padding:11px;border:none;border-radius:10px;background:var(--green);color:#fff;font-weight:600;margin-bottom:14px}
+  .slist{display:flex;flex-direction:column;gap:8px}
+  .sitem{border:1px solid var(--line);border-radius:11px;padding:11px 12px;cursor:pointer;background:#fff}
+  .sitem:hover{border-color:var(--green-l)}
+  .sitem.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+  .sitem h4{margin:0 0 3px;font-size:14.5px}
+  .sitem .meta{font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+  .badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;font-weight:600}
+  .b-open{background:#e4f2ea;color:var(--green-d)}
+  .b-draft{background:#f3efe4;color:var(--amber)}
+  .b-closed{background:#f0e7e5;color:var(--danger)}
+  .b-comp{background:#efe9f6;color:#6b46a3}
+  /* main */
+  main{flex:1;padding:22px 26px;overflow-y:auto}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px}
+  .tab{padding:9px 15px;border:none;background:none;font-size:14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent}
+  .tab.on{color:var(--green);border-bottom-color:var(--green)}
+  h2{margin:0 0 4px;font-size:21px}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .qh{font-weight:650;margin:0 0 12px;font-size:15px}
+  .qh .n{color:var(--muted);font-weight:600;font-size:12.5px;margin-left:6px}
+  .rowstat{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:13.5px}
+  .rowstat .bar{flex:1;height:16px;background:#f0ede4;border-radius:5px;overflow:hidden}
+  .rowstat .bar span{display:block;height:100%;background:var(--green-l)}
+  .rowstat .lbl{width:190px}
+  .rowstat .val{width:78px;text-align:right;color:var(--muted)}
+  .txtlist{max-height:230px;overflow-y:auto;display:flex;flex-direction:column;gap:7px}
+  .txtlist div{background:#f7f4ec;border-radius:8px;padding:8px 10px;font-size:13.5px}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .stat .v{font-size:24px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
+  .btn{padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:#fff;font-weight:600;font-size:13.5px}
+  .btn.primary{background:var(--green);color:#fff;border-color:var(--green)}
+  .btn.danger{color:var(--danger);border-color:#e6cfca}
+  .btn.small{padding:5px 10px;font-size:12.5px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:14px}
+  .field textarea{min-height:70px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s}
+  .toast.show{opacity:1}
+  .qedit{border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px;background:#fff}
+  .qedit .qtop{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .qedit .qtop select{width:150px}
+  .qedit .qtop input{flex:1}
+  .opts{padding-left:6px;display:flex;flex-direction:column;gap:5px;margin-top:6px}
+  .opts .orow{display:flex;gap:6px}
+  .muted{color:var(--muted)}
+  .center{min-height:70vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--muted)}
+  .link-box{display:flex;gap:8px;align-items:center;background:#f7f4ec;border-radius:9px;padding:9px 11px;font-size:13.5px}
+  .link-box code{flex:1;word-break:break-all}
+</style>
+</head>
+<body>
+<div id="gate" class="center">Opening Pulse…</div>
+
+<div id="appui" class="hidden">
+<header>
+  <div class="mark">📊</div>
+  <h1>Pulse</h1>
+  <a class="back" href="/">← Portal</a>
+  <span class="who" id="who"></span>
+</header>
+<div class="wrap">
+  <aside>
+    <button class="newbtn" onclick="newSurvey()">+ New survey</button>
+    <div class="slist" id="slist"></div>
+  </aside>
+  <main id="main"><div class="center">Select a survey to view results.</div></main>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://xcwrawjdfajlmbkdwlbm.supabase.co';
+const SUPABASE_ANON='sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
+const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+const PUBLIC_BASE='https://pulse.revive.co.nz';       // customer form base (falls back below)
+const FALLBACK_BASE='https://team.revive.co.nz/pulse-form';
+const { createClient } = supabase;
+const portal = createClient(PORTAL_URL, PORTAL_ANON);
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'pulse' } });
+
+const $=id=>document.getElementById(id);
+const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let toastT; function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+const QTYPES=['info','short_text','long_text','radio','checkbox','dropdown','rating','yes_no','number','date','email'];
+const CHOICE=new Set(['radio','checkbox','dropdown']);
+
+let surveys=[], current=null, charts=[];
+
+// ---------- auth gate ----------
+(async function init(){
+  const { data:{ session:p } } = await portal.auth.getSession();
+  if(!p){ location.href='/'; return; }
+  try{
+    const r=await fetch('/.netlify/functions/pulse-session',{method:'POST',headers:{Authorization:'Bearer '+p.access_token}});
+    if(!r.ok) throw new Error('gate');
+    const s=await r.json();
+    await sb.auth.setSession({access_token:s.access_token,refresh_token:s.refresh_token});
+  }catch(e){ $('gate').innerHTML='Could not open Pulse. Please reload.'; return; }
+  $('who').textContent=p.user.email||'';
+  $('gate').classList.add('hidden'); $('appui').classList.remove('hidden');
+  await loadSurveys();
+})();
+
+async function loadSurveys(){
+  const { data } = await sb.from('surveys').select('*').order('created_at',{ascending:false});
+  surveys=data||[];
+  // response counts
+  const counts={};
+  for(const s of surveys){
+    const { count } = await sb.from('responses').select('*',{count:'exact',head:true}).eq('survey_id',s.id);
+    counts[s.id]=count||0;
+  }
+  renderList(counts);
+  if(current){ const c=surveys.find(x=>x.id===current.id); if(c){ current=c; } }
+}
+
+function statusBadge(s){ return `<span class="badge b-${s.status}">${s.status}</span>`; }
+function renderList(counts){
+  $('slist').innerHTML=surveys.map(s=>`
+    <div class="sitem ${current&&current.id===s.id?'active':''}" onclick="openSurvey('${s.id}')">
+      <h4>${esc(s.title)}</h4>
+      <div class="meta">${statusBadge(s)} ${s.type==='competition'?'<span class="badge b-comp">competition</span>':''}
+        <span>${counts[s.id]??0} responses</span></div>
+    </div>`).join('') || '<div class="muted">No surveys yet. Click “New survey”.</div>';
+}
+
+let activeTab='results';
+async function openSurvey(id){
+  current=surveys.find(s=>s.id===id); activeTab='results';
+  document.querySelectorAll('.sitem').forEach(e=>e.classList.remove('active'));
+  await render();
+  renderList(await getCounts());
+}
+async function getCounts(){ const c={}; for(const s of surveys){ const {count}=await sb.from('responses').select('*',{count:'exact',head:true}).eq('survey_id',s.id); c[s.id]=count||0;} return c; }
+
+function tabs(){
+  const t=[['results','Results'],['responses','Responses'],['setup','Setup & questions'],['share','Share']];
+  if(current.type==='competition') t.push(['draw','Prize draw']);
+  return `<div class="tabs">${t.map(([k,l])=>`<button class="tab ${activeTab===k?'on':''}" onclick="setTab('${k}')">${l}</button>`).join('')}</div>`;
+}
+function setTab(k){ activeTab=k; render(); }
+
+async function render(){
+  charts.forEach(c=>c.destroy()); charts=[];
+  const s=current;
+  let html=`<h2>${esc(s.title)}</h2><p class="sub">${statusBadge(s)} &nbsp; ${esc(s.type)} &nbsp;•&nbsp; slug: <code>${esc(s.slug)}</code></p>`+tabs()+'<div id="tabbody"></div>';
+  $('main').innerHTML=html;
+  if(activeTab==='results') await renderResults();
+  else if(activeTab==='responses') await renderResponses();
+  else if(activeTab==='setup') await renderSetup();
+  else if(activeTab==='share') renderShare();
+  else if(activeTab==='draw') await renderDraw();
+}
+
+// ---------- RESULTS ----------
+async function loadFull(){
+  const { data:questions }=await sb.from('questions').select('*').eq('survey_id',current.id).order('sort_order');
+  const qids=(questions||[]).map(q=>q.id);
+  const { data:options }=qids.length?await sb.from('question_options').select('*').in('question_id',qids).order('sort_order'):{data:[]};
+  const { data:responses }=await sb.from('responses').select('*').eq('survey_id',current.id).order('submitted_at',{ascending:false});
+  const rids=(responses||[]).map(r=>r.id);
+  let answers=[];
+  if(rids.length){ // chunk to be safe
+    for(let i=0;i<rids.length;i+=200){ const {data}=await sb.from('answers').select('*').in('response_id',rids.slice(i,i+200)); answers=answers.concat(data||[]); }
+  }
+  return { questions:questions||[], options:options||[], responses:responses||[], answers };
+}
+
+async function renderResults(){
+  const {questions,options,responses,answers}=await loadFull();
+  const body=$('tabbody');
+  const total=responses.length;
+  let html=`<div class="stat-grid">
+    <div class="stat"><div class="k">Responses</div><div class="v">${total}</div></div>
+    <div class="stat"><div class="k">Questions</div><div class="v">${questions.filter(q=>q.type!=='info').length}</div></div>
+    <div class="stat"><div class="k">Last response</div><div class="v" style="font-size:15px">${total?new Date(responses[0].submitted_at).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'—'}</div></div>
+  </div>`;
+  const byQ={}; answers.forEach(a=>{(byQ[a.question_id]=byQ[a.question_id]||[]).push(a);});
+  questions.forEach((q,qi)=>{
+    if(q.type==='info') return;
+    const as=byQ[q.id]||[];
+    html+=`<div class="card"><div class="qh">Q${qi}. ${esc(q.label)}<span class="n">${as.length} answered</span></div>`;
+    if(CHOICE.has(q.type)||q.type==='yes_no'){
+      const opts=q.type==='yes_no'?[{label:'Yes'},{label:'No'}]:options.filter(o=>o.question_id===q.id);
+      const tally={}; opts.forEach(o=>tally[o.label]=0);
+      as.forEach(a=>{ (a.value_options||(a.value?[a.value]:[])).forEach(v=>{ tally[v]=(tally[v]||0)+1; }); });
+      const max=Math.max(1,...Object.values(tally));
+      html+=Object.entries(tally).map(([l,c])=>`<div class="rowstat"><div class="lbl">${esc(l)}</div><div class="bar"><span style="width:${c/max*100}%"></span></div><div class="val">${c} (${as.length?Math.round(c/as.length*100):0}%)</div></div>`).join('');
+    } else if(q.type==='rating'||q.type==='number'){
+      const nums=as.map(a=>Number(a.value_number)).filter(n=>!isNaN(n));
+      const avg=nums.length?(nums.reduce((x,y)=>x+y,0)/nums.length).toFixed(2):'—';
+      const dist={}; nums.forEach(n=>dist[n]=(dist[n]||0)+1);
+      html+=`<p class="muted">Average: <strong>${avg}</strong></p>`+Object.keys(dist).sort((a,b)=>a-b).map(k=>`<div class="rowstat"><div class="lbl">${k}</div><div class="bar"><span style="width:${dist[k]/Math.max(...Object.values(dist))*100}%"></span></div><div class="val">${dist[k]}</div></div>`).join('');
+    } else {
+      const txt=as.map(a=>a.value).filter(Boolean);
+      html+=`<div class="txtlist">${txt.slice(0,60).map(t=>`<div>${esc(t)}</div>`).join('')||'<div class="muted">No text answers.</div>'}</div>`+(txt.length>60?`<p class="muted">Showing 60 of ${txt.length}.</p>`:'');
+    }
+    html+='</div>';
+  });
+  body.innerHTML=html;
+}
+
+// ---------- RESPONSES ----------
+async function renderResponses(){
+  const {questions,responses,answers}=await loadFull();
+  const qs=questions.filter(q=>q.type!=='info');
+  const byR={}; answers.forEach(a=>{(byR[a.response_id]=byR[a.response_id]||{})[a.question_id]=a;});
+  const cell=a=>!a?'':(a.value_options?a.value_options.join(', '):(a.value??a.value_number??''));
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><p class="sub" style="margin:0">${responses.length} responses</p><button class="btn small" onclick="exportCSV()">⬇ Export CSV</button></div>`;
+  html+='<div class="card" style="overflow:auto;max-height:65vh;padding:0"><table><thead><tr><th>When</th><th>Name</th><th>Email</th>'+qs.map((q,i)=>`<th>Q${i+1}</th>`).join('')+'</tr></thead><tbody>';
+  html+=responses.slice(0,300).map(r=>`<tr><td>${new Date(r.submitted_at).toLocaleDateString('en-NZ')}</td><td>${esc(r.respondent_name||'')}</td><td>${esc(r.respondent_email||'')}</td>`+qs.map(q=>`<td>${esc(cell((byR[r.id]||{})[q.id])).slice(0,120)}</td>`).join('')+'</tr>').join('');
+  html+='</tbody></table></div>';
+  window._exp={questions:qs,responses,byR,cell};
+  $('tabbody').innerHTML=html;
+}
+function exportCSV(){
+  const {questions,responses,byR,cell}=window._exp;
+  const head=['submitted_at','name','email',...questions.map(q=>q.label)];
+  const rows=responses.map(r=>[r.submitted_at,r.respondent_name||'',r.respondent_email||'',...questions.map(q=>cell((byR[r.id]||{})[q.id]))]);
+  const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=(current.slug||'survey')+'.csv';a.click();
+}
+
+// ---------- SETUP ----------
+async function renderSetup(){
+  const s=current;
+  const { data:questions }=await sb.from('questions').select('*').eq('survey_id',s.id).order('sort_order');
+  const qids=(questions||[]).map(q=>q.id);
+  const { data:options }=qids.length?await sb.from('question_options').select('*').in('question_id',qids).order('sort_order'):{data:[]};
+  window._q={questions:questions||[],options:options||[]};
+  let h=`<div class="card"><div class="two">
+    <div class="field"><label>Title</label><input id="f_title" value="${esc(s.title)}"></div>
+    <div class="field"><label>Slug (URL)</label><input id="f_slug" value="${esc(s.slug)}"></div>
+    <div class="field"><label>Status</label><select id="f_status">${['draft','open','closed'].map(x=>`<option ${s.status===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="field"><label>Type</label><select id="f_type">${['survey','feedback','competition'].map(x=>`<option ${s.type===x?'selected':''}>${x}</option>`).join('')}</select></div>
+  </div>
+    <div class="field"><label>Intro text</label><textarea id="f_intro">${esc(s.intro||'')}</textarea></div>
+    <div class="field"><label>Thank-you message</label><textarea id="f_ty">${esc(s.thankyou_message||'')}</textarea></div>
+    <div class="two">
+      <div class="field"><label>Notify emails (comma-separated)</label><input id="f_notify" value="${esc((s.notify_emails||[]).join(', '))}"></div>
+      <div class="field"><label>Notify mode</label><select id="f_notifymode">${['none','each','digest'].map(x=>`<option ${s.notify_mode===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    </div>
+    <div class="two">
+      <div class="field"><label>Send completion email to respondent</label><select id="f_ce"><option value="true" ${s.send_completion_email?'selected':''}>Yes</option><option value="false" ${!s.send_completion_email?'selected':''}>No</option></select></div>
+      <div class="field"><label>Post opt-in reviews to Judge.me</label><select id="f_jm"><option value="true" ${s.judgeme_enabled?'selected':''}>Yes</option><option value="false" ${!s.judgeme_enabled?'selected':''}>No</option></select></div>
+    </div>`;
+  if(true){ h+=`<div class="two">
+      <div class="field"><label>Competition draw</label><select id="f_draw">${['none','on_close','monthly'].map(x=>`<option ${s.draw_mode===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label>Prize</label><input id="f_prize" value="${esc(s.draw_prize||'')}"></div></div>`; }
+  h+=`<button class="btn primary" onclick="saveSetup()">Save settings</button></div>`;
+  // questions editor
+  h+=`<h2 style="font-size:17px;margin:18px 0 8px">Questions</h2><div id="qeditor"></div>
+      <button class="btn" onclick="addQuestion()">+ Add question</button>`;
+  $('tabbody').innerHTML=h;
+  renderQEditor();
+}
+function renderQEditor(){
+  const {questions,options}=window._q;
+  $('qeditor').innerHTML=questions.map((q,i)=>`
+    <div class="qedit" data-q="${q.id}">
+      <div class="qtop">
+        <select onchange="qChange('${q.id}','type',this.value)">${QTYPES.map(t=>`<option ${q.type===t?'selected':''}>${t}</option>`).join('')}</select>
+        <input value="${esc(q.label||'')}" onchange="qChange('${q.id}','label',this.value)" placeholder="Question text">
+        <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" ${q.required?'checked':''} onchange="qChange('${q.id}','required',this.checked)">req</label>
+        <button class="btn small" onclick="moveQ('${q.id}',-1)">↑</button>
+        <button class="btn small" onclick="moveQ('${q.id}',1)">↓</button>
+        <button class="btn small danger" onclick="delQ('${q.id}')">✕</button>
+      </div>
+      ${CHOICE.has(q.type)?`<div class="opts">${options.filter(o=>o.question_id===q.id).map(o=>`<div class="orow"><input value="${esc(o.label)}" onchange="optChange('${o.id}',this.value)"><button class="btn small danger" onclick="delOpt('${o.id}')">✕</button></div>`).join('')}<button class="btn small" onclick="addOpt('${q.id}')">+ option</button></div>`:''}
+    </div>`).join('')||'<p class="muted">No questions yet.</p>';
+}
+async function qChange(id,f,v){ await sb.from('questions').update({[f]:v}).eq('id',id); const q=window._q.questions.find(x=>x.id===id); q[f]=v; if(f==='type') renderQEditor(); toast('Saved'); }
+async function optChange(id,v){ await sb.from('question_options').update({label:v}).eq('id',id); toast('Saved'); }
+async function addQuestion(){ const {questions}=window._q; const {data}=await sb.from('questions').insert({survey_id:current.id,type:'short_text',label:'New question',sort_order:(questions.length+1)}).select().single(); questions.push(data); renderQEditor(); }
+async function delQ(id){ if(!confirm('Delete question?'))return; await sb.from('questions').delete().eq('id',id); window._q.questions=window._q.questions.filter(q=>q.id!==id); renderQEditor(); }
+async function addOpt(qid){ const {options}=window._q; const {data}=await sb.from('question_options').insert({question_id:qid,label:'Option',sort_order:(options.filter(o=>o.question_id===qid).length+1)}).select().single(); options.push(data); renderQEditor(); }
+async function delOpt(id){ await sb.from('question_options').delete().eq('id',id); window._q.options=window._q.options.filter(o=>o.id!==id); renderQEditor(); }
+async function moveQ(id,dir){
+  const qs=window._q.questions; const i=qs.findIndex(q=>q.id===id); const j=i+dir; if(j<0||j>=qs.length)return;
+  const a=qs[i],b=qs[j]; const ao=a.sort_order,bo=b.sort_order;
+  await sb.from('questions').update({sort_order:bo}).eq('id',a.id); await sb.from('questions').update({sort_order:ao}).eq('id',b.id);
+  a.sort_order=bo;b.sort_order=ao; qs.sort((x,y)=>x.sort_order-y.sort_order); renderQEditor();
+}
+async function saveSetup(){
+  const g=id=>$(id).value;
+  const patch={ title:g('f_title'), slug:g('f_slug').trim(), status:g('f_status'), type:g('f_type'),
+    intro:g('f_intro'), thankyou_message:g('f_ty'),
+    notify_emails:g('f_notify').split(',').map(x=>x.trim()).filter(Boolean), notify_mode:g('f_notifymode'),
+    send_completion_email:g('f_ce')==='true', judgeme_enabled:g('f_jm')==='true',
+    draw_mode:g('f_draw'), draw_enabled:g('f_draw')!=='none', draw_prize:g('f_prize'), updated_at:new Date().toISOString() };
+  const { error }=await sb.from('surveys').update(patch).eq('id',current.id);
+  if(error){ toast('Error: '+error.message); return; }
+  Object.assign(current,patch); toast('Settings saved'); await loadSurveys(); render();
+}
+
+// ---------- SHARE ----------
+function renderShare(){
+  const url=`${PUBLIC_BASE}/${current.slug}`;
+  const alt=`${FALLBACK_BASE}/?s=${current.slug}`;
+  $('tabbody').innerHTML=`<div class="card">
+    <p class="sub">Send this link to customers, or embed in an email / QR code.</p>
+    <div class="link-box"><code id="lnk">${url}</code><button class="btn small" onclick="copyTxt('${url}')">Copy</button></div>
+    <p class="muted" style="margin-top:10px">Currently live at: <a href="${alt}" target="_blank">${alt}</a></p>
+    <p class="muted">Status must be <strong>open</strong> for customers to submit. This survey is <strong>${current.status}</strong>.</p>
+  </div>`;
+}
+function copyTxt(t){ navigator.clipboard.writeText(t); toast('Copied'); }
+
+// ---------- DRAW ----------
+async function renderDraw(){
+  const { data:draws }=await sb.from('draws').select('*').eq('survey_id',current.id).order('drawn_at',{ascending:false});
+  const { data:winners }=await sb.from('responses').select('*').eq('survey_id',current.id).eq('is_winner',true);
+  let h=`<div class="card"><p class="sub">Prize: <strong>${esc(current.draw_prize||'—')}</strong> • Mode: ${esc(current.draw_mode)}</p>
+    <button class="btn primary" onclick="drawWinner()">🎲 Draw a winner now</button>
+    <p class="muted" style="margin-top:8px">Picks a random entry with a valid email that hasn't already won.</p></div>`;
+  h+=`<div class="card"><div class="qh">Winners</div>`+((winners&&winners.length)?winners.map(w=>`<div class="rowstat"><div class="lbl">${esc(w.respondent_name||'—')}</div><div style="flex:1">${esc(w.respondent_email||'')}</div><div class="val">${w.drawn_at?new Date(w.drawn_at).toLocaleDateString('en-NZ'):''}</div></div>`).join(''):'<p class="muted">No winners drawn yet.</p>')+'</div>';
+  $('tabbody').innerHTML=h;
+}
+async function drawWinner(){
+  const { data:pool }=await sb.from('responses').select('*').eq('survey_id',current.id).eq('is_winner',false).not('respondent_email','is',null);
+  const valid=(pool||[]).filter(r=>r.respondent_email);
+  if(!valid.length){ toast('No eligible entries'); return; }
+  const w=valid[Math.floor(Math.random()*valid.length)];
+  await sb.from('responses').update({is_winner:true,drawn_at:new Date().toISOString()}).eq('id',w.id);
+  const period=current.draw_mode==='monthly'?new Date().toISOString().slice(0,7):'final';
+  await sb.from('draws').insert({survey_id:current.id,period,winner_response_id:w.id,drawn_at:new Date().toISOString()});
+  toast('Winner: '+(w.respondent_name||w.respondent_email));
+  renderDraw();
+}
+
+// ---------- NEW ----------
+async function newSurvey(){
+  const title=prompt('Survey title:'); if(!title)return;
+  let slug=title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+  const {data,error}=await sb.from('surveys').insert({title,slug,type:'feedback',status:'draft',notify_emails:[]}).select().single();
+  if(error){ toast('Error: '+error.message+' (slug may exist)'); return; }
+  await loadSurveys(); openSurvey(data.id);
+}
+</script>
+</body>
+</html>
