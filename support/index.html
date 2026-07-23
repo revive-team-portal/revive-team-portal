@@ -58,6 +58,7 @@ const SECTIONS = [
   {id:'claims',    icon:'🔁', label:'Resends'},
   {id:'search',    icon:'🔎', label:'Search / Customers'},
   {id:'testimonials', icon:'🌟', label:'Testimonials'},
+  {id:'reports',   icon:'📊', label:'Reports'},
   {id:'settings',  icon:'⚙️', label:'Settings'},
 ];
 const TYPE_META={order:{i:'📦',c:'bg-teal-50 text-teal-700 border-teal-200'},enquiry:{i:'💬',c:'bg-indigo-50 text-indigo-700 border-indigo-200'},misc:{i:'🗂️',c:'bg-stone-100 text-stone-600 border-stone-200'},unknown:{i:'❓',c:'bg-amber-50 text-amber-700 border-amber-200'}};
@@ -100,6 +101,12 @@ function panelHTML(id){
       + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+'<button onclick="setFilter(\'escalate\')" class="text-xs px-2.5 py-1 rounded-full border '+(f==='escalate'?'bg-red-600 text-white border-red-600':'bg-white text-red-600 border-red-300 hover:bg-red-50')+'">🚑 Escalate<span id="escCount">'+(window.ESC_COUNT?(' '+window.ESC_COUNT):'')+'</span></button>'+btn('done','✓ Done')+'</div>'
       + '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs text-stone-400">Sort:</span>'+sbtn('date','Date')+sbtn('stars','★ Stars')+sbtn('order','Order #')+'<span id="syncMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + '<div id="ticketList"><div class="text-stone-400 text-sm">Loading…</div></div>';
+  }
+  if(id==='reports'){
+    return '<h2 class="text-xl font-bold mb-1">Reports</h2><p class="text-stone-500 text-sm mb-4">Key support metrics, plus AI commentary from the last 3 months of email.</p>'
+      + '<div id="kpiBoxes" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5"><div class="col-span-full text-stone-400 text-sm">Loading metrics…</div></div>'
+      + '<div class="flex items-center gap-2 mb-3"><button onclick="loadAiInsights(this)" class="text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold px-3 py-1.5 rounded-lg">✨ Generate AI insights (scans archive)</button><span id="aiMsg" class="text-xs text-stone-500"></span></div>'
+      + '<div id="aiInsights"></div>';
   }
   if(id==='claims'){
     return '<h2 class="text-xl font-bold mb-1">Resends</h2><p class="text-stone-500 text-sm mb-4">Every order re-sent or with an issue. Set the cause on each; weekly value totals up top.</p><div id="claimsList"><div class="text-stone-400 text-sm">Loading…</div></div>';
@@ -640,6 +647,38 @@ function b64std(x){ x=(''+(x||'')).replace(/-/g,'+').replace(/_/g,'/'); while(x.
 function applyFrames(){ Object.keys(window.MSGHTML||{}).forEach(id=>{ const f=document.getElementById(id); if(!f||f.dataset.done) return; f.dataset.done='1'; f.onload=function(){ try{ const h=f.contentWindow.document.body.scrollHeight; f.style.height=Math.min((h||200)+24,700)+'px'; }catch(e){ f.style.height='340px'; } }; try{ f.srcdoc=window.MSGHTML[id]; }catch(e){} }); }
 async function loadAttachmentImages(){ const q=(window.IMGQ||[]).slice(); window.IMGQ=[]; for(const akey of q){ const a=(window.ATTS||{})[akey]; if(!a||!a.aid) continue; try{ const r=await apiPost('support-attachment',{messageId:a.mid, attachmentId:a.aid}); if(r.ok&&r.data.dataBase64){ const img=document.getElementById(akey); if(img) img.src='data:'+(a.mime||'image/jpeg')+';base64,'+b64std(r.data.dataBase64); } }catch(e){} } }
 async function openAttachment(akey){ const a=(window.ATTS||{})[akey]; if(!a) return; const r=await apiPost('support-attachment',{messageId:a.mid, attachmentId:a.aid}); if(!r.ok){ alert((r.data&&r.data.error)||'Could not open attachment.'); return; } try{ const bin=atob(b64std(r.data.dataBase64)); const arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); const blob=new Blob([arr],{type:a.mime||'application/octet-stream'}); const url=URL.createObjectURL(blob); window.open(url,'_blank'); }catch(e){ alert('Could not open attachment.'); } }
+async function loadReports(){
+  const el=document.getElementById('kpiBoxes'); if(!el) return;
+  const r=await apiPost('support-report',{});
+  if(!r.ok){ el.innerHTML='<div class="col-span-full text-amber-700 text-sm">'+esc((r.data&&r.data.error)||'Could not load metrics.')+'</div>'; return; }
+  const d=r.data;
+  const box=(label,val,sub,hex)=>'<div class="bg-white border border-stone-200 rounded-xl p-4"><div class="text-[11px] uppercase tracking-wide text-stone-400">'+esc(label)+'</div><div class="text-2xl font-bold" style="color:'+(hex||'#292524')+'">'+val+'</div>'+(sub?'<div class="text-xs text-stone-400 mt-0.5">'+esc(sub)+'</div>':'')+'</div>';
+  el.innerHTML =
+     box('Tickets outstanding', d.ticketsOutstanding, (d.totalTickets||0)+' total', d.ticketsOutstanding>10?'#dc2626':'#0f766e')
+    +box('Open orders to fulfil', d.openOrders+(d.openCapped?'+':''), 'unfulfilled in Shopify', '#b45309')
+    +box('First response (median)', d.firstResponse, (d.frtSample||0)+' measured', '#4f46e5')
+    +box('Resolution (median)', d.resolution, (d.resoSample||0)+' resolved')
+    +box('Replies per ticket', d.repliesPerTicket==null?'—':d.repliesPerTicket, 'avg touches')
+    +box('Fulfilment (median)', d.fulfilment, (d.fulfilSample||0)+' orders', '#059669');
+}
+async function loadAiInsights(btn){
+  const el=document.getElementById('aiInsights'), msg=document.getElementById('aiMsg');
+  if(btn) btn.disabled=true; if(msg) msg.textContent='Scanning archive & analysing… (~15s)';
+  const r=await apiPost('support-ai-insights',{});
+  if(btn) btn.disabled=false; if(msg) msg.textContent='';
+  if(!el) return;
+  if(!r.ok){ el.innerHTML='<div class="text-amber-700 text-sm">'+esc((r.data&&r.data.error)||'Could not generate insights.')+'</div>'; return; }
+  const d=r.data;
+  const sHex = d.performance_score>=8?'#16a34a':d.performance_score>=6?'#f59e0b':'#dc2626';
+  const gauge='<div class="bg-white border border-stone-200 rounded-xl p-4 text-center"><div class="text-[11px] uppercase tracking-wide text-stone-400">Overall performance</div><div class="text-4xl font-extrabold" style="color:'+sHex+'">'+(d.performance_score!=null?d.performance_score:'—')+'<span class="text-lg text-stone-400">/10</span></div></div>';
+  const bar=(label,val,comment,hex)=>'<div class="bg-white border border-stone-200 rounded-xl p-4"><div class="text-[11px] uppercase tracking-wide text-stone-400">'+esc(label)+'</div><div class="flex items-baseline gap-1 mt-1"><div class="text-2xl font-bold" style="color:'+hex+'">'+(val!=null?val:'—')+'</div><div class="text-xs text-stone-400">/100</div></div><div class="w-full bg-stone-100 rounded-full h-1.5 mt-1"><div class="h-1.5 rounded-full" style="width:'+(val||0)+'%;background:'+hex+'"></div></div><div class="text-xs text-stone-500 mt-1">'+esc(comment||'')+'</div></div>';
+  const issues=(d.issues_by_type||[]).slice().sort((a,b)=>(b.count||0)-(a.count||0));
+  const issuesTable = issues.length ? '<table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200"><th class="py-1 pr-2">Category</th><th class="py-1 pr-2">Sub-type</th><th class="py-1">Count</th></tr></thead><tbody>'+issues.map(x=>'<tr class="border-b border-stone-100"><td class="py-1.5 pr-2 font-medium">'+esc(x.category||'')+'</td><td class="py-1.5 pr-2 text-stone-600">'+esc(x.subcategory||'')+'</td><td class="py-1.5 font-semibold">'+(x.count||0)+'</td></tr>').join('')+'</tbody></table>' : '<div class="text-stone-400 text-sm">No issues classified.</div>';
+  el.innerHTML =
+     '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">'+gauge+bar('Friendliness (our replies)', d.friendliness_out, d.friendliness_comment, '#0d9488')+bar('Customer happiness (emails in)', d.happiness_in, d.happiness_comment, '#f59e0b')+'</div>'
+    +'<div class="bg-white border border-stone-200 rounded-xl p-4 mb-4"><div class="text-sm font-semibold text-stone-700 mb-1">AI commentary</div><div class="text-sm text-stone-600">'+esc(d.commentary||'')+'</div><div class="text-xs text-stone-400 mt-1">Based on '+(d.sampleIn||0)+' emails in · '+(d.sampleOut||0)+' replies out (last 3 months).</div></div>'
+    +'<div class="bg-white border border-stone-200 rounded-xl p-4"><div class="text-sm font-semibold text-stone-700 mb-2">Issues by type</div>'+issuesTable+'</div>';
+}
 function show(id){
   document.querySelectorAll('#sideNav a').forEach(a=>{
     a.className = a.dataset.id===id
@@ -651,6 +690,7 @@ function show(id){
   if(id==='nonorder') loadNonOrder();
   if(id==='testimonials') loadTestimonials();
   if(id==='claims') loadClaims();
+  if(id==='reports') loadReports();
   if(id==='settings'){ loadGmailStat(); loadSettings(); loadCodes(); }
   location.hash = id;
 }
