@@ -96,7 +96,7 @@ function panelHTML(id){
     const f=window.FILTER||'open'; const so=window.SORT||'date';
     const btn=(k,l)=>'<button onclick="setFilter(\''+k+'\')" class="text-xs px-2.5 py-1 rounded-full border '+(f===k?'bg-teal-700 text-white border-teal-700':'bg-white text-stone-600 border-stone-300 hover:bg-stone-50')+'">'+l+'</button>';
     const sbtn=(k,l)=>'<button onclick="setSort(\''+k+'\')" class="text-xs px-2 py-0.5 rounded border '+(so===k?'bg-stone-700 text-white border-stone-700':'bg-white text-stone-600 border-stone-300 hover:bg-stone-50')+'">'+l+'</button>';
-    return '<div id="analyticsBar" class="mb-3">'+(window.ANALYTICS_HTML||'<div class="text-stone-400 text-xs">Loading analytics…</div>')+'</div>'+'<div class="flex items-center justify-between mb-3 flex-wrap gap-2"><h2 class="text-xl font-bold">Inbox</h2><div class="flex gap-2"><button onclick="openNewTicket()" class="text-xs bg-stone-800 hover:bg-stone-900 text-white px-3 py-1.5 rounded-lg">＋ New ticket</button><button onclick="syncInbox(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">⟳ Sync</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="text-xs border border-stone-300 text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post</button></div></div>'
+    return '<div id="trackingBar" class="mb-3">'+(window.TRACKING_HTML||'<div class="text-stone-400 text-xs">Loading 14-day tracking…</div>')+'</div>'+'<div id="analyticsBar" class="mb-3">'+(window.ANALYTICS_HTML||'<div class="text-stone-400 text-xs">Loading analytics…</div>')+'</div>'+'<div class="flex items-center justify-between mb-3 flex-wrap gap-2"><h2 class="text-xl font-bold">Inbox</h2><div class="flex gap-2"><button onclick="openNewTicket()" class="text-xs bg-stone-800 hover:bg-stone-900 text-white px-3 py-1.5 rounded-lg">＋ New ticket</button><button onclick="syncInbox(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">⟳ Sync</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="text-xs border border-stone-300 text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post</button></div></div>'
       + '<div id="fulfilReport" class="mb-4">'+(window.FULFIL_HTML||'<div class="text-stone-400 text-xs">Loading fulfilment report…</div>')+'</div>'
       + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+'<button onclick="setFilter(\'escalate\')" class="text-xs px-2.5 py-1 rounded-full border '+(f==='escalate'?'bg-red-600 text-white border-red-600':'bg-white text-red-600 border-red-300 hover:bg-red-50')+'">🚑 Escalate<span id="escCount">'+(window.ESC_COUNT?(' '+window.ESC_COUNT):'')+'</span></button>'+btn('done','✓ Done')+'</div>'
       + '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs text-stone-400">Sort:</span>'+sbtn('date','Date')+sbtn('stars','★ Stars')+sbtn('order','Order #')+'<span id="syncMsg" class="text-xs text-stone-500 ml-2"></span></div>'
@@ -682,6 +682,19 @@ async function loadAiInsights(btn){
 function anaPeriodOpts(cur){ const o=[['wtd','This week to date'],['today','Today'],['yesterday','Yesterday'],['lastweek','Last week'],['mtd','Month to date'],['last7','Last 7 days'],['last30','Last 30 days'],['lifetime','Lifetime']]; return o.map(x=>'<option value="'+x[0]+'"'+(cur===x[0]?' selected':'')+'>'+x[1]+'</option>').join(''); }
 function setAnaPeriod(v){ window.ANA_PERIOD=v; loadAnalytics(); }
 function setAnaExWk(v){ window.ANA_EXWK=v; loadAnalytics(); }
+async function loadTracking(){
+  const el=document.getElementById('trackingBar'); if(!el) return;
+  const r=await apiPost('support-daily',{});
+  if(!r.ok){ window.TRACKING_HTML='<div class="text-amber-700 text-xs">14-day tracking unavailable</div>'; el.innerHTML=window.TRACKING_HTML; return; }
+  const days=r.data.days||[];
+  const rowLbl='class="pr-3 text-stone-400 text-left sticky left-0 bg-white whitespace-nowrap"';
+  const head='<tr><td '+rowLbl+'></td>'+days.map(d=>'<td class="px-1.5 py-0.5 text-center font-medium '+(d.isToday?'text-teal-700':'text-stone-500')+'">'+esc(d.label)+'</td>').join('')+'</tr>';
+  const rowRec='<tr><td '+rowLbl+'>Received</td>'+days.map(d=>'<td class="px-1.5 text-center text-stone-700">'+d.received+'</td>').join('')+'</tr>';
+  const rowRes='<tr><td '+rowLbl+'>Resolved</td>'+days.map(d=>'<td class="px-1.5 text-center text-teal-700">'+d.resolved+'</td>').join('')+'</tr>';
+  const rowUn='<tr><td '+rowLbl+'>Unresolved 5pm</td>'+days.map(d=>'<td class="px-1.5 text-center font-semibold text-red-600">'+d.unresolved+'</td>').join('')+'</tr>';
+  window.TRACKING_HTML='<div class="bg-white border border-stone-200 rounded-xl p-3 overflow-x-auto"><table class="text-[11px] border-collapse w-full">'+head+rowRec+rowRes+rowUn+'</table></div>';
+  el.innerHTML=window.TRACKING_HTML;
+}
 async function loadAnalytics(){
   const el=document.getElementById('analyticsBar'); if(!el) return;
   const period=window.ANA_PERIOD||'wtd'; const ex=!!window.ANA_EXWK;
@@ -701,7 +714,7 @@ function show(id){
       : 'flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50';
   });
   document.getElementById('panel').innerHTML = panelHTML(id);
-  if(id==='dashboard'){ if(!window.ANALYTICS_HTML) loadAnalytics(); if(!window.FULFIL_HTML) loadFulfilReport(); if(window.PENDING_SYNC){ const el=document.getElementById('ticketList'); if(el) el.innerHTML='<div class="text-stone-400 text-sm">🔄 Syncing inbox…</div>'; } else loadTickets(); }
+  if(id==='dashboard'){ if(!window.TRACKING_HTML) loadTracking(); if(!window.ANALYTICS_HTML) loadAnalytics(); if(!window.FULFIL_HTML) loadFulfilReport(); if(window.PENDING_SYNC){ const el=document.getElementById('ticketList'); if(el) el.innerHTML='<div class="text-stone-400 text-sm">🔄 Syncing inbox…</div>'; } else loadTickets(); }
   if(id==='nonorder') loadNonOrder();
   if(id==='testimonials') loadTestimonials();
   if(id==='claims') loadClaims();
