@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Revive Cafe — Scoreboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#0F141A; --ink-2:#18202A; --ink-3:#232D3A;
+  --paper:#F6F7F8; --paper-2:#FFFFFF; --line:#DCE1E6; --line-2:#EDF0F2;
+  --steel:#6B7A8C; --steel-lt:#9AA7B4; --text:#1B242E;
+  --ok:#18A06B; --warn:#DE9C2E; --bad:#D4503F; --info:#3D7EA8;
+  --ok-bg:#E7F5EF; --warn-bg:#FBF1DE; --bad-bg:#FAEAE7;
+  --disp:'Barlow Condensed',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--body);background:var(--paper);color:var(--text);-webkit-font-smoothing:antialiased}
+[v-cloak]{display:none}
+a{color:inherit}
+.wrap{max-width:1320px;margin:0 auto;padding:0 18px 60px}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;gap:12px;flex-wrap:wrap}
+.brandmark{display:flex;align-items:center;gap:10px}
+.brandmark .logo{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:.04em;color:var(--ink)}
+.who{font-family:var(--mono);font-size:11px;color:var(--steel);display:flex;align-items:center;gap:10px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:20px;background:var(--line-2);color:var(--steel);border:1px solid var(--line)}
+.pill.mgr{background:var(--ok-bg);color:#0C6B47;border-color:#B5DFCC}
+.pill.sup{background:#E4EFF6;color:#2A6285;border-color:#Bcd8e8}
+
+/* loader */
+.loader{min-height:70vh;display:flex;align-items:center;justify-content:center;text-align:center}
+.loader .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:30px 34px;max-width:420px}
+.loader .logo{font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.03em;color:var(--ink);margin-bottom:8px}
+
+/* tabs */
+.tabs{display:flex;gap:2px;padding:14px 0 0;flex-wrap:wrap}
+.tab{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:11px 20px;background:#E4E8EB;color:var(--steel);border:0;cursor:pointer;border-radius:3px 3px 0 0}
+.tab.on{background:var(--ink);color:#fff}
+.note{font-size:12.5px;color:var(--steel);padding:10px 0 16px;line-height:1.55}
+.note b{color:var(--text)}
+
+/* team board */
+.ipad{background:var(--ink);border-radius:10px;padding:22px 24px 26px;box-shadow:0 2px 0 #0007;margin-top:8px}
+.bhead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #2C3845;padding-bottom:14px;margin-bottom:18px}
+.bhead h1{font-family:var(--disp);font-size:30px;font-weight:700;letter-spacing:.02em;color:#fff;line-height:1}
+.bhead .sub{font-family:var(--mono);font-size:11px;color:var(--steel-lt);margin-top:7px;letter-spacing:.04em}
+.streak{text-align:right}
+.streak .n{font-family:var(--disp);font-size:44px;font-weight:700;color:var(--ok);line-height:.9}
+.streak .n.zero{color:var(--steel-lt)}
+.streak .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel-lt);margin-top:4px}
+.dayflag{display:inline-flex;align-items:center;gap:7px;background:#2A2113;border:1px solid #5E4A1C;color:#E8C57A;font-size:12px;padding:6px 11px;border-radius:4px;margin-bottom:16px;font-weight:500}
+.grid6{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tile{background:var(--ink-2);border-radius:6px;padding:0;display:flex;overflow:hidden;min-height:150px}
+.tile.hero{grid-column:span 1;grid-row:span 1}
+.rail{width:5px;flex:none}
+.rail.ok{background:var(--ok)}.rail.warn{background:var(--warn)}.rail.bad{background:var(--bad)}.rail.na{background:#2E3B49}
+.tbody{padding:14px 16px 13px;flex:1;display:flex;flex-direction:column}
+.tlabel{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel-lt)}
+.tval{font-family:var(--disp);font-size:52px;font-weight:700;color:#fff;line-height:1;margin:9px 0 2px;letter-spacing:-.01em}
+.tile.big .tval{font-size:64px}
+.tval small{font-size:24px;font-weight:500;color:var(--steel-lt);margin-left:3px}
+.tval.na{color:var(--steel-lt);font-size:34px}
+.tmeta{font-family:var(--mono);font-size:11px;color:var(--steel-lt);display:flex;gap:10px;flex-wrap:wrap}
+.tmeta .up{color:var(--ok)}.tmeta .dn{color:var(--bad)}
+.form{display:flex;gap:2.5px;margin-top:auto;padding-top:13px}
+.blk{flex:1;height:15px;border-radius:1.5px;background:#2E3B49}
+.blk.ok{background:var(--ok)}.blk.warn{background:var(--warn)}.blk.bad{background:var(--bad)}
+.blk.now{outline:1.5px solid #fff;outline-offset:1.5px}
+.bfoot{display:flex;justify-content:space-between;margin-top:18px;padding-top:13px;border-top:1px solid #2C3845;font-family:var(--mono);font-size:10.5px;color:var(--steel);letter-spacing:.04em}
+
+/* manager grid */
+.panel{background:var(--paper-2);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:8px}
+.ptitle{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);background:#FBFCFC;gap:12px;flex-wrap:wrap}
+.ptitle h2{font-family:var(--disp);font-size:19px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
+.ptitle .r{font-family:var(--mono);font-size:11px;color:var(--steel)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:0;text-align:right;font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+thead th{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--steel);font-weight:500;padding:9px 7px;border-bottom:1px solid var(--line);background:#FBFCFC;position:sticky;top:0}
+thead th.mname,tbody td.mname{text-align:left;font-family:var(--body);font-size:12.5px;padding-left:16px;min-width:230px;position:sticky;left:0;background:var(--paper-2);z-index:2}
+thead th.mname{background:#FBFCFC}
+thead th.tgt,tbody td.tgt{border-right:2px solid var(--line);color:var(--info)}
+tbody td{padding:7px;border-bottom:1px solid var(--line-2)}
+tbody tr.sec td{background:var(--ink);color:#fff;font-family:var(--disp);font-size:12px;letter-spacing:.13em;text-transform:uppercase;text-align:left;padding:5px 16px;font-weight:600}
+tbody tr.sec td.mname{background:var(--ink);color:#fff}
+tbody tr.sec.ad td{background:#3a2d12;color:#F1D48A}
+tbody tr.sec.ad td.mname{background:#3a2d12;color:#F1D48A}
+tbody tr:hover td{background:#F4F7F9}
+tbody tr:hover td.mname{background:#F4F7F9}
+td.ok{background:var(--ok-bg);color:#0C6B47}
+td.warn{background:var(--warn-bg);color:#8A5E10}
+td.bad{background:var(--bad-bg);color:#9B2F21;font-weight:600}
+td.now{box-shadow:inset 0 0 0 1.5px var(--ink)}
+td.susp{color:var(--steel-lt);font-style:italic}
+td.susp:after{content:' ~'}
+.der{color:var(--steel);font-style:italic}
+.scroll{overflow-x:auto}
+.mname .src{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;padding:1px 4px;border-radius:2px;margin-left:6px;vertical-align:1px}
+.src.a{background:#E4EFF6;color:#2A6285}.src.m{background:#F0EDF6;color:#5B4A85}.src.d{background:var(--line-2);color:var(--steel)}
+.cand{border-bottom:1px dotted var(--info)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding:11px 16px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--steel);letter-spacing:.04em;background:#FBFCFC}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+.two{display:grid;grid-template-columns:1fr 340px;gap:14px;margin-top:14px;align-items:start}
+.issue{padding:13px 16px;border-bottom:1px solid var(--line-2);display:flex;gap:11px}
+.issue:last-child{border-bottom:0}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:6px}
+.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}
+.issue h4{font-size:12.5px;font-weight:600;margin-bottom:3px}
+.issue p{font-size:11.5px;color:var(--steel);line-height:1.5}
+.owner{font-family:var(--mono);font-size:10px;color:var(--info);margin-top:5px;letter-spacing:.03em}
+.softnote{padding:16px;font-size:12px;color:var(--steel);line-height:1.6}
+.softnote b{color:var(--text)}
+
+/* entry */
+.ehead{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 16px;border-bottom:1px solid var(--line);background:#FBFCFC}
+.wkpick{font-family:var(--disp);font-size:22px;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;gap:14px}
+.wkpick button{background:#E4E8EB;border:0;border-radius:4px;width:30px;height:30px;font-size:15px;cursor:pointer;color:var(--ink)}
+.wkpick button:disabled{opacity:.35;cursor:default}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:10px;letter-spacing:.05em;padding:4px 9px;border-radius:3px;border:1px solid var(--line);background:#fff;color:var(--steel)}
+.chip.done{background:var(--ok-bg);color:#0C6B47;border-color:#B5DFCC}
+.chip.todo{background:var(--warn-bg);color:#8A5E10;border-color:#EBD3A3}
+table.entry td,table.entry th{border:1px solid var(--line)}
+table.entry td.mname{border-left:0;min-width:230px}
+table.entry input{font-family:var(--mono);font-size:12.5px;text-align:right;border:0;background:transparent;width:100%;padding:8px 9px;color:var(--text);outline:none}
+table.entry input:focus{background:#EAF3FA;box-shadow:inset 0 0 0 2px var(--info)}
+td.cell{padding:0;position:relative}
+td.cell.man input{color:var(--text)}
+td.cell.auto{background:#F4F8FB}
+td.cell.auto input{color:#2A6285}
+td.cell.derived{background:#F7F8F9}
+td.cell.derived input{color:var(--steel);font-style:italic}
+td.cell.ovr{background:#FBF1DE}
+td.cell.ovr input{color:#8A5E10;font-weight:600}
+.pin{position:absolute;top:2px;left:3px;font-size:8px;font-family:var(--mono);color:var(--steel-lt)}
+.cmt{padding:14px 16px}
+.cmt label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin:0 0 5px}
+.cmt .row{margin-bottom:13px}
+.cmt input[type=text],.cmt textarea{width:100%;font-family:var(--body);font-size:12.5px;padding:8px 10px;border:1px solid var(--line);border-radius:3px;background:#fff;color:var(--text);resize:vertical}
+.cmt textarea{min-height:52px;line-height:1.55}
+.cmt .half{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.sticky{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:11px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;z-index:5}
+.sticky .msg{font-family:var(--mono);font-size:10.5px;color:var(--steel)}
+.mini{font-family:var(--disp);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:3px;cursor:pointer;font-weight:600;color:var(--text)}
+.mini.pri{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mini:disabled{opacity:.5;cursor:default}
+
+/* targets */
+table.tg{width:100%}
+table.tg th{text-align:left;padding:9px 10px}
+table.tg td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line-2);font-family:var(--body);font-size:12.5px}
+table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;text-align:right}
+.flash{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;padding:10px 18px;border-radius:6px;box-shadow:0 4px 14px #0003;z-index:50}
+@media(max-width:900px){.grid6{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<script>
+  const APPS_URL='https://xcwrawjdfajlmbkdwlbm.supabase.co';
+  const APPS_ANON='sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+
+<div id="app" v-cloak>
+  <!-- loader / gate -->
+  <div v-if="!ready" class="loader">
+    <div class="card">
+      <div class="logo">Revive Scoreboard</div>
+      <p v-if="!gateError" style="color:var(--steel);font-size:13px">Loading…</p>
+      <div v-else><p style="color:var(--bad);font-size:13px;margin-bottom:10px">{{ gateError }}</p><a href="/" style="color:var(--info);font-size:13px;text-decoration:underline">← Back to portal</a></div>
+    </div>
+  </div>
+
+  <div v-else class="wrap">
+    <div class="topbar">
+      <div class="brandmark"><span class="logo">Revive Scoreboard</span></div>
+      <div class="who">
+        <span class="pill" :class="level==='manager'?'mgr':(level==='supervisor'?'sup':'')">{{ levelLabel }}</span>
+        <span>{{ email }}</span>
+        <a href="/" style="text-decoration:underline">Portal</a>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button v-for="t in tabs" :key="t.id" class="tab" :class="{on:screen===t.id}" @click="screen=t.id">{{ t.label }}</button>
+    </div>
+
+    <!-- ============ TEAM BOARD ============ -->
+    <div v-show="screen==='team'">
+      <div class="ipad">
+        <div class="bhead">
+          <div>
+            <h1>Revive Cafe — Week Scoreboard</h1>
+            <div class="sub">{{ currentWeekLabel }}</div>
+          </div>
+          <div class="streak"><div class="n" :class="{zero:streak===0}">{{ streak }}</div><div class="l">weeks on target</div></div>
+        </div>
+        <div v-if="currentDayFlag" class="dayflag">◆ {{ currentDayFlag }}</div>
+        <div class="grid6">
+          <div v-for="t in publicTiles" :key="t.code" class="tile" :class="{big:t.hero}">
+            <div class="rail" :class="t.rag||'na'"></div>
+            <div class="tbody">
+              <div class="tlabel">{{ t.label }}</div>
+              <div v-if="t.value==null" class="tval na">—</div>
+              <div v-else class="tval">{{ t.pre||'' }}{{ fm(t.value,t.dp) }}<small v-if="t.suf">{{ t.suf }}</small></div>
+              <div class="tmeta">
+                <span v-if="t.target!=null">Target {{ t.pre||'' }}{{ fm(t.target,t.dp) }}{{ t.suf||'' }}</span>
+                <span v-else-if="t.value==null">{{ t.noteNoData || 'no data yet' }}</span>
+                <span v-if="t.delta!=null" :class="t.deltaGood?'up':'dn'">{{ t.delta>=0?'▲':'▼' }} {{ Math.abs(t.delta).toFixed(1) }}% wk</span>
+              </div>
+              <div class="form"><div v-for="(b,i) in t.form" :key="i" class="blk" :class="[b.rag, {now:b.now}]"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="bfoot"><span>REVIVE CAFE · 24 WYNDHAM ST</span><span>{{ weekOfLabel }}</span></div>
+      </div>
+      <p class="note" v-if="anyCandidate"><b>Targets shown with a dotted underline are candidates</b> — trailing 13-week baselines the app worked out so the board has colour from day one.<span v-if="level==='manager'"> Set your real ones on the Targets tab.</span></p>
+    </div>
+
+    <!-- ============ MANAGER VIEW ============ -->
+    <div v-show="screen==='manager' && level==='manager'">
+      <div class="panel">
+        <div class="ptitle"><h2>Weekly grid</h2><div class="r">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</div></div>
+        <div class="scroll"><table>
+          <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w">{{ colLabel(w) }}</th></tr></thead>
+          <tbody>
+            <template v-for="row in gridRows" :key="row.key||row.sec">
+              <tr v-if="row.sec" class="sec" :class="{ad:row.ad}"><td class="mname" :colspan="windowWeeks.length+2">{{ row.sec }}</td></tr>
+              <tr v-else>
+                <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcName[row.src] }}</span></td>
+                <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
+                <td v-for="w in windowWeeks" :key="w"
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]">{{ cellText(row,w) }}</td>
+              </tr>
+            </template>
+          </tbody>
+        </table></div>
+        <div class="legend">
+          <span><i style="background:var(--ok)"></i>On target</span>
+          <span><i style="background:var(--warn)"></i>Within band</span>
+          <span><i style="background:var(--bad)"></i>Off target</span>
+          <span><i style="background:#fff;border:1.5px solid var(--ink)"></i>Current week</span>
+          <span>~ = fortnightly-recorded labour, excluded from trends</span>
+          <span>Blank = not captured</span>
+        </div>
+      </div>
+
+      <div class="two">
+        <div class="panel">
+          <div class="ptitle"><h2>Weekly review</h2><div class="r">{{ autoIssues.length }} auto-flagged</div></div>
+          <div v-if="!autoIssues.length" class="softnote">Nothing has been off target three weeks running. Auto-issues appear here when a metric with a target goes red three weeks in a row.</div>
+          <div v-for="is in autoIssues" :key="is.code" class="issue"><div class="dot" :class="is.level"></div><div>
+            <h4>{{ is.title }}</h4><p>{{ is.detail }}</p>
+            <div class="owner">AUTO-FLAGGED · {{ is.recent }}</div></div></div>
+          <div class="softnote" style="border-top:1px solid var(--line-2)"><b>Coming next:</b> the AI variance brief, issues &amp; actions with the 5-action cap, and the auto-feeds (Shopify, Meta, Klaviyo, TimeKeeper). This first release reads the full cleaned history so the board is live today.</div>
+        </div>
+        <div class="panel">
+          <div class="ptitle"><h2>This week's notes</h2><div class="r">{{ shortDate(currentWeek) }}</div></div>
+          <div class="softnote" v-if="curWeekObj">
+            <p v-if="curWeekObj.days_note"><b>Days:</b> {{ curWeekObj.days_note }}</p>
+            <p v-if="curWeekObj.holiday"><b>Holiday:</b> {{ curWeekObj.holiday }}</p>
+            <p v-if="curWeekObj.email_offer"><b>Offer:</b> {{ curWeekObj.email_offer }}</p>
+            <p v-if="curWeekObj.promo_comments"><b>Promo:</b> {{ curWeekObj.promo_comments }}</p>
+            <p v-if="curWeekObj.wages_exceptions"><b>Wages:</b> {{ curWeekObj.wages_exceptions }}</p>
+            <p v-if="curWeekObj.npd"><b>NPD:</b> {{ curWeekObj.npd }}</p>
+            <p v-if="curWeekObj.other_comments"><b>Other:</b> {{ curWeekObj.other_comments }}</p>
+            <p v-if="!curWeekObj.days_note && !curWeekObj.holiday && !curWeekObj.email_offer && !curWeekObj.promo_comments && !curWeekObj.other_comments" style="color:var(--steel-lt)">No notes recorded for this week.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ENTER WEEK ============ -->
+    <div v-show="screen==='enter' && level!=='team'">
+      <div class="panel">
+        <div class="ehead">
+          <div class="wkpick"><button @click="stepWeek(-1)" :disabled="entryIdx<=0">◀</button><span>Week ending {{ longDate(entryWeek) }}</span><button @click="stepWeek(1)" :disabled="entryIdx>=weeks.length-1">▶</button></div>
+          <div class="chips">
+            <span class="chip todo">Manual entry</span>
+            <span class="chip">Auto-feeds coming</span>
+          </div>
+        </div>
+        <div class="scroll"><table class="entry">
+          <thead><tr><th class="mname">Metric</th><th style="width:200px">Value</th></tr></thead>
+          <tbody>
+            <template v-for="row in entryRows" :key="row.key||row.sec">
+              <tr v-if="row.sec" class="sec"><td class="mname" :colspan="2">{{ row.sec }}</td></tr>
+              <tr v-else>
+                <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcName[row.src] }}</span></td>
+                <td class="cell" :class="entryCellClass(row)">
+                  <span v-if="row.src==='a'" class="pin">auto</span>
+                  <input v-if="row.src!=='d'" v-model="entryVals[row.key]" :placeholder="entryPlaceholder(row)" inputmode="decimal">
+                  <input v-else :value="derivedDisplay(row.key)" readonly placeholder="—">
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table></div>
+
+        <div style="display:grid;grid-template-columns:1fr;gap:0;border-top:1px solid var(--line)">
+          <div class="cmt">
+            <div class="row"><label>Days note — anything that changed the shape of the week</label><input type="text" v-model="entryNotes.days_note" placeholder="e.g. 4-day week — Matariki"></div>
+            <div class="half">
+              <div class="row"><label>Public holiday</label><input type="text" v-model="entryNotes.holiday"></div>
+              <div class="row"><label>Trading days</label><input type="text" v-model="entryNotes.trading_days" inputmode="numeric"></div>
+            </div>
+            <div class="row"><label>Email offer sent</label><input type="text" v-model="entryNotes.email_offer"></div>
+            <div class="row"><label>Promo detail / channel</label><textarea v-model="entryNotes.promo_comments"></textarea></div>
+            <div class="half">
+              <div class="row"><label>New product / NPD</label><input type="text" v-model="entryNotes.npd"></div>
+              <div class="row"><label>Wages exceptions</label><input type="text" v-model="entryNotes.wages_exceptions"></div>
+            </div>
+            <div class="row"><label>Other</label><input type="text" v-model="entryNotes.other_comments"></div>
+          </div>
+        </div>
+
+        <div class="sticky">
+          <div class="msg">{{ entryMsg }}</div>
+          <div style="display:flex;gap:7px"><button class="mini" @click="loadEntry(entryWeek)">Reset</button><button class="mini pri" @click="saveWeek" :disabled="saving">{{ saving?'Saving…':'Save week' }}</button></div>
+        </div>
+      </div>
+      <p class="note">Blue cells will fill automatically once the Shopify, Meta, Klaviyo and TimeKeeper feeds are wired in. Type over an auto value and the app keeps the original and records it as an override. Grey cells are calculated and can't be typed in.</p>
+    </div>
+
+    <!-- ============ TARGETS ============ -->
+    <div v-show="screen==='targets' && level==='manager'">
+      <div class="panel">
+        <div class="ptitle"><h2>Targets</h2><div class="r">One target + one amber band per metric. Changing a target never rewrites history.</div></div>
+        <div class="scroll"><table class="tg">
+          <thead><tr><th>Metric</th><th>Direction</th><th>Candidate (13wk)</th><th>Target</th><th>Amber %</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="row in targetRows" :key="row.key">
+              <td>{{ row.label }}</td>
+              <td style="color:var(--steel);font-size:11px">{{ row.hi?'higher better':'lower better' }}</td>
+              <td style="font-family:var(--mono);color:var(--info)">{{ row.candidate!=null?fm(row.candidate,row.dp):'—' }}</td>
+              <td><input v-model="targetForm[row.key].target_value" inputmode="decimal" :placeholder="row.candidate!=null?fm(row.candidate,row.dp):''"></td>
+              <td><input v-model="targetForm[row.key].amber_pct" inputmode="decimal" placeholder="5"></td>
+              <td><button class="mini" @click="saveOneTarget(row)">Save</button></td>
+            </tr>
+          </tbody>
+        </table></div>
+        <div class="sticky"><div class="msg">Set targets one at a time, or seed all metrics from their 13-week baseline as a starting point.</div><button class="mini pri" @click="seedCandidates" :disabled="saving">Seed all candidates</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="msg" class="flash">{{ msg }}</div>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+const portal = supabase.createClient(PORTAL_URL, PORTAL_ANON);
+
+createApp({
+  setup(){
+    const ready=ref(false), gateError=ref(''), level=ref(''), email=ref(''), screen=ref('team');
+    const msg=ref('');
+    let flashT=null;
+    function flash(t){ msg.value=t; clearTimeout(flashT); flashT=setTimeout(()=>msg.value='',2600); }
+
+    // raw data
+    const metrics=ref([]), weeks=ref([]), targets=ref([]), rates=ref([]);
+    const factMap=reactive({});   // code -> { period_end -> {v,q} }
+    const weekByEnd=reactive({});
+
+    const GST=computed(()=>{ const r=(rates.value||[]).find(x=>x.key==='gst_rate'); return r?Number(r.value):0.15; });
+
+    async function portalToken(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
+    async function callData(payload){
+      const r=await fetch('/.netlify/functions/scoreboard-data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await portalToken()},body:JSON.stringify(payload)});
+      const j=await r.json().catch(()=>({error:'bad response'})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j;
+    }
+
+    // ---------- metric metadata ----------
+    const HIGHER={}, UNIT={}, SRC={}, NAME={};
+    function indexMeta(){ (metrics.value||[]).forEach(m=>{ HIGHER[m.code]=m.higher_better!==false; UNIT[m.code]=m.unit; SRC[m.code]=m.source_type; NAME[m.code]=m.name; }); }
+
+    // ---------- fact / derived access ----------
+    function base(code,pe){ const c=factMap[code]; if(!c) return {v:null,q:null}; const f=c[pe]; return f?{v:f.v,q:f.q}:{v:null,q:null}; }
+    function closed(pe){ const w=weekByEnd[pe]; return !!(w&&w.cafe_closed); }
+    // worst quality across inputs; if any suspect -> suspect
+    function worst(list){ if(list.some(x=>x==='suspect')) return 'suspect'; if(list.some(x=>x==='partial')) return 'partial'; return 'ok'; }
+
+    const HOURS=['hours_kitchen_prep','hours_kitchen_ingred','hours_kitchen_sweets','hours_muesli','hours_nut_butter','hours_fulfilment','hours_foh_cafe','hours_heat_eat'];
+
+    // returns {v,q} for any code (base or derived) at pe. q may be 'suspect'|'partial'|'ok'|null
+    function val(code,pe){
+      const g=1+GST.value;
+      const B=(c)=>base(c,pe);
+      switch(code){
+        case 'total_sales':{ const a=B('cafe_sales'),b=B('online_sales'); if(a.v==null&&b.v==null) return {v:null,q:null}; return {v:(a.v||0)+(b.v||0),q:worst([a.q,b.q])}; }
+        case 'cafe_atv':{ const a=B('cafe_sales'),b=B('cafe_customers'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
+        case 'online_aov':{ const a=B('online_sales'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
+        case 'perfect_order_rate':{ const a=B('resends_refunds'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:(1-a.v/b.v)*100,q:worst([a.q,b.q])}; }
+        case 'orders_per_fulfil_hour':{ const a=B('online_orders'),b=B('hours_fulfilment'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
+        case 'total_hours':{ let s=0,qs=[],any=false; HOURS.forEach(h=>{ const x=B(h); if(x.v!=null){ s+=x.v; any=true; qs.push(x.q);} }); return any?{v:s,q:worst(qs)}:{v:null,q:null}; }
+        case 'sales_per_labour_hour':{ const a=val('total_sales',pe),b=val('total_hours',pe); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
+        case 'gross_profit_per_labour_hour':{ const a=B('online_gross_profit'),b=val('total_hours',pe); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
+        case 'wages_pct_sales':{ const a=B('wages_paid'),b=val('total_sales',pe); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/(b.v/g)*100,q:worst([a.q,b.q])}; }
+        case 'online_cogs_pct':{ const a=B('online_cogs'),b=B('online_sales'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/(b.v/g)*100,q:worst([a.q,b.q])}; }
+        case 'cafe_waste_pct':{ const a=B('cafe_waste_value'),b=B('cafe_sales'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v*100,q:worst([a.q,b.q])}; }
+        case 'ad_pct_online':{ const a=B('ad_spend'),b=B('online_sales'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/(b.v/g)*100,q:worst([a.q,b.q])}; }
+        case 'ad_cost_per_order':{ const a=B('ad_spend'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
+        default: return base(code,pe);
+      }
+    }
+
+    const isCafeMetric=(c)=>['cafe_sales','cafe_customers','cafe_atv','cafe_waste_value','cafe_waste_pct','total_sales'].includes(c);
+
+    // ---------- windows ----------
+    const currentWeek=computed(()=> weeks.value.length? weeks.value[weeks.value.length-1].period_end : null);
+    const windowWeeks=computed(()=> weeks.value.slice(-13).map(w=>w.period_end));
+    const curWeekObj=computed(()=> currentWeek.value? weekByEnd[currentWeek.value] : null);
+
+    // ---------- targets ----------
+    function storedTarget(code,pe){
+      const list=(targets.value||[]).filter(t=>t.metric_code===code && (!pe || t.effective_from<=pe));
+      if(!list.length) return null;
+      return list[list.length-1];
+    }
+    // candidate = median of clean trailing 13 weeks
+    function candidate(code){
+      const ws=weeks.value.slice(-13).map(w=>w.period_end);
+      const vals=[];
+      ws.forEach(pe=>{ if(closed(pe)&&isCafeMetric(code)) return; const x=val(code,pe); if(x.v!=null && x.q!=='suspect') vals.push(x.v); });
+      if(vals.length<4) return null;
+      vals.sort((a,b)=>a-b); const m=Math.floor(vals.length/2);
+      return vals.length%2?vals[m]:(vals[m-1]+vals[m])/2;
+    }
+    function effTarget(code,pe){
+      const s=storedTarget(code,pe);
+      if(s) return {t:Number(s.target_value),amber:s.amber_pct==null?5:Number(s.amber_pct),amber_abs:s.amber_abs,red_abs:s.red_abs,candidate:false};
+      const c=candidate(code);
+      if(c==null) return null;
+      return {t:c,amber:8,amber_abs:null,red_abs:null,candidate:true};
+    }
+    function rag(code,pe){
+      const x=val(code,pe); if(x.v==null||x.q==='suspect') return '';
+      if(closed(pe)&&isCafeMetric(code)) return '';
+      const T=effTarget(code,pe); if(!T) return '';
+      const hi=HIGHER[code];
+      if(!hi && (T.red_abs!=null||T.amber_abs!=null)){
+        if(x.v<=T.t) return 'ok';
+        if(T.red_abs!=null && x.v>=T.red_abs) return 'bad';
+        return 'warn';
+      }
+      const r=hi?(x.v/T.t):(T.t/x.v);
+      const band=1-(T.amber||5)/100;
+      return r>=1?'ok':(r>=band?'warn':'bad');
+    }
+
+    // ---------- formatting ----------
+    const fm=(v,dp=0)=> v==null?'':Number(v).toLocaleString('en-NZ',{minimumFractionDigits:dp,maximumFractionDigits:dp});
+    const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function shortDate(pe){ if(!pe) return ''; const d=new Date(pe+'T00:00:00'); return d.getDate()+' '+MON[d.getMonth()]+' '+String(d.getFullYear()).slice(2); }
+    function longDate(pe){ if(!pe) return ''; const d=new Date(pe+'T00:00:00'); const wd=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]; return wd+' '+d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear(); }
+    function colLabel(pe){ const d=new Date(pe+'T00:00:00'); return d.getDate()+' '+MON[d.getMonth()]; }
+
+    // ---------- unit meta for display ----------
+    const UNITFMT={ nzd:{pre:'$',dp:0}, nzd_inc_gst:{pre:'$',dp:0}, nzd_ex_gst:{pre:'$',dp:0}, count:{dp:0}, ratio:{dp:1}, hours:{dp:1}, pct:{suf:'%',dp:1}, hrs_elapsed:{suf:'h',dp:1} };
+    function ufmt(code){ const base=UNITFMT[UNIT[code]]||{dp:0}; const o={pre:'',suf:'',dp:base.dp||0,...base}; if(['cafe_atv','online_aov','ad_cost_per_order'].includes(code)) o.dp=2; if(code==='cafe_waste_pct') o.dp=2; return o; }
+
+    // ---------- PUBLIC TILES ----------
+    const PUB=[
+      {code:'cafe_customers',label:'Cafe customers',hero:true},
+      {code:'online_orders',label:'Online orders'},
+      {code:'orders_per_fulfil_hour',label:'Orders / fulfil hour',dp:1},
+      {code:'orders_missed_cutoff',label:'Missed Thu 3pm cutoff',noteNoData:'starts once Shopify feed is on'},
+      {code:'support_first_response',label:'Median first response',noteNoData:'starts once support feed is on'},
+      {code:'total_sales',label:'Total sales'},
+    ];
+    const publicTiles=computed(()=>{
+      const cw=currentWeek.value; const ws=windowWeeks.value;
+      return PUB.map(t=>{
+        const u=ufmt(t.code); const dp=t.dp!=null?t.dp:u.dp;
+        const cur=cw?val(t.code,cw):{v:null,q:null};
+        // previous clean value for delta
+        let prev=null; for(let i=weeks.value.length-2;i>=0;i--){ const pe=weeks.value[i].period_end; const x=val(t.code,pe); if(x.v!=null && x.q!=='suspect' && !(closed(pe)&&isCafeMetric(t.code))){ prev=x.v; break; } }
+        const T=effTarget(t.code,cw);
+        let delta=null,deltaGood=null;
+        if(cur.v!=null && prev!=null && prev!==0){ delta=(cur.v-prev)/Math.abs(prev)*100; deltaGood=HIGHER[t.code]?delta>=0:delta<=0; }
+        const form=ws.map(pe=>({rag:rag(t.code,pe)||'',now:pe===cw}));
+        return {code:t.code,label:t.label,hero:t.hero,pre:u.pre,suf:u.suf,dp,
+          value:cur.v==null?null:cur.v, rag:rag(t.code,cw),
+          target:T?T.t:null, delta, deltaGood, form, noteNoData:t.noteNoData };
+      });
+    });
+    const streak=computed(()=>{
+      let n=0; for(let i=weeks.value.length-1;i>=0;i--){ const pe=weeks.value[i].period_end; const r=rag('cafe_customers',pe); if(r==='ok') n++; else if(r==='') continue; else break; }
+      return n;
+    });
+    const currentWeekLabel=computed(()=>{ const cw=currentWeek.value; if(!cw) return ''; const end=new Date(cw+'T00:00:00'); const start=new Date(end); start.setDate(end.getDate()-6); const f=(d)=>['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()]+' '+d.getDate()+' '+MON[d.getMonth()].toUpperCase(); return f(start)+' – '+f(end)+' '+end.getFullYear(); });
+    const weekOfLabel=computed(()=> currentWeek.value?('WEEK ENDING '+shortDate(currentWeek.value).toUpperCase()):'');
+    const currentDayFlag=computed(()=>{ const w=curWeekObj.value; if(!w) return ''; const bits=[]; if(w.holiday) bits.push(w.holiday); if(w.days_note) bits.push(w.days_note); if(w.trading_days && Number(w.trading_days)<5) bits.push(w.trading_days+'-day week'); return bits.join(' · '); });
+    const anyCandidate=computed(()=> publicTiles.value.some(t=>{ const T=effTarget(t.code,currentWeek.value); return T&&T.candidate; }));
+
+    // ---------- MANAGER GRID rows ----------
+    const srcMap={auto:'a',manual:'m',derived:'d',snapshot:'a'};
+    const srcName={a:'auto',m:'man',d:'calc'};
+    const GRID=[
+      {ad:true,sec:'Advertising'},
+      'ad_spend','ad_pct_online','ad_cost_per_order',
+      {sec:'Sales'},
+      'cafe_sales','online_sales','total_sales','catering_sales','uber_total',
+      {sec:'Customers & orders'},
+      'cafe_customers','cafe_atv','online_orders','online_aov','perfect_order_rate',
+      {sec:'Service'},
+      'orders_missed_cutoff','orders_not_sent','resends_refunds','support_first_response',
+      {sec:'Labour'},
+      'wages_paid','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour',
+      {sec:'Labour — hours by area'},
+      ...HOURS,'hours_wopples','wages_wopples',
+      {sec:'Margin'},
+      'online_cogs','online_cogs_pct','online_gross_profit','cafe_waste_value','cafe_waste_pct',
+      {sec:'Production'},
+      'mueslis_packed','meals_packed','ingredients_packed',
+    ];
+    function mkRow(code){ const u=ufmt(code); return {key:code,label:NAME[code]||code,src:srcMap[SRC[code]]||'m',pre:u.pre,suf:u.suf,dp:u.dp}; }
+    const gridRows=computed(()=> GRID.map(x=> typeof x==='string'? mkRow(x) : x));
+
+    function cellObj(code,pe){ return val(code,pe); }
+    function cellText(row,pe){ const x=val(row.key,pe); if(x.v==null) return ''; if(closed(pe)&&isCafeMetric(row.key)&&row.key!=='total_sales') return (row.pre||'')+fm(x.v,row.dp)+(row.suf||''); return (row.pre||'')+fm(x.v,row.dp)+(row.suf||''); }
+    function cellRag(row,pe){ return rag(row.key,pe); }
+    function cellTarget(code){ const T=effTarget(code,currentWeek.value); return T||{candidate:false}; }
+    function tgtLabel(row){ const T=effTarget(row.key,currentWeek.value); if(!T) return '—'; return (row.pre||'')+fm(T.t,row.dp)+(row.suf||''); }
+
+    // auto issues: metric with a stored/candidate target red for the last 3 weeks
+    const autoIssues=computed(()=>{
+      const out=[]; const ws=weeks.value.slice(-3).map(w=>w.period_end); if(ws.length<3) return out;
+      const check=['cafe_customers','online_orders','total_sales','orders_per_fulfil_hour','wages_pct_sales','online_cogs_pct'];
+      check.forEach(code=>{ const rags=ws.map(pe=>rag(code,pe)); if(rags.every(r=>r==='bad')){ const vals=ws.map(pe=>{const x=val(code,pe);const u=ufmt(code);return (u.pre||'')+fm(x.v,u.dp)+(u.suf||'');}); out.push({code,level:'bad',title:(NAME[code]||code)+' off target 3 weeks running',detail:'Last three weeks: '+vals.join(' → ')+' against target.',recent:'to '+shortDate(currentWeek.value)}); } });
+      return out;
+    });
+
+    // ---------- ENTRY ----------
+    const entryWeek=ref(null);
+    const entryIdx=computed(()=> weeks.value.findIndex(w=>w.period_end===entryWeek.value));
+    const entryVals=reactive({}), entryNotes=reactive({}), saving=ref(false), entryMsg=ref('');
+    const ENTRY_INPUTS=['cafe_sales','online_sales','catering_sales','uber_total','cafe_customers','online_orders','resends_refunds','orders_not_sent',
+      ...HOURS,'hours_wopples','wages_paid','wages_wopples','wage_budget','ad_spend','online_cogs','online_gross_profit','cafe_waste_value',
+      'mueslis_packed','meals_packed','ingredients_packed'];
+    const ENTRY=[
+      {sec:'Sales'},'cafe_sales','online_sales','total_sales','catering_sales','uber_total',
+      {sec:'Customers & orders'},'cafe_customers','online_orders','resends_refunds','orders_not_sent','perfect_order_rate',
+      {sec:'Labour — hours by area'},...HOURS,'hours_wopples','total_hours',
+      {sec:'Wages'},'wages_paid','wages_wopples','wage_budget',
+      {sec:'Advertising'},'ad_spend',
+      {sec:'Margin'},'online_cogs','online_gross_profit','cafe_waste_value',
+      {sec:'Production'},'mueslis_packed','meals_packed','ingredients_packed',
+    ];
+    const entryRows=computed(()=> ENTRY.map(x=> typeof x==='string'? mkRow(x): x));
+    function loadEntry(pe){
+      entryWeek.value=pe;
+      Object.keys(entryVals).forEach(k=>delete entryVals[k]);
+      ENTRY_INPUTS.forEach(code=>{ const f=base(code,pe); entryVals[code]= f.v==null?'':String(f.v); });
+      const w=weekByEnd[pe]||{};
+      ['days_note','holiday','trading_days','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ entryNotes[k]= w[k]==null?'':w[k]; });
+      entryMsg.value='Week loaded — edit any value and Save.';
+    }
+    function stepWeek(d){ const i=entryIdx.value+d; if(i>=0&&i<weeks.value.length) loadEntry(weeks.value[i].period_end); }
+    function entryCellClass(row){ if(row.src==='d') return 'derived'; if(row.src==='a'){ const f=base(row.key,entryWeek.value); const cur=entryVals[row.key]; if(f.v!=null && cur!=='' && Number(cur)!==Number(f.v)) return 'ovr'; return 'auto'; } return 'man'; }
+    function entryPlaceholder(row){ return '—'; }
+    function derivedDisplay(code){ const x=val(code,entryWeek.value); if(x.v==null) return ''; const u=ufmt(code); return (u.pre||'')+fm(x.v,u.dp)+(u.suf||''); }
+    async function saveWeek(){
+      saving.value=true;
+      try{
+        const values={};
+        ENTRY_INPUTS.forEach(code=>{ const raw=entryVals[code]; values[code]= (raw===''||raw==null)?null:Number(raw); });
+        const notes={};
+        ['days_note','holiday','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ notes[k]= entryNotes[k]===''?null:entryNotes[k]; });
+        if(entryNotes.trading_days!==''&&entryNotes.trading_days!=null) notes.trading_days=Number(entryNotes.trading_days);
+        await callData({action:'save_week',period_end:entryWeek.value,values,notes});
+        await refresh();
+        flash('Week saved'); entryMsg.value='Saved.';
+      }catch(e){ flash('Save failed: '+e.message); }
+      saving.value=false;
+    }
+
+    // ---------- TARGETS ----------
+    const TARGET_METRICS=['cafe_customers','online_orders','orders_per_fulfil_hour','total_sales','cafe_sales','online_sales',
+      'cafe_atv','online_aov','perfect_order_rate','wages_pct_sales','sales_per_labour_hour','online_cogs_pct','cafe_waste_pct','ad_pct_online','ad_cost_per_order'];
+    const targetForm=reactive({});
+    const targetRows=computed(()=> TARGET_METRICS.map(code=>{ const u=ufmt(code); return {key:code,label:NAME[code]||code,hi:HIGHER[code],dp:u.dp,candidate:candidate(code)}; }));
+    function initTargetForm(){ TARGET_METRICS.forEach(code=>{ if(!targetForm[code]) targetForm[code]={target_value:'',amber_pct:''}; const s=storedTarget(code,currentWeek.value); if(s){ targetForm[code].target_value=String(s.target_value); targetForm[code].amber_pct=s.amber_pct==null?'':String(s.amber_pct); } }); }
+    async function saveOneTarget(row){
+      const f=targetForm[row.key]; const tv=f.target_value===''?row.candidate:f.target_value;
+      if(tv==null||tv===''){ flash('No target value'); return; }
+      saving.value=true;
+      try{ await callData({action:'save_target',metric_code:row.key,target_value:Number(tv),amber_pct:f.amber_pct===''?5:Number(f.amber_pct)}); await refresh(); flash('Target saved'); }
+      catch(e){ flash('Failed: '+e.message); } saving.value=false;
+    }
+    async function seedCandidates(){
+      saving.value=true;
+      try{ const list=TARGET_METRICS.map(code=>({metric_code:code,target_value:candidate(code),amber_pct:8,note:'candidate baseline — please review'})).filter(t=>t.target_value!=null);
+        await callData({action:'save_target',targets:list}); await refresh(); flash('Seeded '+list.length+' candidate targets'); }
+      catch(e){ flash('Failed: '+e.message); } saving.value=false;
+    }
+
+    // ---------- load ----------
+    function ingest(d){
+      metrics.value=d.metrics||[]; weeks.value=d.weeks||[]; targets.value=d.targets||[]; rates.value=d.rates||[];
+      Object.keys(factMap).forEach(k=>delete factMap[k]);
+      const f=d.facts||{}; Object.keys(f).forEach(code=>{ const m={}; f[code].forEach(([pe,v,q])=>{ m[pe]={v,q}; }); factMap[code]=m; });
+      Object.keys(weekByEnd).forEach(k=>delete weekByEnd[k]);
+      (d.weeks||[]).forEach(w=>{ weekByEnd[w.period_end]=w; });
+      indexMeta();
+    }
+    async function refresh(){ const d=await callData({action:'board'}); ingest(d); }
+
+    const tabs=computed(()=>{
+      const t=[{id:'team',label:'Team board'}];
+      if(level.value==='manager') t.push({id:'manager',label:'Manager view'});
+      if(level.value!=='team') t.push({id:'enter',label:'Enter week'});
+      if(level.value==='manager') t.push({id:'targets',label:'Targets'});
+      return t;
+    });
+    const levelLabel=computed(()=> level.value==='manager'?'Manager':(level.value==='supervisor'?'Supervisor':'Team'));
+
+    onMounted(async()=>{
+      const { data:{ session:p } }=await portal.auth.getSession();
+      if(!p){ window.location.href='/'; return; }
+      email.value=p.user.email||'';
+      try{
+        const d=await callData({action:'board'});
+        level.value=d.level; email.value=d.email||email.value; ingest(d);
+        if(level.value==='team') screen.value='team';
+        entryWeek.value=currentWeek.value; if(level.value!=='team') loadEntry(currentWeek.value);
+        if(level.value==='manager') initTargetForm();
+        ready.value=true;
+      }catch(e){
+        gateError.value = /access/i.test(e.message)? "You don't have access to the Scoreboard. Ask an administrator to grant it." : ('Could not load the scoreboard: '+e.message);
+        ready.value=true;
+      }
+    });
+
+    return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
+      publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
+      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,autoIssues,
+      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,
+      targetRows,targetForm,saveOneTarget,seedCandidates,
+      fm,shortDate,longDate,colLabel };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
