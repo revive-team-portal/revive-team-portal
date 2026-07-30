@@ -189,7 +189,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
     </div>
 
     <!-- ============ TEAM BOARD ============ -->
-    <div v-show="screen==='team'">
+    <div v-if="screen==='team'">
       <div class="ipad">
         <div class="bhead">
           <div>
@@ -221,7 +221,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
     </div>
 
     <!-- ============ MANAGER VIEW ============ -->
-    <div v-show="screen==='manager' && level==='manager'">
+    <div v-if="screen==='manager' && level==='manager'">
       <div class="panel">
         <div class="ptitle"><h2>Weekly grid</h2><div class="r">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</div></div>
         <div class="scroll"><table>
@@ -274,7 +274,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
     </div>
 
     <!-- ============ ENTER WEEK ============ -->
-    <div v-show="screen==='enter' && level!=='team'">
+    <div v-if="screen==='enter' && level!=='team'">
       <div class="panel">
         <div class="ehead">
           <div class="wkpick"><button @click="stepWeek(-1)" :disabled="entryIdx<=0">◀</button><span>Week ending {{ longDate(entryWeek) }}</span><button @click="stepWeek(1)" :disabled="entryIdx>=weeks.length-1">▶</button></div>
@@ -326,7 +326,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
     </div>
 
     <!-- ============ TARGETS ============ -->
-    <div v-show="screen==='targets' && level==='manager'">
+    <div v-if="screen==='targets' && level==='manager'">
       <div class="panel">
         <div class="ptitle"><h2>Targets</h2><div class="r">One target + one amber band per metric. Changing a target never rewrites history.</div></div>
         <div class="scroll"><table class="tg">
@@ -619,20 +619,37 @@ createApp({
     });
     const levelLabel=computed(()=> level.value==='manager'?'Manager':(level.value==='supervisor'?'Supervisor':'Team'));
 
+    async function loadBoard(){
+      const d=await callData({action:'board'});
+      level.value=d.level; email.value=d.email||email.value; ingest(d);
+      if(level.value==='team') screen.value='team';
+      entryWeek.value=currentWeek.value; if(level.value!=='team') loadEntry(currentWeek.value);
+      if(level.value==='manager') initTargetForm();
+    }
     onMounted(async()=>{
       const { data:{ session:p } }=await portal.auth.getSession();
       if(!p){ window.location.href='/'; return; }
       email.value=p.user.email||'';
       try{
-        const d=await callData({action:'board'});
-        level.value=d.level; email.value=d.email||email.value; ingest(d);
-        if(level.value==='team') screen.value='team';
-        entryWeek.value=currentWeek.value; if(level.value!=='team') loadEntry(currentWeek.value);
-        if(level.value==='manager') initTargetForm();
+        try{
+          await loadBoard();
+        }catch(e1){
+          // Most common cause of a failed first load: the portal access token
+          // expired between page loads. Refresh once and retry before giving up.
+          if(/not authenticated|401|jwt|expired|token/i.test(e1.message||'')){
+            try{ if(portal.auth.refreshSession) await portal.auth.refreshSession(); }catch(_){}
+            await loadBoard();
+          } else { throw e1; }
+        }
         ready.value=true;
       }catch(e){
-        gateError.value = /access/i.test(e.message)? "You don't have access to the Scoreboard. Ask an administrator to grant it." : ('Could not load the scoreboard: '+e.message);
-        ready.value=true;
+        const m=e.message||'';
+        gateError.value = /access/i.test(m)
+          ? "You don't have access to the Scoreboard. Ask an administrator to grant it."
+          : (/not authenticated|401|jwt|expired|token/i.test(m)
+              ? 'Your sign-in has expired. Please go back to the portal and sign in again.'
+              : ('Could not load the scoreboard: '+m));
+        // Leave ready=false so the gate card shows this message — never a blank screen.
       }
     });
 
