@@ -173,6 +173,9 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
 .tl-out.tl-total{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
 .tl-out.tl-total b{color:var(--ok)}
 @media(max-width:760px){.tlgrid{grid-template-columns:1fr}.tlcol{border-right:0;border-bottom:1px solid var(--line)}}
+thead th.avg10,tbody td.avg10{border-left:2px solid var(--line);text-align:right;padding-right:14px;padding-left:10px;font-weight:700;color:var(--ink);background:#FBFAF9}
+thead th.avg10{background:#FBFCFC;color:var(--steel)}
+tbody tr:hover td.avg10{background:#F2F0EE}
 </style>
 </head>
 <body>
@@ -244,15 +247,16 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
       <div class="panel">
         <div class="ptitle"><h2>Weekly grid</h2><div class="r">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</div></div>
         <div class="scroll"><table>
-          <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w">{{ colLabel(w) }}</th></tr></thead>
+          <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w">{{ colLabel(w) }}</th><th class="avg10">10-wk avg</th></tr></thead>
           <tbody>
             <template v-for="row in gridRows" :key="row.key||row.sec">
-              <tr v-if="row.sec" class="sec" :class="{ad:row.ad}"><td class="mname" :colspan="windowWeeks.length+2">{{ row.sec }}</td></tr>
+              <tr v-if="row.sec" class="sec" :class="{ad:row.ad}"><td class="mname" :colspan="windowWeeks.length+3">{{ row.sec }}</td></tr>
               <tr v-else>
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcName[row.src] }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
                     :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]">{{ cellText(row,w) }}</td>
+                <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
           </tbody>
@@ -576,6 +580,24 @@ createApp({
     function cellRag(row,pe){ return rag(row.key,pe); }
     function cellTarget(code){ const T=effTarget(code,currentWeek.value); return T||{candidate:false}; }
     function tgtLabel(row){ const T=effTarget(row.key,currentWeek.value); if(!T) return '—'; return (row.pre||'')+fm(T.t,row.dp)+(row.suf||''); }
+    // Trailing 10-week average shown at the right of the grid. Cafe VOLUME metrics
+    // are pro-rated up to a 5-day week on 3- or 4-day weeks so short weeks don't drag
+    // the average down; online metrics are never pro-rated.
+    const CAFE_VOL=['cafe_sales','cafe_customers','cafe_waste_value'];
+    function avg10(code){
+      const ws=weeks.value.slice(-10).map(w=>w.period_end);
+      const vals=[];
+      ws.forEach(pe=>{
+        if(closed(pe)&&isCafeMetric(code)) return;
+        const x=val(code,pe); if(x.v==null||x.q==='suspect') return;
+        let v=x.v;
+        if(CAFE_VOL.includes(code)){ const td=Number((weekByEnd[pe]||{}).trading_days); if(td===3||td===4) v=v*5/td; }
+        vals.push(v);
+      });
+      if(!vals.length) return null;
+      return vals.reduce((a,b)=>a+b,0)/vals.length;
+    }
+    function avg10Text(row){ const v=avg10(row.key); if(v==null) return ''; return (row.pre||'')+fm(v,row.dp)+(row.suf||''); }
 
     // auto issues: metric with a stored/candidate target red for the last 3 weeks
     const autoIssues=computed(()=>{
@@ -732,7 +754,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
