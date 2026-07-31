@@ -64,8 +64,8 @@ a{color:inherit}
 .tval.na{color:var(--steel-lt);font-size:34px}
 .tmeta{font-family:var(--mono);font-size:11px;color:var(--steel-lt);display:flex;gap:10px;flex-wrap:wrap}
 .tmeta .up{color:var(--ok)}.tmeta .dn{color:var(--bad)}
-.form{display:flex;gap:2.5px;margin-top:auto;padding-top:13px}
-.blk{flex:1;height:15px;border-radius:1.5px;background:#2E3B49}
+.form{display:flex;gap:3px;margin-top:auto;padding-top:13px}
+.blk{flex:1;min-width:0;height:22px;border-radius:3px;background:#2E3B49;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:600;color:#fff;letter-spacing:-.02em;text-shadow:0 1px 1px rgba(0,0,0,.4);overflow:hidden}
 .blk.ok{background:var(--ok)}.blk.warn{background:var(--warn)}.blk.bad{background:var(--bad)}
 .blk.now{outline:1.5px solid #fff;outline-offset:1.5px}
 .bfoot{display:flex;justify-content:space-between;margin-top:18px;padding-top:13px;border-top:1px solid #2C3845;font-family:var(--mono);font-size:10.5px;color:var(--steel);letter-spacing:.04em}
@@ -230,7 +230,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
                 <span v-else-if="t.value==null">{{ t.noteNoData || 'no data yet' }}</span>
                 <span v-if="t.delta!=null" :class="t.deltaGood?'up':'dn'">{{ t.delta>=0?'▲':'▼' }} {{ Math.abs(t.delta).toFixed(1) }}% wk</span>
               </div>
-              <div class="form"><div v-for="(b,i) in t.form" :key="i" class="blk" :class="[b.rag, {now:b.now}]"></div></div>
+              <div class="form"><div v-for="(b,i) in t.form" :key="i" class="blk" :class="[b.rag, {now:b.now}]">{{ b.disp }}</div></div>
             </div>
           </div>
         </div>
@@ -503,6 +503,7 @@ createApp({
 
     // ---------- formatting ----------
     const fm=(v,dp=0)=> v==null?'':Number(v).toLocaleString('en-NZ',{minimumFractionDigits:dp,maximumFractionDigits:dp});
+    function fmtBlk(v,u){ if(v==null) return ''; const a=Math.abs(v); let s = a>=1000 ? (v/1000).toFixed(1).replace(/\.0$/,'')+'k' : (u.dp>0? Number(v).toFixed(u.dp) : String(Math.round(v))); return u.suf? s+u.suf : (u.pre||'')+s; }
     const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     function shortDate(pe){ if(!pe) return ''; const d=new Date(pe+'T00:00:00'); return d.getDate()+' '+MON[d.getMonth()]+' '+String(d.getFullYear()).slice(2); }
     function longDate(pe){ if(!pe) return ''; const d=new Date(pe+'T00:00:00'); const wd=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]; return wd+' '+d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear(); }
@@ -531,7 +532,7 @@ createApp({
         const T=effTarget(t.code,cw);
         let delta=null,deltaGood=null;
         if(cur.v!=null && prev!=null && prev!==0){ delta=(cur.v-prev)/Math.abs(prev)*100; deltaGood=HIGHER[t.code]?delta>=0:delta<=0; }
-        const form=ws.map(pe=>({rag:rag(t.code,pe)||'',now:pe===cw}));
+        const form=ws.slice(-8).map(pe=>({rag:rag(t.code,pe)||'',now:pe===cw,disp:fmtBlk(val(t.code,pe).v,u)}));
         return {code:t.code,label:t.label,hero:t.hero,pre:u.pre,suf:u.suf,dp,
           value:cur.v==null?null:cur.v, rag:rag(t.code,cw),
           target:T?T.t:null, delta, deltaGood, form, noteNoData:t.noteNoData };
@@ -638,13 +639,13 @@ createApp({
       const f=targetForm[row.key]; const tv=f.target_value===''?row.candidate:f.target_value;
       if(tv==null||tv===''){ flash('No target value'); return; }
       saving.value=true;
-      try{ await callData({action:'save_target',metric_code:row.key,target_value:Number(tv),amber_pct:f.amber_pct===''?5:Number(f.amber_pct)}); await refresh(); flash('Target saved'); }
+      try{ await callData({action:'save_target',metric_code:row.key,effective_from:currentWeek.value,target_value:Number(tv),amber_pct:f.amber_pct===''?5:Number(f.amber_pct)}); await refresh(); initTargetForm(); initTopline(); flash('Target saved'); }
       catch(e){ flash('Failed: '+e.message); } saving.value=false;
     }
     async function seedCandidates(){
       saving.value=true;
-      try{ const list=TARGET_METRICS.map(code=>({metric_code:code,target_value:candidate(code),amber_pct:8,note:'candidate baseline — please review'})).filter(t=>t.target_value!=null);
-        await callData({action:'save_target',targets:list}); await refresh(); flash('Seeded '+list.length+' candidate targets'); }
+      try{ const list=TARGET_METRICS.map(code=>({metric_code:code,effective_from:currentWeek.value,target_value:candidate(code),amber_pct:8,note:'candidate baseline — please review'})).filter(t=>t.target_value!=null);
+        await callData({action:'save_target',targets:list}); await refresh(); initTargetForm(); initTopline(); flash('Seeded '+list.length+' candidate targets'); }
       catch(e){ flash('Failed: '+e.message); } saving.value=false;
     }
 
@@ -667,7 +668,7 @@ createApp({
     }
     async function saveTopline(){
       const rows=[['cafe_customers',tlCafeCustWeek.value],['cafe_atv',tnum(topline.cafeAtv)],['cafe_sales',tlCafeSalesWeek.value],['online_orders',tlOnlineOrdWeek.value],['online_aov',tnum(topline.onlineAov)],['online_sales',tlOnlineSalesWeek.value],['total_sales',tlTotalSalesWeek.value]]
-        .filter(r=>r[1]!=null).map(r=>({metric_code:r[0],target_value:Math.round(r[1]*100)/100,amber_pct:5,note:'top-line target'}));
+        .filter(r=>r[1]!=null).map(r=>({metric_code:r[0],effective_from:currentWeek.value,target_value:Math.round(r[1]*100)/100,amber_pct:5,note:'top-line target'}));
       if(!rows.length){ flash('Enter the driver figures first'); return; }
       saving.value=true;
       try{ await callData({action:'save_target',targets:rows}); await refresh(); initTargetForm(); initTopline(); flash('Top-line targets saved ('+rows.length+')'); }
