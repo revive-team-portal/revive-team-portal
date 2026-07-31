@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Revive Cafe — Scoreboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Revive Cafe — Scorecard</title>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
-  --ink:#0F141A; --ink-2:#18202A; --ink-3:#232D3A;
-  --paper:#F6F7F8; --paper-2:#FFFFFF; --line:#DCE1E6; --line-2:#EDF0F2;
-  --steel:#6B7A8C; --steel-lt:#9AA7B4; --text:#1B242E;
-  --ok:#18A06B; --warn:#DE9C2E; --bad:#D4503F; --info:#3D7EA8;
-  --ok-bg:#E7F5EF; --warn-bg:#FBF1DE; --bad-bg:#FAEAE7;
-  --disp:'Barlow Condensed',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+  --ink:#1C1917; --ink-2:#292524; --ink-3:#44403C;
+  --paper:#F5F5F4; --paper-2:#FFFFFF; --line:#E7E5E4; --line-2:#F5F5F4;
+  --steel:#78716C; --steel-lt:#A8A29E; --text:#1C1917;
+  --ok:#059669; --warn:#F59E0B; --bad:#DC2626; --info:#25B4E8;
+  --ok-bg:#ECFDF5; --warn-bg:#FFFBEB; --bad-bg:#FEF2F2;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --disp:var(--sans); --body:var(--sans); --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--body);background:var(--paper);color:var(--text);-webkit-font-smoothing:antialiased}
@@ -36,13 +36,13 @@ a{color:inherit}
 
 /* tabs */
 .tabs{display:flex;gap:2px;padding:14px 0 0;flex-wrap:wrap}
-.tab{font-family:var(--disp);font-size:15px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:11px 20px;background:#E4E8EB;color:var(--steel);border:0;cursor:pointer;border-radius:3px 3px 0 0}
+.tab{font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;padding:10px 18px;background:#E7E5E4;color:var(--steel);border:0;cursor:pointer;border-radius:8px 8px 0 0}
 .tab.on{background:var(--ink);color:#fff}
 .note{font-size:12.5px;color:var(--steel);padding:10px 0 16px;line-height:1.55}
 .note b{color:var(--text)}
 
 /* team board */
-.ipad{background:var(--ink);border-radius:10px;padding:22px 24px 26px;box-shadow:0 2px 0 #0007;margin-top:8px}
+.ipad{background:var(--ink);border-radius:16px;padding:22px 24px 26px;box-shadow:0 1px 3px rgba(0,0,0,.18);margin-top:8px}
 .bhead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #2C3845;padding-bottom:14px;margin-bottom:18px}
 .bhead h1{font-family:var(--disp);font-size:30px;font-weight:700;letter-spacing:.02em;color:#fff;line-height:1}
 .bhead .sub{font-family:var(--mono);font-size:11px;color:var(--steel-lt);margin-top:7px;letter-spacing:.04em}
@@ -71,7 +71,7 @@ a{color:inherit}
 .bfoot{display:flex;justify-content:space-between;margin-top:18px;padding-top:13px;border-top:1px solid #2C3845;font-family:var(--mono);font-size:10.5px;color:var(--steel);letter-spacing:.04em}
 
 /* manager grid */
-.panel{background:var(--paper-2);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:8px}
+.panel{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:8px}
 .ptitle{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);background:#FBFCFC;gap:12px;flex-wrap:wrap}
 .ptitle h2{font-family:var(--disp);font-size:19px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
 .ptitle .r{font-family:var(--mono);font-size:11px;color:var(--steel)}
@@ -143,8 +143,8 @@ td.cell.ovr input{color:#8A5E10;font-weight:600}
 .cmt .half{display:grid;grid-template-columns:1fr 1fr;gap:11px}
 .sticky{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:11px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;z-index:5}
 .sticky .msg{font-family:var(--mono);font-size:10.5px;color:var(--steel)}
-.mini{font-family:var(--disp);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:3px;cursor:pointer;font-weight:600;color:var(--text)}
-.mini.pri{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mini{font-family:var(--disp);font-size:12px;letter-spacing:.03em;text-transform:uppercase;padding:8px 15px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-weight:600;color:var(--text)}
+.mini.pri{background:var(--ok);color:#fff;border-color:var(--ok)}
 .mini:disabled{opacity:.5;cursor:default}
 
 /* targets */
@@ -154,6 +154,25 @@ table.tg td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line-
 table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;text-align:right}
 .flash{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;padding:10px 18px;border-radius:6px;box-shadow:0 4px 14px #0003;z-index:50}
 @media(max-width:900px){.grid6{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+
+/* top-line targets */
+.tl-panel{margin-top:8px;margin-bottom:14px}
+.tlgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
+.tlcol{padding:16px 18px;border-right:1px solid var(--line)}
+.tlcol:last-child{border-right:0}
+.tl-total-col{background:#FBFAF9}
+.tl-h{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:.01em;text-transform:uppercase;margin-bottom:4px;color:var(--ink)}
+.tl-h .tl-sub{font-size:10.5px;letter-spacing:.02em;color:var(--steel-lt);text-transform:none;font-weight:500;margin-left:5px}
+.tl-l{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--steel);margin:12px 0 4px}
+.tl-in{font-family:var(--mono);font-size:16px;text-align:right;border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;color:var(--text);outline:none;background:#fff}
+.tl-in:focus{border-color:var(--info);box-shadow:0 0 0 3px rgba(37,180,232,.18)}
+.tl-money{display:flex;align-items:center;gap:7px}
+.tl-money>span{font-family:var(--mono);color:var(--steel-lt);font-size:15px}
+.tl-out{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:12px;font-family:var(--mono);font-size:11.5px;color:var(--steel);letter-spacing:.02em}
+.tl-out b{font-family:var(--disp);font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.tl-out.tl-total{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.tl-out.tl-total b{color:var(--ok)}
+@media(max-width:760px){.tlgrid{grid-template-columns:1fr}.tlcol{border-right:0;border-bottom:1px solid var(--line)}}
 </style>
 </head>
 <body>
@@ -168,7 +187,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
   <!-- loader / gate -->
   <div v-if="!ready" class="loader">
     <div class="card">
-      <div class="logo">Revive Scoreboard</div>
+      <div class="logo">Revive Scorecard</div>
       <p v-if="!gateError" style="color:var(--steel);font-size:13px">Loading…</p>
       <div v-else><p style="color:var(--bad);font-size:13px;margin-bottom:10px">{{ gateError }}</p><a href="/" style="color:var(--info);font-size:13px;text-decoration:underline">← Back to portal</a></div>
     </div>
@@ -176,7 +195,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
 
   <div v-else class="wrap">
     <div class="topbar">
-      <div class="brandmark"><span class="logo">Revive Scoreboard</span></div>
+      <div class="brandmark"><span class="logo">Revive Scorecard</span></div>
       <div class="who">
         <span class="pill" :class="level==='manager'?'mgr':(level==='supervisor'?'sup':'')">{{ levelLabel }}</span>
         <span>{{ email }}</span>
@@ -193,7 +212,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
       <div class="ipad">
         <div class="bhead">
           <div>
-            <h1>Revive Cafe — Week Scoreboard</h1>
+            <h1>Revive Cafe — Week Scorecard</h1>
             <div class="sub">{{ currentWeekLabel }}</div>
           </div>
           <div class="streak"><div class="n" :class="{zero:streak===0}">{{ streak }}</div><div class="l">weeks on target</div></div>
@@ -327,6 +346,36 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
 
     <!-- ============ TARGETS ============ -->
     <div v-if="screen==='targets' && level==='manager'">
+      <div class="panel tl-panel">
+        <div class="ptitle"><h2>Top-line targets</h2><div class="r">Set the drivers — the weekly targets recalculate and save to the board.</div></div>
+        <div class="tlgrid">
+          <div class="tlcol">
+            <div class="tl-h">Cafe <span class="tl-sub">× 5-day week</span></div>
+            <label class="tl-l">Customers / day</label>
+            <input class="tl-in" v-model="topline.cafeCustDay" inputmode="decimal" placeholder="140">
+            <label class="tl-l">Avg spend / customer</label>
+            <div class="tl-money"><span>$</span><input class="tl-in" v-model="topline.cafeAtv" inputmode="decimal" placeholder="20"></div>
+            <div class="tl-out"><span>Customers / week</span><b>{{ tlCafeCustWeek==null?'—':fm(tlCafeCustWeek,0) }}</b></div>
+            <div class="tl-out"><span>Cafe sales / week</span><b>{{ tlCafeSalesWeek==null?'—':'$'+fm(tlCafeSalesWeek,0) }}</b></div>
+          </div>
+          <div class="tlcol">
+            <div class="tl-h">Online <span class="tl-sub">× 7-day week</span></div>
+            <label class="tl-l">Orders / day</label>
+            <input class="tl-in" v-model="topline.onlineOrdDay" inputmode="decimal" placeholder="30">
+            <label class="tl-l">Avg order value</label>
+            <div class="tl-money"><span>$</span><input class="tl-in" v-model="topline.onlineAov" inputmode="decimal" placeholder="90"></div>
+            <div class="tl-out"><span>Orders / week</span><b>{{ tlOnlineOrdWeek==null?'—':fm(tlOnlineOrdWeek,0) }}</b></div>
+            <div class="tl-out"><span>Online sales / week</span><b>{{ tlOnlineSalesWeek==null?'—':'$'+fm(tlOnlineSalesWeek,0) }}</b></div>
+          </div>
+          <div class="tlcol tl-total-col">
+            <div class="tl-h">Total business</div>
+            <div class="tl-out"><span>Cafe sales / week</span><b>{{ tlCafeSalesWeek==null?'—':'$'+fm(tlCafeSalesWeek,0) }}</b></div>
+            <div class="tl-out"><span>Online sales / week</span><b>{{ tlOnlineSalesWeek==null?'—':'$'+fm(tlOnlineSalesWeek,0) }}</b></div>
+            <div class="tl-out tl-total"><span>Total sales / week</span><b>{{ tlTotalSalesWeek==null?'—':'$'+fm(tlTotalSalesWeek,0) }}</b></div>
+          </div>
+        </div>
+        <div class="sticky"><div class="msg">Saves targets for cafe customers, cafe sales, online orders, online sales &amp; total sales — plus spend-per-customer and AOV.</div><button class="mini pri" @click="saveTopline" :disabled="saving">Save top-line targets</button></div>
+      </div>
       <div class="panel">
         <div class="ptitle"><h2>Targets</h2><div class="r">One target + one amber band per metric. Changing a target never rewrites history.</div></div>
         <div class="scroll"><table class="tg">
@@ -599,6 +648,33 @@ createApp({
       catch(e){ flash('Failed: '+e.message); } saving.value=false;
     }
 
+    // ---------- TOP-LINE TARGETS (driver-based) ----------
+    const CAFE_DAYS=5, ONLINE_DAYS=7;
+    const topline=reactive({cafeCustDay:'',cafeAtv:'',onlineOrdDay:'',onlineAov:''});
+    const tnum=v=>(v===''||v==null||isNaN(Number(v)))?null:Number(v);
+    const tlCafeCustWeek=computed(()=>{ const d=tnum(topline.cafeCustDay); return d==null?null:d*CAFE_DAYS; });
+    const tlCafeSalesWeek=computed(()=>{ const c=tlCafeCustWeek.value,a=tnum(topline.cafeAtv); return (c==null||a==null)?null:c*a; });
+    const tlOnlineOrdWeek=computed(()=>{ const d=tnum(topline.onlineOrdDay); return d==null?null:d*ONLINE_DAYS; });
+    const tlOnlineSalesWeek=computed(()=>{ const o=tlOnlineOrdWeek.value,a=tnum(topline.onlineAov); return (o==null||a==null)?null:o*a; });
+    const tlTotalSalesWeek=computed(()=>{ const a=tlCafeSalesWeek.value,b=tlOnlineSalesWeek.value; if(a==null&&b==null) return null; return (a||0)+(b||0); });
+    function initTopline(){
+      const g=(code)=>{ const s=storedTarget(code,currentWeek.value); if(s) return Number(s.target_value); const c=candidate(code); return c!=null?c:null; };
+      const cw=g('cafe_customers'),oo=g('online_orders'),atv=g('cafe_atv'),aov=g('online_aov');
+      topline.cafeCustDay = cw!=null? String(Math.round(cw/CAFE_DAYS)) : '';
+      topline.cafeAtv     = atv!=null? String(Math.round(atv*100)/100) : '';
+      topline.onlineOrdDay= oo!=null? String(Math.round(oo/ONLINE_DAYS)) : '';
+      topline.onlineAov   = aov!=null? String(Math.round(aov*100)/100) : '';
+    }
+    async function saveTopline(){
+      const rows=[['cafe_customers',tlCafeCustWeek.value],['cafe_atv',tnum(topline.cafeAtv)],['cafe_sales',tlCafeSalesWeek.value],['online_orders',tlOnlineOrdWeek.value],['online_aov',tnum(topline.onlineAov)],['online_sales',tlOnlineSalesWeek.value],['total_sales',tlTotalSalesWeek.value]]
+        .filter(r=>r[1]!=null).map(r=>({metric_code:r[0],target_value:Math.round(r[1]*100)/100,amber_pct:5,note:'top-line target'}));
+      if(!rows.length){ flash('Enter the driver figures first'); return; }
+      saving.value=true;
+      try{ await callData({action:'save_target',targets:rows}); await refresh(); initTargetForm(); initTopline(); flash('Top-line targets saved ('+rows.length+')'); }
+      catch(e){ flash('Failed: '+e.message); }
+      saving.value=false;
+    }
+
     // ---------- load ----------
     function ingest(d){
       metrics.value=d.metrics||[]; weeks.value=d.weeks||[]; targets.value=d.targets||[]; rates.value=d.rates||[];
@@ -624,7 +700,7 @@ createApp({
       level.value=d.level; email.value=d.email||email.value; ingest(d);
       if(level.value==='team') screen.value='team';
       entryWeek.value=currentWeek.value; if(level.value!=='team') loadEntry(currentWeek.value);
-      if(level.value==='manager') initTargetForm();
+      if(level.value==='manager'){ initTargetForm(); initTopline(); }
     }
     onMounted(async()=>{
       const { data:{ session:p } }=await portal.auth.getSession();
@@ -645,10 +721,10 @@ createApp({
       }catch(e){
         const m=e.message||'';
         gateError.value = /access/i.test(m)
-          ? "You don't have access to the Scoreboard. Ask an administrator to grant it."
+          ? "You don't have access to the Scorecard. Ask an administrator to grant it."
           : (/not authenticated|401|jwt|expired|token/i.test(m)
               ? 'Your sign-in has expired. Please go back to the portal and sign in again.'
-              : ('Could not load the scoreboard: '+m));
+              : ('Could not load the Scorecard: '+m));
         // Leave ready=false so the gate card shows this message — never a blank screen.
       }
     });
@@ -658,6 +734,7 @@ createApp({
       windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,
       targetRows,targetForm,saveOneTarget,seedCandidates,
+      topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
       fm,shortDate,longDate,colLabel };
   }
 }).mount('#app');
