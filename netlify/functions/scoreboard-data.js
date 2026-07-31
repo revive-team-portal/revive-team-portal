@@ -50,13 +50,21 @@ const TEAM_CODES = [
 
 async function loadFacts(codes) {
   // codes: array or null (=all). Returns { code: [[period_end, value, quality], ...] }
-  let path = 'fact?select=metric_code,period_end,value,quality&period_type=eq.week&order=period_end.asc';
-  if (codes) path += '&metric_code=in.(' + codes.join(',') + ')';
-  const rows = await appsDb(path);
+  // Page through the result. PostgREST caps a single response (Supabase max-rows),
+  // and with ~3800+ fact rows an un-paged read (ordered period_end.asc) silently
+  // drops the most RECENT weeks — which is exactly what the board renders — leaving
+  // it blank. Loop with limit/offset until we get a short page.
+  let base = 'fact?select=metric_code,period_end,value,quality&period_type=eq.week&order=period_end.asc';
+  if (codes) base += '&metric_code=in.(' + codes.join(',') + ')';
   const out = {};
-  (rows || []).forEach(r => {
-    (out[r.metric_code] = out[r.metric_code] || []).push([r.period_end, r.value == null ? null : Number(r.value), r.quality]);
-  });
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const rows = await appsDb(base + '&limit=' + PAGE + '&offset=' + offset);
+    (rows || []).forEach(r => {
+      (out[r.metric_code] = out[r.metric_code] || []).push([r.period_end, r.value == null ? null : Number(r.value), r.quality]);
+    });
+    if (!rows || rows.length < PAGE) break;
+  }
   return out;
 }
 
