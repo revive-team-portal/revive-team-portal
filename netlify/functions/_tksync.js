@@ -34,7 +34,7 @@ async function runSync(nWeeks) {
   if (!APPS_KEY || !TK_KEY) throw new Error('missing APPS_SERVICE_ROLE_KEY or TIMEKEEPER_API_KEY');
   const maps = await appsDb('tk_job_map?select=job_id,metric_code,active');
   const jobMetric = {}; (maps || []).forEach(m => { if (m.active && m.metric_code) jobMetric[m.job_id] = m.metric_code; });
-  const weeks = await appsDb('week?select=period_end&order=period_end.desc&limit=' + nWeeks);
+  const weeks = await appsDb('week?select=period_end,trading_days&order=period_end.desc&limit=' + nWeeks);
   const fridays = (weeks || []).map(w => w.period_end);
 
   const fetched = await Promise.all(fridays.map(async F => {
@@ -51,6 +51,16 @@ async function runSync(nWeeks) {
       const mc = jobMetric[e.job_id]; if (!mc) continue;
       const nz = nzDate(e.start_time); if (nz < w.start || nz > w.F) continue;
       per[mc] = (per[mc] || 0) + (Number(e.duration_in_hours_raw) || 0);
+    }
+    // Trading days = distinct NZ dates the cafe had front-of-house staff. Only set
+    // it when the week doesn't already have a (manually entered) value.
+    const wkRow = (weeks || []).find(x => x.period_end === w.F);
+    if (wkRow && (wkRow.trading_days === null || wkRow.trading_days === undefined)) {
+      const fohDates = new Set();
+      for (const e of w.entries) {
+        if (jobMetric[e.job_id] === 'hours_foh_cafe') { const nz = nzDate(e.start_time); if (nz >= w.start && nz <= w.F) fohDates.add(nz); }
+      }
+      if (fohDates.size > 0) await appsDb('week?period_end=eq.' + w.F, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ trading_days: fohDates.size }) });
     }
     const codes = Object.keys(per);
     if (!codes.length) { summary.push({ week: w.F, entries: w.entries.length, wrote: 0 }); continue; }
