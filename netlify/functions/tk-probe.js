@@ -12,15 +12,10 @@ exports.handler = async (event) => {
   const s=dOff(8), e=dOff(1);
   const sISO=s+'T00:00:00Z', eISO=e+'T23:59:59Z';
   const qs = [
-    `?start=${s}&end=${e}`,
-    `?start=${sISO}&end=${eISO}`,
-    `?from=${s}&to=${e}`,
-    `?startDate=${s}&endDate=${e}`,
-    `?start=${s}&end=${e}&page=1`,
-    `?start=${s}&end=${e}&limit=50`,
-    `?dateFrom=${s}&dateTo=${e}`,
-    `?date=${e}`,
-    ``,
+    `?start_date=${s}&end_date=${e}`,
+    `?start_date=${s}T00:00:00&end_date=${e}T23:59:59`,
+    `?start_date=${sISO}&end_date=${eISO}`,
+    `?start_date=${s}&end_date=${e}&limit=100`,
   ];
   const out=[];
   for (const q of qs) {
