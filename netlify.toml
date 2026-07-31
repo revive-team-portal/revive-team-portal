@@ -8,3 +8,6 @@
 # Server-side inbox sync + reconcile every 5 minutes
 [functions."scheduled-sync"]
   schedule = "*/5 * * * *"
+
+[functions."timekeeper-sync"]
+  schedule = "*/2 * * * *"
