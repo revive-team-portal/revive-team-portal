@@ -9,13 +9,11 @@ exports.handler = async (event) => {
   if (!TK_KEY) return { statusCode: 200, body: JSON.stringify({error:'no TIMEKEEPER_API_KEY'}) };
   const today = new Date();
   const dOff = n => { const x=new Date(today); x.setUTCDate(today.getUTCDate()-n); return x.toISOString().slice(0,10); };
-  const s=dOff(8), e=dOff(1);
+  const s=dOff(7), e=dOff(1);
   const sISO=s+'T00:00:00Z', eISO=e+'T23:59:59Z';
   const qs = [
     `?start_date=${s}&end_date=${e}`,
-    `?start_date=${s}T00:00:00&end_date=${e}T23:59:59`,
-    `?start_date=${sISO}&end_date=${eISO}`,
-    `?start_date=${s}&end_date=${e}&limit=100`,
+    `?start_date=2026-07-11&end_date=2026-07-17`,
   ];
   const out=[];
   for (const q of qs) {
