@@ -81,7 +81,7 @@ thead th{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var
 thead th.mname,tbody td.mname{text-align:left;font-family:var(--body);font-size:12.5px;padding-left:16px;min-width:230px;position:sticky;left:0;background:var(--paper-2);z-index:2}
 thead th.mname{background:#FBFCFC}
 thead th.tgt,tbody td.tgt{border-right:2px solid var(--line);color:var(--info)}
-tbody td{padding:7px;border-bottom:1px solid var(--line-2)}
+tbody td{padding:7px;border-bottom:1px solid var(--line-2);position:relative}
 tbody tr.sec td{background:var(--ink);color:#fff;font-family:var(--disp);font-size:12px;letter-spacing:.13em;text-transform:uppercase;text-align:left;padding:5px 16px;font-weight:600}
 tbody tr.sec td.mname{background:var(--ink);color:#fff}
 tbody tr.sec.ad td{background:#3a2d12;color:#F1D48A}
@@ -176,6 +176,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
 thead th.avg10,tbody td.avg10{border-left:2px solid var(--line);text-align:right;padding-right:14px;padding-left:10px;font-weight:700;color:var(--ink);background:#FBFAF9}
 thead th.avg10{background:#FBFCFC;color:var(--steel)}
 tbody tr:hover td.avg10{background:#F2F0EE}
+.daybadge{position:absolute;top:1px;right:1px;min-width:12px;height:12px;padding:0 2px;border-radius:7px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:8px;font-weight:600;line-height:12px;text-align:center;box-shadow:0 0 0 1px #fff}
 </style>
 </head>
 <body>
@@ -255,7 +256,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcName[row.src] }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
-                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]">{{ cellText(row,w) }}</td>
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]"><span v-if="dayBadge(row,w)" class="daybadge">{{ dayBadge(row,w) }}</span>{{ cellText(row,w) }}</td>
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
@@ -598,6 +599,14 @@ createApp({
       return vals.reduce((a,b)=>a+b,0)/vals.length;
     }
     function avg10Text(row){ const v=avg10(row.key); if(v==null) return ''; return (row.pre||'')+fm(v,row.dp)+(row.suf||''); }
+    // Metrics whose value is depressed by a short (3/4-day) cafe trading week.
+    const DAY_AFFECTED=['cafe_sales','cafe_customers','cafe_waste_value','uber_total','total_sales'];
+    function dayBadge(row,w){
+      if(!DAY_AFFECTED.includes(row.key)) return '';
+      const td=Number((weekByEnd[w]||{}).trading_days);
+      if((td===3||td===4) && val(row.key,w).v!=null) return String(td);
+      return '';
+    }
 
     // auto issues: metric with a stored/candidate target red for the last 3 weeks
     const autoIssues=computed(()=>{
@@ -754,7 +763,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
