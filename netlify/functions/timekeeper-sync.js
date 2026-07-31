@@ -1,87 +1,62 @@
-// TimeKeeper -> Scorecard weekly labour-hours sync.
-// Phase 1 (current): DISCOVERY PROBE. TimeKeeper's REST schema/base host isn't in
-// public docs, so this tries the likely hosts + date-param styles, pulls a small
-// recent window, and records what came back into scoreboard.integration (row
-// name='TimeKeeper') so we can learn the real shape without exposing the key.
-// Once the shape + job list are known we switch this to the real aggregating sync.
-
+// TimeKeeper -> Scorecard sync. Phase 1: DISCOVERY PROBE v2.
+// api.timekeeper.co.uk is the real API (returns 422 = params invalid). Capture the
+// response BODY for each attempt so we can read the validation message, and try
+// several date formats. Results -> scoreboard.integration (name='TimeKeeper').
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
 const TK_KEY   = process.env.TIMEKEEPER_API_KEY;
+const BASE = 'https://api.timekeeper.co.uk/api/tk/v1/time-entries';
 
 async function appsDb(path, opts = {}) {
-  const headers = {
-    apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json',
-    'Accept-Profile': 'scoreboard', 'Content-Profile': 'scoreboard', ...(opts.headers || {}),
-  };
+  const headers = { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json',
+    'Accept-Profile': 'scoreboard', 'Content-Profile': 'scoreboard', ...(opts.headers || {}) };
   const res = await fetch(APPS_URL + '/rest/v1/' + path, { ...opts, headers });
   const text = await res.text();
-  let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
   if (!res.ok) throw new Error('DB ' + res.status + ': ' + String(text).slice(0, 200));
-  return data;
+  return text ? JSON.parse(text) : null;
 }
-
 function tkAuth() { return 'Basic ' + Buffer.from(':' + (TK_KEY || '')).toString('base64'); }
-
-async function recordProbe(note, ok) {
-  const body = ok
-    ? { last_success: new Date().toISOString(), last_error: null, last_error_at: null, note: note.slice(0, 4000) }
-    : { last_error: note.slice(0, 900), last_error_at: new Date().toISOString() };
-  await appsDb('integration?name=eq.TimeKeeper', {
-    method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(body),
-  });
+async function record(note, ok) {
+  const body = ok ? { last_success: new Date().toISOString(), last_error: null, note: note.slice(0, 4000) }
+                  : { last_error: 'see note', last_error_at: new Date().toISOString(), note: note.slice(0, 4000) };
+  await appsDb('integration?name=eq.TimeKeeper', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(body) });
 }
-
 exports.handler = async () => {
-  if (!APPS_KEY) return { statusCode: 500, body: 'no APPS key' };
-  if (!TK_KEY)  { await recordProbe('PROBE: TIMEKEEPER_API_KEY env var is not set on the server.', false); return { statusCode: 200, body: 'no tk key' }; }
-
-  const d = new Date();
-  const end = d.toISOString().slice(0, 10);
-  const s = new Date(d); s.setUTCDate(d.getUTCDate() - 7);
-  const start = s.toISOString().slice(0, 10);
-
-  const hosts = ['https://api.timekeeper.co.uk', 'https://app.timekeeper.co.uk'];
-  const paths = ['/api/tk/v1/time-entries'];
-  const params = [
-    `?start=${start}&end=${end}`,
-    `?from=${start}&to=${end}`,
-    `?startDate=${start}&endDate=${end}`,
-    `?start_date=${start}&end_date=${end}`,
-    '',
+  if (!APPS_KEY || !TK_KEY) return { statusCode: 500, body: 'missing keys' };
+  const today = new Date();
+  const dOff = (n) => { const x = new Date(today); x.setUTCDate(today.getUTCDate() - n); return x.toISOString().slice(0, 10); };
+  const s = dOff(7), e = dOff(1);                 // last week, ending yesterday
+  const sISO = s + 'T00:00:00Z', eISO = e + 'T23:59:59Z';
+  const attempts = [
+    `?start=${s}&end=${e}`,
+    `?start=${sISO}&end=${eISO}`,
+    `?from=${sISO}&to=${eISO}`,
+    `?startDate=${sISO}&endDate=${eISO}`,
+    `?start=${s}&end=${e}&page=1`,
+    `?start=${s}&end=${e}&limit=50`,
+    `?date=${s}`,
   ];
-
   const tried = [];
   let winner = null;
   try {
-    outer:
-    for (const h of hosts) for (const p of paths) for (const q of params) {
-      const url = h + p + q;
-      let status = 0, snippet = '';
+    for (const q of attempts) {
+      const url = BASE + q;
       try {
         const res = await fetch(url, { headers: { Authorization: tkAuth(), Accept: 'application/json' } });
-        status = res.status;
         const text = await res.text();
-        snippet = text.slice(0, 120);
-        tried.push({ url, status });
+        tried.push({ q, status: res.status, body: text.slice(0, 180) });
         if (res.ok) {
-          let data = null; try { data = JSON.parse(text); } catch { data = null; }
-          const arr = Array.isArray(data) ? data : (data && (data.data || data.entries || data.results || data.timeEntries)) || null;
-          const sample = Array.isArray(arr) ? arr.slice(0, 2) : data;
-          const keys = Array.isArray(arr) && arr[0] && typeof arr[0] === 'object' ? Object.keys(arr[0]) : (data && typeof data === 'object' ? Object.keys(data) : []);
-          winner = { url, status, count: Array.isArray(arr) ? arr.length : null, keys, sample };
-          break outer;
+          let data = null; try { data = JSON.parse(text); } catch {}
+          const arr = Array.isArray(data) ? data : (data && (data.data || data.entries || data.results || data.timeEntries || data.items)) || null;
+          if (Array.isArray(arr)) {
+            winner = { q, count: arr.length, keys: arr[0] ? Object.keys(arr[0]) : [], sample: arr.slice(0, 2) };
+            break;
+          } else { winner = { q, note: 'ok but not an array', top: data && typeof data === 'object' ? Object.keys(data) : typeof data, sample: data }; break; }
         }
-      } catch (e) { tried.push({ url, status: 'ERR ' + String(e.message || e).slice(0, 60) }); }
+      } catch (err) { tried.push({ q, status: 'ERR', body: String(err.message || err).slice(0, 120) }); }
     }
-
-    const note = 'PROBE ' + new Date().toISOString() + ' window ' + start + '..' + end + '\n'
-      + 'TRIED: ' + JSON.stringify(tried) + '\n'
-      + (winner ? 'OK: ' + JSON.stringify(winner) : 'NO 2xx from any host/param combo');
-    await recordProbe(note, !!winner);
+    const note = 'PROBE2 ' + new Date().toISOString() + ' win ' + s + '..' + e + '\nTRIED:\n' + tried.map(t => JSON.stringify(t)).join('\n') + '\n' + (winner ? 'WINNER: ' + JSON.stringify(winner) : 'no 2xx');
+    await record(note, !!winner);
     return { statusCode: 200, body: winner ? 'ok' : 'no-winner' };
-  } catch (e) {
-    await recordProbe('PROBE fatal: ' + String(e.message || e), false).catch(() => {});
-    return { statusCode: 500, body: String(e) };
-  }
+  } catch (e2) { await record('PROBE2 fatal: ' + String(e2.message || e2), false).catch(() => {}); return { statusCode: 500, body: String(e2) }; }
 };
