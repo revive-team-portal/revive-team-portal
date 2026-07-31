@@ -9,5 +9,5 @@
 [functions."scheduled-sync"]
   schedule = "*/5 * * * *"
 
-[functions."timekeeper-sync"]
+[functions."timekeeper-sync-background"]
   schedule = "20 18 * * *"
