@@ -177,6 +177,9 @@ thead th.avg10,tbody td.avg10{border-left:2px solid var(--line);text-align:right
 thead th.avg10{background:#FBFCFC;color:var(--steel)}
 tbody tr:hover td.avg10{background:#F2F0EE}
 .daybadge{position:absolute;top:1px;right:1px;min-width:12px;height:12px;padding:0 2px;border-radius:7px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:8px;font-weight:600;line-height:12px;text-align:center;box-shadow:0 0 0 1px #fff}
+.rcpt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rcptmsg{font-family:var(--mono);font-size:11px;color:var(--steel)}
+.shortcell{display:block;font-family:var(--mono);font-size:8px;font-weight:700;color:var(--warn);letter-spacing:.02em;margin-top:1px}
 </style>
 </head>
 <body>
@@ -248,7 +251,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
       <div class="panel">
         <div class="ptitle"><h2>Weekly grid</h2><div class="r">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</div></div>
         <div class="scroll"><table>
-          <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w">{{ colLabel(w) }}</th><th class="avg10">10-wk avg</th></tr></thead>
+          <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w">{{ colLabel(w) }}<span v-if="shortTag(w)" class="shortcell">{{ shortTag(w) }}</span></th><th class="avg10">10-wk avg</th></tr></thead>
           <tbody>
             <template v-for="row in gridRows" :key="row.key||row.sec">
               <tr v-if="row.sec" class="sec" :class="{ad:row.ad}"><td class="mname" :colspan="windowWeeks.length+3">{{ row.sec }}</td></tr>
@@ -302,6 +305,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
       <div class="panel">
         <div class="ehead">
           <div class="wkpick"><button @click="stepWeek(-1)" :disabled="entryIdx<=0">◀</button><span>Week ending {{ longDate(entryWeek) }}</span><button @click="stepWeek(1)" :disabled="entryIdx>=weeks.length-1">▶</button></div>
+          <div class="rcpt"><input type="file" ref="rcptInput" accept="image/*" multiple capture="environment" style="display:none" @change="onReceiptFiles"><button class="mini" :disabled="receiptBusy" @click="$refs.rcptInput.click()">{{ receiptBusy?'Reading receipt…':'\ud83d\udcf7 Upload till receipt' }}</button><span v-if="receiptMsg" class="rcptmsg">{{ receiptMsg }}</span></div>
           <div class="chips">
             <span class="chip todo">Manual entry</span>
             <span class="chip">Auto-feeds coming</span>
@@ -607,6 +611,13 @@ createApp({
       if((td===3||td===4) && val(row.key,w).v!=null) return String(td);
       return '';
     }
+    // Short-week reason tag shown under the date, e.g. "MATARIKI4".
+    function shortTag(w){
+      const wk=weekByEnd[w]; if(!wk) return '';
+      const td=Number(wk.trading_days); if(td!==3&&td!==4) return '';
+      const why=String(wk.holiday||wk.days_note||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,8);
+      return (why||'SHORT')+td;
+    }
 
     // auto issues: metric with a stored/candidate target red for the last 3 weeks
     const autoIssues=computed(()=>{
@@ -645,6 +656,28 @@ createApp({
     function entryCellClass(row){ if(row.src==='d') return 'derived'; if(row.src==='a'){ const f=base(row.key,entryWeek.value); const cur=entryVals[row.key]; if(f.v!=null && cur!=='' && Number(cur)!==Number(f.v)) return 'ovr'; return 'auto'; } return 'man'; }
     function entryPlaceholder(row){ return '—'; }
     function derivedDisplay(code){ const x=val(code,entryWeek.value); if(x.v==null) return ''; const u=ufmt(code); return (u.pre||'')+fm(x.v,u.dp)+(u.suf||''); }
+    const receiptBusy=ref(false), receiptMsg=ref('');
+    function downscaleToB64(file){
+      return new Promise((resolve,reject)=>{ const img=new Image(); const url=URL.createObjectURL(file);
+        img.onload=()=>{ let w=img.width,h=img.height; const sc=Math.min(1,1500/Math.max(w,h)); w=Math.round(w*sc); h=Math.round(h*sc); const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); const d=c.toDataURL('image/jpeg',0.85); URL.revokeObjectURL(url); resolve({media_type:'image/jpeg',data:d.split(',')[1]}); };
+        img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('could not read image')); }; img.src=url; });
+    }
+    async function onReceiptFiles(ev){
+      const files=[...(ev.target.files||[])]; if(!files.length) return;
+      receiptBusy.value=true; receiptMsg.value='Reading receipt…';
+      try{
+        const images=[]; for(const f of files) images.push(await downscaleToB64(f));
+        const r=await fetch('/.netlify/functions/scoreboard-receipt',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await portalToken()},body:JSON.stringify({period_end:entryWeek.value,images,storeImages:true})});
+        const j=await r.json().catch(()=>({error:'bad response'})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+        const f2=j.fields||{};
+        if(f2.cafe_sales!=null) entryVals['cafe_sales']=String(f2.cafe_sales);
+        if(f2.cafe_customers!=null) entryVals['cafe_customers']=String(f2.cafe_customers);
+        if(f2.uber_total!=null) entryVals['uber_total']=String(f2.uber_total);
+        receiptMsg.value='Read $'+fm(f2.cafe_sales,0)+' \u00b7 '+fm(f2.cafe_customers,0)+' customers \u00b7 Uber $'+fm(f2.uber_total,2)+' \u2014 check & Save week';
+        flash('Receipt read \u2014 review and Save');
+      }catch(e){ receiptMsg.value='Receipt failed: '+e.message; flash('Receipt failed'); }
+      receiptBusy.value=false; ev.target.value='';
+    }
     async function saveWeek(){
       saving.value=true;
       try{
@@ -763,8 +796,8 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,autoIssues,
-      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,
+      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,shortTag,autoIssues,
+      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
       fm,shortDate,longDate,colLabel };

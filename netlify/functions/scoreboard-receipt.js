@@ -5,7 +5,6 @@ const { json, validatePortalUser } = require('./_portal');
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
-const GUARD = 'rvp-tk-7Kq3'; // TEMP: allows a keyed test call without a portal token
 
 async function appsDb(path, opts = {}) {
   const headers = { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json',
@@ -31,12 +30,8 @@ Use numbers only (no $ or commas). If a field is not visible, use null. Do not g
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
   if (!ANTHROPIC_KEY || !APPS_KEY) return json(500, { error: 'Server not configured.' });
-  const qp = event.queryStringParameters || {};
-  const testMode = qp.k === GUARD;
-  if (!testMode) {
-    const auth = await validatePortalUser(event, 'scoreboard');
-    if (!auth.ok) return json(auth.status || 403, { error: auth.error });
-  }
+  const auth = await validatePortalUser(event, 'scoreboard');
+  if (!auth.ok) return json(auth.status || 403, { error: auth.error });
   let body; try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Bad body' }); }
   const images = Array.isArray(body.images) ? body.images : [];
   if (!images.length) return json(400, { error: 'No images provided.' });

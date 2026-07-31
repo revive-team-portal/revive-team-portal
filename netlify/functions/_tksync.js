@@ -4,6 +4,7 @@ const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
 const TK_KEY   = process.env.TIMEKEEPER_API_KEY;
 const TK = 'https://api.timekeeper.co.uk/api/tk/v1/time-entries';
+const NZ_HOLIDAYS = { '2026-01-01':'New Year','2026-01-02':'Day after New Year','2026-01-26':'Auckland Anniversary','2026-02-06':'Waitangi Day','2026-04-03':'Good Friday','2026-04-06':'Easter Monday','2026-04-25':'ANZAC Day','2026-06-01':'Kings Birthday','2026-07-10':'Matariki','2026-10-26':'Labour Day','2026-12-25':'Christmas','2026-12-26':'Boxing Day' };
 
 async function appsDb(path, opts = {}) {
   const headers = { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json',
@@ -34,7 +35,7 @@ async function runSync(nWeeks) {
   if (!APPS_KEY || !TK_KEY) throw new Error('missing APPS_SERVICE_ROLE_KEY or TIMEKEEPER_API_KEY');
   const maps = await appsDb('tk_job_map?select=job_id,metric_code,active');
   const jobMetric = {}; (maps || []).forEach(m => { if (m.active && m.metric_code) jobMetric[m.job_id] = m.metric_code; });
-  const weeks = await appsDb('week?select=period_end,trading_days&order=period_end.desc&limit=' + nWeeks);
+  const weeks = await appsDb('week?select=period_end,trading_days,holiday&order=period_end.desc&limit=' + nWeeks);
   const fridays = (weeks || []).map(w => w.period_end);
 
   const fetched = await Promise.all(fridays.map(async F => {
@@ -55,12 +56,17 @@ async function runSync(nWeeks) {
     // Trading days = distinct NZ dates the cafe had front-of-house staff. Only set
     // it when the week doesn't already have a (manually entered) value.
     const wkRow = (weeks || []).find(x => x.period_end === w.F);
-    if (wkRow && (wkRow.trading_days === null || wkRow.trading_days === undefined)) {
-      const fohDates = new Set();
-      for (const e of w.entries) {
-        if (jobMetric[e.job_id] === 'hours_foh_cafe') { const nz = nzDate(e.start_time); if (nz >= w.start && nz <= w.F) fohDates.add(nz); }
+    if (wkRow) {
+      const patch = {};
+      if (wkRow.trading_days === null || wkRow.trading_days === undefined) {
+        const fohDates = new Set();
+        for (const e of w.entries) { if (jobMetric[e.job_id] === 'hours_foh_cafe') { const nz = nzDate(e.start_time); if (nz >= w.start && nz <= w.F) fohDates.add(nz); } }
+        if (fohDates.size > 0) patch.trading_days = fohDates.size;
       }
-      if (fohDates.size > 0) await appsDb('week?period_end=eq.' + w.F, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ trading_days: fohDates.size }) });
+      if (wkRow.holiday === null || wkRow.holiday === undefined) {
+        for (const dt in NZ_HOLIDAYS) { if (dt >= w.start && dt <= w.F) { patch.holiday = NZ_HOLIDAYS[dt]; break; } }
+      }
+      if (Object.keys(patch).length) await appsDb('week?period_end=eq.' + w.F, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
     }
     const codes = Object.keys(per);
     if (!codes.length) { summary.push({ week: w.F, entries: w.entries.length, wrote: 0 }); continue; }
