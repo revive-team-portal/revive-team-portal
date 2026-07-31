@@ -10,4 +10,4 @@
   schedule = "*/5 * * * *"
 
 [functions."timekeeper-sync"]
-  schedule = "*/2 * * * *"
+  schedule = "20 18 * * *"
