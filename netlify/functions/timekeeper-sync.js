@@ -1,13 +1,13 @@
 // TimeKeeper -> Scorecard weekly labour-hours sync.
 // Pulls time entries per week (Sat–Fri, NZ), maps TimeKeeper jobs to hours_* metrics
 // via scoreboard.tk_job_map, and upserts weekly hour facts (source='timekeeper').
-// Runs on a daily schedule (netlify.toml); also triggerable via guarded HTTP GET.
+// Daily schedule (netlify.toml) + guarded manual GET (?k=..., optional ?weeks=N).
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
 const TK_KEY   = process.env.TIMEKEEPER_API_KEY;
 const TK = 'https://api.timekeeper.co.uk/api/tk/v1/time-entries';
-const GUARD = 'rvp-tk-7Kq3';               // temporary manual-run guard
-const WEEKS = 6;                            // how many recent weeks to (re)sync each run
+const GUARD = 'rvp-tk-7Kq3';
+const DEFAULT_WEEKS = 6;
 
 async function appsDb(path, opts = {}) {
   const headers = { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json',
@@ -34,44 +34,54 @@ async function fetchWeekEntries(start, end) {
   return all;
 }
 
-async function run() {
+async function run(nWeeks) {
   const maps = await appsDb('tk_job_map?select=job_id,metric_code,active');
   const jobMetric = {}; (maps || []).forEach(m => { if (m.active && m.metric_code) jobMetric[m.job_id] = m.metric_code; });
-
-  const weeks = await appsDb('week?select=period_end&order=period_end.desc&limit=' + WEEKS);
+  const weeks = await appsDb('week?select=period_end&order=period_end.desc&limit=' + nWeeks);
   const fridays = (weeks || []).map(w => w.period_end);
 
-  const summary = [];
-  for (const F of fridays) {
+  // fetch every week's entries in parallel (each week pages sequentially)
+  const fetched = await Promise.all(fridays.map(async F => {
     const start = addDays(F, -6);
-    const entries = await fetchWeekEntries(start, F);
+    try { return { F, start, entries: await fetchWeekEntries(start, F) }; }
+    catch (e) { return { F, start, error: String(e.message || e) }; }
+  }));
+
+  const summary = [];
+  for (const w of fetched) {
+    if (w.error) { summary.push({ week: w.F, error: w.error }); continue; }
     const per = {};
-    for (const e of entries) {
+    for (const e of w.entries) {
       const mc = jobMetric[e.job_id]; if (!mc) continue;
-      const nz = nzDate(e.start_time); if (nz < start || nz > F) continue;   // keep to this NZ week
+      const nz = nzDate(e.start_time); if (nz < w.start || nz > w.F) continue;
       per[mc] = (per[mc] || 0) + (Number(e.duration_in_hours_raw) || 0);
     }
     const codes = Object.keys(per);
-    if (!codes.length) { summary.push({ week: F, entries: entries.length, wrote: 0 }); continue; }
-    // don't clobber manual overrides
-    const ex = await appsDb(`fact?select=metric_code,is_override&period_type=eq.week&period_end=eq.${F}&metric_code=in.(${codes.join(',')})`);
+    if (!codes.length) { summary.push({ week: w.F, entries: w.entries.length, wrote: 0 }); continue; }
+    const ex = await appsDb(`fact?select=metric_code,is_override&period_type=eq.week&period_end=eq.${w.F}&metric_code=in.(${codes.join(',')})`);
     const overridden = new Set((ex || []).filter(r => r.is_override).map(r => r.metric_code));
     const rows = codes.filter(c => !overridden.has(c)).map(c => ({
-      metric_code: c, period_type: 'week', period_end: F, value: Math.round(per[c] * 100) / 100,
+      metric_code: c, period_type: 'week', period_end: w.F, value: Math.round(per[c] * 100) / 100,
       source: 'timekeeper', quality: 'ok', entered_at: new Date().toISOString(),
     }));
     if (rows.length) await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows) });
-    summary.push({ week: F, entries: entries.length, wrote: rows.length, skippedOverride: codes.length - rows.length });
+    summary.push({ week: w.F, entries: w.entries.length, wrote: rows.length, skippedOverride: codes.length - rows.length });
   }
-  await appsDb('integration?name=eq.TimeKeeper', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_success: new Date().toISOString(), last_error: null, last_error_at: null, note: 'sync ' + new Date().toISOString() + ' ' + JSON.stringify(summary).slice(0, 3500) }) });
+  const anyErr = summary.some(s => s.error);
+  await appsDb('integration?name=eq.TimeKeeper', { method: 'PATCH', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(anyErr
+      ? { last_error: 'partial: ' + JSON.stringify(summary).slice(0, 480), last_error_at: new Date().toISOString() }
+      : { last_success: new Date().toISOString(), last_error: null, last_error_at: null, note: 'sync ' + new Date().toISOString() + ' ' + JSON.stringify(summary).slice(0, 3400) }) });
   return summary;
 }
 
 exports.handler = async (event) => {
   if (!APPS_KEY || !TK_KEY) return { statusCode: 500, body: 'missing keys' };
-  if (event && event.httpMethod && (event.queryStringParameters || {}).k !== GUARD) return { statusCode: 403, body: 'nope' };
+  const qp = (event && event.queryStringParameters) || {};
+  if (event && event.httpMethod && qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  const nWeeks = Math.min(Math.max(parseInt(qp.weeks || DEFAULT_WEEKS, 10) || DEFAULT_WEEKS, 1), 12);
   try {
-    const summary = await run();
+    const summary = await run(nWeeks);
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true, summary }, null, 1) };
   } catch (e) {
     await appsDb('integration?name=eq.TimeKeeper', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_error: String(e.message || e).slice(0, 500), last_error_at: new Date().toISOString() }) }).catch(() => {});
