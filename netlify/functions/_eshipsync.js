@@ -14,7 +14,10 @@ async function appsDb(path, opts = {}) {
   const t = await res.text(); if (!res.ok) throw new Error('DB ' + res.status + ': ' + t.slice(0, 160));
   return t ? JSON.parse(t) : null;
 }
+let _lastEs = 0;
 async function esGet(path) {
+  const wait = 1100 - (Date.now() - _lastEs); if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  _lastEs = Date.now();
   const res = await fetch('https://api.starshipit.com' + path, { headers: { 'StarShipIT-Api-Key': ES_KEY, 'Ocp-Apim-Subscription-Key': ES_SUB, 'Content-Type': 'application/json' } });
   const t = await res.text(); if (!res.ok) throw new Error('eShip ' + res.status + ': ' + t.slice(0, 120));
   return t ? JSON.parse(t) : {};
