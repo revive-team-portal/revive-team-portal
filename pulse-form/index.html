@@ -36,6 +36,9 @@
   .stars span.on{color:#e0a92e}
   .stars span:active{transform:scale(.9)}
   .info-block{color:var(--ink);background:#f0efe8;border-radius:10px;padding:12px 14px}
+  .staffwrap{display:flex;flex-wrap:wrap;gap:8px}
+  .staffchip{padding:9px 16px;border:1.5px solid var(--line);border-radius:22px;background:#fff;font-size:1rem;color:var(--ink)}
+  .staffchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
   button.submit{margin-top:24px;width:100%;padding:14px;border:none;border-radius:12px;
     background:var(--accent);color:#fff;font-size:1.05rem;font-weight:600;cursor:pointer}
   button.submit:hover{background:var(--accent-dark)}
@@ -115,6 +118,11 @@ function render(){
         st.querySelectorAll('span').forEach((x,j)=>x.classList.toggle('on',j<=i)); };
     });
   });
+  // staff pickers
+  document.querySelectorAll('.staffwrap').forEach(w=>{
+    w.querySelectorAll('.staffchip').forEach(b=>{ b.onclick=()=>{ w.dataset.val=b.dataset.v;
+      w.querySelectorAll('.staffchip').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }; });
+  });
   document.getElementById('f').addEventListener('submit',submit);
 }
 
@@ -127,6 +135,10 @@ function renderQ(q){
   else if(q.type==='number') inner='<input type="number" data-qid="'+q.id+'">';
   else if(q.type==='date') inner='<input type="date" data-qid="'+q.id+'">';
   else if(q.type==='email') inner='<input type="email" data-qid="'+q.id+'">';
+  else if(q.type==='email_klaviyo') inner='<input type="email" data-qid="'+q.id+'" placeholder="you@email.com">'+
+    '<label class="opt" style="margin-top:8px"><input type="checkbox" data-klaviyo="'+q.id+'"><span>Add me to the Revive Weekly email list</span></label>';
+  else if(q.type==='staff') inner='<div class="staffwrap" data-qid="'+q.id+'" data-val="">'+
+    (q.options||[]).map(o=>'<button type="button" class="staffchip" data-v="'+esc(o.label)+'">'+esc(o.label)+'</button>').join('')+'</div>';
   else if(q.type==='yes_no'){
     inner='<label class="opt"><input type="radio" name="'+name+'" value="Yes" data-qid="'+q.id+'"><span>Yes</span></label>'+
           '<label class="opt"><input type="radio" name="'+name+'" value="No" data-qid="'+q.id+'"><span>No</span></label>';
@@ -154,12 +166,16 @@ function renderQ(q){
 
 function collect(q){
   if(q.type==='info') return null;
-  if(['short_text','long_text','number','date','email'].includes(q.type)){
-    const el=document.querySelector('[data-qid="'+q.id+'"]');
+  if(['short_text','long_text','number','date','email','email_klaviyo'].includes(q.type)){
+    const el=document.querySelector('input[data-qid="'+q.id+'"], textarea[data-qid="'+q.id+'"], [data-qid="'+q.id+'"]');
     const v=el.value.trim();
     if(!v) return {question_id:q.id};
-    if(q.type==='number'||q.type==='rating') return {question_id:q.id,value_number:Number(v)};
+    if(q.type==='number') return {question_id:q.id,value_number:Number(v)};
     return {question_id:q.id,value:v};
+  }
+  if(q.type==='staff'){
+    const w=document.querySelector('.staffwrap[data-qid="'+q.id+'"]');
+    const v=w?w.dataset.val:''; return v?{question_id:q.id,value:v}:{question_id:q.id};
   }
   if(q.type==='rating'){
     const st=document.querySelector('.stars[data-qid="'+q.id+'"]');
@@ -206,14 +222,15 @@ async function submit(ev){
   if(firstErr){ firstErr.scrollIntoView({behavior:'smooth',block:'center'}); return; }
 
   // derive respondent identity
-  let email=null,name=null;
+  let email=null,name=null,klavOptin=false;
   for(const q of QUESTIONS){
     const a=answers.find(x=>x.question_id===q.id); if(!a) continue;
-    if(q.type==='email' && a.value) email=a.value;
+    if((q.type==='email'||q.type==='email_klaviyo') && a.value) email=a.value;
     if(q.type==='short_text' && /name/i.test(q.label||'') && a.value) name=a.value;
+    if(q.type==='email_klaviyo' && a.value){ const cb=document.querySelector('input[data-klaviyo="'+q.id+'"]'); if(cb&&cb.checked) klavOptin=true; }
   }
   const payload={ ...TARGET, answers, respondent_email:email, respondent_name:name,
-    consent_marketing:document.getElementById('consent_marketing')?.checked||false,
+    consent_marketing:(document.getElementById('consent_marketing')?.checked)||klavOptin||false,
     consent_review:document.getElementById('consent_review')?.checked||false };
 
   const btn=document.querySelector('button.submit'); btn.disabled=true; btn.textContent='Submitting…';

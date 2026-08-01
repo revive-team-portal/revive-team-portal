@@ -102,6 +102,7 @@
 <div class="wrap">
   <aside>
     <button class="newbtn" onclick="newSurvey()">+ New survey</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin:0 0 12px 2px;cursor:pointer"><input type="checkbox" id="showClosed" onchange="toggleClosed()"> Show closed</label>
     <div class="slist" id="slist"></div>
   </aside>
   <main id="main"><div class="center">Select a survey to view results.</div></main>
@@ -123,8 +124,10 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'pulse' } });
 const $=id=>document.getElementById(id);
 const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let toastT; function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
-const QTYPES=['info','short_text','long_text','radio','checkbox','dropdown','rating','yes_no','number','date','email'];
-const CHOICE=new Set(['radio','checkbox','dropdown']);
+const QTYPES=['info','short_text','long_text','radio','checkbox','dropdown','rating','yes_no','number','date','email','email_klaviyo','staff'];
+const CHOICE=new Set(['radio','checkbox','dropdown','staff']);
+const STAFF_DEFAULT=['Jasmin','Elyse','Mani','Fernando','River','Other'];
+const TEXTQ=new Set(['short_text','long_text','email','email_klaviyo']);
 
 let surveys=[], current=null, charts=[];
 
@@ -146,24 +149,34 @@ let surveys=[], current=null, charts=[];
 async function loadSurveys(){
   const { data } = await sb.from('surveys').select('*').order('created_at',{ascending:false});
   surveys=data||[];
-  // response counts
+  // response counts + last response date
   const counts={};
   for(const s of surveys){
     const { count } = await sb.from('responses').select('*',{count:'exact',head:true}).eq('survey_id',s.id);
     counts[s.id]=count||0;
+    const { data:last } = await sb.from('responses').select('submitted_at').eq('survey_id',s.id).order('submitted_at',{ascending:false}).limit(1);
+    listLast[s.id]=last&&last[0]?last[0].submitted_at:null;
   }
   renderList(counts);
   if(current){ const c=surveys.find(x=>x.id===current.id); if(c){ current=c; } }
 }
 
 function statusBadge(s){ return `<span class="badge b-${s.status}">${s.status}</span>`; }
+let showClosed=false, listCounts={}, listLast={};
+function toggleClosed(){ showClosed=$('showClosed').checked; renderList(listCounts); }
+function lastStr(id){ const d=listLast[id]; return d?new Date(d).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'2-digit'}):'—'; }
 function renderList(counts){
-  $('slist').innerHTML=surveys.map(s=>`
+  listCounts=counts||listCounts;
+  const list=surveys.filter(s=> showClosed || s.status!=='closed');
+  $('slist').innerHTML=list.map(s=>{
+    const drawLive = s.draw_enabled && s.draw_mode && s.draw_mode!=='none' && s.status==='open';
+    return `
     <div class="sitem ${current&&current.id===s.id?'active':''}" onclick="openSurvey('${s.id}')">
       <h4>${esc(s.title)}</h4>
-      <div class="meta">${statusBadge(s)} ${s.type==='competition'?'<span class="badge b-comp">competition</span>':''}
-        <span>${counts[s.id]??0} responses</span></div>
-    </div>`).join('') || '<div class="muted">No surveys yet. Click “New survey”.</div>';
+      <div class="meta">${statusBadge(s)} ${s.type==='competition'?'<span class="badge b-comp">competition</span>':''}</div>
+      <div class="meta" style="margin-top:3px"><span>${listCounts[s.id]??0} responses</span><span>·</span><span>last ${lastStr(s.id)}</span></div>
+      ${drawLive?'<div style="color:var(--green);font-size:12px;font-weight:600;margin-top:4px">🎁 Prize draw live</div>':''}
+    </div>`;}).join('') || '<div class="muted">No surveys to show.</div>';
 }
 
 let activeTab='results';
@@ -211,6 +224,7 @@ async function loadFull(){
 async function renderResults(){
   const {questions,options,responses,answers}=await loadFull();
   const body=$('tabbody');
+  window._aitxt={};
   const total=responses.length;
   let html=`<div class="stat-grid">
     <div class="stat"><div class="k">Responses</div><div class="v">${total}</div></div>
@@ -235,11 +249,26 @@ async function renderResults(){
       html+=`<p class="muted">Average: <strong>${avg}</strong></p>`+Object.keys(dist).sort((a,b)=>a-b).map(k=>`<div class="rowstat"><div class="lbl">${k}</div><div class="bar"><span style="width:${dist[k]/Math.max(...Object.values(dist))*100}%"></span></div><div class="val">${dist[k]}</div></div>`).join('');
     } else {
       const txt=as.map(a=>a.value).filter(Boolean);
+      window._aitxt[q.id]={label:q.label,texts:txt};
+      if(txt.length) html+=`<div style="margin-bottom:8px"><button class="btn small" id="aibtn_${q.id}" onclick="aiSummary('${q.id}')">✨ AI summary</button></div><div id="ai_${q.id}"></div>`;
       html+=`<div class="txtlist">${txt.slice(0,60).map(t=>`<div>${esc(t)}</div>`).join('')||'<div class="muted">No text answers.</div>'}</div>`+(txt.length>60?`<p class="muted">Showing 60 of ${txt.length}.</p>`:'');
     }
     html+='</div>';
   });
   body.innerHTML=html;
+}
+async function aiSummary(qid){
+  const item=window._aitxt[qid]; if(!item) return;
+  const btn=$('aibtn_'+qid), out=$('ai_'+qid);
+  btn.disabled=true; btn.textContent='Analysing…';
+  try{
+    const { data:{ session:p } } = await portal.auth.getSession();
+    const r=await fetch('/.netlify/functions/pulse-ai',{method:'POST',headers:{'content-type':'application/json','Authorization':'Bearer '+(p?p.access_token:'')},body:JSON.stringify({question:item.label,answers:item.texts})});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||'failed');
+    out.innerHTML=`<div style="background:#f0f6f2;border:1px solid #cfe6d8;border-radius:10px;padding:12px 14px;margin:6px 0 10px;font-size:13.5px;white-space:pre-wrap">${esc(d.text)}</div>`;
+    btn.textContent='✨ Re-run AI summary'; btn.disabled=false;
+  }catch(e){ out.innerHTML=`<div class="muted" style="margin:6px 0">AI summary failed: ${esc(String(e.message||e))}</div>`; btn.textContent='✨ AI summary'; btn.disabled=false; }
 }
 
 // ---------- RESPONSES ----------
@@ -292,7 +321,8 @@ async function renderSetup(){
   if(true){ h+=`<div class="two">
       <div class="field"><label>Competition draw</label><select id="f_draw">${['none','on_close','monthly'].map(x=>`<option ${s.draw_mode===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div class="field"><label>Prize</label><input id="f_prize" value="${esc(s.draw_prize||'')}"></div></div>`; }
-  h+=`<button class="btn primary" onclick="saveSetup()">Save settings</button></div>`;
+  h+=`<button class="btn primary" onclick="saveSetup()">Save settings</button>
+    <button class="btn danger" style="margin-left:8px" onclick="deleteSurvey()">Delete survey</button></div>`;
   // questions editor
   h+=`<h2 style="font-size:17px;margin:18px 0 8px">Questions</h2><div id="qeditor"></div>
       <button class="btn" onclick="addQuestion()">+ Add question</button>`;
@@ -314,7 +344,15 @@ function renderQEditor(){
       ${CHOICE.has(q.type)?`<div class="opts">${options.filter(o=>o.question_id===q.id).map(o=>`<div class="orow"><input value="${esc(o.label)}" onchange="optChange('${o.id}',this.value)"><button class="btn small danger" onclick="delOpt('${o.id}')">✕</button></div>`).join('')}<button class="btn small" onclick="addOpt('${q.id}')">+ option</button></div>`:''}
     </div>`).join('')||'<p class="muted">No questions yet.</p>';
 }
-async function qChange(id,f,v){ await sb.from('questions').update({[f]:v}).eq('id',id); const q=window._q.questions.find(x=>x.id===id); q[f]=v; if(f==='type') renderQEditor(); toast('Saved'); }
+async function qChange(id,f,v){
+  await sb.from('questions').update({[f]:v}).eq('id',id);
+  const q=window._q.questions.find(x=>x.id===id); q[f]=v;
+  if(f==='type' && v==='staff' && !window._q.options.some(o=>o.question_id===id)){
+    const rows=STAFF_DEFAULT.map((l,i)=>({question_id:id,label:l,is_other:/other/i.test(l),sort_order:i+1}));
+    const {data}=await sb.from('question_options').insert(rows).select(); window._q.options=window._q.options.concat(data||[]);
+  }
+  if(f==='type') renderQEditor(); toast('Saved');
+}
 async function optChange(id,v){ await sb.from('question_options').update({label:v}).eq('id',id); toast('Saved'); }
 async function addQuestion(){ const {questions}=window._q; const {data}=await sb.from('questions').insert({survey_id:current.id,type:'short_text',label:'New question',sort_order:(questions.length+1)}).select().single(); questions.push(data); renderQEditor(); }
 async function delQ(id){ if(!confirm('Delete question?'))return; await sb.from('questions').delete().eq('id',id); window._q.questions=window._q.questions.filter(q=>q.id!==id); renderQEditor(); }
@@ -401,6 +439,18 @@ async function drawWinner(){
   await sb.from('draws').insert({survey_id:current.id,period,winner_response_id:w.id,drawn_at:new Date().toISOString()});
   toast('Winner: '+(w.respondent_name||w.respondent_email));
   renderDraw();
+}
+
+// ---------- DELETE ----------
+async function deleteSurvey(){
+  if(!current) return;
+  const cnt=listCounts[current.id]??0;
+  if(!confirm(`Delete "${current.title}" and its ${cnt} response(s)? This permanently removes the survey, its questions, collector links and all responses. This cannot be undone.`)) return;
+  const { error }=await sb.from('surveys').delete().eq('id',current.id);
+  if(error){ toast('Delete failed: '+error.message); return; }
+  toast('Survey deleted'); current=null;
+  $('main').innerHTML='<div class="center">Survey deleted. Pick another survey on the left.</div>';
+  await loadSurveys();
 }
 
 // ---------- NEW ----------
