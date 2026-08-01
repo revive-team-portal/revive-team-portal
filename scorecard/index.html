@@ -180,6 +180,9 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .rcpt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rcptmsg{font-family:var(--mono);font-size:11px;color:var(--steel)}
 .shortcell{display:block;font-family:var(--mono);font-size:8px;font-weight:700;color:var(--warn);letter-spacing:.02em;margin-top:1px}
+.dhdr{white-space:nowrap}
+.circslot{display:inline-block;width:15px;text-align:left}
+.daycirc{display:inline-block;width:13px;height:13px;line-height:13px;border-radius:50%;background:var(--ink);color:#fff;font-size:8px;font-weight:700;text-align:center;font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -251,7 +254,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
       <div class="panel">
         <div class="ptitle"><h2>Weekly grid</h2><div class="r">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</div></div>
         <div class="scroll"><table>
-          <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w">{{ colLabel(w) }}<span v-if="shortTag(w)" class="shortcell">{{ shortTag(w) }}</span></th><th class="avg10">10-wk avg</th></tr></thead>
+          <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w"><span class="dhdr"><span class="circslot"><span v-if="dayNum(w)" class="daycirc">{{ dayNum(w) }}</span></span>{{ colLabel(w) }}</span><span v-if="holidayName(w)" class="shortcell">{{ holidayName(w) }}</span></th><th class="avg10">10-wk avg</th></tr></thead>
           <tbody>
             <template v-for="row in gridRows" :key="row.key||row.sec">
               <tr v-if="row.sec" class="sec" :class="{ad:row.ad}"><td class="mname" :colspan="windowWeeks.length+3">{{ row.sec }}</td></tr>
@@ -259,7 +262,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcName[row.src] }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
-                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]"><span v-if="dayBadge(row,w)" class="daybadge">{{ dayBadge(row,w) }}</span>{{ cellText(row,w) }}</td>
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]">{{ cellText(row,w) }}</td>
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
@@ -612,12 +615,8 @@ createApp({
       return '';
     }
     // Short-week reason tag shown under the date, e.g. "MATARIKI4".
-    function shortTag(w){
-      const wk=weekByEnd[w]; if(!wk) return '';
-      const td=Number(wk.trading_days); if(td!==3&&td!==4) return '';
-      const why=String(wk.holiday||wk.days_note||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,8);
-      return (why||'SHORT')+td;
-    }
+    function dayNum(w){ const wk=weekByEnd[w]; if(!wk) return ''; const td=Number(wk.trading_days); return (td===3||td===4)?String(td):''; }
+    function holidayName(w){ const wk=weekByEnd[w]; if(!wk) return ''; const td=Number(wk.trading_days); if(td!==3&&td!==4) return ''; const why=String(wk.holiday||wk.days_note||'').toUpperCase().replace(/[^A-Z ]/g,'').trim().slice(0,11); return why||'SHORT'; }
 
     // auto issues: metric with a stored/candidate target red for the last 3 weeks
     const autoIssues=computed(()=>{
@@ -796,7 +795,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,shortTag,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,

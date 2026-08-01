@@ -31,7 +31,7 @@ async function fetchWeekEntries(start, end) {
   return all;
 }
 
-async function runSync(nWeeks) {
+async function runSync(nWeeks, daysOnly) {
   if (!APPS_KEY || !TK_KEY) throw new Error('missing APPS_SERVICE_ROLE_KEY or TIMEKEEPER_API_KEY');
   const maps = await appsDb('tk_job_map?select=job_id,metric_code,active');
   const jobMetric = {}; (maps || []).forEach(m => { if (m.active && m.metric_code) jobMetric[m.job_id] = m.metric_code; });
@@ -68,6 +68,7 @@ async function runSync(nWeeks) {
       }
       if (Object.keys(patch).length) await appsDb('week?period_end=eq.' + w.F, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
     }
+    if (daysOnly) { summary.push({ week: w.F, entries: w.entries.length, daysOnly: true }); continue; }
     const codes = Object.keys(per);
     if (!codes.length) { summary.push({ week: w.F, entries: w.entries.length, wrote: 0 }); continue; }
     const ex = await appsDb(`fact?select=metric_code,is_override&period_type=eq.week&period_end=eq.${w.F}&metric_code=in.(${codes.join(',')})`);
