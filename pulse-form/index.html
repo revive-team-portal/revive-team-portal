@@ -36,8 +36,10 @@
   .stars span.on{color:#e0a92e}
   .stars span:active{transform:scale(.9)}
   .info-block{color:var(--ink);background:#f0efe8;border-radius:10px;padding:12px 14px}
-  .staffwrap{display:flex;flex-wrap:wrap;gap:8px}
-  .staffchip{padding:9px 16px;border:1.5px solid var(--line);border-radius:22px;background:#fff;font-size:1rem;color:var(--ink)}
+  .staffwrap{display:flex;flex-wrap:wrap;gap:10px}
+  .staffchip{padding:9px 16px;border:1.5px solid var(--line);border-radius:22px;background:#fff;font-size:1rem;color:var(--ink);display:inline-flex;align-items:center;gap:8px}
+  .staffchip.hasimg{flex-direction:column;gap:6px;border-radius:14px;padding:10px 12px;width:96px}
+  .staffchip.hasimg img{width:64px;height:64px;border-radius:50%;object-fit:cover}
   .staffchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
   button.submit{margin-top:24px;width:100%;padding:14px;border:none;border-radius:12px;
     background:var(--accent);color:#fff;font-size:1.05rem;font-weight:600;cursor:pointer}
@@ -76,7 +78,7 @@ let TARGET={};
 const app = document.getElementById("app");
 const esc = s => (s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-let SURVEY=null, QUESTIONS=[];
+let SURVEY=null, QUESTIONS=[], STAFF=[];
 
 async function init(){
   TARGET=getTarget();
@@ -87,7 +89,7 @@ async function init(){
     if(r.status===404){ app.innerHTML='<div class="state">Survey not found.</div>'; return; }
     if(r.status===403){ const d=await r.json(); app.innerHTML='<div class="state"><h2>'+esc(d.survey?.title||"This survey")+'</h2><p>is not currently accepting responses.</p></div>'; return; }
     const d=await r.json();
-    SURVEY=d.survey; QUESTIONS=d.questions;
+    SURVEY=d.survey; QUESTIONS=d.questions; STAFF=d.staff||[];
     render();
   }catch(e){ app.innerHTML='<div class="state">Something went wrong loading this survey.</div>'; }
 }
@@ -137,8 +139,15 @@ function renderQ(q){
   else if(q.type==='email') inner='<input type="email" data-qid="'+q.id+'">';
   else if(q.type==='email_klaviyo') inner='<input type="email" data-qid="'+q.id+'" placeholder="you@email.com">'+
     '<label class="opt" style="margin-top:8px"><input type="checkbox" data-klaviyo="'+q.id+'"><span>Add me to the Revive Weekly email list</span></label>';
-  else if(q.type==='staff') inner='<div class="staffwrap" data-qid="'+q.id+'" data-val="">'+
-    (q.options||[]).map(o=>'<button type="button" class="staffchip" data-v="'+esc(o.label)+'">'+esc(o.label)+'</button>').join('')+'</div>';
+  else if(q.type==='image'){ const u=(q.settings&&q.settings.image_url)||'';
+    return '<div class="q">'+(u?'<img src="'+esc(u)+'" style="max-width:100%;border-radius:12px;display:block">':'')+(q.label?'<div class="help" style="margin-top:6px;text-align:center">'+esc(q.label)+'</div>':'')+'</div>'; }
+  else if(q.type==='staff'){
+    let list;
+    if(STAFF && STAFF.length){ list=STAFF.map(s=>({label:s.name,photo:s.photo_url})); list.push({label:'Other'}); }
+    else list=(q.options||[]).map(o=>({label:o.label}));
+    inner='<div class="staffwrap" data-qid="'+q.id+'" data-val="">'+list.map(o=>
+      '<button type="button" class="staffchip'+(o.photo?' hasimg':'')+'" data-v="'+esc(o.label)+'">'+(o.photo?'<img src="'+esc(o.photo)+'" alt="">':'')+'<span>'+esc(o.label)+'</span></button>').join('')+'</div>';
+  }
   else if(q.type==='yes_no'){
     inner='<label class="opt"><input type="radio" name="'+name+'" value="Yes" data-qid="'+q.id+'"><span>Yes</span></label>'+
           '<label class="opt"><input type="radio" name="'+name+'" value="No" data-qid="'+q.id+'"><span>No</span></label>';
@@ -165,7 +174,7 @@ function renderQ(q){
 }
 
 function collect(q){
-  if(q.type==='info') return null;
+  if(q.type==='info'||q.type==='image') return null;
   if(['short_text','long_text','number','date','email','email_klaviyo'].includes(q.type)){
     const el=document.querySelector('input[data-qid="'+q.id+'"], textarea[data-qid="'+q.id+'"], [data-qid="'+q.id+'"]');
     const v=el.value.trim();

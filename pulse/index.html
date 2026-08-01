@@ -102,7 +102,8 @@
 <div class="wrap">
   <aside>
     <button class="newbtn" onclick="newSurvey()">+ New survey</button>
-    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin:0 0 12px 2px;cursor:pointer"><input type="checkbox" id="showClosed" onchange="toggleClosed()"> Show closed</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin:0 0 8px 2px;cursor:pointer"><input type="checkbox" id="showClosed" onchange="toggleClosed()"> Show closed</label>
+    <a onclick="renderStaff()" style="display:block;font-size:12.5px;color:var(--green);cursor:pointer;margin:0 0 12px 2px">⚙ Staff &amp; settings</a>
     <div class="slist" id="slist"></div>
   </aside>
   <main id="main"><div class="center">Select a survey to view results.</div></main>
@@ -124,7 +125,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'pulse' } });
 const $=id=>document.getElementById(id);
 const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let toastT; function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
-const QTYPES=['info','short_text','long_text','radio','checkbox','dropdown','rating','yes_no','number','date','email','email_klaviyo','staff'];
+const QTYPES=['info','image','short_text','long_text','radio','checkbox','dropdown','rating','yes_no','number','date','email','email_klaviyo','staff'];
 const CHOICE=new Set(['radio','checkbox','dropdown','staff']);
 const STAFF_DEFAULT=['Jasmin','Elyse','Mani','Fernando','River','Other'];
 const TEXTQ=new Set(['short_text','long_text','email','email_klaviyo']);
@@ -231,9 +232,10 @@ async function renderResults(){
     <div class="stat"><div class="k">Questions</div><div class="v">${questions.filter(q=>q.type!=='info').length}</div></div>
     <div class="stat"><div class="k">Last response</div><div class="v" style="font-size:15px">${total?new Date(responses[0].submitted_at).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'—'}</div></div>
   </div>`;
+  html+=`<div style="margin:0 0 16px"><button class="btn primary" id="survaibtn" onclick="surveySummary()">✨ AI strategic summary</button><div id="survai"></div></div>`;
   const byQ={}; answers.forEach(a=>{(byQ[a.question_id]=byQ[a.question_id]||[]).push(a);});
   questions.forEach((q,qi)=>{
-    if(q.type==='info') return;
+    if(q.type==='info'||q.type==='image') return;
     const as=byQ[q.id]||[];
     html+=`<div class="card"><div class="qh">Q${qi}. ${esc(q.label)}<span class="n">${as.length} answered</span></div>`;
     if(CHOICE.has(q.type)||q.type==='yes_no'){
@@ -255,7 +257,38 @@ async function renderResults(){
     }
     html+='</div>';
   });
+  // compact digest for the strategic AI summary
+  const dg=[];
+  questions.forEach((q,qi)=>{
+    if(q.type==='info'||q.type==='image') return;
+    const as=byQ[q.id]||[];
+    if(CHOICE.has(q.type)||q.type==='yes_no'){
+      const opts=q.type==='yes_no'?[{label:'Yes'},{label:'No'}]:options.filter(o=>o.question_id===q.id);
+      const tally={}; opts.forEach(o=>tally[o.label]=0);
+      as.forEach(a=>{ (a.value_options||(a.value?[a.value]:[])).forEach(v=>{ tally[v]=(tally[v]||0)+1; }); });
+      dg.push(`Q${qi} [${q.type}] ${q.label} — `+Object.entries(tally).map(([l,c])=>`${l}: ${c} (${as.length?Math.round(c/as.length*100):0}%)`).join('; '));
+    } else if(q.type==='rating'||q.type==='number'){
+      const nums=as.map(a=>Number(a.value_number)).filter(n=>!isNaN(n));
+      const avg=nums.length?(nums.reduce((x,y)=>x+y,0)/nums.length).toFixed(2):'—';
+      dg.push(`Q${qi} [${q.type}] ${q.label} — avg ${avg} (n=${nums.length})`);
+    } else {
+      const txt=as.map(a=>a.value).filter(Boolean);
+      dg.push(`Q${qi} [text] ${q.label} — ${as.length} answers. Samples: ${txt.slice(0,8).map(t=>'"'+String(t).slice(0,140)+'"').join(' | ')}`);
+    }
+  });
+  window._survDigest={title:current.title, n:total, digest:dg.join('\n')};
   body.innerHTML=html;
+}
+async function surveySummary(){
+  const btn=$('survaibtn'), out=$('survai');
+  btn.disabled=true; btn.textContent='Analysing survey…';
+  try{
+    const { data:{ session:p } } = await portal.auth.getSession();
+    const r=await fetch('/.netlify/functions/pulse-ai',{method:'POST',headers:{'content-type':'application/json','Authorization':'Bearer '+(p?p.access_token:'')},body:JSON.stringify(window._survDigest)});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed');
+    out.innerHTML=`<div style="background:#eef5f0;border:1px solid #cfe6d8;border-radius:12px;padding:14px 16px;margin-top:10px;font-size:14px;white-space:pre-wrap">${esc(d.text)}</div>`;
+    btn.textContent='✨ Re-run strategic summary'; btn.disabled=false;
+  }catch(e){ out.innerHTML=`<div class="muted" style="margin-top:8px">Strategic summary failed: ${esc(String(e.message||e))}</div>`; btn.textContent='✨ AI strategic summary'; btn.disabled=false; }
 }
 async function aiSummary(qid){
   const item=window._aitxt[qid]; if(!item) return;
@@ -342,7 +375,15 @@ function renderQEditor(){
         <button class="btn small danger" onclick="delQ('${q.id}')">✕</button>
       </div>
       ${CHOICE.has(q.type)?`<div class="opts">${options.filter(o=>o.question_id===q.id).map(o=>`<div class="orow"><input value="${esc(o.label)}" onchange="optChange('${o.id}',this.value)"><button class="btn small danger" onclick="delOpt('${o.id}')">✕</button></div>`).join('')}<button class="btn small" onclick="addOpt('${q.id}')">+ option</button></div>`:''}
+      ${q.type==='image'?`<div class="opts"><input value="${esc((q.settings&&q.settings.image_url)||'')}" onchange="qImg('${q.id}',this.value)" placeholder="Image URL, or upload →" style="flex:1"><input type="file" accept="image/*" onchange="uploadImg('${q.id}',this)">${(q.settings&&q.settings.image_url)?`<img src="${esc(q.settings.image_url)}" style="max-height:90px;border-radius:8px;margin-top:6px">`:''}</div>`:''}
+      ${(q.type==='info'||q.type==='image')?'<div class="muted" style="font-size:11.5px;margin-top:4px">Display-only. For “info” the text above is the statement shown; for “image” the text is an optional caption.</div>':''}
     </div>`).join('')||'<p class="muted">No questions yet.</p>';
+}
+async function qImg(id,url){ await sb.from('questions').update({settings:{image_url:url}}).eq('id',id); const q=window._q.questions.find(x=>x.id===id); q.settings={...(q.settings||{}),image_url:url}; renderQEditor(); toast('Image set'); }
+async function uploadImg(id,input){ const f=input.files&&input.files[0]; if(!f) return; toast('Uploading…');
+  const path='survey/'+id+'-'+Date.now()+'-'+f.name.replace(/[^a-zA-Z0-9.]/g,'_');
+  const { error }=await sb.storage.from('pulse-media').upload(path,f,{upsert:true,contentType:f.type}); if(error){ toast('Upload failed: '+error.message); return; }
+  const { data }=sb.storage.from('pulse-media').getPublicUrl(path); await qImg(id,data.publicUrl);
 }
 async function qChange(id,f,v){
   await sb.from('questions').update({[f]:v}).eq('id',id);
@@ -451,6 +492,35 @@ async function deleteSurvey(){
   toast('Survey deleted'); current=null;
   $('main').innerHTML='<div class="center">Survey deleted. Pick another survey on the left.</div>';
   await loadSurveys();
+}
+
+// ---------- STAFF & SETTINGS ----------
+async function renderStaff(){
+  current=null; document.querySelectorAll('.sitem').forEach(e=>e.classList.remove('active'));
+  const { data:staff }=await sb.from('staff').select('*').order('sort_order');
+  let h=`<h2>Staff &amp; settings</h2><p class="sub">Your front-of-house team. These names (and photos) are shown by any “staff” question in your surveys.</p><div class="card"><div id="stafflist">`;
+  h+=(staff||[]).map(s=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      ${s.photo_url?`<img src="${esc(s.photo_url)}" style="width:46px;height:46px;border-radius:50%;object-fit:cover">`:'<div style="width:46px;height:46px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>'}
+      <input value="${esc(s.name)}" onchange="staffName('${s.id}',this.value)" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 10px">
+      <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" ${s.active?'checked':''} onchange="staffActive('${s.id}',this.checked)"> active</label>
+      <label class="btn small" style="cursor:pointer">Photo<input type="file" accept="image/*" style="display:none" onchange="staffPhoto('${s.id}',this)"></label>
+      <button class="btn small danger" onclick="staffDel('${s.id}')">✕</button>
+    </div>`).join('');
+  h+=`</div><button class="btn" onclick="staffAdd()">+ Add staff</button></div>`;
+  $('main').innerHTML=h;
+}
+async function staffName(id,v){ await sb.from('staff').update({name:v}).eq('id',id); toast('Saved'); }
+async function staffActive(id,v){ await sb.from('staff').update({active:v}).eq('id',id); toast(v?'Active':'Hidden'); }
+async function staffAdd(){ const n=prompt('Staff name:'); if(!n||!n.trim())return; const {data:st}=await sb.from('staff').select('sort_order').order('sort_order',{ascending:false}).limit(1); const so=(st&&st[0]?st[0].sort_order:0)+1; await sb.from('staff').insert({name:n.trim(),sort_order:so}); renderStaff(); }
+async function staffDel(id){ if(!confirm('Remove this staff member?'))return; await sb.from('staff').delete().eq('id',id); renderStaff(); }
+async function staffPhoto(id,input){ const f=input.files&&input.files[0]; if(!f)return; toast('Uploading…');
+  const ext=(f.name.split('.').pop()||'jpg').toLowerCase();
+  const path='staff/'+id+'-'+Date.now()+'.'+ext;
+  const {error}=await sb.storage.from('pulse-media').upload(path,f,{upsert:true,contentType:f.type});
+  if(error){ toast('Upload failed: '+error.message); return; }
+  const {data}=sb.storage.from('pulse-media').getPublicUrl(path);
+  await sb.from('staff').update({photo_url:data.publicUrl}).eq('id',id); renderStaff(); toast('Photo set');
 }
 
 // ---------- NEW ----------
