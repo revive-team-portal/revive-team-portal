@@ -14,3 +14,6 @@
 
 [functions."shopify-sync"]
   schedule = "40 18 * * *"
+
+[functions."eship-sync-background"]
+  schedule = "50 18 * * *"
