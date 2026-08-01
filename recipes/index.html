@@ -470,10 +470,9 @@
                 <th class="px-5 py-3">Name</th>
                 <th class="px-5 py-3">State</th>
                 <th class="px-5 py-3 text-right">$/kg</th>
-                <th class="px-5 py-3 text-right">kJ/100g</th>
-                <th class="px-5 py-3 text-right">Protein</th>
-                <th class="px-5 py-3 text-right">Carbs</th>
-                <th class="px-5 py-3 text-right">Sodium</th>
+                <th class="px-5 py-3">Supplier</th>
+                <th class="px-5 py-3">Last Updated</th>
+                <th class="px-5 py-3">Notes</th>
                 <th class="px-5 py-3"></th>
               </tr>
             </thead>
@@ -487,10 +486,9 @@
                   <span v-else class="text-xs text-stone-400">raw</span>
                 </td>
                 <td class="px-5 py-3 text-right text-stone-600">{{ ing.cost_per_kg?'$'+Number(ing.cost_per_kg).toFixed(2):(ing.raw_ingredient_id?'calc':'—') }}</td>
-                <td class="px-5 py-3 text-right text-stone-500">{{ ing.energy_kj?Number(ing.energy_kj).toFixed(0):'—' }}</td>
-                <td class="px-5 py-3 text-right text-stone-500">{{ ing.protein_g?Number(ing.protein_g).toFixed(1)+'g':'—' }}</td>
-                <td class="px-5 py-3 text-right text-stone-500">{{ ing.carbohydrate_g?Number(ing.carbohydrate_g).toFixed(1)+'g':'—' }}</td>
-                <td class="px-5 py-3 text-right text-stone-500">{{ ing.sodium_mg?Number(ing.sodium_mg).toFixed(0)+'mg':'—' }}</td>
+                <td class="px-5 py-3 text-stone-600 text-sm">{{ ing.main_supplier||'—' }}</td>
+                <td class="px-5 py-3 text-stone-500 text-sm">{{ ing.last_price_update?new Date(ing.last_price_update).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'—' }}</td>
+                <td class="px-5 py-3 text-stone-400 text-xs max-w-xs truncate" :title="ing.upload_notes">{{ ing.upload_notes||'' }}</td>
                 <td class="px-5 py-3 text-right whitespace-nowrap">
                   <button @click="openIngredientModal(ing)" class="text-amber-600 hover:text-amber-700 text-xs font-semibold mr-3">Edit</button>
                   <button @click="confirmDeleteIngredient(ing)" class="text-red-400 hover:text-red-600 text-xs">Delete</button>
@@ -898,12 +896,36 @@ Method:
             class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
         </div>
 
-        <!-- Nutritional Values -->
-        <div>
-          <p class="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3 border-t border-stone-100 pt-4">
-            Nutritional Values — per 100g {{ ingForm.state==='cooked'?'(cooked state)':'(as purchased)' }}
-          </p>
+        <!-- Supplier Info -->
+        <div class="border-t border-stone-100 pt-4 space-y-3">
+          <p class="text-xs font-bold text-stone-500 uppercase tracking-wider">Supplier Info</p>
           <div class="grid grid-cols-2 gap-3">
+            <div class="col-span-2">
+              <label class="block text-xs font-semibold text-stone-600 mb-1">Main Supplier</label>
+              <input v-model="ingForm.main_supplier" type="text" placeholder="e.g. Davis Dry Goods, Turners"
+                class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-stone-600 mb-1">Last Price Update</label>
+              <input v-model="ingForm.last_price_update" type="date"
+                class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Upload Notes</label>
+            <textarea v-model="ingForm.upload_notes" rows="2"
+              placeholder="Packaging size, unit notes, price flags — e.g. 25kg bag $42.50 = $1.70/kg"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"></textarea>
+          </div>
+        </div>
+
+        <!-- Nutritional Values (collapsible — used for recipe panels) -->
+        <details class="border-t border-stone-100 pt-4">
+          <summary class="text-xs font-bold text-stone-500 uppercase tracking-wider cursor-pointer select-none hover:text-stone-700">
+            Nutritional Values — per 100g {{ ingForm.state==='cooked'?'(cooked state)':'(as purchased)' }}
+            <span class="text-stone-400 font-normal normal-case ml-1">(used for recipe panels — click to expand)</span>
+          </summary>
+          <div class="grid grid-cols-2 gap-3 mt-3">
             <div><label class="block text-xs text-stone-600 mb-1">Energy (kJ)</label>
               <input v-model.number="ingForm.energy_kj" type="number" step="0.1" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
             <div><label class="block text-xs text-stone-600 mb-1">Protein (g)</label>
@@ -921,7 +943,7 @@ Method:
             <div><label class="block text-xs text-stone-600 mb-1">Sodium (mg)</label>
               <input v-model.number="ingForm.sodium_mg" type="number" step="0.1" min="0" class="w-full border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"></div>
           </div>
-        </div>
+        </details>
       </div>
       <div class="flex justify-end gap-3 px-6 py-4 border-t border-stone-200 bg-stone-50 rounded-b-2xl">
         <button @click="showIngModal=false" class="px-4 py-2 text-sm text-stone-600 hover:text-stone-800">Cancel</button>
@@ -1096,7 +1118,7 @@ Method:
         if(comp.type==='ingredient'&&comp._ingredient) return calcIngCost(comp._ingredient,comp.weight_g);
         return 0;
       }
-      function blankIngForm(){return{id:null,name:'',brand:'',cost_per_kg:null,state:'raw',raw_ingredient_id:null,cook_ratio:null,energy_kj:null,protein_g:null,fat_g:null,saturated_fat_g:null,carbohydrate_g:null,sugars_g:null,dietary_fibre_g:null,sodium_mg:null};}
+      function blankIngForm(){return{id:null,name:'',brand:'',cost_per_kg:null,state:'raw',raw_ingredient_id:null,cook_ratio:null,main_supplier:'',last_price_update:null,upload_notes:'',energy_kj:null,protein_g:null,fat_g:null,saturated_fat_g:null,carbohydrate_g:null,sugars_g:null,dietary_fibre_g:null,sodium_mg:null};}
       function blankEditForm(){return{id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,notes:'',parent_recipe_id:null,steps:[],allIngredients:[]};}
       function newIngRow(stepTempId=null){return{tempId:uid(),id:null,ingredient_id:'',weight_g:null,volumetric_note:'',step_tempId:stepTempId,_convLoading:false,_importName:''};}
 
@@ -1211,13 +1233,13 @@ Method:
 
       // ---- INGREDIENT MANAGER ----
       function openIngredientModal(ing){
-        ingForm.value=ing?{...ing,state:ing.state||'raw',raw_ingredient_id:ing.raw_ingredient_id||null,cook_ratio:ing.cook_ratio||null}:blankIngForm();
+        ingForm.value=ing?{...ing,state:ing.state||'raw',raw_ingredient_id:ing.raw_ingredient_id||null,cook_ratio:ing.cook_ratio||null,main_supplier:ing.main_supplier||'',last_price_update:ing.last_price_update||null,upload_notes:ing.upload_notes||''}:blankIngForm();
         usdaQuery.value='';usdaResults.value=[];usdaError.value='';showIngModal.value=true;
       }
       async function saveIngredient(){
         if(!ingForm.value.name?.trim())return;
         savingIngredient.value=true;
-        const payload={name:ingForm.value.name.trim(),brand:ingForm.value.brand||null,cost_per_kg:ingForm.value.cost_per_kg||null,state:ingForm.value.state||'raw',raw_ingredient_id:ingForm.value.raw_ingredient_id||null,cook_ratio:ingForm.value.cook_ratio||null,energy_kj:ingForm.value.energy_kj||null,protein_g:ingForm.value.protein_g||null,fat_g:ingForm.value.fat_g||null,saturated_fat_g:ingForm.value.saturated_fat_g||null,carbohydrate_g:ingForm.value.carbohydrate_g||null,sugars_g:ingForm.value.sugars_g||null,dietary_fibre_g:ingForm.value.dietary_fibre_g||null,sodium_mg:ingForm.value.sodium_mg||null};
+        const payload={name:ingForm.value.name.trim(),brand:ingForm.value.brand||null,cost_per_kg:ingForm.value.cost_per_kg||null,state:ingForm.value.state||'raw',raw_ingredient_id:ingForm.value.raw_ingredient_id||null,cook_ratio:ingForm.value.cook_ratio||null,main_supplier:ingForm.value.main_supplier||null,last_price_update:ingForm.value.last_price_update||null,upload_notes:ingForm.value.upload_notes||null,energy_kj:ingForm.value.energy_kj||null,protein_g:ingForm.value.protein_g||null,fat_g:ingForm.value.fat_g||null,saturated_fat_g:ingForm.value.saturated_fat_g||null,carbohydrate_g:ingForm.value.carbohydrate_g||null,sugars_g:ingForm.value.sugars_g||null,dietary_fibre_g:ingForm.value.dietary_fibre_g||null,sodium_mg:ingForm.value.sodium_mg||null};
         if(ingForm.value.id){await sb.from('ingredients').update(payload).eq('id',ingForm.value.id);}
         else{await sb.from('ingredients').insert(payload);}
         savingIngredient.value=false;showIngModal.value=false;await loadIngredients();
