@@ -9,6 +9,7 @@
 //   team        – any granted user (role null/'team')       → public board only
 
 const { json, validatePortalUser } = require('./_portal');
+const { runSync } = require('./_tksync');
 
 const APPS_URL   = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY   = process.env.APPS_SERVICE_ROLE_KEY;
@@ -167,6 +168,23 @@ exports.handler = async (event) => {
       if (!body.period_end || !body.cutoff_at) return json(400, { error: 'Missing week or cutoff.' });
       await appsDb('week?period_end=eq.' + body.period_end, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ cutoff_at: body.cutoff_at }) });
       return json(200, { ok: true });
+    }
+
+    if (action === 'new_week') {
+      if (level === 'team') return json(403, { error: 'Adding a week needs Supervisor access.' });
+      const latest = await appsDb('week?select=period_end&order=period_end.desc&limit=1');
+      let next;
+      if (latest && latest[0]) { const d = new Date(latest[0].period_end + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 7); next = d.toISOString().slice(0, 10); }
+      else next = new Date().toISOString().slice(0, 10);
+      await appsDb('week', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify([{ period_end: next, status: 'open' }]) });
+      return json(200, { ok: true, period_end: next });
+    }
+
+    if (action === 'get_feeds') {
+      if (level === 'team') return json(403, { error: 'Pulling feeds needs Supervisor access.' });
+      let summary = [];
+      try { summary = await runSync(6); } catch (e) { return json(502, { error: 'TimeKeeper: ' + String(e.message || e).slice(0, 160) }); }
+      return json(200, { ok: true, summary });
     }
 
     return json(400, { error: 'Unknown action.' });

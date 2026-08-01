@@ -183,6 +183,10 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .dhdr{white-space:nowrap}
 .circslot{display:inline-block;width:15px;text-align:left}
 .daycirc{display:inline-block;width:13px;height:13px;line-height:13px;border-radius:50%;background:var(--ink);color:#fff;font-size:8px;font-weight:700;text-align:center;font-family:var(--mono)}
+.feeds{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.feed{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--steel-lt);display:inline-flex;align-items:center;gap:3px}
+.feed.on{color:var(--ok)}
+.feed .tick{font-size:11px}
 </style>
 </head>
 <body>
@@ -308,10 +312,11 @@ tbody tr:hover td.avg10{background:#F2F0EE}
       <div class="panel">
         <div class="ehead">
           <div class="wkpick"><button @click="stepWeek(-1)" :disabled="entryIdx<=0">◀</button><span>Week ending {{ longDate(entryWeek) }}</span><button @click="stepWeek(1)" :disabled="entryIdx>=weeks.length-1">▶</button></div>
+          <button class="mini" @click="newWeek">+ New week</button>
           <div class="rcpt"><input type="file" ref="rcptInput" accept="image/*" multiple capture="environment" style="display:none" @change="onReceiptFiles"><button class="mini" :disabled="receiptBusy" @click="$refs.rcptInput.click()">{{ receiptBusy?'Reading receipt…':'\ud83d\udcf7 Upload till receipt' }}</button><span v-if="receiptMsg" class="rcptmsg">{{ receiptMsg }}</span></div>
-          <div class="chips">
-            <span class="chip todo">Manual entry</span>
-            <span class="chip">Auto-feeds coming</span>
+          <div class="feeds">
+            <button class="mini pri" :disabled="feedsBusy" @click="getFeeds">{{ feedsBusy?'Pulling…':'\u27f3 Get auto feeds' }}</button>
+            <span v-for="f in feedList" :key="f.name" class="feed" :class="{on:feedIn(f)}"><span class="tick">{{ feedIn(f)?'\u2713':'\u25cb' }}</span>{{ f.name }}</span>
           </div>
         </div>
         <div class="scroll"><table class="entry">
@@ -655,7 +660,11 @@ createApp({
     function entryCellClass(row){ if(row.src==='d') return 'derived'; if(row.src==='a'){ const f=base(row.key,entryWeek.value); const cur=entryVals[row.key]; if(f.v!=null && cur!=='' && Number(cur)!==Number(f.v)) return 'ovr'; return 'auto'; } return 'man'; }
     function entryPlaceholder(row){ return '—'; }
     function derivedDisplay(code){ const x=val(code,entryWeek.value); if(x.v==null) return ''; const u=ufmt(code); return (u.pre||'')+fm(x.v,u.dp)+(u.suf||''); }
-    const receiptBusy=ref(false), receiptMsg=ref('');
+    const receiptBusy=ref(false), receiptMsg=ref(''), feedsBusy=ref(false);
+    const feedList=[{name:'Till receipt',metric:'cafe_sales'},{name:'Shopify',metric:'online_sales'},{name:'Meta ads',metric:'ad_spend'},{name:'TimeKeeper',metric:'hours_foh_cafe'},{name:'Support',metric:'support_first_response'}];
+    function feedIn(f){ return !!(f.metric && val(f.metric,entryWeek.value).v!=null); }
+    async function getFeeds(){ feedsBusy.value=true; try{ await callData({action:'get_feeds'}); await refresh(); loadEntry(entryWeek.value); flash('Auto feeds pulled'); }catch(e){ flash('Feeds failed: '+e.message); } feedsBusy.value=false; }
+    async function newWeek(){ try{ const r=await callData({action:'new_week'}); await refresh(); loadEntry(r.period_end); flash('Added week ending '+shortDate(r.period_end)); }catch(e){ flash('Failed: '+e.message); } }
     function downscaleToB64(file){
       return new Promise((resolve,reject)=>{ const img=new Image(); const url=URL.createObjectURL(file);
         img.onload=()=>{ let w=img.width,h=img.height; const sc=Math.min(1,1500/Math.max(w,h)); w=Math.round(w*sc); h=Math.round(h*sc); const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); const d=c.toDataURL('image/jpeg',0.85); URL.revokeObjectURL(url); resolve({media_type:'image/jpeg',data:d.split(',')[1]}); };
@@ -796,7 +805,7 @@ createApp({
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
       windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
-      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,
+      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
       fm,shortDate,longDate,colLabel };
