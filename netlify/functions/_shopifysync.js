@@ -1,7 +1,7 @@
-// Shopify -> Scorecard weekly online sales/orders. Uses ShopifyQL total_sales & orders
-// (the exact figures the store's analytics show), bucketed into NZ Sat–Fri weeks,
-// upserted as online_sales / online_orders facts (source='shopify'). Never clobbers
-// a manual override.
+// Shopify -> Scorecard weekly online sales/orders via the Admin orders API
+// (portal app scope). Sums each order's current total (incl tax/shipping, net of
+// refunds) into NZ Sat–Fri weeks -> online_sales / online_orders (source='shopify').
+// Buckets by NZ-local order date (DST-safe). Never clobbers a manual override.
 const { gql } = require('./_shopify');
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
@@ -14,51 +14,52 @@ async function appsDb(path, opts = {}) {
   return t ? JSON.parse(t) : null;
 }
 function addDays(ymd, n) { const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function nzDate(iso) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)); }
 function weekEndFri(ymd) { const d = new Date(ymd + 'T00:00:00Z'); const add = (5 - d.getUTCDay() + 7) % 7; d.setUTCDate(d.getUTCDate() + add); return d.toISOString().slice(0, 10); }
 
-async function shopifyDaily(start, end) {
-  const q = `FROM sales SHOW total_sales, orders TIMESERIES day SINCE ${start} UNTIL ${end}`;
-  const data = await gql('query($q:String!){ shopifyqlQuery(query:$q){ tableData { rows } parseErrors } }', { q });
-  const r = data && data.shopifyqlQuery;
-  if (r && r.parseErrors && r.parseErrors.length) throw new Error('ShopifyQL: ' + JSON.stringify(r.parseErrors).slice(0, 120));
-  return (r && r.tableData && r.tableData.rows) || [];
+const ORDERS_Q = `query($q:String!,$after:String){ orders(first:250, query:$q, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ createdAt currentTotalPriceSet{ shopMoney{ amount } } } } }`;
+
+async function fetchOrders(startUTC, endUTC) {
+  let after = null, all = [];
+  for (let guard = 0; guard < 400; guard++) {
+    const d = await gql(ORDERS_Q, { q: `created_at:>='${startUTC}' created_at:<='${endUTC}'`, after });
+    const o = d && d.orders; if (!o) break;
+    all.push(...o.nodes);
+    if (!o.pageInfo.hasNextPage) break;
+    after = o.pageInfo.endCursor;
+  }
+  return all;
 }
 
-// start/end are YYYY-MM-DD. Returns summary of weeks written.
 async function syncShopify(start, end) {
-  // fetch in <=300-day chunks in parallel
-  const chunks = [];
-  for (let cs = start; cs <= end; cs = addDays(cs, 301)) chunks.push([cs, (addDays(cs, 300) < end ? addDays(cs, 300) : end)]);
-  const dayRows = (await Promise.all(chunks.map(([a, b]) => shopifyDaily(a, b)))).flat();
+  const startUTC = addDays(start, -1) + 'T00:00:00Z';
+  const endUTC = addDays(end, 1) + 'T00:00:00Z';
+  const orders = await fetchOrders(startUTC, endUTC);
 
-  const wk = {}; // week_end -> {sales, orders}
-  for (const row of dayRows) {
-    const we = weekEndFri(row.day);
+  const wk = {};
+  for (const o of orders) {
+    const we = weekEndFri(nzDate(o.createdAt));
+    if (we < start || we > end) continue;
     const b = wk[we] || (wk[we] = { sales: 0, orders: 0 });
-    b.sales += Number(row.total_sales || 0); b.orders += Number(row.orders || 0);
+    b.sales += Number((o.currentTotalPriceSet && o.currentTotalPriceSet.shopMoney && o.currentTotalPriceSet.shopMoney.amount) || 0);
+    b.orders += 1;
   }
   const weekRows = await appsDb('week?select=period_end');
   const exist = new Set((weekRows || []).map(x => x.period_end));
   const today = new Date().toISOString().slice(0, 10);
-
-  // preserve manual overrides
   const ov = await appsDb("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(online_sales,online_orders)");
   const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
 
-  const rows = [];
-  const weeksWritten = [];
+  const rows = []; const written = [];
   for (const we of Object.keys(wk)) {
     if (!exist.has(we) || we > today) continue;
     const now = new Date().toISOString();
     if (!ovSet.has('online_sales|' + we)) rows.push({ metric_code: 'online_sales', period_type: 'week', period_end: we, value: Math.round(wk[we].sales * 100) / 100, source: 'shopify', quality: 'ok', entered_at: now });
     if (!ovSet.has('online_orders|' + we)) rows.push({ metric_code: 'online_orders', period_type: 'week', period_end: we, value: wk[we].orders, source: 'shopify', quality: 'ok', entered_at: now });
-    weeksWritten.push(we);
+    written.push(we);
   }
-  // upsert in batches of 400
-  for (let i = 0; i < rows.length; i += 400) {
-    await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 400)) });
-  }
-  await appsDb("integration?name=eq.Shopify", { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_success: new Date().toISOString(), last_error: null, note: 'sync ' + new Date().toISOString() + ' weeks=' + weeksWritten.length + ' range ' + start + '..' + end }) }).catch(() => {});
-  return { weeks: weeksWritten.length, facts: rows.length, first: weeksWritten.sort()[0], last: weeksWritten.sort().slice(-1)[0] };
+  for (let i = 0; i < rows.length; i += 400) await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 400)) });
+  await appsDb("integration?name=eq.Shopify", { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_success: new Date().toISOString(), last_error: null, note: 'sync ' + new Date().toISOString() + ' weeks=' + written.length }) }).catch(() => {});
+  return { orders: orders.length, weeks: written.length, sample: wk[weekEndFri(nzDate(endUTC))] };
 }
 module.exports = { syncShopify };
