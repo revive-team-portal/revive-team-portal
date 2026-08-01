@@ -186,6 +186,7 @@ exports.handler = async (event) => {
       const today = new Date().toISOString().slice(0, 10);
       const sd = new Date(); sd.setUTCDate(sd.getUTCDate() - 42); const shopStart = sd.toISOString().slice(0, 10);
       const [tk, sh] = await Promise.allSettled([runSync(6), syncShopify(shopStart, today)]);
+      await appsDb('rpc/rollup_pulse', { method: 'POST', headers: { 'Content-Profile': 'scoreboard' }, body: '{}' }).catch(() => {});
       return json(200, { ok: true,
         timekeeper: tk.status === 'fulfilled' ? tk.value : String(tk.reason).slice(0, 160),
         shopify: sh.status === 'fulfilled' ? sh.value : String(sh.reason).slice(0, 160) });
