@@ -182,9 +182,13 @@ exports.handler = async (event) => {
 
     if (action === 'get_feeds') {
       if (level === 'team') return json(403, { error: 'Pulling feeds needs Supervisor access.' });
-      let summary = [];
-      try { summary = await runSync(6); } catch (e) { return json(502, { error: 'TimeKeeper: ' + String(e.message || e).slice(0, 160) }); }
-      return json(200, { ok: true, summary });
+      const { syncShopify } = require('./_shopifysync');
+      const today = new Date().toISOString().slice(0, 10);
+      const sd = new Date(); sd.setUTCDate(sd.getUTCDate() - 42); const shopStart = sd.toISOString().slice(0, 10);
+      const [tk, sh] = await Promise.allSettled([runSync(6), syncShopify(shopStart, today)]);
+      return json(200, { ok: true,
+        timekeeper: tk.status === 'fulfilled' ? tk.value : String(tk.reason).slice(0, 160),
+        shopify: sh.status === 'fulfilled' ? sh.value : String(sh.reason).slice(0, 160) });
     }
 
     return json(400, { error: 'Unknown action.' });

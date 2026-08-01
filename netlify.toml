@@ -11,3 +11,6 @@
 
 [functions."timekeeper-sync"]
   schedule = "20 18 * * *"
+
+[functions."shopify-sync"]
+  schedule = "40 18 * * *"
