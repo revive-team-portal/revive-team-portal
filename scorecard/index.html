@@ -470,6 +470,7 @@ createApp({
         case 'cafe_waste_pct':{ const a=B('cafe_waste_value'),b=B('cafe_sales'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v*100,q:worst([a.q,b.q])}; }
         case 'ad_pct_online':{ const a=B('ad_spend'),b=B('online_sales'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/(b.v/g)*100,q:worst([a.q,b.q])}; }
         case 'ad_cost_per_order':{ const a=B('ad_spend'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
+        case 'ship_cost_per_order':{ const a=B('shipping_cost'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
         default: return base(code,pe);
       }
     }
@@ -528,7 +529,7 @@ createApp({
 
     // ---------- unit meta for display ----------
     const UNITFMT={ nzd:{pre:'$',dp:0}, nzd_inc_gst:{pre:'$',dp:0}, nzd_ex_gst:{pre:'$',dp:0}, count:{dp:0}, ratio:{dp:1}, hours:{dp:1}, pct:{suf:'%',dp:1}, hrs_elapsed:{suf:'h',dp:1} };
-    function ufmt(code){ const base=UNITFMT[UNIT[code]]||{dp:0}; const o={pre:'',suf:'',dp:base.dp||0,...base}; if(['cafe_atv','online_aov','ad_cost_per_order'].includes(code)) o.dp=2; if(code==='cafe_waste_pct') o.dp=2; return o; }
+    function ufmt(code){ const base=UNITFMT[UNIT[code]]||{dp:0}; const o={pre:'',suf:'',dp:base.dp||0,...base}; if(['cafe_atv','online_aov','ad_cost_per_order','ship_cost_per_order'].includes(code)) o.dp=2; if(code==='cafe_waste_pct') o.dp=2; return o; }
 
     // ---------- PUBLIC TILES ----------
     const PUB=[
@@ -582,6 +583,8 @@ createApp({
       ...HOURS,'hours_wopples','wages_wopples',
       {sec:'Margin'},
       'online_cogs','online_cogs_pct','online_gross_profit','cafe_waste_value','cafe_waste_pct',
+      {sec:'Shipping'},
+      'shipping_cost','shipping_subsidy','ship_cost_per_order','parcels_sent',
       {sec:'Production'},
       'mueslis_packed','meals_packed','ingredients_packed',
     ];
