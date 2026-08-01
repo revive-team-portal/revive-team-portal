@@ -18,6 +18,9 @@ exports.handler = async (event) => {
   if (((event.queryStringParameters) || {}).k !== GUARD) return { statusCode: 403, body: 'nope' };
   if (!API_KEY || !SUB_KEY) return { statusCode: 200, body: JSON.stringify({ error: 'eShip not configured' }) };
   const out = [];
-  for (const p of ['/api/orders?limit=3', '/api/orders/shipped?limit=3', '/api/deliveries?limit=3&since_order_date=2026-07-01']) out.push(await hit(p));
+  for (const p of ['/api/orders?order_id=736351263','/api/orders?limit=1']) {
+    try { const res=await fetch('https://api.starshipit.com'+p,{headers:{'StarShipIT-Api-Key':API_KEY,'Ocp-Apim-Subscription-Key':SUB_KEY,'Content-Type':'application/json'}}); const t=await res.text(); out.push({path:p,status:res.status,body:t.slice(0,1800)}); }
+    catch(e){ out.push({path:p,error:String(e.message||e)}); }
+  }
   return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out, null, 1) };
 };
