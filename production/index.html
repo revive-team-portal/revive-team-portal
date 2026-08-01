@@ -131,29 +131,36 @@
         </div>
       </section>
 
-      <!-- PLANNING -->
+      <!-- PLANNING (weekly calendar) -->
       <section v-if="screen==='planning'">
-        <h1 class="text-lg font-bold text-stone-800 mb-3">Production Plan</h1>
-        <div class="bg-white border border-stone-200 rounded-xl overflow-x-auto">
-          <table class="w-full text-sm"><thead class="bg-stone-50 text-stone-500 text-xs uppercase"><tr><th class="text-left px-2 py-2">Date</th><th class="text-left px-2 py-2">Flavour</th><th class="text-right px-2 py-2">Planned</th><th class="text-right px-2 py-2">Actual</th><th class="text-left px-2 py-2">Notes</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="p in plans" :key="p.id" class="border-t border-stone-100">
-                <td class="px-2 py-1"><input v-if="isSupervisor" v-model="p.plan_date" type="date" @change="savePlanRow(p)" class="border border-transparent hover:border-stone-300 rounded px-1 py-0.5 text-sm"><span v-else>{{ fmtDate(p.plan_date) }}</span></td>
-                <td class="px-2 py-1"><select v-if="isSupervisor" v-model="p.flavour" @change="savePlanRow(p)" class="border border-transparent hover:border-stone-300 rounded px-1 py-0.5 bg-white text-sm"><option v-for="r in recipes" :key="r.id" :value="r.flavour">{{ r.flavour }}</option></select><span v-else>{{ p.flavour }}</span></td>
-                <td class="px-2 py-1 text-right"><input v-if="isSupervisor" v-model.number="p.planned_packs" type="number" @change="savePlanRow(p)" class="w-20 border border-stone-200 rounded px-1 py-0.5 text-right"><span v-else>{{ p.planned_packs }}</span></td>
-                <td class="px-2 py-1 text-right" :class="planActual(p)>0 ? 'text-green-700 font-medium' : 'text-stone-300'">{{ planActual(p) }}</td>
-                <td class="px-2 py-1"><input v-if="isSupervisor" v-model="p.notes" type="text" placeholder="recipe / ingredient changes…" @change="savePlanRow(p)" class="w-full border border-transparent hover:border-stone-300 rounded px-1 py-0.5 text-sm"><span v-else class="text-stone-500">{{ p.notes }}</span></td>
-                <td class="px-2 py-1 text-right"><button v-if="isSupervisor" @click="delPlan(p.id)" class="text-stone-300 hover:text-red-500">✕</button></td>
-              </tr>
-              <tr v-if="isSupervisor" class="border-t border-stone-200 bg-stone-50">
-                <td class="px-2 py-1.5"><input v-model="planForm.plan_date" type="date" class="border border-stone-300 rounded px-1 py-0.5 text-sm"></td>
-                <td class="px-2 py-1.5"><select v-model="planForm.flavour" class="border border-stone-300 rounded px-1 py-0.5 bg-white text-sm"><option value="">Flavour…</option><option v-for="r in recipes" :key="r.id" :value="r.flavour">{{ r.flavour }}</option></select></td>
-                <td class="px-2 py-1.5 text-right"><input v-model.number="planForm.planned_packs" type="number" class="w-20 border border-stone-300 rounded px-1 py-0.5 text-right"></td>
-                <td></td><td class="px-2 py-1.5"><input v-model="planForm.notes" type="text" placeholder="notes…" class="w-full border border-stone-300 rounded px-1 py-0.5 text-sm"></td>
-                <td class="px-2 py-1.5 text-right"><button @click="addPlan" class="text-xs bg-green-700 text-white rounded px-2 py-1">Add</button></td>
-              </tr>
-            </tbody></table>
+        <div class="flex items-center justify-between mb-3">
+          <h1 class="text-lg font-bold text-stone-800">Production Plan</h1>
+          <div class="flex items-center gap-1 text-sm"><button @click="weekWindowStart-=4" class="border border-stone-300 rounded px-2 py-1">&#9664;</button><button @click="weekWindowStart=-2" class="border border-stone-300 rounded px-2 py-1">Today</button><button @click="weekWindowStart+=4" class="border border-stone-300 rounded px-2 py-1">&#9654;</button></div>
         </div>
+        <div v-if="isSupervisor" class="bg-white border border-stone-200 rounded-xl p-3 mb-3">
+          <p class="text-xs text-stone-500 mb-2">Pick a flavour, set packs, then tap future days to add it to the plan.</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <button v-for="f in paletteFlavours" :key="f" @click="selPlan = selPlan===f ? '' : f" class="text-xs px-2.5 py-1 rounded-lg border" :class="selPlan===f ? 'bg-green-700 text-white border-green-700' : (specialFlavour(f)?'bg-stone-100 text-stone-600 border-stone-300':'bg-white text-stone-700 border-stone-300')">{{ f }}</button>
+            <span class="text-xs text-stone-400 ml-1">packs</span><input v-model.number="placeQty" type="number" class="w-16 border border-stone-300 rounded px-2 py-1 text-sm text-right">
+            <input v-model="placeNote" type="text" placeholder="note (optional)" class="flex-1 min-w-[8rem] border border-stone-300 rounded px-2 py-1 text-sm">
+          </div>
+        </div>
+        <div class="bg-white border border-stone-200 rounded-xl overflow-x-auto">
+          <table class="w-full text-xs" style="min-width:780px">
+            <thead><tr class="text-stone-400 border-b border-stone-100"><th class="p-1.5 text-left w-14">Week</th><th v-for="d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="d" class="p-1.5">{{ d }}</th></tr></thead>
+            <tbody>
+              <tr v-for="wk in calendarWeeks" :key="wk.start" class="border-t border-stone-100">
+                <td class="p-1.5 text-stone-500 font-medium align-top whitespace-nowrap">{{ wk.label }}</td>
+                <td v-for="day in wk.days" :key="day.date" @click="placeOnDay(day)" class="p-1 border-l border-stone-50 align-top" :class="[day.isPast?'bg-stone-50':'', (isSupervisor && !day.isPast && selPlan)?'cursor-pointer hover:bg-green-50':'']">
+                  <div class="text-[10px] text-right mb-0.5" :class="day.isToday?'text-green-700 font-bold':'text-stone-300'">{{ day.dayNum }}</div>
+                  <template v-if="day.isPast"><div v-for="a in day.actual" :key="a.flavour" class="rounded px-1 mb-0.5 bg-green-100 text-green-800">{{ fShort(a.flavour) }} {{ a.packs }}</div></template>
+                  <template v-else><div v-for="p in day.plan" :key="p.id" class="rounded px-1 mb-0.5 flex items-center justify-between" :class="specialFlavour(p.flavour)?'bg-stone-200 text-stone-600':'bg-sky-100 text-sky-800'"><span :title="p.notes||''">{{ fShort(p.flavour) }}<span v-if="!specialFlavour(p.flavour)"> {{ p.planned_packs }}</span><span v-if="p.notes"> &#9998;</span></span><button v-if="isSupervisor" @click.stop="delPlan(p.id)" class="text-stone-400 hover:text-red-500 ml-1 leading-none">&times;</button></div></template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs text-stone-400 mt-2">Green = produced &middot; Blue = planned &middot; Grey = no shift / TBD &middot; &#9998; = has a note (hover to read).</p>
       </section>
 
       <!-- SETTINGS -->
@@ -253,6 +260,7 @@
       const cap=reactive({run_date:today,flavour:'',output_packs:null,batches:null,hours:null,reject_packs:0,batter_waste_kg:0,packaging_version:'',notes:'',verification:blankVer(),photos:[],scanBlob:null,scanPreview:''});
       const capSaving=ref(false), capErr=ref('');
       const planForm=reactive({plan_date:today,flavour:'',planned_packs:100,notes:''});
+      const weekWindowStart=ref(-2), selPlan=ref(''), placeQty=ref(100), placeNote=ref('');
       const editRec=reactive({open:false,base_recipe_id:null,sku:'',flavour:'',short_code:'',version_label:'',change_note:'',cook_sec:null,blend_min:null,viscosity_sec:null,g_per_waffle:70,ingredients:[],current_version:'',history:[]});
 
       const isSupervisor=computed(()=> isAdmin.value || role.value==='supervisor');
@@ -331,6 +339,14 @@
       async function addPlan(){ if(!planForm.flavour){ flash('Pick a flavour'); return; } try{ await callData({action:'save_plan',plan_date:planForm.plan_date,flavour:planForm.flavour,planned_packs:planForm.planned_packs||100,notes:planForm.notes}); planForm.flavour=''; planForm.planned_packs=100; planForm.notes=''; await loadPlans(); flash('Added'); }catch(e){ flash('Failed: '+e.message); } }
       async function savePlanRow(p){ try{ await callData({action:'save_plan',id:p.id,plan_date:p.plan_date,flavour:p.flavour,planned_packs:p.planned_packs,notes:p.notes}); flash('Saved'); }catch(e){ flash('Failed'); } }
       async function delPlan(id){ try{ await callData({action:'delete_plan',id}); await loadPlans(); }catch(e){ flash('Failed'); } }
+      function ymd(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
+      const todayLocal=ymd(new Date());
+      function mondayOf(d){ const x=new Date(d); const wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); x.setHours(0,0,0,0); return x; }
+      function specialFlavour(f){ return f==='No shift' || f==='To be decided'; }
+      const paletteFlavours=computed(()=> recipes.value.map(r=>r.flavour).concat(['No shift','To be decided']));
+      function fShort(f){ if(f==='No shift') return 'No shift'; if(f==='To be decided') return 'TBD'; const r=recipes.value.find(x=>x.flavour===f); return r?r.short_code:f; }
+      const calendarWeeks=computed(()=>{ const base=mondayOf(new Date()); const weeks=[]; for(let w=0; w<8; w++){ const wkStart=new Date(base); wkStart.setDate(base.getDate()+(weekWindowStart.value+w)*7); const days=[]; for(let dd=0; dd<7; dd++){ const dt=new Date(wkStart); dt.setDate(wkStart.getDate()+dd); const ds=ymd(dt); const isPast= ds<todayLocal; const acc={}; runs.value.filter(r=>r.run_date===ds).forEach(r=>{ acc[r.flavour]=(acc[r.flavour]||0)+(r.output_packs||0); }); const actual=Object.entries(acc).map(([fl,p])=>({flavour:fl,packs:p})); const plan=plans.value.filter(p=>p.plan_date===ds); days.push({ date:ds, dayNum:dt.getDate(), isPast, isToday:ds===todayLocal, actual, plan }); } weeks.push({ start:ymd(wkStart), label:wkStart.toLocaleDateString('en-NZ',{day:'2-digit',month:'short'}), days }); } return weeks; });
+      async function placeOnDay(day){ if(!isSupervisor.value || day.isPast || !selPlan.value) return; if(day.plan.some(p=>p.flavour===selPlan.value)){ flash('Already on that day'); return; } const packs= specialFlavour(selPlan.value)?0:(placeQty.value||100); try{ await callData({action:'save_plan', plan_date:day.date, flavour:selPlan.value, planned_packs:packs, notes:placeNote.value||null}); await loadPlans(); }catch(e){ flash('Failed: '+e.message); } }
 
       async function saveRate(rt){ try{ await callData({action:'save_rate',key:rt.key,value:rt.value}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
       async function saveIngredient(ic){ try{ await callData({action:'save_ingredient',ingredient:ic.ingredient,cost_per_kg:ic.cost_per_kg,supplier:ic.supplier,unit_size_kg:ic.unit_size_kg}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
@@ -358,7 +374,7 @@
       return { ready,gateError,me,isAdmin,role,isSupervisor,roleLabel,screen,tabs,msg,supErr,checkDefs,photoKinds,ingredientNames,usedIn,abbr,settingsRows,
         recipes,runs,plans,ingredients,rates,printRec,printIngs,today,cap,capSaving,capErr,planForm,detail,aiText,aiLoading,detailPhotos,scanBusy,scanFlags,editRec,
         fmtDate,num,money,ingsFor,verLabel,recCost,costKg,rateLabel,effYield,yieldClass,vget,flagClass,util,mmss,
-        openDetail,printRecipeSheet,onScan,addPhoto,rmPhoto,resetCap,saveCapture,openRecipeEdit,saveRecipeEdit,saveRecipeInPlace,planActual,addPlan,savePlanRow,delPlan,saveRate,saveIngredient,coreRates,weekly,weeklyKg,fmtKg,saveWeekly,d1,captureFromPhoto,dEdit,dForm,startEditRun,saveRunEdit,deleteRun,printCustom,printCustomG,printAskRec,printScale,doPrint,recipeTotalG };
+        openDetail,printRecipeSheet,onScan,addPhoto,rmPhoto,resetCap,saveCapture,openRecipeEdit,saveRecipeEdit,saveRecipeInPlace,planActual,addPlan,savePlanRow,delPlan,weekWindowStart,selPlan,placeQty,placeNote,paletteFlavours,calendarWeeks,fShort,specialFlavour,placeOnDay,saveRate,saveIngredient,coreRates,weekly,weeklyKg,fmtKg,saveWeekly,d1,captureFromPhoto,dEdit,dForm,startEditRun,saveRunEdit,deleteRun,printCustom,printCustomG,printAskRec,printScale,doPrint,recipeTotalG };
     }
   }).mount('#app');
 </script>
