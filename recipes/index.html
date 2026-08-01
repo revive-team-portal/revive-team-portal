@@ -485,7 +485,9 @@
                   <span v-if="ing.state==='cooked'" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">cooked</span>
                   <span v-else class="text-xs text-stone-400">raw</span>
                 </td>
-                <td class="px-5 py-3 text-right text-stone-600">{{ ing.cost_per_kg?'$'+Number(ing.cost_per_kg).toFixed(2):(ing.raw_ingredient_id?'calc':'—') }}</td>
+                <td class="px-5 py-3 text-right">
+                  <span v-if="ing.price_is_estimate&&ing.cost_per_kg" class="text-xs text-amber-500 mr-0.5">~</span><span :class="ing.cost_per_kg||ing.raw_ingredient_id?'text-stone-600':'text-red-400 text-xs font-medium'">{{ ing.cost_per_kg?'$'+Number(ing.cost_per_kg).toFixed(2):(ing.raw_ingredient_id?'calc':'needs price ⚑') }}</span>
+                </td>
                 <td class="px-5 py-3 text-stone-600 text-sm">{{ ing.main_supplier||'—' }}</td>
                 <td class="px-5 py-3 text-stone-500 text-sm">{{ ing.last_price_update?new Date(ing.last_price_update).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'—' }}</td>
                 <td class="px-5 py-3 text-stone-400 text-xs max-w-xs truncate" :title="ing.upload_notes">{{ ing.upload_notes||'' }}</td>
@@ -894,6 +896,10 @@ Method:
           <input v-model.number="ingForm.cost_per_kg" type="number" step="0.01" min="0"
             :placeholder="ingForm.state==='cooked'&&ingForm.raw_ingredient_id?'Auto-calculated from raw ingredient':'0.00'"
             class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+          <label class="flex items-center gap-2 mt-2 cursor-pointer select-none">
+            <input type="checkbox" v-model="ingForm.price_is_estimate" class="rounded border-stone-300 accent-amber-600">
+            <span class="text-xs text-stone-500">Mark as estimate / guess <span class="text-amber-500">~</span> (price not fully confirmed)</span>
+          </label>
         </div>
 
         <!-- Supplier Info -->
@@ -1043,9 +1049,15 @@ Method:
         return mc&&ms;
       }));
       const filteredIngredients = computed(()=>{
-        if(!ingSearchQuery.value) return ingredients.value;
+        const sortFn=(a,b)=>{
+          const aNeedsPrice=!a.cost_per_kg&&!a.raw_ingredient_id;
+          const bNeedsPrice=!b.cost_per_kg&&!b.raw_ingredient_id;
+          if(aNeedsPrice!==bNeedsPrice) return aNeedsPrice?1:-1;
+          return a.name.localeCompare(b.name);
+        };
+        if(!ingSearchQuery.value) return [...ingredients.value].sort(sortFn);
         const q=ingSearchQuery.value.toLowerCase();
-        return ingredients.value.filter(i=>i.name.toLowerCase().includes(q)||(i.brand||'').toLowerCase().includes(q));
+        return ingredients.value.filter(i=>i.name.toLowerCase().includes(q)||(i.brand||'').toLowerCase().includes(q)).sort(sortFn);
       });
       const rawIngredients = computed(()=>ingredients.value.filter(i=>!i.state||i.state==='raw'));
       const viewTotalWeight = computed(()=>viewIngredients.value.reduce((s,ri)=>s+(Number(ri.weight_g)||0),0));
@@ -1118,7 +1130,7 @@ Method:
         if(comp.type==='ingredient'&&comp._ingredient) return calcIngCost(comp._ingredient,comp.weight_g);
         return 0;
       }
-      function blankIngForm(){return{id:null,name:'',brand:'',cost_per_kg:null,state:'raw',raw_ingredient_id:null,cook_ratio:null,main_supplier:'',last_price_update:null,upload_notes:'',energy_kj:null,protein_g:null,fat_g:null,saturated_fat_g:null,carbohydrate_g:null,sugars_g:null,dietary_fibre_g:null,sodium_mg:null};}
+      function blankIngForm(){return{id:null,name:'',brand:'',cost_per_kg:null,price_is_estimate:false,state:'raw',raw_ingredient_id:null,cook_ratio:null,main_supplier:'',last_price_update:null,upload_notes:'',energy_kj:null,protein_g:null,fat_g:null,saturated_fat_g:null,carbohydrate_g:null,sugars_g:null,dietary_fibre_g:null,sodium_mg:null};}
       function blankEditForm(){return{id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,notes:'',parent_recipe_id:null,steps:[],allIngredients:[]};}
       function newIngRow(stepTempId=null){return{tempId:uid(),id:null,ingredient_id:'',weight_g:null,volumetric_note:'',step_tempId:stepTempId,_convLoading:false,_importName:''};}
 
@@ -1233,13 +1245,13 @@ Method:
 
       // ---- INGREDIENT MANAGER ----
       function openIngredientModal(ing){
-        ingForm.value=ing?{...ing,state:ing.state||'raw',raw_ingredient_id:ing.raw_ingredient_id||null,cook_ratio:ing.cook_ratio||null,main_supplier:ing.main_supplier||'',last_price_update:ing.last_price_update||null,upload_notes:ing.upload_notes||''}:blankIngForm();
+        ingForm.value=ing?{...ing,state:ing.state||'raw',raw_ingredient_id:ing.raw_ingredient_id||null,cook_ratio:ing.cook_ratio||null,price_is_estimate:!!ing.price_is_estimate,main_supplier:ing.main_supplier||'',last_price_update:ing.last_price_update||null,upload_notes:ing.upload_notes||''}:blankIngForm();
         usdaQuery.value='';usdaResults.value=[];usdaError.value='';showIngModal.value=true;
       }
       async function saveIngredient(){
         if(!ingForm.value.name?.trim())return;
         savingIngredient.value=true;
-        const payload={name:ingForm.value.name.trim(),brand:ingForm.value.brand||null,cost_per_kg:ingForm.value.cost_per_kg||null,state:ingForm.value.state||'raw',raw_ingredient_id:ingForm.value.raw_ingredient_id||null,cook_ratio:ingForm.value.cook_ratio||null,main_supplier:ingForm.value.main_supplier||null,last_price_update:ingForm.value.last_price_update||null,upload_notes:ingForm.value.upload_notes||null,energy_kj:ingForm.value.energy_kj||null,protein_g:ingForm.value.protein_g||null,fat_g:ingForm.value.fat_g||null,saturated_fat_g:ingForm.value.saturated_fat_g||null,carbohydrate_g:ingForm.value.carbohydrate_g||null,sugars_g:ingForm.value.sugars_g||null,dietary_fibre_g:ingForm.value.dietary_fibre_g||null,sodium_mg:ingForm.value.sodium_mg||null};
+        const payload={name:ingForm.value.name.trim(),brand:ingForm.value.brand||null,cost_per_kg:ingForm.value.cost_per_kg||null,price_is_estimate:!!ingForm.value.price_is_estimate,state:ingForm.value.state||'raw',raw_ingredient_id:ingForm.value.raw_ingredient_id||null,cook_ratio:ingForm.value.cook_ratio||null,main_supplier:ingForm.value.main_supplier||null,last_price_update:ingForm.value.last_price_update||null,upload_notes:ingForm.value.upload_notes||null,energy_kj:ingForm.value.energy_kj||null,protein_g:ingForm.value.protein_g||null,fat_g:ingForm.value.fat_g||null,saturated_fat_g:ingForm.value.saturated_fat_g||null,carbohydrate_g:ingForm.value.carbohydrate_g||null,sugars_g:ingForm.value.sugars_g||null,dietary_fibre_g:ingForm.value.dietary_fibre_g||null,sodium_mg:ingForm.value.sodium_mg||null};
         if(ingForm.value.id){await sb.from('ingredients').update(payload).eq('id',ingForm.value.id);}
         else{await sb.from('ingredients').insert(payload);}
         savingIngredient.value=false;showIngModal.value=false;await loadIngredients();
@@ -1353,7 +1365,7 @@ Method:
           const text=await callClaude([{role:'user',content:prompt}]);
           const match=text.match(/\{[\s\S]*\}/);
           if(!match)throw new Error('Could not parse AI response. Try again or use a more structured recipe format.');
-          applyImportedRecipe(JSON.parse(match[0]));
+          await applyImportedRecipe(JSON.parse(match[0]));
         }catch(e){importError.value='Import failed: '+e.message;}
         finally{importLoading.value=false;}
       }
@@ -1365,18 +1377,24 @@ Method:
           const text=await callClaude([{role:'user',content:[{type:'image',source:{type:'base64',media_type:importImageType.value,data:importImageData.value}},{type:'text',text:prompt}]}]);
           const match=text.match(/\{[\s\S]*\}/);
           if(!match)throw new Error('Could not parse AI response.');
-          applyImportedRecipe(JSON.parse(match[0]));
+          await applyImportedRecipe(JSON.parse(match[0]));
         }catch(e){importError.value='Import failed: '+e.message;}
         finally{importLoading.value=false;}
       }
-      function applyImportedRecipe(parsed){
+      async function applyImportedRecipe(parsed){
         const steps=(parsed.steps||[]).map(s=>({tempId:uid(),id:null,title:s.title||'',description:s.description||''}));
         const stepsWithIngs=(parsed.steps||[]).map((s,i)=>({...s,_tempId:steps[i].tempId}));
         const allIngredients=[];
         for(const step of stepsWithIngs){
           for(const pi of(step.ingredients||[])){
-            const matched=ingredients.value.find(i=>i.name.toLowerCase()===pi.name.toLowerCase()||i.name.toLowerCase().includes(pi.name.toLowerCase().slice(0,6)));
-            allIngredients.push({tempId:uid(),id:null,ingredient_id:matched?.id||'',weight_g:pi.weight_g||null,volumetric_note:pi.volumetric_note||'',step_tempId:step._tempId,_convLoading:false,_importName:matched?'':pi.name});
+            let matched=ingredients.value.find(i=>i.name.toLowerCase()===pi.name.toLowerCase()||i.name.toLowerCase().includes(pi.name.toLowerCase().slice(0,6)));
+            if(!matched&&pi.name?.trim()){
+              // Auto-create stub — price unknown, needs manual review
+              const stub={name:pi.name.trim(),price_is_estimate:true,upload_notes:'Auto-created from recipe import — price unknown, review needed'};
+              const {data:newIng}=await sb.from('ingredients').insert(stub).select().single();
+              if(newIng){ingredients.value.push(newIng);matched=newIng;}
+            }
+            allIngredients.push({tempId:uid(),id:null,ingredient_id:matched?.id||'',weight_g:pi.weight_g||null,volumetric_note:pi.volumetric_note||'',step_tempId:step._tempId,_convLoading:false,_importName:''});
           }
         }
         editForm.value={id:null,name:parsed.name||'Imported Recipe',category:parsed.category||'',version:1,description:parsed.description||'',serve_weight_g:parsed.serve_weight_g||100,notes:parsed.notes||'',parent_recipe_id:null,steps,allIngredients};
