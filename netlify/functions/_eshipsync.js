@@ -59,7 +59,29 @@ async function syncShipping(sinceShipDate, maxOrders) {
   for (let i = 0; i < rows.length; i += 200) {
     await appsDb('order_shipping?on_conflict=order_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 200)) });
   }
+  const rolled = await rollupWeeks();
   const withCost = rows.filter(r => r.actual_cost != null);
-  return { processed: rows.length, withCost: withCost.length, sample: rows[0] || null };
+  return { processed: rows.length, withCost: withCost.length, rolledFacts: rolled, sample: rows[0] || null };
 }
-module.exports = { syncShipping };
+
+// Aggregate order_shipping -> weekly facts. Cost & subsidy attributed to the SALE
+// week (matches revenue); parcels to the SHIP week (operational). Skips overrides.
+async function rollupWeeks() {
+  const rows = await appsDb('order_shipping?select=sale_week,ship_week,actual_cost,subsidy&limit=100000');
+  const bySale = {}, byShip = {};
+  for (const r of (rows || [])) {
+    if (r.sale_week) { const b = bySale[r.sale_week] || (bySale[r.sale_week] = { cost: 0, sub: 0 }); b.cost += Number(r.actual_cost || 0); b.sub += Number(r.subsidy || 0); }
+    if (r.ship_week) byShip[r.ship_week] = (byShip[r.ship_week] || 0) + 1;
+  }
+  const wkRows = await appsDb('week?select=period_end');
+  const exist = new Set((wkRows || []).map(w => w.period_end));
+  const ov = await appsDb("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(shipping_cost,shipping_subsidy,parcels_sent)");
+  const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
+  const now = new Date().toISOString(); const facts = [];
+  const push = (code, wk, val) => { if (exist.has(wk) && !ovSet.has(code + '|' + wk)) facts.push({ metric_code: code, period_type: 'week', period_end: wk, value: val, source: 'eship', quality: 'ok', entered_at: now }); };
+  for (const wk in bySale) { push('shipping_cost', wk, Math.round(bySale[wk].cost * 100) / 100); push('shipping_subsidy', wk, Math.round(bySale[wk].sub * 100) / 100); }
+  for (const wk in byShip) push('parcels_sent', wk, byShip[wk]);
+  for (let i = 0; i < facts.length; i += 400) await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(facts.slice(i, i + 400)) });
+  return facts.length;
+}
+module.exports = { syncShipping, rollupWeeks };
