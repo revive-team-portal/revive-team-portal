@@ -194,6 +194,16 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .todaybar .tts{font-family:var(--mono);font-size:11px;color:var(--steel-lt);margin-left:auto}
 .todaybar .ttr{cursor:pointer;color:var(--steel-lt);text-decoration:none;font-size:15px;line-height:1}
 .todaybar .ttr:hover{color:#fff}
+.dmx{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+.dmx th,.dmx td{border-bottom:1px solid var(--line-2);padding:5px 9px;text-align:right;white-space:nowrap}
+.dmx thead th{position:sticky;top:0;background:var(--paper-2);font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--steel);text-transform:uppercase;font-weight:600}
+.dmx th.mname,.dmx td.mname{text-align:left;font-weight:600}
+.dmx td.now{background:var(--paper-3,#f4f1ea)}
+.dmx tr.tot td{border-top:1.5px solid var(--ink);font-weight:700}
+.dmx tr.tot td.mname{font-weight:800}
+.dcell{display:inline-flex;flex-direction:column;line-height:1.02;align-items:flex-end}
+.dcell b{font-family:var(--disp);font-size:14px;letter-spacing:0}
+.dcell small{font-size:9.5px;color:var(--steel-lt);margin-top:1px}
 </style>
 </head>
 <body>
@@ -271,7 +281,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
             <template v-for="row in gridRows" :key="row.key||row.sec">
               <tr v-if="row.sec" class="sec" :class="{ad:row.ad}"><td class="mname" :colspan="windowWeeks.length+3">{{ row.sec }}</td></tr>
               <tr v-else>
-                <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcName[row.src] }}</span></td>
+                <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
                     :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]">{{ cellText(row,w) }}</td>
@@ -313,6 +323,31 @@ tbody tr:hover td.avg10{background:#F2F0EE}
           </div>
         </div>
       </div>
+      <!-- ===== department breakdown ===== -->
+      <div class="panel">
+        <div class="ptitle"><h2>Cafe till — by department</h2><div class="r">units <b>large</b> · $ small · <span class="src a">✨ SwiftPOS</span></div></div>
+        <div class="scroll"><table class="dmx">
+          <thead><tr><th class="mname">Department</th><th v-for="w in windowWeeks" :key="w">{{ colLabel(w) }}</th></tr></thead>
+          <tbody>
+            <tr v-for="d in deptRows" :key="d.grp" :class="{tot:d.grp===0}">
+              <td class="mname">{{ d.label }}</td>
+              <td v-for="w in windowWeeks" :key="w" :class="{now:w===currentWeek}"><div class="dcell" v-if="deptCell(d.grp,w).qty"><b>{{ deptCell(d.grp,w).qty }}</b><small>{{ deptCell(d.grp,w).sales }}</small></div></td>
+            </tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <div class="ptitle"><h2>Labour — hours by area</h2><div class="r">hours · <span class="src a">✨ TimeKeeper</span></div></div>
+        <div class="scroll"><table class="dmx">
+          <thead><tr><th class="mname">Area</th><th v-for="w in windowWeeks" :key="w">{{ colLabel(w) }}</th></tr></thead>
+          <tbody>
+            <tr v-for="h in hoursRows" :key="h.code" :class="{tot:h.code==='total_hours'}">
+              <td class="mname">{{ h.label }}</td>
+              <td v-for="w in windowWeeks" :key="w" :class="{now:w===currentWeek}">{{ hoursCell(h.code,w) }}</td>
+            </tr>
+          </tbody>
+        </table></div>
+      </div>
     </div>
 
     <!-- ============ ENTER WEEK ============ -->
@@ -333,7 +368,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
             <template v-for="row in entryRows" :key="row.key||row.sec">
               <tr v-if="row.sec" class="sec"><td class="mname" :colspan="2">{{ row.sec }}</td></tr>
               <tr v-else>
-                <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcName[row.src] }}</span></td>
+                <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
                 <td class="cell" :class="entryCellClass(row)">
                   <span v-if="row.src==='a'" class="pin">auto</span>
                   <input v-if="row.src!=='d'" v-model="entryVals[row.key]" :placeholder="entryPlaceholder(row)" inputmode="decimal">
@@ -441,6 +476,7 @@ createApp({
     // raw data
     const metrics=ref([]), weeks=ref([]), targets=ref([]), rates=ref([]);
     const factMap=reactive({});   // code -> { period_end -> {v,q} }
+    const deptData=ref([]);
     const weekByEnd=reactive({});
 
     const GST=computed(()=>{ const r=(rates.value||[]).find(x=>x.key==='gst_rate'); return r?Number(r.value):0.15; });
@@ -452,8 +488,8 @@ createApp({
     }
 
     // ---------- metric metadata ----------
-    const HIGHER={}, UNIT={}, SRC={}, NAME={};
-    function indexMeta(){ (metrics.value||[]).forEach(m=>{ HIGHER[m.code]=m.higher_better!==false; UNIT[m.code]=m.unit; SRC[m.code]=m.source_type; NAME[m.code]=m.name; }); }
+    const HIGHER={}, UNIT={}, SRC={}, SYS={}, NAME={};
+    function indexMeta(){ (metrics.value||[]).forEach(m=>{ HIGHER[m.code]=m.higher_better!==false; UNIT[m.code]=m.unit; SRC[m.code]=m.source_type; SYS[m.code]=m.source_system; NAME[m.code]=m.name; }); }
 
     // ---------- fact / derived access ----------
     function base(code,pe){ const c=factMap[code]; if(!c) return {v:null,q:null}; const f=c[pe]; return f?{v:f.v,q:f.q}:{v:null,q:null}; }
@@ -580,6 +616,8 @@ createApp({
     // ---------- MANAGER GRID rows ----------
     const srcMap={auto:'a',manual:'m',derived:'d',snapshot:'a'};
     const srcName={a:'auto',m:'man',d:'calc'};
+    const SYSNAME={swiftpos:'SwiftPOS',shopify:'Shopify',timekeeper:'TimeKeeper',eship:'eShip',meta:'Meta',pulse:'Pulse',support:'Support'};
+    function srcLabel(row){ if(row.src==='a'){ const n=SYSNAME[SYS[row.key]]; return n?('✨ '+n):'auto'; } return srcName[row.src]; }
     const GRID=[
       {ad:true,sec:'Advertising'},
       'ad_spend','ad_pct_online','ad_cost_per_order',
@@ -590,18 +628,22 @@ createApp({
       {sec:'Service'},
       'orders_missed_cutoff','orders_not_sent','resends_refunds','support_first_response','secret_shopper_score','secret_shopper_count',
       {sec:'Labour'},
-      'wages_paid','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour','labour_per_sweet',
-      {sec:'Labour — hours by area'},
-      ...HOURS,'hours_wopples','wages_wopples',
+      'wages_paid','wages_wopples','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour','labour_per_sweet',
       {sec:'Margin'},
       'online_cogs','online_cogs_pct','online_gross_profit','cafe_waste_value','cafe_waste_pct',
       {sec:'Shipping'},
       'shipping_cost','shipping_subsidy','ship_cost_per_order','parcels_sent',
-      {sec:'Cafe mix (units sold)'},
-      'sweets_sold','drinks_sold','shop_sold',
       {sec:'Production'},
       'mueslis_packed','meals_packed','ingredients_packed',
     ];
+    // ---- department breakdown matrices (bottom of manager panel) ----
+    const DEPT_ROWS=[{grp:1,label:'Salads'},{grp:2,label:'Meals'},{grp:4,label:'Sweets'},{grp:5,label:'Drinks'},{grp:6,label:'Shop'},{grp:3,label:'Other'}];
+    const deptRows=computed(()=> DEPT_ROWS.concat([{grp:0,label:'Total'}]));
+    const deptMap=computed(()=>{ const m={}; (deptData.value||[]).forEach(r=>{ const g=Number(r.grp); (m[g]=m[g]||{})[r.week_end]={sales:Number(r.sales)||0,qty:Number(r.qty)||0}; const t=(m[0]=m[0]||{}); const c=t[r.week_end]=t[r.week_end]||{sales:0,qty:0}; if([1,2,3,4,5,6].includes(g)){ c.sales+=Number(r.sales)||0; c.qty+=Number(r.qty)||0; } }); return m; });
+    function deptCell(grp,pe){ const c=(deptMap.value[grp]||{})[pe]; if(!c||(c.qty===0&&c.sales===0)) return {qty:'',sales:''}; return {qty:fm(c.qty,0), sales:'$'+fm(c.sales,0)}; }
+    const HOURS_ROWS=[...HOURS,'hours_wopples','total_hours'].map(c=>({code:c,label:NAME[c]||c}));
+    function hoursCell(code,pe){ const v=val(code,pe).v; return v==null?'':fm(v,1); }
+
     function mkRow(code){ const u=ufmt(code); return {key:code,label:NAME[code]||code,src:srcMap[SRC[code]]||'m',pre:u.pre,suf:u.suf,dp:u.dp}; }
     const gridRows=computed(()=> GRID.map(x=> typeof x==='string'? mkRow(x) : x));
 
@@ -770,6 +812,7 @@ createApp({
       metrics.value=d.metrics||[]; weeks.value=d.weeks||[]; targets.value=d.targets||[]; rates.value=d.rates||[];
       Object.keys(factMap).forEach(k=>delete factMap[k]);
       const f=d.facts||{}; Object.keys(f).forEach(code=>{ const m={}; f[code].forEach(([pe,v,q])=>{ m[pe]={v,q}; }); factMap[code]=m; });
+      deptData.value=d.dept||[];
       Object.keys(weekByEnd).forEach(k=>delete weekByEnd[k]);
       (d.weeks||[]).forEach(w=>{ weekByEnd[w.period_end]=w; });
       indexMeta();
@@ -822,7 +865,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
