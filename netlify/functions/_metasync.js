@@ -53,4 +53,13 @@ async function syncMeta(start, end) {
   await appsDb("integration?name=eq.Meta", { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_success: new Date().toISOString(), last_error: null, note: 'sync ' + new Date().toISOString() + ' weeks=' + written.length }) }).catch(() => {});
   return { days: days.length, weeks: written.length, sample: wk[weekEndFri(end)] };
 }
-module.exports = { syncMeta };
+async function fetchTotal(since, until) {
+  if (!TOKEN) throw new Error('missing META_ACCESS_TOKEN');
+  const url = GRAPH + '/' + ACCT + '/insights?level=account&fields=spend'
+    + '&time_range=' + encodeURIComponent(JSON.stringify({ since, until }))
+    + '&access_token=' + encodeURIComponent(TOKEN);
+  const res = await fetch(url); const j = await res.json().catch(() => ({}));
+  if (j.error) throw new Error('Meta ' + String(j.error.message || '').slice(0, 160));
+  return Number((j.data && j.data[0] && j.data[0].spend) || 0);
+}
+module.exports = { syncMeta, fetchTotal };
