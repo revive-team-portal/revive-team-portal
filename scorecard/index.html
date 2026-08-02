@@ -699,7 +699,7 @@ createApp({
         if(f2.cafe_customers!=null) entryVals['cafe_customers']=String(f2.cafe_customers);
         if(f2.uber_total!=null) entryVals['uber_total']=String(f2.uber_total);
         receiptMsg.value='Read $'+fm(f2.cafe_sales,0)+' · '+fm(f2.cafe_customers,0)+' customers · Uber $'+fm(f2.uber_total,2)+' — check & Save week';
-        flash('Receipt read \u2014 review and Save');
+        flash('Receipt read — review and Save');
       }catch(e){ receiptMsg.value='Receipt failed: '+e.message; flash('Receipt failed'); }
       receiptBusy.value=false; ev.target.value='';
     }
