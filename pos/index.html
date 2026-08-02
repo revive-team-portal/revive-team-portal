@@ -21,6 +21,18 @@ small{color:#78716c}
 <div style="margin-top:8px"><button onclick="sendPaste(this)">Send to Claude</button><span class="ok" id="pasteok"></span></div>
 </div>
 
+<div class="box" style="border-color:#059669">
+<h2 style="margin-top:0">Auto-probe agent (recommended)</h2>
+<p style="margin-top:0">Run this once and leave it open — then Claude can pull data directly (no copy/paste). It only ever runs read-only SELECTs that Claude queues.</p>
+<ol style="font-size:14px;line-height:1.6;color:#44403c">
+<li><a href="/pos/agent.ps1" download>Download agent.ps1</a> to the till PC.</li>
+<li>Open <b>PowerShell</b>, then run (Jeremy has the token from chat):<br>
+<code style="background:#1c1917;color:#f5f5f4;padding:2px 6px;border-radius:5px;display:inline-block;margin-top:4px">powershell -ExecutionPolicy Bypass -File agent.ps1 -Token THE_TOKEN</code></li>
+<li>Leave the window open. It says &quot;agent started&quot; and starts polling.</li>
+</ol>
+<p style="font-size:13px;color:#78716c">If it errors on login, re-run adding <code>-User sa -Password &lt;the sa password&gt;</code>.</p>
+</div>
+
 <h2>Step 1 — Find the sales &amp; product tables</h2>
 <div class="box">
 <pre id="q1">SELECT t.name AS table_name, p.rows AS row_count
