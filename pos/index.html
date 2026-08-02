@@ -33,6 +33,19 @@ small{color:#78716c}
 <p style="font-size:13px;color:#78716c">If it errors on login, re-run adding <code>-User sa -Password &lt;the sa password&gt;</code>.</p>
 </div>
 
+<div class="box" style="border-color:#059669">
+<h2 style="margin-top:0">Make the agent permanent (run once)</h2>
+<p style="margin-top:0">Open <b>Windows PowerShell as Administrator</b> (Start → type powershell → right-click → Run as administrator), click Copy below, paste in (right-click pastes), press Enter.</p>
+<pre id="q5">$p = "$env:USERPROFILE\Downloads\agent.ps1"
+$a = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$p`" -Token rvp-pos-9Qz4Kt"
+$t = New-ScheduledTaskTrigger -AtLogOn
+$s = New-ScheduledTaskSettingsSet -RestartInterval (New-TimeSpan -Minutes 2) -RestartCount 999 -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName "ScorecardPosAgent" -Action $a -Trigger $t -Settings $s -RunLevel Highest -Force
+Start-ScheduledTask -TaskName "ScorecardPosAgent"</pre>
+<button onclick="cp('q5',this)">Copy command</button><span class="ok" id="ok5"></span>
+<p style="font-size:13px;color:#78716c">After it runs, close the old polling window so there is only one agent. To stop it later: <code>Unregister-ScheduledTask -TaskName ScorecardPosAgent -Confirm:$false</code></p>
+</div>
+
 <h2>Step 1 — Find the sales &amp; product tables</h2>
 <div class="box">
 <pre id="q1">SELECT t.name AS table_name, p.rows AS row_count
