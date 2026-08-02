@@ -1226,7 +1226,7 @@ Method:
         const ms=!searchQuery.value||r.name.toLowerCase().includes(searchQuery.value.toLowerCase());
         return mc&&ms;
       }));
-      const CATEGORY_ORDER=['Muesli','Hotpots','Meals & Savoury','Sauces','Porridge'];
+      const CATEGORY_ORDER=['Muesli','Hotpots','Dahls','Meals & Savoury','Sauces','Porridge'];
       const groupedRecipes=computed(()=>{
         const map={};
         for(const r of filteredRecipes.value){const cat=r.category||'Uncategorised';if(!map[cat])map[cat]=[];map[cat].push(r);}
