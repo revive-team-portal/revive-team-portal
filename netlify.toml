@@ -17,3 +17,9 @@
 
 [functions."eship-sync-background"]
   schedule = "50 18 * * *"
+
+[functions."pos-weekly"]
+  schedule = "30 18 * * *"
+
+[functions."pos-today-cron"]
+  schedule = "*/15 * * * *"

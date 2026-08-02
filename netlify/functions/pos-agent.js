@@ -4,6 +4,7 @@
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
 const GUARD = 'rvp-pos-9Qz4Kt';
+const { ingest } = require('./_posqueries');
 async function db(path, opts = {}) {
   const headers = { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json',
     'Accept-Profile': 'scoreboard', 'Content-Profile': 'scoreboard', ...(opts.headers || {}) };
@@ -27,10 +28,13 @@ exports.handler = async (event) => {
     if (qp.action === 'result') {
       const b = JSON.parse(event.body || '{}');
       if (!b.id) return json({ error: 'no id' });
+      const jr = await db('pos_jobs?id=eq.' + b.id + '&select=note');
+      const note = (jr && jr[0] && jr[0].note) || '';
       const patch = b.error
         ? { status: 'error', error: String(b.error).slice(0, 4000), done_at: new Date().toISOString() }
         : { status: 'done', result: String(b.result || '').slice(0, 900000), error: null, done_at: new Date().toISOString() };
       await db('pos_jobs?id=eq.' + b.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
+      if (!b.error) { try { await ingest(note, b.result); } catch (e) { /* ingest best-effort */ } }
       return json({ ok: true });
     }
     return json({ error: 'unknown action' });
