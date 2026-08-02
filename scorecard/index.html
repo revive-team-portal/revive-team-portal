@@ -187,10 +187,13 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .feed{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--steel-lt);display:inline-flex;align-items:center;gap:3px}
 .feed.on{color:var(--ok)}
 .feed .tick{font-size:11px}
-.todaybar{background:var(--ink);color:#fff;font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;padding:8px 16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.todaybar b{font-family:var(--disp);font-size:16px;color:#fff;letter-spacing:0}
-.todaybar .tts{color:var(--steel-lt);margin-left:8px}
-.todaybar .ttr{cursor:pointer;margin-left:auto;color:#fff;text-decoration:none;font-size:15px}
+.todaybar{background:var(--ink);color:#fff;padding:9px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.todaybar .tlab{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--steel-lt)}
+.todaybar .tval{font-family:var(--disp);font-size:19px;font-weight:700;color:#fff;letter-spacing:0}
+.todaybar .tcov{font-family:var(--disp);font-size:15px;color:#fff}
+.todaybar .tts{font-family:var(--mono);font-size:11px;color:var(--steel-lt);margin-left:auto}
+.todaybar .ttr{cursor:pointer;color:var(--steel-lt);text-decoration:none;font-size:15px;line-height:1}
+.todaybar .ttr:hover{color:#fff}
 </style>
 </head>
 <body>
@@ -202,7 +205,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 </script>
 
 <div id="app" v-cloak>
-  <div v-if="today.sales!=null" class="todaybar"><span>\u2615 Cafe today</span> <b>${{ fm(today.sales,0) }}</b> <span>\u00b7</span> <b>{{ fm(today.covers,0) }}</b> <span>covers</span> <span class="tts">as at {{ todayTime }}</span> <a class="ttr" @click="loadToday(true)">\u27f3</a></div>
+  <div v-if="today.sales!=null" class="todaybar"><span class="tlab">Cafe today</span><b class="tval">${{ fm(today.sales,0) }}</b><span class="tcov">{{ fm(today.covers,0) }} covers</span><span class="tts">as at {{ todayTime }}</span><a class="ttr" @click="loadToday(true)" title="Refresh">↻</a></div>
   <!-- loader / gate -->
   <div v-if="!ready" class="loader">
     <div class="card">
