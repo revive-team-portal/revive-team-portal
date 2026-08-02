@@ -1,2 +1,2 @@
-const { WEEKLY_SQL, queueJob } = require('./_posqueries');
-exports.handler = async () => { try { const r = await queueJob('weekly-feed', WEEKLY_SQL); return { statusCode: 200, body: JSON.stringify(r) }; } catch (e) { return { statusCode: 500, body: String(e) }; } };
+const { WEEKLY_SQL, DEPT_SQL, queueJob } = require('./_posqueries');
+exports.handler = async () => { try { const a = await queueJob('weekly-feed', WEEKLY_SQL); const b = await queueJob('dept-feed', DEPT_SQL); return { statusCode: 200, body: JSON.stringify({ weekly: a, dept: b }) }; } catch (e) { return { statusCode: 500, body: String(e) }; } };

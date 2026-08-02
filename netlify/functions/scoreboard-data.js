@@ -93,9 +93,10 @@ exports.handler = async (event) => {
       ]);
       const facts = await loadFacts(isMgr ? null : TEAM_CODES);
       const pubMetrics = isMgr ? metrics : (metrics || []).filter(m => m.is_public);
+      const dept = isMgr ? (await appsDb('pos_dept_week?select=week_end,grp,sales,qty&order=week_end.asc')) : [];
       return json(200, {
         level, email: auth.user.email,
-        metrics: pubMetrics, weeks, facts, targets, rates,
+        metrics: pubMetrics, weeks, facts, targets, rates, dept,
       });
     }
 

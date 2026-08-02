@@ -25,6 +25,13 @@ const TODAY_SQL =
   " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
   " WHERE CAST(t.Receipt_Date_Time AS date)=CAST(GETDATE() AS date);";
 
+const DEPT_SQL =
+  "SELECT CONVERT(varchar(10)," + WEEK_END + ",23) AS week_end, p.Product_Group AS grp," +
+  " SUM(i.Sales) AS sales, SUM(i.Qty) AS qty" +
+  " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
+  " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
+  " WHERE t.Receipt_Date_Time >= DATEADD(week,-10,GETDATE())" +
+  " GROUP BY " + WEEK_END + ", p.Product_Group ORDER BY 1,2;";
 async function queueJob(note, sql) {
   const ex = await db('pos_jobs?status=eq.pending&note=eq.' + encodeURIComponent(note) + '&select=id');
   if (ex && ex.length) return { queued: false };
@@ -62,5 +69,16 @@ async function ingest(note, result) {
     for (let i = 0; i < facts.length; i += 400) await db('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(facts.slice(i, i + 400)) });
     return;
   }
+  if (note.indexOf('dept-feed') === 0) {
+    const { cols, rows } = parseTSV(result); const ix = c => cols.indexOf(c);
+    const weeks = await db('week?select=period_end'); const exist = new Set((weeks || []).map(w => w.period_end));
+    const now = new Date().toISOString(); const out = [];
+    for (const r of rows) {
+      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk)) continue;
+      out.push({ week_end: wk, grp: Number(r[ix('grp')] || 0), sales: Math.round((Number(r[ix('sales')] || 0)) * 100) / 100, qty: Math.round(Number(r[ix('qty')] || 0)), updated_at: now });
+    }
+    for (let i = 0; i < out.length; i += 400) await db('pos_dept_week?on_conflict=week_end,grp', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(out.slice(i, i + 400)) });
+    return;
+  }
 }
-module.exports = { WEEKLY_SQL, TODAY_SQL, queueJob, ingest, db };
+module.exports = { WEEKLY_SQL, TODAY_SQL, DEPT_SQL, queueJob, ingest, db };
