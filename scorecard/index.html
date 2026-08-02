@@ -187,13 +187,12 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .feed{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--steel-lt);display:inline-flex;align-items:center;gap:3px}
 .feed.on{color:var(--ok)}
 .feed .tick{font-size:11px}
-.todaybar{background:var(--ink);color:#fff;padding:9px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.todaybar .tlab{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--steel-lt)}
-.todaybar .tval{font-family:var(--disp);font-size:19px;font-weight:700;color:#fff;letter-spacing:0}
-.todaybar .tcov{font-family:var(--disp);font-size:15px;color:#fff}
-.todaybar .tts{font-family:var(--mono);font-size:11px;color:var(--steel-lt);margin-left:auto}
-.todaybar .ttr{cursor:pointer;color:var(--steel-lt);text-decoration:none;font-size:15px;line-height:1}
-.todaybar .ttr:hover{color:#fff}
+.todaybar{background:#1f6f54;color:#fff;padding:10px 18px;display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}
+.todaybar b{font-family:var(--disp);font-size:19px;font-weight:800;color:#fff;letter-spacing:0}
+.todaybar .seg{display:flex;align-items:baseline;gap:7px}
+.todaybar .lab{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;opacity:.85}
+.todaybar .tts{font-family:var(--mono);font-size:11.5px;opacity:.85}
+.todaybar .ttr{cursor:pointer;color:#fff;text-decoration:none;font-size:15px;line-height:1;margin-left:4px}
 .dmx{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
 .dmx th,.dmx td{border-bottom:1px solid var(--line-2);padding:5px 9px;text-align:right;white-space:nowrap}
 .dmx thead th{position:sticky;top:0;background:var(--paper-2);font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--steel);text-transform:uppercase;font-weight:600}
@@ -217,7 +216,12 @@ td.der .subn,td .subn{opacity:.85}
 </script>
 
 <div id="app" v-cloak>
-  <div v-if="today.sales!=null" class="todaybar"><span class="tlab">Cafe today</span><b class="tval">${{ fm(today.sales,0) }}</b><span class="tcov">{{ fm(today.covers,0) }} covers</span><span class="tts">as at {{ todayTime }}</span><a class="ttr" @click="loadToday(true)" title="Refresh">↻</a></div>
+  <div v-if="today.sales!=null || today.orders_to_fulfil!=null" class="todaybar">
+    <span class="seg" v-if="today.sales!=null"><span class="lab">Cafe today</span> <b>${{ fm(today.sales,0) }}</b> · <b>{{ fm(today.covers,0) }}</b> covers</span>
+    <span class="seg" v-if="today.orders_to_fulfil!=null"><span class="lab">To fulfil</span> <b>{{ fm(today.orders_to_fulfil,0) }}</b></span>
+    <span class="seg" v-if="today.orders_fulfilled_today!=null"><span class="lab">Fulfilled today</span> <b>{{ fm(today.orders_fulfilled_today,0) }}</b></span>
+    <span class="tts">as at {{ todayTime }} <a class="ttr" @click="loadToday(true)" title="Refresh">↻</a></span>
+  </div>
   <!-- loader / gate -->
   <div v-if="!ready" class="loader">
     <div class="card">
@@ -469,8 +473,8 @@ createApp({
   setup(){
     const ready=ref(false), gateError=ref(''), level=ref(''), email=ref(''), screen=ref('team');
     const msg=ref('');
-    const today=reactive({sales:null,covers:null,updated_at:null});
-    async function loadToday(refresh){ try{ const r=await fetch('/.netlify/functions/cafe-today'+(refresh?'?refresh=1':'')); const j=await r.json(); if(j&&j.sales!=null){ today.sales=j.sales; today.covers=j.covers; today.updated_at=j.updated_at; } }catch(e){} }
+    const today=reactive({sales:null,covers:null,updated_at:null,orders_to_fulfil:null,orders_fulfilled_today:null});
+    async function loadToday(refresh){ try{ const r=await fetch('/.netlify/functions/cafe-today'+(refresh?'?refresh=1':'')); const j=await r.json(); if(j&&!j.error){ today.sales=j.sales; today.covers=j.covers; today.updated_at=j.updated_at; today.orders_to_fulfil=j.orders_to_fulfil; today.orders_fulfilled_today=j.orders_fulfilled_today; } }catch(e){} }
     const todayTime=computed(()=>{ if(!today.updated_at) return ''; const d=new Date(today.updated_at); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); });
     let flashT=null;
     function flash(t){ msg.value=t; clearTimeout(flashT); flashT=setTimeout(()=>msg.value='',2600); }
