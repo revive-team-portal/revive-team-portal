@@ -24,10 +24,13 @@
   .hidden{display:none !important}
 
   /* ---------- LOGIN ---------- */
-  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative}
-  .today-bar{position:absolute;top:0;left:0;right:0;background:var(--green);color:#fff;padding:11px 18px;display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;box-shadow:var(--shadow)}
-  .today-bar b{font-size:20px;font-weight:800;letter-spacing:-.01em}
-  .today-bar .ts{opacity:.82;font-size:12px;margin-left:6px}
+  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .today-bar{background:var(--green);color:#fff;padding:10px 18px;display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}
+  .today-bar b{font-size:19px;font-weight:800;letter-spacing:-.01em}
+  .today-bar .seg{display:flex;align-items:baseline;gap:7px}
+  .today-bar .lab{opacity:.85;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .today-bar .ts{opacity:.8;font-size:11.5px}
+  .today-bar .rf{cursor:pointer;color:#fff;text-decoration:none;margin-left:2px}
   .login-card{
     background:var(--card);border:1px solid var(--line);border-radius:18px;
     box-shadow:var(--shadow);width:100%;max-width:400px;padding:38px 34px;
@@ -155,7 +158,6 @@
 
 <!-- LOGIN -->
 <div id="loginView" class="hidden">
-  <div id="todayBar" class="today-bar hidden"></div>
   <form class="login-card" id="loginForm" autocomplete="on">
     <div class="brand">
       <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" alt="Revive Cafe" class="mark" style="background:transparent;object-fit:contain;border-radius:50%;">
@@ -189,6 +191,8 @@
       <button class="btn btn-ghost btn-sm" id="signoutBtn">Sign out</button>
     </div>
   </div>
+
+  <div id="todayBar" class="today-bar hidden"></div>
 
   <!-- DASHBOARD -->
   <div class="wrap" id="dashboardView">
@@ -297,15 +301,21 @@ async function start(){
   const { data:{ session } } = await sb.auth.getSession();
   if(session){ await enterApp(); } else { showLogin(); }
 }
-function showLogin(){ hide(boot); hide(appView); show(loginView); loadTodayBar(); }
-async function loadTodayBar(){
+function showLogin(){ hide(boot); hide(appView); show(loginView); }
+async function loadTodayBar(refresh){
   try{
-    const r=await fetch('/.netlify/functions/cafe-today'); const j=await r.json();
-    const bar=$('todayBar'); if(!bar||!j||j.sales==null) return;
+    const r=await fetch('/.netlify/functions/cafe-today'+(refresh?'?refresh=1':'')); const j=await r.json();
+    const bar=$('todayBar'); if(!bar||!j) return;
     const d=j.updated_at?new Date(j.updated_at):null;
     const t=d?(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')):'';
-    bar.innerHTML='<span>Cafe sales today</span> <b>$'+Math.round(j.sales).toLocaleString()+'</b><span>\u00b7</span><b>'+Math.round(j.covers).toLocaleString()+'</b><span>covers</span><span class="ts">as at '+t+'</span>';
-    bar.classList.remove('hidden');
+    let h='';
+    if(j.sales!=null) h+='<span class="seg"><span class="lab">Cafe today</span> <b>$'+Math.round(j.sales).toLocaleString()+'</b> \u00b7 <b>'+Math.round(j.covers).toLocaleString()+'</b> covers</span>';
+    if(j.orders_to_fulfil!=null) h+='<span class="seg"><span class="lab">To fulfil</span> <b>'+j.orders_to_fulfil.toLocaleString()+'</b></span>';
+    if(j.orders_fulfilled_today!=null) h+='<span class="seg"><span class="lab">Fulfilled today</span> <b>'+j.orders_fulfilled_today.toLocaleString()+'</b></span>';
+    if(!h) return;
+    h+='<span class="ts">as at '+t+' <a class="rf" title="Refresh">\u21bb</a></span>';
+    bar.innerHTML=h; bar.classList.remove('hidden');
+    const rf=bar.querySelector('.rf'); if(rf) rf.onclick=()=>loadTodayBar(true);
   }catch(e){}
 }
 setInterval(loadTodayBar, 60000);
@@ -322,6 +332,7 @@ async function enterApp(){
   if(prof.is_admin){ show($('adminBtn')); } else { hide($('adminBtn')); }
   await loadDashboard();
   goDashboard();
+  loadTodayBar(true);
 }
 
 /* ===== DASHBOARD ===== */
