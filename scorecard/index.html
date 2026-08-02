@@ -187,6 +187,10 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .feed{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--steel-lt);display:inline-flex;align-items:center;gap:3px}
 .feed.on{color:var(--ok)}
 .feed .tick{font-size:11px}
+.todaybar{background:var(--ink);color:#fff;font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;padding:8px 16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.todaybar b{font-family:var(--disp);font-size:16px;color:#fff;letter-spacing:0}
+.todaybar .tts{color:var(--steel-lt);margin-left:8px}
+.todaybar .ttr{cursor:pointer;margin-left:auto;color:#fff;text-decoration:none;font-size:15px}
 </style>
 </head>
 <body>
@@ -198,6 +202,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 </script>
 
 <div id="app" v-cloak>
+  <div v-if="today.sales!=null" class="todaybar"><span>\u2615 Cafe today</span> <b>${{ fm(today.sales,0) }}</b> <span>\u00b7</span> <b>{{ fm(today.covers,0) }}</b> <span>covers</span> <span class="tts">as at {{ todayTime }}</span> <a class="ttr" @click="loadToday(true)">\u27f3</a></div>
   <!-- loader / gate -->
   <div v-if="!ready" class="loader">
     <div class="card">
@@ -424,6 +429,9 @@ createApp({
   setup(){
     const ready=ref(false), gateError=ref(''), level=ref(''), email=ref(''), screen=ref('team');
     const msg=ref('');
+    const today=reactive({sales:null,covers:null,updated_at:null});
+    async function loadToday(refresh){ try{ const r=await fetch('/.netlify/functions/cafe-today'+(refresh?'?refresh=1':'')); const j=await r.json(); if(j&&j.sales!=null){ today.sales=j.sales; today.covers=j.covers; today.updated_at=j.updated_at; } }catch(e){} }
+    const todayTime=computed(()=>{ if(!today.updated_at) return ''; const d=new Date(today.updated_at); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); });
     let flashT=null;
     function flash(t){ msg.value=t; clearTimeout(flashT); flashT=setTimeout(()=>msg.value='',2600); }
 
@@ -471,6 +479,7 @@ createApp({
         case 'ad_pct_online':{ const a=B('ad_spend'),b=B('online_sales'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/(b.v/g)*100,q:worst([a.q,b.q])}; }
         case 'ad_cost_per_order':{ const a=B('ad_spend'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
         case 'ship_cost_per_order':{ const a=B('shipping_cost'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
+        case 'labour_per_sweet':{ const a=B('hours_kitchen_sweets'),b=B('sweets_sold'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v*60/b.v,q:worst([a.q,b.q])}; }
         default: return base(code,pe);
       }
     }
@@ -578,13 +587,15 @@ createApp({
       {sec:'Service'},
       'orders_missed_cutoff','orders_not_sent','resends_refunds','support_first_response','secret_shopper_score','secret_shopper_count',
       {sec:'Labour'},
-      'wages_paid','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour',
+      'wages_paid','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour','labour_per_sweet',
       {sec:'Labour — hours by area'},
       ...HOURS,'hours_wopples','wages_wopples',
       {sec:'Margin'},
       'online_cogs','online_cogs_pct','online_gross_profit','cafe_waste_value','cafe_waste_pct',
       {sec:'Shipping'},
       'shipping_cost','shipping_subsidy','ship_cost_per_order','parcels_sent',
+      {sec:'Cafe mix (units sold)'},
+      'sweets_sold','drinks_sold','shop_sold',
       {sec:'Production'},
       'mueslis_packed','meals_packed','ingredients_packed',
     ];
@@ -779,6 +790,7 @@ createApp({
       if(level.value==='manager'){ initTargetForm(); initTopline(); }
     }
     onMounted(async()=>{
+      loadToday(true); setInterval(()=>loadToday(true),60000);
       const { data:{ session:p } }=await portal.auth.getSession();
       if(!p){ window.location.href='/'; return; }
       email.value=p.user.email||'';
@@ -811,6 +823,7 @@ createApp({
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
+      today,loadToday,todayTime,
       fm,shortDate,longDate,colLabel };
   }
 }).mount('#app');
