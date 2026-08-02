@@ -5,7 +5,7 @@ const { json, validatePortalUser } = require('./_portal');
 
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 // Revive Apps anon (publishable) key — public by design.
-const APPS_ANON = 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
+const APPS_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhjd3Jhd2pkZmFqbG1ia2R3bGJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMTIxOTEsImV4cCI6MjA5MzU4ODE5MX0.uVHrmY8_cM6NV3cgrhVbZgGAcU6ABEHuT0b35Sg2IfA';
 const APP_EMAIL = 'recipes-app@revive.co.nz';
 const APP_PASSWORD = process.env.RECIPES_APP_PASSWORD;
 
