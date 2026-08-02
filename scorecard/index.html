@@ -187,12 +187,13 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .feed{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--steel-lt);display:inline-flex;align-items:center;gap:3px}
 .feed.on{color:var(--ok)}
 .feed .tick{font-size:11px}
-.todaybar{background:#1f6f54;color:#fff;padding:10px 18px;display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}
-.todaybar b{font-family:var(--disp);font-size:19px;font-weight:800;color:#fff;letter-spacing:0}
-.todaybar .seg{display:flex;align-items:baseline;gap:7px}
-.todaybar .lab{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;opacity:.85}
-.todaybar .tts{font-family:var(--mono);font-size:11.5px;opacity:.85}
-.todaybar .ttr{cursor:pointer;color:#fff;text-decoration:none;font-size:15px;line-height:1;margin-left:4px}
+.todaybar{background:#1f6f54;color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.todaybar .seg{background:rgba(255,255,255,.14);border-radius:9px;padding:5px 13px;display:flex;flex-direction:column;line-height:1.12;min-width:58px}
+.todaybar .seg .lab{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.9;font-weight:600}
+.todaybar .seg b{font-size:17px;font-weight:800;color:#fff;letter-spacing:-.01em}
+.todaybar .tstamp{font-size:11.5px;opacity:.8;margin-left:4px}
+.todaybar .ttr{cursor:pointer;color:#fff;text-decoration:none;font-size:22px;line-height:1}
+.todaybar .ttr:hover{opacity:.75}
 .dmx{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
 .dmx th,.dmx td{border-bottom:1px solid var(--line-2);padding:5px 9px;text-align:right;white-space:nowrap}
 .dmx thead th{position:sticky;top:0;background:var(--paper-2);font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--steel);text-transform:uppercase;font-weight:600}
@@ -217,10 +218,11 @@ td.der .subn,td .subn{opacity:.85}
 
 <div id="app" v-cloak>
   <div v-if="today.sales!=null || today.orders_to_fulfil!=null" class="todaybar">
-    <span class="seg" v-if="today.sales!=null"><span class="lab">Cafe today</span> <b>${{ fm(today.sales,0) }}</b> · <b>{{ fm(today.covers,0) }}</b> covers</span>
-    <span class="seg" v-if="today.orders_to_fulfil!=null"><span class="lab">To fulfil</span> <b>{{ fm(today.orders_to_fulfil,0) }}</b></span>
-    <span class="seg" v-if="today.orders_fulfilled_today!=null"><span class="lab">Fulfilled today</span> <b>{{ fm(today.orders_fulfilled_today,0) }}</b></span>
-    <span class="tts">as at {{ todayTime }} <a class="ttr" @click="loadToday(true)" title="Refresh">↻</a></span>
+    <span class="seg" v-if="today.sales!=null"><span class="lab">Cafe sales</span><b>${{ fm(today.sales,0) }}</b></span>
+    <span class="seg" v-if="today.sales!=null"><span class="lab">Covers</span><b>{{ fm(today.covers,0) }}</b></span>
+    <span class="seg" v-if="today.orders_to_fulfil!=null"><span class="lab">To fulfil</span><b>{{ fm(today.orders_to_fulfil,0) }}</b></span>
+    <span class="seg" v-if="today.orders_fulfilled_today!=null"><span class="lab">Fulfilled today</span><b>{{ fm(today.orders_fulfilled_today,0) }}</b></span>
+    <span class="tstamp">as at {{ todayTime }}</span><a class="ttr" @click="loadToday(true)" title="Refresh">↻</a>
   </div>
   <!-- loader / gate -->
   <div v-if="!ready" class="loader">
