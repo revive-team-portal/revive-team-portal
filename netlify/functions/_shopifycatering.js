@@ -58,7 +58,7 @@ async function syncCatering(start, end) {
     written.push(we);
   }
   for (let i = 0; i < rows.length; i += 400) await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 400)) });
-  await appsDb("integration?name=eq.Shopify", { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ note: 'catering ' + new Date().toISOString() + ' weeks=' + written.length }) }).catch(() => {});
+  await appsDb("integration?name=eq.Shopify", { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ note: 'catering ' + new Date().toISOString() + ' orders=' + orders + ' weeks=' + written.length }) }).catch(() => {});
   return { orders, weeks: written.length, sample: wk[weekEndFri(end)] };
 }
 module.exports = { syncCatering };
