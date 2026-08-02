@@ -13,6 +13,14 @@ small{color:#78716c}
 <h1>Scorecard · SwiftPOS setup</h1>
 <p>Open this page in Chrome on the cafe till PC. Click <b>Copy</b>, then paste into a New Query in Azure Data Studio (database set to <b>SWIFTPOS</b>) and Run.</p>
 
+<div class="box" style="border-color:#25b4e8">
+<h2 style="margin-top:0">Paste results here → send to Claude</h2>
+<p style="margin-top:0">In SSMS/Azure Data Studio: right-click the results grid → <b>Select All</b> → <b>Copy with Headers</b>, then paste below and hit Send. No screenshots needed. <a href="/pos/queries.sql" download>Download all queries (.sql)</a></p>
+<input id="lbl" placeholder="which step? e.g. Step 4" style="width:100%;padding:9px 10px;border:1px solid #e7e5e4;border-radius:8px;font:14px ui-sans-serif,system-ui,Arial;margin-bottom:8px">
+<textarea id="pastebox" placeholder="paste query results here…" style="width:100%;height:180px;padding:10px;border:1px solid #e7e5e4;border-radius:8px;font:12.5px ui-monospace,Menlo,monospace"></textarea>
+<div style="margin-top:8px"><button onclick="sendPaste(this)">Send to Claude</button><span class="ok" id="pasteok"></span></div>
+</div>
+
 <h2>Step 1 — Find the sales &amp; product tables</h2>
 <div class="box">
 <pre id="q1">SELECT t.name AS table_name, p.rows AS row_count
@@ -56,6 +64,17 @@ ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION;</pre>
 </div>
 
 <script>
+async function sendPaste(btn){
+  const content=document.getElementById('pastebox').value;
+  const label=document.getElementById('lbl').value||'pos';
+  if(!content.trim()){document.getElementById('pasteok').textContent='nothing to send';return;}
+  btn.disabled=true;document.getElementById('pasteok').textContent='sending…';
+  try{const r=await fetch('/.netlify/functions/pos-paste',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,content})});
+    const j=await r.json();document.getElementById('pasteok').textContent=r.ok?('sent ✓ ('+j.chars+' chars)'):('failed: '+(j.error||r.status));}
+  catch(e){document.getElementById('pasteok').textContent='failed: '+e.message;}
+  btn.disabled=false;
+}
+
 function cp(id,btn){const t=document.getElementById(id).innerText;navigator.clipboard.writeText(t).then(()=>{document.getElementById('ok'+id.slice(1)).textContent='copied ✓';});}
 </script>
 </body></html>
