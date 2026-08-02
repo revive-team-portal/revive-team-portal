@@ -204,6 +204,8 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .dcell{display:inline-flex;flex-direction:column;line-height:1.02;align-items:flex-end}
 .dcell b{font-family:var(--disp);font-size:14px;letter-spacing:0}
 .dcell small{font-size:9.5px;color:var(--steel-lt);margin-top:1px}
+.subn{font-size:8.5px;color:var(--steel-lt);vertical-align:super;margin-left:3px;font-family:var(--mono)}
+td.der .subn,td .subn{opacity:.85}
 </style>
 </head>
 <body>
@@ -284,7 +286,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
-                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]">{{ cellText(row,w) }}</td>
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]"><span>{{ cellText(row,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_txns',w).v!=null" class="subn" :title="fm(cellObj('uber_txns',w).v,0)+' Uber transactions'">{{ fm(cellObj('uber_txns',w).v,0) }}</span></td>
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
@@ -720,7 +722,7 @@ createApp({
     function entryPlaceholder(row){ return '—'; }
     function derivedDisplay(code){ const x=val(code,entryWeek.value); if(x.v==null) return ''; const u=ufmt(code); return (u.pre||'')+fm(x.v,u.dp)+(u.suf||''); }
     const receiptBusy=ref(false), receiptMsg=ref(''), feedsBusy=ref(false);
-    const feedList=[{name:'Till receipt',metric:'cafe_sales'},{name:'Shopify',metric:'online_sales'},{name:'Meta ads',metric:'ad_spend'},{name:'TimeKeeper',metric:'hours_foh_cafe'},{name:'Support',metric:'support_first_response'},{name:'Secret shopper',metric:'secret_shopper_count'}];
+    const feedList=[{name:'Till receipt',metric:'cafe_sales'},{name:'Shopify',metric:'online_sales'},{name:'Catering',metric:'catering_sales'},{name:'Uber',metric:'uber_total'},{name:'Meta ads',metric:'ad_spend'},{name:'TimeKeeper',metric:'hours_foh_cafe'},{name:'Support',metric:'support_first_response'},{name:'Secret shopper',metric:'secret_shopper_count'}];
     function feedIn(f){ return !!(f.metric && val(f.metric,entryWeek.value).v!=null); }
     async function getFeeds(){ feedsBusy.value=true; try{ await callData({action:'get_feeds'}); await refresh(); loadEntry(entryWeek.value); flash('Auto feeds pulled'); }catch(e){ flash('Feeds failed: '+e.message); } feedsBusy.value=false; }
     async function newWeek(){ try{ const r=await callData({action:'new_week'}); await refresh(); loadEntry(r.period_end); flash('Added week ending '+shortDate(r.period_end)); }catch(e){ flash('Failed: '+e.message); } }

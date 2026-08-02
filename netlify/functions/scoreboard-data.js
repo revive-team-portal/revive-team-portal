@@ -185,14 +185,19 @@ exports.handler = async (event) => {
       if (level === 'team') return json(403, { error: 'Pulling feeds needs Supervisor access.' });
       const { syncShopify } = require('./_shopifysync');
       const { syncMeta } = require('./_metasync');
+      const { UBER_SQL, queueJob } = require('./_posqueries');
       const today = new Date().toISOString().slice(0, 10);
       const sd = new Date(); sd.setUTCDate(sd.getUTCDate() - 42); const shopStart = sd.toISOString().slice(0, 10);
       const [tk, sh, mt] = await Promise.allSettled([runSync(6), syncShopify(shopStart, today), syncMeta(shopStart, today)]);
+      await queueJob('uber-feed', UBER_SQL).catch(() => {});
+      const base = process.env.URL || 'https://team.revive.co.nz';
+      await fetch(base + '/.netlify/functions/catering-sync-background').catch(() => {});
       await appsDb('rpc/rollup_pulse', { method: 'POST', headers: { 'Content-Profile': 'scoreboard' }, body: '{}' }).catch(() => {});
       return json(200, { ok: true,
         timekeeper: tk.status === 'fulfilled' ? tk.value : String(tk.reason).slice(0, 160),
         shopify: sh.status === 'fulfilled' ? sh.value : String(sh.reason).slice(0, 160),
-        meta: mt.status === 'fulfilled' ? mt.value : String(mt.reason).slice(0, 160) });
+        meta: mt.status === 'fulfilled' ? mt.value : String(mt.reason).slice(0, 160),
+        uber: 'queued (till agent)', catering: 'running (bulk)' });
     }
 
     return json(400, { error: 'Unknown action.' });
