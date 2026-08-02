@@ -441,7 +441,7 @@ async function renderCollectors(){
   h+=(cols||[]).map(c=>{ const url=`${PUBLIC_BASE}/${c.code}`;
     return `<tr>
       <td><input value="${esc(c.label||'')}" onchange="colLabel('${c.id}',this.value)" style="border:1px solid var(--line);border-radius:7px;padding:5px 8px;width:170px"></td>
-      <td><code>${esc(url)}</code><br><span class="muted" style="font-size:11px">works now at: ${FALLBACK_BASE}/${c.code}</span></td>
+      <td><code>${esc(url)}</code></td>
       <td>${counts[c.id]||0}</td>
       <td><input type="checkbox" ${c.active?'checked':''} onchange="colActive('${c.id}',this.checked)"></td>
       <td><button class="btn small" onclick="copyTxt('${url}')">Copy</button></td>
