@@ -44,6 +44,17 @@ ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION;</pre>
 <p><small>This shows real values in each column. Screenshot if it fits.</small></p>
 </div>
 
+
+<h2>Step 4 — Find the sale date (columns of all EJ tables)</h2>
+<div class="box">
+<pre id="q4">SELECT c.TABLE_NAME, c.ORDINAL_POSITION AS pos, c.COLUMN_NAME, c.DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS c
+WHERE c.TABLE_NAME LIKE 'EJ%'
+ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION;</pre>
+<button onclick="cp('q4',this)">Copy query</button><span class="ok" id="ok4"></span>
+<p><small>I'm looking for a datetime column and how it links to Transaction_Number. Screenshot the grid (a couple of screens' worth).</small></p>
+</div>
+
 <script>
 function cp(id,btn){const t=document.getElementById(id).innerText;navigator.clipboard.writeText(t).then(()=>{document.getElementById('ok'+id.slice(1)).textContent='copied ✓';});}
 </script>
