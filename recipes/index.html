@@ -174,74 +174,71 @@
         </div>
       </div>
 
-      <!-- Ingredient list — big, recipe-card style -->
-      <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-6">
-        <!-- Column headers -->
-        <div class="flex items-center justify-between px-8 py-3 bg-stone-50 border-b border-stone-200">
-          <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">{{ viewIngredients.length }} item{{ viewIngredients.length!==1?'s':'' }}</span>
-          <div class="flex gap-8 text-xs font-bold text-stone-400 uppercase tracking-wider">
-            <span class="w-32 text-right">kg</span>
-            <span class="w-20 text-right">cost</span>
-          </div>
-        </div>
+      <!-- Steps: method + ingredient rows integrated -->
+      <div class="mb-6">
 
-        <!-- General (unassigned to a step) -->
-        <template v-if="viewUnassignedIngredients.length>0">
-          <div class="px-8 py-2 border-b border-stone-100 bg-stone-50">
+        <!-- General (unassigned to any step) -->
+        <div v-if="viewUnassignedIngredients.length>0" class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-4">
+          <div class="px-8 py-3 bg-stone-50 border-b border-stone-100">
             <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">General</span>
           </div>
           <div v-for="ri in viewUnassignedIngredients" :key="'u'+ri.id"
-            class="flex items-center justify-between px-8 py-4 border-b border-stone-100 hover:bg-amber-50/40 transition">
-            <div>
+            class="flex items-center justify-between px-8 py-4 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition">
+            <div class="flex-1 min-w-0 flex items-baseline gap-3 flex-wrap">
               <span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span>
-              <span v-if="ri.volumetric_note" class="text-sm text-stone-400 ml-3 italic">{{ ri.volumetric_note }}</span>
+              <span v-if="ri.volumetric_note" class="text-sm font-bold text-stone-400">{{ ri.volumetric_note }}</span>
             </div>
-            <div class="flex items-center gap-8 shrink-0">
+            <div class="flex items-center gap-8 shrink-0 ml-4">
               <span class="w-32 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
-              <span class="w-20 text-right text-stone-500 font-semibold">${{ calcIngCost(ri.ingredient,ri.weight_g).toFixed(2) }}</span>
+              <div class="w-28 text-right">
+                <p class="text-xs text-stone-400 leading-tight">{{ viewCostSourceLabel(ri.ingredient) }}</p>
+                <p class="text-sm font-semibold text-stone-600">${{ calcIngCost(ri.ingredient,ri.weight_g).toFixed(2) }}</p>
+              </div>
             </div>
           </div>
-        </template>
+        </div>
 
-        <!-- Per-step groups -->
-        <template v-for="(step,idx) in viewSteps" :key="step.id">
-          <template v-if="viewIngredientsForStep(step.id).length>0">
-            <div class="px-8 py-2 border-b border-stone-100 bg-stone-50">
-              <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">Step {{ idx+1 }}<span v-if="step.title"> · {{ step.title }}</span></span>
+        <!-- Per-step cards (all steps shown, method + ingredients together) -->
+        <div v-for="(step,idx) in viewSteps" :key="step.id"
+          class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-4">
+          <!-- Step header with method -->
+          <div class="px-8 py-5 bg-stone-50 border-b border-stone-200">
+            <div class="flex items-center gap-3 mb-2">
+              <span class="bg-amber-600 text-white text-sm font-bold w-8 h-8 rounded-full flex items-center justify-center shrink-0">{{ idx+1 }}</span>
+              <h3 class="font-bold text-stone-800 text-lg">{{ step.title||'Step '+(idx+1) }}</h3>
             </div>
+            <p v-if="step.description" class="text-stone-600 text-sm leading-relaxed ml-11">{{ step.description }}</p>
+          </div>
+          <!-- Ingredient rows for this step -->
+          <template v-if="viewIngredientsForStep(step.id).length>0">
             <div v-for="ri in viewIngredientsForStep(step.id)" :key="ri.id"
               class="flex items-center justify-between px-8 py-4 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition">
-              <div>
+              <div class="flex-1 min-w-0 flex items-baseline gap-3 flex-wrap">
                 <span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span>
-                <span v-if="ri.volumetric_note" class="text-sm text-stone-400 ml-3 italic">{{ ri.volumetric_note }}</span>
+                <span v-if="ri.volumetric_note" class="text-sm font-bold text-stone-400">{{ ri.volumetric_note }}</span>
               </div>
-              <div class="flex items-center gap-8 shrink-0">
+              <div class="flex items-center gap-8 shrink-0 ml-4">
                 <span class="w-32 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
-                <span class="w-20 text-right text-stone-500 font-semibold">${{ calcIngCost(ri.ingredient,ri.weight_g).toFixed(2) }}</span>
+                <div class="w-28 text-right">
+                  <p class="text-xs text-stone-400 leading-tight">{{ viewCostSourceLabel(ri.ingredient) }}</p>
+                  <p class="text-sm font-semibold text-stone-600">${{ calcIngCost(ri.ingredient,ri.weight_g).toFixed(2) }}</p>
+                </div>
               </div>
             </div>
           </template>
-        </template>
+          <div v-else class="px-8 py-3 text-xs text-stone-400 italic">No items assigned to this step</div>
+        </div>
 
-        <!-- Total row -->
-        <div class="flex items-center justify-between px-8 py-5 bg-stone-800 text-white">
+        <!-- Total bar -->
+        <div class="flex items-center justify-between px-8 py-5 bg-stone-800 text-white rounded-2xl">
           <span class="font-bold text-sm uppercase tracking-wider">Total raw batch</span>
           <div class="flex items-center gap-8 shrink-0">
             <span class="w-32 text-right font-bold text-lg">{{ (viewTotalWeight/1000).toFixed(3) }} kg</span>
-            <span class="w-20 text-right font-bold">${{ viewTotalCost.toFixed(2) }}</span>
+            <div class="w-28 text-right">
+              <p class="text-xs text-stone-400 leading-tight">all items</p>
+              <p class="text-base font-bold">${{ viewTotalCost.toFixed(2) }}</p>
+            </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Method -->
-      <div v-if="viewSteps.length>0" class="mb-6">
-        <h2 class="text-xl font-bold text-stone-800 mb-3">Method</h2>
-        <div v-for="(step,idx) in viewSteps" :key="step.id" class="bg-white rounded-2xl border border-stone-200 p-6 mb-3">
-          <div class="flex items-center gap-3 mb-2">
-            <span class="bg-amber-600 text-white text-sm font-bold w-8 h-8 rounded-full flex items-center justify-center shrink-0">{{ idx+1 }}</span>
-            <h3 class="font-bold text-stone-800 text-lg">{{ step.title||'Step '+(idx+1) }}</h3>
-          </div>
-          <p class="text-stone-600 leading-relaxed">{{ step.description }}</p>
         </div>
       </div>
 
@@ -273,8 +270,17 @@
           </div>
         </div>
 
-        <div v-if="nipCoverage<30" class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 mb-5">
-          Low coverage — open each ingredient in the <strong>Ingredient Database</strong> and use the USDA auto-fill to populate nutritional values.
+        <!-- Auto-fill button -->
+        <div class="flex items-center gap-3 mb-5">
+          <button @click="autoFillNIP" :disabled="autoFillLoading"
+            class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition disabled:opacity-50 flex items-center gap-2">
+            <span v-if="autoFillLoading">⏳ Fetching USDA data…</span>
+            <span v-else>🔍 Auto-fill missing data from USDA</span>
+          </button>
+          <span v-if="autoFillStatus" class="text-xs text-stone-500">{{ autoFillStatus }}</span>
+          <span v-if="nipCoverage<30" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+            Low coverage — click to fetch missing nutritional data
+          </span>
         </div>
 
         <p class="text-xs text-stone-400 mb-5">
@@ -1093,6 +1099,8 @@ Method:
       const savingIngredient = ref(false);
       const usdaQuery = ref(''); const usdaResults = ref([]); const usdaLoading = ref(false); const usdaError = ref('');
       const aiLoading = ref(false);
+      const autoFillLoading = ref(false);
+      const autoFillStatus = ref('');
       // Meals
       const meals = ref([]); const loadingMeals = ref(false); const currentMeal = ref(null); const currentMealComponents = ref([]);
       const editMeal = ref({ id:null,name:'',description:'',serve_weight_g:300,notes:'',components:[] });
@@ -1390,6 +1398,55 @@ Method:
         usdaResults.value=[];
       }
 
+      // ---- NIP AUTO-FILL ----
+      async function autoFillNIP() {
+        // Collect unique ingredients in this recipe that have no nutritional data
+        const seen = new Set();
+        const missing = [];
+        for (const ri of viewIngredients.value) {
+          const ing = ri.ingredient;
+          if (!ing || seen.has(ing.id)) continue;
+          seen.add(ing.id);
+          if (!Number(ing.energy_kj) && !Number(ing.protein_g) && !Number(ing.fat_g)) missing.push(ing);
+        }
+        if (missing.length === 0) { autoFillStatus.value = 'All items already have data.'; return; }
+        autoFillLoading.value = true; autoFillStatus.value = '';
+        let filled = 0;
+        for (const ing of missing) {
+          try {
+            // Prefer Foundation & SR Legacy foods (whole foods, not branded)
+            const url = 'https://api.nal.usda.gov/fdc/v1/foods/search?query='+encodeURIComponent(ing.name)
+              +'&pageSize=5&dataType=Foundation,SR%20Legacy&api_key='+USDA_API_KEY;
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const json = await res.json();
+            const food = json.foods?.[0];
+            if (!food) continue;
+            const n = extractUSDANutrients(food.foodNutrients || []);
+            if (!n.energy_kj && !n.protein_g) continue; // nothing useful
+            const update = {};
+            if (n.energy_kj != null)       update.energy_kj       = n.energy_kj;
+            if (n.protein_g != null)        update.protein_g       = n.protein_g;
+            if (n.fat_g != null)            update.fat_g           = n.fat_g;
+            if (n.saturated_fat_g != null)  update.saturated_fat_g = n.saturated_fat_g;
+            if (n.carbohydrate_g != null)   update.carbohydrate_g  = n.carbohydrate_g;
+            if (n.sugars_g != null)         update.sugars_g        = n.sugars_g;
+            if (n.dietary_fibre_g != null)  update.dietary_fibre_g = n.dietary_fibre_g;
+            if (n.sodium_mg != null)        update.sodium_mg       = n.sodium_mg;
+            await sb.from('ingredients').update(update).eq('id', ing.id);
+            // Patch local state so NIP recalculates immediately
+            const local = ingredients.value.find(i => i.id === ing.id);
+            if (local) Object.assign(local, update);
+            viewIngredients.value.forEach(ri => { if (ri.ingredient?.id === ing.id) Object.assign(ri.ingredient, update); });
+            filled++;
+          } catch(e) { console.warn('USDA error for', ing.name, e); }
+        }
+        autoFillLoading.value = false;
+        autoFillStatus.value = filled > 0
+          ? `Filled ${filled} of ${missing.length} items from USDA.`
+          : `No USDA matches found for the ${missing.length} missing items.`;
+      }
+
       // ---- MEALS ----
       function startNewMeal(){editMeal.value={id:null,name:'',description:'',serve_weight_g:300,notes:'',components:[]};mealError.value='';mealAddId.value='';mealAddWeight.value=null;currentView.value='meal-edit';}
       async function startEditMeal(meal){
@@ -1559,6 +1616,7 @@ Method:
         convertVolumetricToGrams,
         saveRecipe, confirmDeleteRecipe, printRecipe,
         openIngredientModal, saveIngredient, confirmDeleteIngredient, estimateCookRatio,
+        autoFillLoading, autoFillStatus, autoFillNIP,
         searchUSDA, selectUSDAFood,
         startNewMeal, startEditMeal, cancelMealEdit, addMealComponent, removeMealComponent, saveMeal, viewMeal, confirmDeleteMeal,
         parseImportText, parseImportPhoto, handlePhotoSelect, handlePhotoDrop, clearImportPhoto,
