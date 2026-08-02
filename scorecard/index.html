@@ -218,8 +218,10 @@ td.der .subn,td .subn{opacity:.85}
 
 <div id="app" v-cloak>
   <div v-if="today.sales!=null || today.orders_to_fulfil!=null" class="todaybar">
-    <span class="seg" v-if="today.sales!=null"><span class="lab">Cafe sales</span><b>${{ fm(today.sales,0) }}</b></span>
-    <span class="seg" v-if="today.sales!=null"><span class="lab">Covers</span><b>{{ fm(today.covers,0) }}</b></span>
+    <span class="seg" v-if="today.sales!=null"><span class="lab">Cafe $ today</span><b>${{ fm(today.sales,0) }}</b></span>
+    <span class="seg" v-if="today.sales!=null"><span class="lab">Covers today</span><b>{{ fm(today.covers,0) }}</b></span>
+    <span class="seg" v-if="today.shopify_today!=null"><span class="lab">Shopify today</span><b>${{ fm(today.shopify_today,0) }}</b></span>
+    <span class="seg" v-if="today.shopify_week!=null"><span class="lab">Shopify this week</span><b>${{ fm(today.shopify_week,0) }}</b></span>
     <span class="seg" v-if="today.orders_to_fulfil!=null"><span class="lab">To fulfil</span><b>{{ fm(today.orders_to_fulfil,0) }}</b></span>
     <span class="seg" v-if="today.orders_fulfilled_today!=null"><span class="lab">Fulfilled today</span><b>{{ fm(today.orders_fulfilled_today,0) }}</b></span>
     <span class="tstamp">as at {{ todayTime }}</span><a class="ttr" @click="loadToday(true)" title="Refresh">↻</a>
@@ -475,8 +477,8 @@ createApp({
   setup(){
     const ready=ref(false), gateError=ref(''), level=ref(''), email=ref(''), screen=ref('team');
     const msg=ref('');
-    const today=reactive({sales:null,covers:null,updated_at:null,orders_to_fulfil:null,orders_fulfilled_today:null});
-    async function loadToday(refresh){ try{ const r=await fetch('/.netlify/functions/cafe-today'+(refresh?'?refresh=1':'')); const j=await r.json(); if(j&&!j.error){ today.sales=j.sales; today.covers=j.covers; today.updated_at=j.updated_at; today.orders_to_fulfil=j.orders_to_fulfil; today.orders_fulfilled_today=j.orders_fulfilled_today; } }catch(e){} }
+    const today=reactive({sales:null,covers:null,updated_at:null,shopify_today:null,shopify_week:null,orders_to_fulfil:null,orders_fulfilled_today:null});
+    async function loadToday(refresh){ try{ const r=await fetch('/.netlify/functions/cafe-today'+(refresh?'?refresh=1':'')); const j=await r.json(); if(j&&!j.error){ today.sales=j.sales; today.covers=j.covers; today.updated_at=j.updated_at; today.shopify_today=j.shopify_today; today.shopify_week=j.shopify_week; today.orders_to_fulfil=j.orders_to_fulfil; today.orders_fulfilled_today=j.orders_fulfilled_today; } }catch(e){} }
     const todayTime=computed(()=>{ if(!today.updated_at) return ''; const d=new Date(today.updated_at); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); });
     let flashT=null;
     function flash(t){ msg.value=t; clearTimeout(flashT); flashT=setTimeout(()=>msg.value='',2600); }

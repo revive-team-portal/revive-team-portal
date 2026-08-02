@@ -311,7 +311,9 @@ async function loadTodayBar(refresh){
     const t=d?(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')):'';
     const box=(lab,val)=>'<span class="seg"><span class="lab">'+lab+'</span><b>'+val+'</b></span>';
     let h='';
-    if(j.sales!=null){ h+=box('Cafe sales','$'+Math.round(j.sales).toLocaleString()); h+=box('Covers',Math.round(j.covers).toLocaleString()); }
+    if(j.sales!=null){ h+=box('Cafe $ today','$'+Math.round(j.sales).toLocaleString()); h+=box('Covers today',Math.round(j.covers).toLocaleString()); }
+    if(j.shopify_today!=null) h+=box('Shopify today','$'+Math.round(j.shopify_today).toLocaleString());
+    if(j.shopify_week!=null) h+=box('Shopify this week','$'+Math.round(j.shopify_week).toLocaleString());
     if(j.orders_to_fulfil!=null) h+=box('To fulfil',j.orders_to_fulfil.toLocaleString());
     if(j.orders_fulfilled_today!=null) h+=box('Fulfilled today',j.orders_fulfilled_today.toLocaleString());
     if(!h) return;
