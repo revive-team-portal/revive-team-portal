@@ -6,7 +6,7 @@
   <title>Revive Cafe — Recipe Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"></script>
   <style>
     [v-cloak] { display: none; }
     @media print { .no-print { display: none !important; } body { background: white; } }
@@ -34,7 +34,7 @@
       <p v-if="!gateError" class="text-stone-500 text-sm">Loading Recipe Manager…</p>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
         <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
-        <a href="/" class="text-amber-700 underline text-sm">← Back to portal</a>
+        <a href="/" class="text-amber-700 underline text-sm">&larr; Back to portal</a>
       </div>
     </div>
   </div>
@@ -56,7 +56,7 @@
       <div class="flex items-center gap-2">
         <button @click="startImport"
           class="text-stone-300 hover:text-white border border-stone-600 hover:border-stone-400 text-xs font-medium px-3 py-1.5 rounded-lg transition no-print">
-          ↑ Import Recipe
+          &uarr; Import Recipe
         </button>
         <button @click="startNewRecipe"
           class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition no-print">
@@ -70,12 +70,12 @@
     <div v-if="currentView === 'list'" class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
       <!-- Search bar -->
       <div class="flex items-center gap-3 mb-8">
-        <input v-model="searchQuery" type="text" placeholder="Search recipes…"
+        <input v-model="searchQuery" type="text" placeholder="Search recipes..."
           class="flex-1 border border-stone-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
         <span class="text-stone-400 text-sm shrink-0">{{ filteredRecipes.length }} recipe{{ filteredRecipes.length!==1?'s':'' }}</span>
       </div>
 
-      <div v-if="loadingRecipes" class="text-center text-stone-400 py-24 text-sm">Loading…</div>
+      <div v-if="loadingRecipes" class="text-center text-stone-400 py-24 text-sm">Loading...</div>
       <div v-else-if="filteredRecipes.length===0" class="text-center py-24">
         <p class="text-stone-400 text-lg mb-2">No recipes found</p>
         <button @click="startNewRecipe" class="text-amber-600 hover:text-amber-700 font-medium text-sm">+ Create your first recipe</button>
@@ -113,22 +113,22 @@
               <!-- Batch weight -->
               <span class="text-xs text-stone-500 w-24 text-right shrink-0">
                 <span v-if="recipe._totalWeight">{{ recipe._totalWeight>=1000?(recipe._totalWeight/1000).toFixed(1)+'kg':recipe._totalWeight.toFixed(0)+'g' }}</span>
-                <span v-else class="text-stone-300">—</span>
+                <span v-else class="text-stone-300">-</span>
               </span>
               <!-- Batch cost -->
               <span class="text-xs text-stone-600 w-24 text-right shrink-0 font-medium">
                 <span v-if="recipe._cost>0">${{ recipe._cost.toFixed(2) }}</span>
-                <span v-else class="text-stone-300">—</span>
+                <span v-else class="text-stone-300">-</span>
               </span>
               <!-- Cost per serve -->
               <span class="text-xs text-stone-500 w-28 text-right shrink-0">
                 <span v-if="recipe._cost>0&&recipe._totalWeight&&recipe.serve_weight_g">
                   ${{ (recipe._cost/((recipe._totalWeight*0.90)/recipe.serve_weight_g)).toFixed(2) }}
                 </span>
-                <span v-else class="text-stone-300">—</span>
+                <span v-else class="text-stone-300">-</span>
               </span>
               <!-- Arrow -->
-              <span class="text-stone-300 group-hover:text-amber-400 transition text-sm w-3 shrink-0">›</span>
+              <span class="text-stone-300 group-hover:text-amber-400 transition text-sm w-3 shrink-0">&rsaquo;</span>
             </div>
           </div>
         </div>
@@ -140,7 +140,7 @@
 
       <!-- Action bar -->
       <div class="flex items-center justify-between mb-6 no-print">
-        <button @click="goToList" class="text-amber-600 hover:text-amber-700 text-sm font-medium">← Back</button>
+        <button @click="goToList" class="text-amber-600 hover:text-amber-700 text-sm font-medium">&larr; Back</button>
         <div class="flex gap-2">
           <button @click="startEditRecipe(currentRecipe)" class="bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium px-4 py-2 rounded-lg transition">Edit</button>
           <button @click="startNewVersion(currentRecipe)" class="bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium px-4 py-2 rounded-lg transition">New Version</button>
@@ -189,7 +189,7 @@
             <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Pack</p>
             <p class="text-xl font-bold text-stone-800 mt-1">
               <span v-if="viewTotalCost>0&&currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(2) }}</span>
-              <span v-else class="text-stone-400">—</span>
+              <span v-else class="text-stone-400">-</span>
             </p>
           </div>
         </div>
@@ -302,8 +302,8 @@
         <div class="flex items-center gap-3 mb-5">
           <button @click="autoFillNIP" :disabled="autoFillLoading"
             class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition disabled:opacity-50 flex items-center gap-2">
-            <span v-if="autoFillLoading">⏳ Fetching USDA data…</span>
-            <span v-else>🔍 Auto-fill missing data from USDA</span>
+            <span v-if="autoFillLoading">Fetching USDA data...</span>
+            <span v-else>Auto-fill missing data from USDA</span>
           </button>
           <span v-if="autoFillStatus" class="text-xs text-stone-500">{{ autoFillStatus }}</span>
           <span v-if="nipCoverage<30" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
@@ -516,8 +516,8 @@
               Step {{ idx+1 }}
             </span>
             <div class="flex items-center gap-3 text-xs">
-              <button v-if="idx>0" @click="moveStepUp(idx)" class="text-stone-400 hover:text-stone-700">↑ Up</button>
-              <button v-if="idx<editForm.steps.length-1" @click="moveStepDown(idx)" class="text-stone-400 hover:text-stone-700">↓ Down</button>
+              <button v-if="idx>0" @click="moveStepUp(idx)" class="text-stone-400 hover:text-stone-700">&uarr; Up</button>
+              <button v-if="idx<editForm.steps.length-1" @click="moveStepDown(idx)" class="text-stone-400 hover:text-stone-700">&darr; Down</button>
               <button @click="removeStep(idx)" class="text-red-400 hover:text-red-600">Remove</button>
             </div>
           </div>
@@ -681,7 +681,7 @@
         </div>
         <button @click="startNewMeal" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-2 rounded-lg transition text-sm">+ New Meal</button>
       </div>
-      <div v-if="loadingMeals" class="text-center text-stone-400 py-24 text-sm">Loading…</div>
+      <div v-if="loadingMeals" class="text-center text-stone-400 py-24 text-sm">Loading...</div>
       <div v-else-if="meals.length===0" class="text-center py-24">
         <p class="text-stone-400 text-lg mb-2">No meals yet</p>
         <p class="text-stone-400 text-sm mb-4">Create a meal by combining recipes and ingredients to get a combined nutritional panel.</p>
@@ -703,7 +703,7 @@
     <!-- ============ MEAL VIEW ============ -->
     <div v-if="currentView==='meal-view'&&currentMeal" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
       <div class="flex items-center justify-between mb-6 no-print">
-        <button @click="currentView='meals'" class="text-amber-600 hover:text-amber-700 text-sm font-medium">← Back to Meals</button>
+        <button @click="currentView='meals'" class="text-amber-600 hover:text-amber-700 text-sm font-medium">&larr; Back to Meals</button>
         <div class="flex gap-2">
           <button @click="startEditMeal(currentMeal)" class="bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium px-4 py-2 rounded-lg transition">Edit</button>
           <button @click="printRecipe" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Print / PDF</button>
@@ -733,7 +733,7 @@
             <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Serve</p>
             <p class="text-xl font-bold text-stone-800 mt-1">
               <span v-if="mealTotalCost>0&&currentMeal.serve_weight_g&&mealTotalWeight>0">${{ (mealTotalCost/(mealTotalWeight/currentMeal.serve_weight_g)).toFixed(3) }}</span>
-              <span v-else class="text-stone-400">—</span>
+              <span v-else class="text-stone-400">-</span>
             </p>
           </div>
         </div>
@@ -905,11 +905,11 @@
     <!-- ============ IMPORT VIEW ============ -->
     <div v-if="currentView==='import'" class="flex-1 max-w-3xl mx-auto px-6 py-8 w-full">
       <div class="flex items-center gap-4 mb-6">
-        <button @click="goToList" class="text-amber-600 hover:text-amber-700 text-sm font-medium">← Back</button>
+        <button @click="goToList" class="text-amber-600 hover:text-amber-700 text-sm font-medium">&larr; Back</button>
         <h1 class="text-2xl font-bold text-stone-800">Import Recipe</h1>
       </div>
       <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6">
-        <p class="text-sm text-blue-800 font-medium mb-1">🤖 Powered by Claude AI</p>
+        <p class="text-sm text-blue-800 font-medium mb-1">AI-Powered Recipe Import</p>
         <p class="text-xs text-blue-600">Paste your rough recipe notes or upload a photo — Claude will read it and fill in the recipe editor automatically. You can review and adjust everything before saving.</p>
       </div>
 
@@ -982,7 +982,7 @@ Method:
 
         <!-- USDA Lookup -->
         <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
-          <p class="text-sm font-bold text-blue-800 mb-1">🔍 Auto-fill from USDA Database</p>
+          <p class="text-sm font-bold text-blue-800 mb-1">Auto-fill from USDA Database</p>
           <p class="text-xs text-blue-600 mb-3">Search to auto-fill nutritional values.</p>
           <div class="flex gap-2">
             <input v-model="usdaQuery" type="text"
