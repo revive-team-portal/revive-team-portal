@@ -323,7 +323,7 @@ tbody tr:hover td.avg10{background:#F2F0EE}
           <button class="mini" @click="newWeek">+ New week</button>
           <div class="rcpt"><input type="file" ref="rcptInput" accept="image/*" multiple capture="environment" style="display:none" @change="onReceiptFiles"><button class="mini" :disabled="receiptBusy" @click="$refs.rcptInput.click()">{{ receiptBusy?'Reading receipt…':'\ud83d\udcf7 Upload till receipt' }}</button><span v-if="receiptMsg" class="rcptmsg">{{ receiptMsg }}</span></div>
           <div class="feeds">
-            <button class="mini pri" :disabled="feedsBusy" @click="getFeeds">{{ feedsBusy?'Pulling…':'\u27f3 Get auto feeds' }}</button>
+            <button class="mini pri" :disabled="feedsBusy" @click="getFeeds">{{ feedsBusy?'Pulling…':'↻ Get auto feeds' }}</button>
             <span v-for="f in feedList" :key="f.name" class="feed" :class="{on:feedIn(f)}"><span class="tick">{{ feedIn(f)?'\u2713':'\u25cb' }}</span>{{ f.name }}</span>
           </div>
         </div>
@@ -698,7 +698,7 @@ createApp({
         if(f2.cafe_sales!=null) entryVals['cafe_sales']=String(f2.cafe_sales);
         if(f2.cafe_customers!=null) entryVals['cafe_customers']=String(f2.cafe_customers);
         if(f2.uber_total!=null) entryVals['uber_total']=String(f2.uber_total);
-        receiptMsg.value='Read $'+fm(f2.cafe_sales,0)+' \u00b7 '+fm(f2.cafe_customers,0)+' customers \u00b7 Uber $'+fm(f2.uber_total,2)+' \u2014 check & Save week';
+        receiptMsg.value='Read $'+fm(f2.cafe_sales,0)+' · '+fm(f2.cafe_customers,0)+' customers · Uber $'+fm(f2.uber_total,2)+' — check & Save week';
         flash('Receipt read \u2014 review and Save');
       }catch(e){ receiptMsg.value='Receipt failed: '+e.message; flash('Receipt failed'); }
       receiptBusy.value=false; ev.target.value='';
