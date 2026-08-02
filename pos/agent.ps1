@@ -13,16 +13,19 @@ param(
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 $base = "https://team.revive.co.nz/.netlify/functions/pos-agent"
 $logUrl = "https://team.revive.co.nz/.netlify/functions/pos-paste"
+$nextUrl = $base + "?action=next&k=" + $Token
+$resultUrl = $base + "?action=result&k=" + $Token
 if ($User) { $connStr = "Server=$Server;Database=$Database;User Id=$User;Password=$Password;TrustServerCertificate=True" }
 else       { $connStr = "Server=$Server;Database=$Database;Integrated Security=SSPI;TrustServerCertificate=True" }
 function Log($m){
   Write-Host $m
   try { Invoke-RestMethod -Uri $logUrl -Method Post -ContentType 'application/json' -Body (@{label='agent';content=$m} | ConvertTo-Json) -TimeoutSec 15 | Out-Null } catch {}
 }
+Log ("next url = " + $nextUrl)
 Log "agent starting - server=$Server db=$Database auth=$(if($User){'sql:'+$User}else{'windows'})"
 # connectivity + DB self-test
 try {
-  $t = Invoke-RestMethod -Uri "$base?action=next&k=$Token" -Method Get -TimeoutSec 25
+  $t = Invoke-RestMethod -Uri $nextUrl -Method Get -TimeoutSec 25
   Log "http ok - reached portal"
 } catch { Log "HTTP FAILED: $_"; }
 try {
@@ -33,11 +36,11 @@ try {
 Log "polling for jobs... (leave this window open)"
 while ($true) {
   try {
-    $n = Invoke-RestMethod -Uri "$base?action=next&k=$Token" -Method Get -TimeoutSec 25
+    $n = Invoke-RestMethod -Uri $nextUrl -Method Get -TimeoutSec 25
     if ($n.job) {
       $id = $n.job.id; $sql = $n.job.sql
       if ($sql -notmatch '^(?is)\s*select') {
-        Invoke-RestMethod -Uri "$base?action=result&k=$Token" -Method Post -ContentType 'application/json' -Body (@{id=$id;error='only SELECT allowed'} | ConvertTo-Json) | Out-Null
+        Invoke-RestMethod -Uri $resultUrl -Method Post -ContentType 'application/json' -Body (@{id=$id;error='only SELECT allowed'} | ConvertTo-Json) | Out-Null
       } else {
         try {
           $cn = New-Object System.Data.SqlClient.SqlConnection $connStr; $cn.Open()
@@ -46,9 +49,9 @@ while ($true) {
           $cols=@(); for($i=0;$i-lt$rd.FieldCount;$i++){$cols+=$rd.GetName($i)}; [void]$sb.AppendLine(($cols -join "`t"))
           while($rd.Read()){ $vals=@(); for($i=0;$i-lt$rd.FieldCount;$i++){$vals+=(""+$rd.GetValue($i))}; [void]$sb.AppendLine(($vals -join "`t")) }
           $cn.Close(); $out=$sb.ToString(); if($out.Length -gt 850000){$out=$out.Substring(0,850000)+"`n...truncated"}
-          Invoke-RestMethod -Uri "$base?action=result&k=$Token" -Method Post -ContentType 'application/json' -Body (@{id=$id;result=$out} | ConvertTo-Json -Depth 3) | Out-Null
+          Invoke-RestMethod -Uri $resultUrl -Method Post -ContentType 'application/json' -Body (@{id=$id;result=$out} | ConvertTo-Json -Depth 3) | Out-Null
           Log "job $id done"
-        } catch { Invoke-RestMethod -Uri "$base?action=result&k=$Token" -Method Post -ContentType 'application/json' -Body (@{id=$id;error=(""+$_)} | ConvertTo-Json) | Out-Null; Log "job $id ERROR: $_" }
+        } catch { Invoke-RestMethod -Uri $resultUrl -Method Post -ContentType 'application/json' -Body (@{id=$id;error=(""+$_)} | ConvertTo-Json) | Out-Null; Log "job $id ERROR: $_" }
       }
     } else { Start-Sleep -Seconds 3 }
   } catch { Log "poll error: $_"; Start-Sleep -Seconds 6 }
