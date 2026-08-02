@@ -118,6 +118,8 @@
 
     <!-- ============ RECIPE VIEW ============ -->
     <div v-if="currentView==='view'&&currentRecipe" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
+
+      <!-- Action bar -->
       <div class="flex items-center justify-between mb-6 no-print">
         <button @click="goToList" class="text-amber-600 hover:text-amber-700 text-sm font-medium">← Back</button>
         <div class="flex gap-2">
@@ -127,110 +129,179 @@
           <button @click="confirmDeleteRecipe(currentRecipe)" class="bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium px-4 py-2 rounded-lg transition">Delete</button>
         </div>
       </div>
-      <div class="bg-white rounded-2xl border border-stone-200 p-8 mb-5">
+
+      <!-- Header card -->
+      <div class="bg-white rounded-2xl border border-stone-200 p-8 mb-6">
         <div class="flex flex-wrap gap-2 items-center mb-3">
           <span class="text-sm font-medium px-3 py-1 rounded-full bg-amber-100 text-amber-800">{{ currentRecipe.category||'Uncategorised' }}</span>
           <span class="text-stone-400 text-sm">Version {{ currentRecipe.version }}</span>
         </div>
         <h1 class="text-3xl font-bold text-stone-800 leading-tight">{{ currentRecipe.name }}</h1>
         <p v-if="currentRecipe.description" class="text-stone-500 mt-2">{{ currentRecipe.description }}</p>
-        <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+        <!-- Stats row -->
+        <div class="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div class="bg-stone-50 rounded-xl p-4">
-            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Total Yield</p>
-            <p class="text-xl font-bold text-stone-800 mt-1">{{ viewTotalWeight.toFixed(0) }}g</p>
-            <p class="text-xs text-stone-400">{{ (viewTotalWeight/1000).toFixed(3) }}kg</p>
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Raw Yield</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ (viewTotalWeight/1000).toFixed(3) }} kg</p>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <p class="text-xs font-medium text-amber-600 uppercase tracking-wider">Moisture Factor</p>
+            <input v-model.number="moistureFactor" type="number" min="0.5" max="1" step="0.01"
+              class="w-full text-xl font-bold text-amber-800 bg-transparent mt-1 focus:outline-none border-b border-amber-300 focus:border-amber-500">
+            <p class="text-xs text-amber-500 mt-1">{{ ((1-moistureFactor)*100).toFixed(0) }}% loss</p>
           </div>
           <div class="bg-stone-50 rounded-xl p-4">
-            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Serve Size</p>
-            <p class="text-xl font-bold text-stone-800 mt-1">{{ currentRecipe.serve_weight_g }}g</p>
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Net Yield</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ adjustedYield.toFixed(3) }} kg</p>
+            <p class="text-xs text-stone-400">after toasting</p>
           </div>
           <div class="bg-stone-50 rounded-xl p-4">
-            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">No. of Serves</p>
-            <p class="text-xl font-bold text-stone-800 mt-1">{{ currentRecipe.serve_weight_g?(viewTotalWeight/currentRecipe.serve_weight_g).toFixed(1):'—' }}</p>
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Serve</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ (currentRecipe.serve_weight_g/1000).toFixed(3) }} kg</p>
+          </div>
+          <div class="bg-stone-50 rounded-xl p-4">
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Serves</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ currentRecipe.serve_weight_g&&viewTotalWeight>0?((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g).toFixed(1):'—' }}</p>
           </div>
           <div class="bg-stone-50 rounded-xl p-4">
             <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Serve</p>
             <p class="text-xl font-bold text-stone-800 mt-1">
-              <span v-if="viewTotalCost>0&&currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/(viewTotalWeight/currentRecipe.serve_weight_g)).toFixed(3) }}</span>
+              <span v-if="viewTotalCost>0&&currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(3) }}</span>
               <span v-else class="text-stone-400">—</span>
             </p>
           </div>
         </div>
       </div>
 
-      <!-- General ingredients -->
-      <div v-if="viewUnassignedIngredients.length>0" class="bg-white rounded-2xl border border-stone-200 p-6 mb-5">
-        <h2 class="font-bold text-stone-800 text-lg mb-4">General Ingredients</h2>
-        <table class="w-full text-sm">
-          <thead><tr class="text-xs font-semibold text-stone-400 uppercase tracking-wider border-b border-stone-100 text-left">
-            <th class="pb-2">Ingredient</th><th class="pb-2 text-right">Weight</th><th class="pb-2 text-right">Volumetric</th><th class="pb-2 text-right">Cost</th>
-          </tr></thead>
-          <tbody>
-            <tr v-for="ri in viewUnassignedIngredients" :key="ri.id" class="border-b border-stone-50 last:border-0">
-              <td class="py-2.5 font-medium text-stone-700">
-                {{ ri.ingredient?.name }}
-                <span v-if="ri.ingredient?.state==='cooked'" class="text-xs text-blue-500 ml-1">(cooked)</span>
-              </td>
-              <td class="py-2.5 text-right text-stone-600">{{ ri.weight_g }}g</td>
-              <td class="py-2.5 text-right text-stone-400 text-xs">{{ ri.volumetric_note||'—' }}</td>
-              <td class="py-2.5 text-right text-stone-500">${{ calcIngCost(ri.ingredient, ri.weight_g).toFixed(3) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- Ingredient list — big, recipe-card style -->
+      <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-6">
+        <!-- Column headers -->
+        <div class="flex items-center justify-between px-8 py-3 bg-stone-50 border-b border-stone-200">
+          <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">{{ viewIngredients.length }} item{{ viewIngredients.length!==1?'s':'' }}</span>
+          <div class="flex gap-8 text-xs font-bold text-stone-400 uppercase tracking-wider">
+            <span class="w-32 text-right">kg</span>
+            <span class="w-20 text-right">cost</span>
+          </div>
+        </div>
 
-      <!-- Method steps -->
-      <div v-if="viewSteps.length>0" class="mb-5">
-        <h2 class="text-xl font-bold text-stone-800 mb-3">Method</h2>
-        <div v-for="(step,idx) in viewSteps" :key="step.id" class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-3">
-          <div class="flex">
-            <div class="flex-1 p-6">
-              <div class="flex items-center gap-3 mb-2">
-                <span class="bg-amber-600 text-white text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center shrink-0">{{ idx+1 }}</span>
-                <h3 class="font-bold text-stone-800">{{ step.title||'Step '+(idx+1) }}</h3>
-              </div>
-              <p class="text-stone-600 leading-relaxed">{{ step.description }}</p>
+        <!-- General (unassigned to a step) -->
+        <template v-if="viewUnassignedIngredients.length>0">
+          <div class="px-8 py-2 border-b border-stone-100 bg-stone-50">
+            <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">General</span>
+          </div>
+          <div v-for="ri in viewUnassignedIngredients" :key="'u'+ri.id"
+            class="flex items-center justify-between px-8 py-4 border-b border-stone-100 hover:bg-amber-50/40 transition">
+            <div>
+              <span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span>
+              <span v-if="ri.volumetric_note" class="text-sm text-stone-400 ml-3 italic">{{ ri.volumetric_note }}</span>
             </div>
-            <div v-if="viewIngredientsForStep(step.id).length>0" class="bg-amber-50 border-l border-amber-100 p-4 w-52 shrink-0">
-              <p class="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3">Ingredients</p>
-              <div v-for="ri in viewIngredientsForStep(step.id)" :key="ri.id" class="mb-3 last:mb-0">
-                <p class="text-sm font-semibold text-stone-800">{{ ri.ingredient?.name }}</p>
-                <p class="text-xs text-stone-500">{{ ri.weight_g }}g<span v-if="ri.volumetric_note"> · {{ ri.volumetric_note }}</span></p>
+            <div class="flex items-center gap-8 shrink-0">
+              <span class="w-32 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
+              <span class="w-20 text-right text-stone-500 font-semibold">${{ calcIngCost(ri.ingredient,ri.weight_g).toFixed(2) }}</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- Per-step groups -->
+        <template v-for="(step,idx) in viewSteps" :key="step.id">
+          <template v-if="viewIngredientsForStep(step.id).length>0">
+            <div class="px-8 py-2 border-b border-stone-100 bg-stone-50">
+              <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">Step {{ idx+1 }}<span v-if="step.title"> · {{ step.title }}</span></span>
+            </div>
+            <div v-for="ri in viewIngredientsForStep(step.id)" :key="ri.id"
+              class="flex items-center justify-between px-8 py-4 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition">
+              <div>
+                <span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span>
+                <span v-if="ri.volumetric_note" class="text-sm text-stone-400 ml-3 italic">{{ ri.volumetric_note }}</span>
+              </div>
+              <div class="flex items-center gap-8 shrink-0">
+                <span class="w-32 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
+                <span class="w-20 text-right text-stone-500 font-semibold">${{ calcIngCost(ri.ingredient,ri.weight_g).toFixed(2) }}</span>
               </div>
             </div>
+          </template>
+        </template>
+
+        <!-- Total row -->
+        <div class="flex items-center justify-between px-8 py-5 bg-stone-800 text-white">
+          <span class="font-bold text-sm uppercase tracking-wider">Total raw batch</span>
+          <div class="flex items-center gap-8 shrink-0">
+            <span class="w-32 text-right font-bold text-lg">{{ (viewTotalWeight/1000).toFixed(3) }} kg</span>
+            <span class="w-20 text-right font-bold">${{ viewTotalCost.toFixed(2) }}</span>
           </div>
         </div>
       </div>
 
+      <!-- Method -->
+      <div v-if="viewSteps.length>0" class="mb-6">
+        <h2 class="text-xl font-bold text-stone-800 mb-3">Method</h2>
+        <div v-for="(step,idx) in viewSteps" :key="step.id" class="bg-white rounded-2xl border border-stone-200 p-6 mb-3">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="bg-amber-600 text-white text-sm font-bold w-8 h-8 rounded-full flex items-center justify-center shrink-0">{{ idx+1 }}</span>
+            <h3 class="font-bold text-stone-800 text-lg">{{ step.title||'Step '+(idx+1) }}</h3>
+          </div>
+          <p class="text-stone-600 leading-relaxed">{{ step.description }}</p>
+        </div>
+      </div>
+
       <!-- Notes -->
-      <div v-if="currentRecipe.notes" class="bg-amber-50 border border-amber-100 rounded-2xl p-6 mb-5">
+      <div v-if="currentRecipe.notes" class="bg-amber-50 border border-amber-100 rounded-2xl p-6 mb-6">
         <h2 class="font-bold text-stone-800 mb-2">Notes</h2>
         <p class="text-stone-600 text-sm leading-relaxed">{{ currentRecipe.notes }}</p>
       </div>
 
-      <!-- Nutritional Panel -->
+      <!-- NIP Panel -->
       <div class="bg-white rounded-2xl border border-stone-200 p-8 mb-5">
-        <h2 class="text-xl font-bold text-stone-800 mb-6">Nutritional Information</h2>
-        <div v-if="viewTotalWeight===0" class="text-stone-400 text-sm text-center py-4">Add ingredients with nutritional data to see the panel.</div>
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+          <h2 class="text-xl font-bold text-stone-800">Nutrition Information Panel</h2>
+          <!-- Coverage indicator -->
+          <div class="text-right">
+            <div class="flex items-center gap-2 justify-end mb-1">
+              <span class="text-xs text-stone-500">Data coverage</span>
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                :class="nipCoverage>=80?'bg-green-100 text-green-700':nipCoverage>=40?'bg-amber-100 text-amber-700':'bg-red-100 text-red-600'">
+                {{ nipCoverage.toFixed(0) }}%
+              </span>
+            </div>
+            <div class="w-40 h-2 bg-stone-100 rounded-full overflow-hidden">
+              <div class="h-2 rounded-full transition-all duration-500"
+                :class="nipCoverage>=80?'bg-green-500':nipCoverage>=40?'bg-amber-400':'bg-red-400'"
+                :style="{width: Math.min(100,nipCoverage)+'%'}"></div>
+            </div>
+            <p class="text-xs text-stone-400 mt-1">of batch weight has data</p>
+          </div>
+        </div>
+
+        <div v-if="nipCoverage<30" class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 mb-5">
+          Low coverage — open each ingredient in the <strong>Ingredient Database</strong> and use the USDA auto-fill to populate nutritional values.
+        </div>
+
+        <p class="text-xs text-stone-400 mb-5">
+          Values are per 100g / per serve of <em>finished</em> product (moisture factor {{ moistureFactor }} applied —
+          nutrients concentrate as water is lost during toasting).
+        </p>
+
+        <div v-if="viewTotalWeight===0" class="text-stone-400 text-sm text-center py-4">No items to calculate from.</div>
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div class="border-2 border-stone-800 rounded-xl overflow-hidden">
             <div class="bg-stone-800 text-white px-5 py-3">
               <p class="font-black text-sm tracking-wide">NUTRITION INFORMATION</p>
-              <p class="text-xs text-stone-400 mt-0.5">Servings per package: {{ currentRecipe.serve_weight_g?(viewTotalWeight/currentRecipe.serve_weight_g).toFixed(1):'—' }}</p>
-              <p class="text-xs text-stone-400">Serving size: {{ currentRecipe.serve_weight_g }}g</p>
+              <p class="text-xs text-stone-400 mt-0.5">Servings per package: {{ currentRecipe.serve_weight_g&&viewTotalWeight>0?((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g).toFixed(1):'—' }}</p>
+              <p class="text-xs text-stone-400">Serving size: {{ (currentRecipe.serve_weight_g/1000).toFixed(3) }} kg</p>
             </div>
             <div class="px-1">
               <table class="w-full text-sm">
                 <thead><tr class="border-b-4 border-stone-800"><th class="text-left px-4 py-2 text-xs font-bold text-stone-600">Per 100g</th><th class="text-right px-4 py-2 text-xs font-bold text-stone-600">Avg Qty</th></tr></thead>
                 <tbody>
-                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Energy</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.energy_kj.toFixed(0) }}kJ</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Energy</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.energy_kj.toFixed(0) }} kJ</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Protein</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.protein_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Fat, Total</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.fat_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Saturated</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ nutrition100g.saturated_fat_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Carbohydrate</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.carbohydrate_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Sugars</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ nutrition100g.sugars_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Dietary Fibre</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.dietary_fibre_g.toFixed(1) }}g</td></tr>
-                  <tr><td class="px-4 py-2 text-stone-700">Sodium</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.sodium_mg.toFixed(0) }}mg</td></tr>
+                  <tr><td class="px-4 py-2 text-stone-700">Sodium</td><td class="px-4 py-2 text-right font-semibold">{{ nutrition100g.sodium_mg.toFixed(0) }} mg</td></tr>
                 </tbody>
               </table>
             </div>
@@ -238,58 +309,29 @@
           <div class="border-2 border-stone-800 rounded-xl overflow-hidden">
             <div class="bg-stone-800 text-white px-5 py-3">
               <p class="font-black text-sm tracking-wide">NUTRITION INFORMATION</p>
-              <p class="text-xs text-stone-400 mt-0.5">Per serve ({{ currentRecipe.serve_weight_g }}g)</p>
+              <p class="text-xs text-stone-400 mt-0.5">Per serve ({{ (currentRecipe.serve_weight_g/1000).toFixed(3) }} kg)</p>
               <p class="text-xs text-stone-400">&nbsp;</p>
             </div>
             <div class="px-1">
               <table class="w-full text-sm">
                 <thead><tr class="border-b-4 border-stone-800"><th class="text-left px-4 py-2 text-xs font-bold text-stone-600">Per Serve</th><th class="text-right px-4 py-2 text-xs font-bold text-stone-600">Avg Qty</th></tr></thead>
                 <tbody>
-                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Energy</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.energy_kj.toFixed(0) }}kJ</td></tr>
+                  <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Energy</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.energy_kj.toFixed(0) }} kJ</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Protein</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.protein_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Fat, Total</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.fat_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Saturated</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ nutritionPerServe.saturated_fat_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Carbohydrate</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.carbohydrate_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Sugars</td><td class="px-4 py-2 text-right text-xs font-semibold">{{ nutritionPerServe.sugars_g.toFixed(1) }}g</td></tr>
                   <tr class="border-b border-stone-200"><td class="px-4 py-2 text-stone-700">Dietary Fibre</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.dietary_fibre_g.toFixed(1) }}g</td></tr>
-                  <tr><td class="px-4 py-2 text-stone-700">Sodium</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.sodium_mg.toFixed(0) }}mg</td></tr>
+                  <tr><td class="px-4 py-2 text-stone-700">Sodium</td><td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.sodium_mg.toFixed(0) }} mg</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
-        <p class="text-xs text-stone-400 mt-4">* Values calculated from ingredient data. Verify against lab analysis for commercial labelling.</p>
+        <p class="text-xs text-stone-400 mt-4">* Calculated from ingredient data. Verify against lab analysis for commercial labelling.</p>
       </div>
 
-      <!-- Cost Breakdown -->
-      <div class="bg-white rounded-2xl border border-stone-200 p-8">
-        <h2 class="text-xl font-bold text-stone-800 mb-5">Cost Breakdown</h2>
-        <table class="w-full text-sm">
-          <thead><tr class="text-xs font-semibold text-stone-400 uppercase tracking-wider border-b-2 border-stone-200 text-left">
-            <th class="pb-3">Ingredient</th><th class="pb-3 text-right">Weight</th><th class="pb-3 text-right">$/kg source</th><th class="pb-3 text-right">Cost</th>
-          </tr></thead>
-          <tbody>
-            <tr v-for="ri in viewIngredients" :key="ri.id" class="border-b border-stone-50">
-              <td class="py-2.5 text-stone-700 font-medium">
-                {{ ri.ingredient?.name }}
-                <span v-if="ri.ingredient?.state==='cooked'&&ri.ingredient?.raw_ingredient_id" class="text-xs text-blue-500 ml-1">
-                  (cooked · {{ (ri.weight_g/ri.ingredient.cook_ratio).toFixed(0) }}g raw)
-                </span>
-              </td>
-              <td class="py-2.5 text-right text-stone-600">{{ ri.weight_g }}g</td>
-              <td class="py-2.5 text-right text-stone-400 text-xs">{{ viewCostSourceLabel(ri.ingredient) }}</td>
-              <td class="py-2.5 text-right font-semibold text-stone-700">${{ calcIngCost(ri.ingredient, ri.weight_g).toFixed(3) }}</td>
-            </tr>
-          </tbody>
-          <tfoot class="border-t-2 border-stone-800">
-            <tr><td colspan="3" class="pt-3 font-bold text-stone-800">Total Recipe Cost</td><td class="pt-3 text-right font-bold text-stone-800">${{ viewTotalCost.toFixed(2) }}</td></tr>
-            <tr v-if="currentRecipe.serve_weight_g&&viewTotalWeight>0">
-              <td colspan="3" class="pt-1 text-xs text-stone-400">Cost per serve ({{ currentRecipe.serve_weight_g }}g)</td>
-              <td class="pt-1 text-right text-xs text-stone-500 font-semibold">${{ (viewTotalCost/(viewTotalWeight/currentRecipe.serve_weight_g)).toFixed(3) }}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
     </div>
 
     <!-- ============ RECIPE EDIT ============ -->
@@ -1059,6 +1101,7 @@ Method:
       // Import
       const importTab = ref('text'); const importText = ref(''); const importImageData = ref(null); const importImageType = ref('image/jpeg');
       const importLoading = ref(false); const importError = ref('');
+      const moistureFactor = ref(0.90);
 
       // ---- COMPUTED ----
       const allCategories = computed(()=>[...new Set(recipes.value.map(r=>r.category).filter(Boolean))].sort());
@@ -1110,7 +1153,8 @@ Method:
       const viewUnassignedIngredients = computed(()=>viewIngredients.value.filter(ri=>!ri.step_id));
       const nutrition100g = computed(()=>{
         const tw=viewTotalWeight.value; if(tw===0) return zeroNutrition();
-        return scaleNutrition(sumNutrition(viewIngredients.value),100/tw);
+        // Divide by moistureFactor so nutrients concentrate correctly in finished product
+        return scaleNutrition(sumNutrition(viewIngredients.value),100/(tw*moistureFactor.value));
       });
       const nutritionPerServe = computed(()=>scaleNutrition(nutrition100g.value,(Number(currentRecipe.value?.serve_weight_g)||100)/100));
       const editGeneralIngredients = computed(()=>editForm.value.allIngredients.filter(ri=>!ri.step_tempId));
@@ -1144,6 +1188,18 @@ Method:
         const rawIng=ingredients.value.find(i=>i.id===ingForm.value.raw_ingredient_id);
         if(!rawIng?.cost_per_kg) return 0;
         return Number(rawIng.cost_per_kg)/Number(ingForm.value.cook_ratio);
+      });
+      // Moisture-adjusted yield in kg
+      const adjustedYield = computed(()=>(viewTotalWeight.value*moistureFactor.value)/1000);
+      // % of batch weight that has at least one nutritional field populated
+      const nipCoverage = computed(()=>{
+        const total=viewTotalWeight.value; if(total===0) return 0;
+        const withData=viewIngredients.value.reduce((s,ri)=>{
+          const ing=ri.ingredient;
+          if(ing&&(Number(ing.energy_kj)||Number(ing.protein_g)||Number(ing.fat_g))) return s+(Number(ri.weight_g)||0);
+          return s;
+        },0);
+        return Math.min(100,withData/total*100);
       });
 
       // ---- HELPERS ----
@@ -1488,6 +1544,7 @@ Method:
         editForm, savingRecipe, saveError,
         editGeneralIngredients, editTotalWeight, editTotalCost,
         viewTotalWeight, viewTotalCost, viewUnassignedIngredients, nutrition100g, nutritionPerServe,
+        moistureFactor, adjustedYield, nipCoverage,
         showIngModal, ingForm, savingIngredient, usdaQuery, usdaResults, usdaLoading, usdaError, aiLoading,
         effectiveCookedCostPerKg,
         meals, loadingMeals, currentMeal, currentMealComponents, editMeal,
