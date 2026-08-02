@@ -316,6 +316,7 @@ async function loadTodayBar(refresh){
     if(j.shopify_week!=null) h+=box('Shopify this week','$'+Math.round(j.shopify_week).toLocaleString());
     if(j.orders_to_fulfil!=null) h+=box('To fulfil',j.orders_to_fulfil.toLocaleString());
     if(j.orders_fulfilled_today!=null) h+=box('Fulfilled today',j.orders_fulfilled_today.toLocaleString());
+    if(j.outstanding_tickets!=null) h+=box('Outstanding tickets',j.outstanding_tickets.toLocaleString());
     if(!h) return;
     h+='<span class="tstamp">as at '+t+'</span><a class="rf" title="Refresh">\u21bb</a>';
     bar.innerHTML=h; bar.classList.remove('hidden');
