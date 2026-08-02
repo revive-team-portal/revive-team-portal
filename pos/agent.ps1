@@ -5,7 +5,7 @@
 param(
   [Parameter(Mandatory=$true)][string]$Token,
   [string]$Server = "127.0.0.1,50030",
-  [string]$Db = "SWIFTPOS",
+  [string]$Database = "SWIFTPOS",
   [string]$User,
   [string]$Password
 )
@@ -13,13 +13,13 @@ param(
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 $base = "https://team.revive.co.nz/.netlify/functions/pos-agent"
 $logUrl = "https://team.revive.co.nz/.netlify/functions/pos-paste"
-if ($User) { $connStr = "Server=$Server;Database=$Db;User Id=$User;Password=$Password;TrustServerCertificate=True" }
-else       { $connStr = "Server=$Server;Database=$Db;Integrated Security=SSPI;TrustServerCertificate=True" }
+if ($User) { $connStr = "Server=$Server;Database=$Database;User Id=$User;Password=$Password;TrustServerCertificate=True" }
+else       { $connStr = "Server=$Server;Database=$Database;Integrated Security=SSPI;TrustServerCertificate=True" }
 function Log($m){
   Write-Host $m
   try { Invoke-RestMethod -Uri $logUrl -Method Post -ContentType 'application/json' -Body (@{label='agent';content=$m} | ConvertTo-Json) -TimeoutSec 15 | Out-Null } catch {}
 }
-Log "agent starting - server=$Server db=$Db auth=$(if($User){'sql:'+$User}else{'windows'})"
+Log "agent starting - server=$Server db=$Database auth=$(if($User){'sql:'+$User}else{'windows'})"
 # connectivity + DB self-test
 try {
   $t = Invoke-RestMethod -Uri "$base?action=next&k=$Token" -Method Get -TimeoutSec 25
