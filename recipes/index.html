@@ -916,9 +916,9 @@
       <!-- Tabs -->
       <div class="flex border-b border-stone-200 mb-6">
         <button @click="importTab='text'" :class="importTab==='text'?'border-b-2 border-amber-600 text-amber-700 font-semibold':'text-stone-500 hover:text-stone-700'"
-          class="px-6 py-3 text-sm transition">📝 Paste Text</button>
+          class="px-6 py-3 text-sm transition">Paste Text</button>
         <button @click="importTab='photo'" :class="importTab==='photo'?'border-b-2 border-amber-600 text-amber-700 font-semibold':'text-stone-500 hover:text-stone-700'"
-          class="px-6 py-3 text-sm transition">📷 Upload Photo</button>
+          class="px-6 py-3 text-sm transition">Upload Photo</button>
       </div>
 
       <div v-if="importError" class="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 mb-4 text-sm">{{ importError }}</div>
@@ -953,7 +953,7 @@ Method:
         <div v-if="!importImageData"
           class="border-2 border-dashed border-stone-300 rounded-xl p-12 text-center cursor-pointer hover:border-amber-400 transition"
           @click="$refs.photoInput.click()" @dragover.prevent @drop.prevent="handlePhotoDrop($event)">
-          <div class="text-4xl mb-3">📷</div>
+          <div class="text-4xl mb-3">&#128247;</div>
           <p class="text-stone-600 font-medium mb-1">Click to upload or drag &amp; drop</p>
           <p class="text-stone-400 text-sm">JPG, PNG, HEIC — photo of a recipe card or printed recipe</p>
           <input ref="photoInput" type="file" accept="image/*" class="hidden" @change="handlePhotoSelect">
@@ -1073,7 +1073,7 @@ Method:
           <div>
             <label class="block text-xs font-semibold text-stone-600 mb-1">Category</label>
             <div class="flex gap-2">
-              <label v-for="opt in [{v:'produce',l:'🌿 Produce'},{v:'ambient',l:'📦 Ambient'},{v:'frozen',l:'❄️ Frozen'}]" :key="opt.v"
+              <label v-for="opt in [{v:'produce',l:'Produce'},{v:'ambient',l:'Ambient'},{v:'frozen',l:'Frozen'}]" :key="opt.v"
                 class="flex items-center gap-1.5 cursor-pointer text-xs px-3 py-1.5 rounded-lg border transition"
                 :class="ingForm.ingredient_type===opt.v?'border-amber-500 bg-amber-50 text-amber-700 font-semibold':'border-stone-200 text-stone-500 hover:border-stone-300'">
                 <input type="radio" :value="opt.v" v-model="ingForm.ingredient_type" class="sr-only">{{ opt.l }}
@@ -1259,9 +1259,9 @@ Method:
           : [...ingredients.value];
         const sorted=all.sort(sortFn);
         const groups=[
-          {key:'produce',label:'🌿 Produce',items:sorted.filter(i=>i.ingredient_type==='produce')},
-          {key:'ambient',label:'📦 Ambient',items:sorted.filter(i=>!i.ingredient_type||i.ingredient_type==='ambient')},
-          {key:'frozen', label:'❄️ Frozen', items:sorted.filter(i=>i.ingredient_type==='frozen')},
+          {key:'produce',label:'Produce',items:sorted.filter(i=>i.ingredient_type==='produce')},
+          {key:'ambient',label:'Ambient',items:sorted.filter(i=>!i.ingredient_type||i.ingredient_type==='ambient')},
+          {key:'frozen', label:'Frozen', items:sorted.filter(i=>i.ingredient_type==='frozen')},
         ];
         const list=[];
         for(const g of groups){
