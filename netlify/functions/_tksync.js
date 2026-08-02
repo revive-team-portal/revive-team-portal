@@ -87,4 +87,4 @@ async function runSync(nWeeks, daysOnly) {
       : { last_success: new Date().toISOString(), last_error: null, last_error_at: null, note: 'sync ' + new Date().toISOString() + ' ' + JSON.stringify(summary).slice(0, 3400) }) });
   return summary;
 }
-module.exports = { runSync };
+module.exports = { runSync, fetchWeekEntries, addDays };
