@@ -401,9 +401,11 @@ async function addOpt(qid){ const {options}=window._q; const {data}=await sb.fro
 async function delOpt(id){ await sb.from('question_options').delete().eq('id',id); window._q.options=window._q.options.filter(o=>o.id!==id); renderQEditor(); }
 async function moveQ(id,dir){
   const qs=window._q.questions; const i=qs.findIndex(q=>q.id===id); const j=i+dir; if(j<0||j>=qs.length)return;
-  const a=qs[i],b=qs[j]; const ao=a.sort_order,bo=b.sort_order;
-  await sb.from('questions').update({sort_order:bo}).eq('id',a.id); await sb.from('questions').update({sort_order:ao}).eq('id',b.id);
-  a.sort_order=bo;b.sort_order=ao; qs.sort((x,y)=>x.sort_order-y.sort_order); renderQEditor();
+  [qs[i],qs[j]]=[qs[j],qs[i]];              // reorder the array
+  renderQEditor();                           // instant visual feedback
+  // persist by renumbering every question to its new position (robust to gaps/duplicates)
+  for(let k=0;k<qs.length;k++){ if(qs[k].sort_order!==k+1){ qs[k].sort_order=k+1; await sb.from('questions').update({sort_order:k+1}).eq('id',qs[k].id); } }
+  toast('Reordered');
 }
 async function saveSetup(){
   const g=id=>$(id).value;
