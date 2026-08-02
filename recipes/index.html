@@ -158,17 +158,18 @@
             <p class="text-xs text-stone-400">after toasting</p>
           </div>
           <div class="bg-stone-50 rounded-xl p-4">
-            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Serve</p>
-            <p class="text-xl font-bold text-stone-800 mt-1">{{ (currentRecipe.serve_weight_g/1000).toFixed(3) }} kg</p>
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Pack Size</p>
+            <p class="text-xl font-bold text-stone-800 mt-1">{{ currentRecipe.serve_weight_g }}g</p>
+            <p class="text-xs text-stone-400">NIP serve: {{ currentRecipe.nip_serve_g||45 }}g</p>
           </div>
           <div class="bg-stone-50 rounded-xl p-4">
-            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Serves</p>
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Packs</p>
             <p class="text-xl font-bold text-stone-800 mt-1">{{ currentRecipe.serve_weight_g&&viewTotalWeight>0?((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g).toFixed(1):'—' }}</p>
           </div>
           <div class="bg-stone-50 rounded-xl p-4">
-            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Serve</p>
+            <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Pack</p>
             <p class="text-xl font-bold text-stone-800 mt-1">
-              <span v-if="viewTotalCost>0&&currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(3) }}</span>
+              <span v-if="viewTotalCost>0&&currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(2) }}</span>
               <span v-else class="text-stone-400">—</span>
             </p>
           </div>
@@ -230,7 +231,7 @@
           </div>
           <!-- Step WITHOUT ingredients: compact single line -->
           <div v-else class="flex items-start gap-3 px-4 py-2.5 mb-1 bg-stone-50 rounded-xl border border-stone-100">
-            <span class="bg-stone-400 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">{{ idx+1 }}</span>
+            <span class="bg-amber-600 text-white text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5">{{ idx+1 }}</span>
             <p class="text-sm text-stone-600 leading-relaxed">
               <span v-if="step.title" class="font-semibold text-stone-700">{{ step.title }}. </span>{{ step.description }}
             </p>
@@ -303,8 +304,8 @@
             <div class="bg-stone-800 text-white px-5 py-3">
               <p class="font-black text-base tracking-wide uppercase">Nutrition Information</p>
               <div class="flex justify-between text-xs text-stone-300 mt-1">
-                <span>Servings per package: {{ currentRecipe.serve_weight_g&&viewTotalWeight>0?((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g).toFixed(1):'—' }}</span>
-                <span>Serving size: {{ (currentRecipe.serve_weight_g/1000).toFixed(3) }} kg</span>
+                <span>Servings per package: {{ currentRecipe.serve_weight_g&&currentRecipe.nip_serve_g?((currentRecipe.serve_weight_g)/(currentRecipe.nip_serve_g||45)).toFixed(0):'—' }}</span>
+                <span>Serving size: {{ currentRecipe.nip_serve_g||45 }}g</span>
               </div>
             </div>
             <table class="w-full text-sm">
@@ -316,44 +317,49 @@
                 </tr>
               </thead>
               <tbody>
-                <tr class="border-b-2 border-stone-800 font-bold">
+                <tr class="border-b border-stone-300 font-bold">
                   <td class="px-4 py-2 text-stone-800">Energy</td>
-                  <td class="px-4 py-2 text-right">{{ nutritionPerServe.energy_kj.toFixed(0) }} kJ</td>
+                  <td class="px-4 py-2 text-right">{{ nipNutritionPerServe.energy_kj.toFixed(0) }} kJ</td>
                   <td class="px-4 py-2 text-right border-l border-stone-100">{{ nutrition100g.energy_kj.toFixed(0) }} kJ</td>
+                </tr>
+                <tr class="border-b-2 border-stone-800 font-bold text-xs">
+                  <td class="px-4 py-1.5 pl-8 text-stone-500">Calories</td>
+                  <td class="px-4 py-1.5 text-right text-stone-600">{{ (nipNutritionPerServe.energy_kj/4.184).toFixed(0) }} kcal</td>
+                  <td class="px-4 py-1.5 text-right text-stone-600 border-l border-stone-100">{{ (nutrition100g.energy_kj/4.184).toFixed(0) }} kcal</td>
                 </tr>
                 <tr class="border-b border-stone-200">
                   <td class="px-4 py-2 text-stone-700">Protein</td>
-                  <td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.protein_g.toFixed(1) }}g</td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ nipNutritionPerServe.protein_g.toFixed(1) }}g</td>
                   <td class="px-4 py-2 text-right font-semibold border-l border-stone-100">{{ nutrition100g.protein_g.toFixed(1) }}g</td>
                 </tr>
                 <tr class="border-b border-stone-200">
                   <td class="px-4 py-2 text-stone-700">Fat, total</td>
-                  <td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.fat_g.toFixed(1) }}g</td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ nipNutritionPerServe.fat_g.toFixed(1) }}g</td>
                   <td class="px-4 py-2 text-right font-semibold border-l border-stone-100">{{ nutrition100g.fat_g.toFixed(1) }}g</td>
                 </tr>
                 <tr class="border-b border-stone-200 bg-stone-50">
                   <td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Saturated</td>
-                  <td class="px-4 py-2 text-right text-xs font-semibold">{{ nutritionPerServe.saturated_fat_g.toFixed(1) }}g</td>
+                  <td class="px-4 py-2 text-right text-xs font-semibold">{{ nipNutritionPerServe.saturated_fat_g.toFixed(1) }}g</td>
                   <td class="px-4 py-2 text-right text-xs font-semibold border-l border-stone-100">{{ nutrition100g.saturated_fat_g.toFixed(1) }}g</td>
                 </tr>
                 <tr class="border-b border-stone-200">
                   <td class="px-4 py-2 text-stone-700">Carbohydrate</td>
-                  <td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.carbohydrate_g.toFixed(1) }}g</td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ nipNutritionPerServe.carbohydrate_g.toFixed(1) }}g</td>
                   <td class="px-4 py-2 text-right font-semibold border-l border-stone-100">{{ nutrition100g.carbohydrate_g.toFixed(1) }}g</td>
                 </tr>
                 <tr class="border-b border-stone-200 bg-stone-50">
                   <td class="px-4 py-2 pl-8 text-stone-500 text-xs">— Sugars</td>
-                  <td class="px-4 py-2 text-right text-xs font-semibold">{{ nutritionPerServe.sugars_g.toFixed(1) }}g</td>
+                  <td class="px-4 py-2 text-right text-xs font-semibold">{{ nipNutritionPerServe.sugars_g.toFixed(1) }}g</td>
                   <td class="px-4 py-2 text-right text-xs font-semibold border-l border-stone-100">{{ nutrition100g.sugars_g.toFixed(1) }}g</td>
                 </tr>
                 <tr class="border-b border-stone-200">
                   <td class="px-4 py-2 text-stone-700">Dietary fibre</td>
-                  <td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.dietary_fibre_g.toFixed(1) }}g</td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ nipNutritionPerServe.dietary_fibre_g.toFixed(1) }}g</td>
                   <td class="px-4 py-2 text-right font-semibold border-l border-stone-100">{{ nutrition100g.dietary_fibre_g.toFixed(1) }}g</td>
                 </tr>
                 <tr>
                   <td class="px-4 py-2 text-stone-700">Sodium</td>
-                  <td class="px-4 py-2 text-right font-semibold">{{ nutritionPerServe.sodium_mg.toFixed(0) }}mg</td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ nipNutritionPerServe.sodium_mg.toFixed(0) }}mg</td>
                   <td class="px-4 py-2 text-right font-semibold border-l border-stone-100">{{ nutrition100g.sodium_mg.toFixed(0) }}mg</td>
                 </tr>
               </tbody>
@@ -394,10 +400,18 @@
               class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
               placeholder="Storage, allergens, tips…"></textarea>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Serve size (g)</label>
-            <input v-model.number="minorEditForm.serve_weight_g" type="number" min="1"
-              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Pack size (g)</label>
+              <input v-model.number="minorEditForm.serve_weight_g" type="number" min="1"
+                class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">NIP serve (g)</label>
+              <input v-model.number="minorEditForm.nip_serve_g" type="number" min="1"
+                class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                placeholder="45">
+            </div>
           </div>
         </div>
         <div class="flex justify-end gap-3 mt-5">
@@ -445,9 +459,14 @@
               class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Serve Size (grams) *</label>
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Pack Size (grams) *</label>
             <input v-model.number="editForm.serve_weight_g" type="number" min="1" step="any"
-              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 150">
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">NIP Serving Size (grams)</label>
+            <input v-model.number="editForm.nip_serve_g" type="number" min="1" step="any"
+              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 45">
           </div>
           <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Description</label>
@@ -1235,6 +1254,8 @@ Method:
         return scaleNutrition(sumNutrition(viewIngredients.value),100/(tw*moistureFactor.value));
       });
       const nutritionPerServe = computed(()=>scaleNutrition(nutrition100g.value,(Number(currentRecipe.value?.serve_weight_g)||100)/100));
+      // NIP-specific per-serve using nip_serve_g (e.g. 45g bowl), separate from pack size
+      const nipNutritionPerServe = computed(()=>scaleNutrition(nutrition100g.value,(Number(currentRecipe.value?.nip_serve_g)||45)/100));
       const editGeneralIngredients = computed(()=>editForm.value.allIngredients.filter(ri=>!ri.step_tempId));
       const editTotalWeight = computed(()=>editForm.value.allIngredients.reduce((s,ri)=>s+(Number(ri.weight_g)||0),0));
       const editTotalCost = computed(()=>{
@@ -1288,7 +1309,7 @@ Method:
       const savingMinorEdit = ref(false);
       function openMinorEdit(){
         if(!currentRecipe.value) return;
-        minorEditForm.value={description:currentRecipe.value.description||'',notes:currentRecipe.value.notes||'',serve_weight_g:currentRecipe.value.serve_weight_g||100};
+        minorEditForm.value={description:currentRecipe.value.description||'',notes:currentRecipe.value.notes||'',serve_weight_g:currentRecipe.value.serve_weight_g||100,nip_serve_g:currentRecipe.value.nip_serve_g||45};
         showMinorEdit.value=true;
       }
       async function saveMinorEdit(){
@@ -1299,10 +1320,11 @@ Method:
             description:minorEditForm.value.description||null,
             notes:minorEditForm.value.notes||null,
             serve_weight_g:minorEditForm.value.serve_weight_g,
+            nip_serve_g:minorEditForm.value.nip_serve_g||45,
             updated_at:new Date().toISOString()
           }).eq('id',currentRecipe.value.id);
           if(error) throw error;
-          Object.assign(currentRecipe.value,{description:minorEditForm.value.description,notes:minorEditForm.value.notes,serve_weight_g:minorEditForm.value.serve_weight_g});
+          Object.assign(currentRecipe.value,{description:minorEditForm.value.description,notes:minorEditForm.value.notes,serve_weight_g:minorEditForm.value.serve_weight_g,nip_serve_g:minorEditForm.value.nip_serve_g});
           showMinorEdit.value=false;
         }catch(e){alert('Save failed: '+e.message);}
         finally{savingMinorEdit.value=false;}
@@ -1376,14 +1398,14 @@ Method:
       function startEditRecipe(recipe){
         const steps=(recipe.recipe_steps||[]).sort((a,b)=>a.step_order-b.step_order).map(s=>({...s,tempId:s.id||uid()}));
         const allIngredients=(recipe._rawIngredients||viewIngredients.value).map(ri=>({...newIngRow(),id:ri.id,ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',step_tempId:ri.step_id?(steps.find(s=>s.id===ri.step_id)?.tempId||null):null}));
-        editForm.value={id:recipe.id,name:recipe.name,category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,steps,allIngredients};
+        editForm.value={id:recipe.id,name:recipe.name,category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,steps,allIngredients};
         saveError.value='';currentView.value='edit';
       }
       function startNewVersion(recipe){
         const steps=viewSteps.value.map(s=>({...s,id:null,tempId:uid()}));
         const stepOldToNew={};viewSteps.value.forEach((s,i)=>{stepOldToNew[s.id]=steps[i].tempId;});
         const allIngredients=viewIngredients.value.map(ri=>({...newIngRow(),ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',step_tempId:ri.step_id?(stepOldToNew[ri.step_id]||null):null}));
-        editForm.value={id:null,name:recipe.name,category:recipe.category||'',version:(recipe.version||1)+1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,notes:recipe.notes||'',parent_recipe_id:recipe.id,steps,allIngredients};
+        editForm.value={id:null,name:recipe.name,category:recipe.category||'',version:(recipe.version||1)+1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,notes:recipe.notes||'',parent_recipe_id:recipe.id,steps,allIngredients};
         saveError.value='';currentView.value='edit';
       }
       function cancelEdit(){currentRecipe.value?currentView.value='view':goToList();}
@@ -1416,7 +1438,7 @@ Method:
         if(!editForm.value.serve_weight_g||editForm.value.serve_weight_g<=0){saveError.value='Serve size must be >0.';return;}
         savingRecipe.value=true;saveError.value='';
         try{
-          const payload={name:editForm.value.name.trim(),category:editForm.value.category||null,version:editForm.value.version,description:editForm.value.description||null,serve_weight_g:editForm.value.serve_weight_g,notes:editForm.value.notes||null};
+          const payload={name:editForm.value.name.trim(),category:editForm.value.category||null,version:editForm.value.version,description:editForm.value.description||null,serve_weight_g:editForm.value.serve_weight_g,nip_serve_g:editForm.value.nip_serve_g||45,notes:editForm.value.notes||null};
           if(editForm.value.parent_recipe_id) payload.parent_recipe_id=editForm.value.parent_recipe_id;
           let recipeId;
           if(editForm.value.id){
@@ -1694,6 +1716,7 @@ Method:
         notConfigured, user, loginEmail, loginPassword, authLoading, authError, gateError,
         currentView, recipes, ingredients, loadingRecipes,
         currentRecipe, viewSteps, viewIngredients, labelIngredients,
+        nipNutritionPerServe,
         showMinorEdit, minorEditForm, savingMinorEdit, openMinorEdit, saveMinorEdit,
         searchQuery, selectedCategory, ingSearchQuery,
         allCategories, filteredRecipes, filteredIngredients, groupedIngredientList, rawIngredients,
