@@ -23,3 +23,6 @@
 
 [functions."pos-today-cron"]
   schedule = "*/15 * * * *"
+
+[functions."meta-sync"]
+  schedule = "40 18 * * *"
