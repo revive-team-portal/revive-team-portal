@@ -136,7 +136,7 @@
     </div>
 
     <!-- ============ RECIPE VIEW ============ -->
-    <div v-if="currentView==='view'&&currentRecipe" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
+    <div v-if="currentView==='view'&amp;&amp;currentRecipe" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
 
       <!-- Action bar -->
       <div class="flex items-center justify-between mb-6 no-print">
@@ -188,7 +188,7 @@
           <div class="bg-stone-50 rounded-xl p-4">
             <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Pack</p>
             <p class="text-xl font-bold text-stone-800 mt-1">
-              <span v-if="viewTotalCost>0&&currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(2) }}</span>
+              <span v-if="viewTotalCost>0&amp;&amp;currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(2) }}</span>
               <span v-else class="text-stone-400">-</span>
             </p>
           </div>
@@ -323,7 +323,7 @@
             <div class="bg-stone-800 text-white px-5 py-3">
               <p class="font-black text-base tracking-wide uppercase">Nutrition Information</p>
               <div class="flex justify-between text-xs text-stone-300 mt-1">
-                <span>Servings per package: {{ currentRecipe.serve_weight_g&&currentRecipe.nip_serve_g?((currentRecipe.serve_weight_g)/(currentRecipe.nip_serve_g||45)).toFixed(0):'—' }}</span>
+                <span>Servings per package: {{ currentRecipe.serve_weight_g&amp;&amp;currentRecipe.nip_serve_g?((currentRecipe.serve_weight_g)/(currentRecipe.nip_serve_g||45)).toFixed(0):'—' }}</span>
                 <span>Serving size: {{ currentRecipe.nip_serve_g||45 }}g</span>
               </div>
             </div>
@@ -701,7 +701,7 @@
     </div>
 
     <!-- ============ MEAL VIEW ============ -->
-    <div v-if="currentView==='meal-view'&&currentMeal" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
+    <div v-if="currentView==='meal-view'&amp;&amp;currentMeal" class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
       <div class="flex items-center justify-between mb-6 no-print">
         <button @click="currentView='meals'" class="text-amber-600 hover:text-amber-700 text-sm font-medium">&larr; Back to Meals</button>
         <div class="flex gap-2">
@@ -732,7 +732,7 @@
           <div class="bg-stone-50 rounded-xl p-4">
             <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Serve</p>
             <p class="text-xl font-bold text-stone-800 mt-1">
-              <span v-if="mealTotalCost>0&&currentMeal.serve_weight_g&&mealTotalWeight>0">${{ (mealTotalCost/(mealTotalWeight/currentMeal.serve_weight_g)).toFixed(3) }}</span>
+              <span v-if="mealTotalCost>0&amp;&amp;currentMeal.serve_weight_g&&mealTotalWeight>0">${{ (mealTotalCost/(mealTotalWeight/currentMeal.serve_weight_g)).toFixed(3) }}</span>
               <span v-else class="text-stone-400">-</span>
             </p>
           </div>
