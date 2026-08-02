@@ -174,21 +174,21 @@
         </div>
       </div>
 
-      <!-- Steps: method + ingredient rows integrated -->
+      <!-- Steps: method LEFT | ingredients RIGHT; ingredient-less steps clustered -->
       <div class="mb-6">
 
-        <!-- General (unassigned to any step) -->
+        <!-- General (unassigned) -->
         <div v-if="viewUnassignedIngredients.length>0" class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-4">
-          <div class="px-8 py-3 bg-stone-50 border-b border-stone-100">
+          <div class="px-6 py-3 bg-stone-50 border-b border-stone-200">
             <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">General</span>
           </div>
           <div v-for="ri in viewUnassignedIngredients" :key="'u'+ri.id"
-            class="flex items-center justify-between px-8 py-4 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition">
+            class="flex items-center justify-between px-6 py-3.5 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition">
             <div class="flex-1 min-w-0 flex items-baseline gap-3 flex-wrap">
               <span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span>
-              <span v-if="ri.volumetric_note" class="text-sm font-bold text-stone-400">{{ ri.volumetric_note }}</span>
+              <span v-if="ri.volumetric_note" class="text-xl font-bold text-stone-400">{{ ri.volumetric_note }}</span>
             </div>
-            <div class="flex items-center gap-8 shrink-0 ml-4">
+            <div class="flex items-center gap-6 shrink-0 ml-4">
               <span class="w-32 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
               <div class="w-28 text-right">
                 <p class="text-xs text-stone-400 leading-tight">{{ viewCostSourceLabel(ri.ingredient) }}</p>
@@ -198,43 +198,65 @@
           </div>
         </div>
 
-        <!-- Per-step cards (all steps shown, method + ingredients together) -->
-        <div v-for="(step,idx) in viewSteps" :key="step.id"
-          class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-4">
-          <!-- Step header with method -->
-          <div class="px-8 py-5 bg-stone-50 border-b border-stone-200">
-            <div class="flex items-center gap-3 mb-2">
-              <span class="bg-amber-600 text-white text-sm font-bold w-8 h-8 rounded-full flex items-center justify-center shrink-0">{{ idx+1 }}</span>
-              <h3 class="font-bold text-stone-800 text-lg">{{ step.title||'Step '+(idx+1) }}</h3>
+        <!-- Steps WITH ingredients: method left column, items right column -->
+        <template v-for="(step,idx) in viewSteps" :key="step.id">
+          <div v-if="viewIngredientsForStep(step.id).length>0"
+            class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-4">
+            <!-- Step title bar -->
+            <div class="flex items-center gap-3 px-5 py-2.5 bg-stone-50 border-b border-stone-200">
+              <span class="bg-amber-600 text-white text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center shrink-0">{{ idx+1 }}</span>
+              <span class="font-bold text-stone-800">{{ step.title||'Step '+(idx+1) }}</span>
             </div>
-            <p v-if="step.description" class="text-stone-600 text-sm leading-relaxed ml-11">{{ step.description }}</p>
-          </div>
-          <!-- Ingredient rows for this step -->
-          <template v-if="viewIngredientsForStep(step.id).length>0">
-            <div v-for="ri in viewIngredientsForStep(step.id)" :key="ri.id"
-              class="flex items-center justify-between px-8 py-4 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition">
-              <div class="flex-1 min-w-0 flex items-baseline gap-3 flex-wrap">
-                <span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span>
-                <span v-if="ri.volumetric_note" class="text-sm font-bold text-stone-400">{{ ri.volumetric_note }}</span>
+            <!-- Two-column body -->
+            <div class="flex">
+              <!-- Left: method description -->
+              <div class="w-48 shrink-0 p-5 border-r border-stone-100 text-sm text-stone-500 leading-relaxed">
+                {{ step.description }}
               </div>
-              <div class="flex items-center gap-8 shrink-0 ml-4">
-                <span class="w-32 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
-                <div class="w-28 text-right">
-                  <p class="text-xs text-stone-400 leading-tight">{{ viewCostSourceLabel(ri.ingredient) }}</p>
-                  <p class="text-sm font-semibold text-stone-600">${{ calcIngCost(ri.ingredient,ri.weight_g).toFixed(2) }}</p>
+              <!-- Right: ingredient rows -->
+              <div class="flex-1 min-w-0">
+                <div v-for="ri in viewIngredientsForStep(step.id)" :key="ri.id"
+                  class="flex items-center justify-between px-5 py-3.5 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition">
+                  <div class="flex-1 min-w-0 flex items-baseline gap-3 flex-wrap">
+                    <span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span>
+                    <span v-if="ri.volumetric_note" class="text-xl font-bold text-stone-400">{{ ri.volumetric_note }}</span>
+                  </div>
+                  <div class="flex items-center gap-6 shrink-0 ml-3">
+                    <span class="w-32 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
+                    <div class="w-24 text-right">
+                      <p class="text-xs text-stone-400 leading-tight">{{ viewCostSourceLabel(ri.ingredient) }}</p>
+                      <p class="text-sm font-semibold text-stone-600">${{ calcIngCost(ri.ingredient,ri.weight_g).toFixed(2) }}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        </template>
+
+        <!-- Steps WITHOUT ingredients — compact cluster (keeps recipe short) -->
+        <div v-if="viewSteps.some(s=>!viewIngredientsForStep(s.id).length)"
+          class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-4">
+          <div class="px-6 py-2.5 bg-stone-50 border-b border-stone-200">
+            <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">Further steps</span>
+          </div>
+          <template v-for="(step,idx) in viewSteps" :key="'m'+step.id">
+            <div v-if="!viewIngredientsForStep(step.id).length"
+              class="flex gap-3 items-start px-6 py-3 border-b border-stone-100 last:border-0">
+              <span class="bg-amber-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">{{ idx+1 }}</span>
+              <p class="text-sm text-stone-600 leading-relaxed">
+                <span v-if="step.title" class="font-semibold text-stone-800">{{ step.title }} — </span>{{ step.description }}
+              </p>
+            </div>
           </template>
-          <div v-else class="px-8 py-3 text-xs text-stone-400 italic">No items assigned to this step</div>
         </div>
 
         <!-- Total bar -->
-        <div class="flex items-center justify-between px-8 py-5 bg-stone-800 text-white rounded-2xl">
+        <div class="flex items-center justify-between px-6 py-5 bg-stone-800 text-white rounded-2xl">
           <span class="font-bold text-sm uppercase tracking-wider">Total raw batch</span>
-          <div class="flex items-center gap-8 shrink-0">
+          <div class="flex items-center gap-6 shrink-0">
             <span class="w-32 text-right font-bold text-lg">{{ (viewTotalWeight/1000).toFixed(3) }} kg</span>
-            <div class="w-28 text-right">
+            <div class="w-24 text-right">
               <p class="text-xs text-stone-400 leading-tight">all items</p>
               <p class="text-base font-bold">${{ viewTotalCost.toFixed(2) }}</p>
             </div>
