@@ -847,7 +847,7 @@ createApp({
       if(level.value==='manager'){ initTargetForm(); initTopline(); }
     }
     onMounted(async()=>{
-      loadToday(true); setInterval(()=>loadToday(true),60000);
+      loadToday(true);
       const { data:{ session:p } }=await portal.auth.getSession();
       if(!p){ window.location.href='/'; return; }
       email.value=p.user.email||'';

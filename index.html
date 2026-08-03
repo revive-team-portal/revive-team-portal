@@ -323,7 +323,6 @@ async function loadTodayBar(refresh){
     const rf=bar.querySelector('.rf'); if(rf) rf.onclick=()=>loadTodayBar(true);
   }catch(e){}
 }
-setInterval(loadTodayBar, 60000);
 
 async function enterApp(){
   hide(boot); hide(loginView); show(appView);
