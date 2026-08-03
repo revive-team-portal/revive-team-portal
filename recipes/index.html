@@ -1628,74 +1628,95 @@ Method:
         return g>=1000?(g/1000).toFixed(3)+'kg':g.toFixed(0)+'g';
       }
       function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+      function computePrintMetrics(recipe,ings){
+        const totalG=ings.reduce((s,r)=>s+Number(r.weight_g||0),0);
+        const finishedG=Math.round(totalG*moistureFactor.value);
+        const serveG=Number(recipe.serve_weight_g)||300;
+        const serves=serveG>0?Math.round(finishedG/serveG):0;
+        const totalCost=ings.reduce((s,ri)=>s+calcIngCost(ri.ingredient,ri.weight_g),0);
+        const costPerServe=serves>0?totalCost/serves:0;
+        return{totalG,finishedG,serveG,serves,totalCost,costPerServe};
+      }
       function generatePrintHTML(items){
-        const CSS=`*{box-sizing:border-box;}
-body{margin:0;padding:0;font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;background:#fff;color:#1c1917;}
+        const CSS=`
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+ol,ul,li{list-style:none;}
+body{font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;background:#fff;color:#1c1917;font-size:9pt;}
 @page{size:A4 portrait;margin:12mm 14mm;}
 .rpc{page-break-after:always;}
 .rpc:last-child{page-break-after:avoid;}
 /* Header */
 .r-name{font-size:21pt;font-weight:900;letter-spacing:-0.02em;line-height:1.1;margin:0 0 2mm;}
-.r-meta{font-size:8pt;color:#78716c;font-weight:500;margin-bottom:2.5mm;}
-.r-rule{border:none;border-top:2.5px solid #1c1917;margin:0 0 2.5mm;}
-.r-desc{font-size:8pt;color:#57534e;font-style:italic;line-height:1.5;padding:1.5mm 2mm 1.5mm 3mm;border-left:3px solid #d97706;margin-bottom:3mm;}
-/* Step card — left method col + right ingredients col */
-.sc{display:flex;border:1.5px solid #e7e5e4;border-radius:6px;margin-bottom:2mm;overflow:hidden;break-inside:avoid;}
-.sc-left{width:44mm;min-width:44mm;flex-shrink:0;background:#fafaf9;padding:3.5mm 3mm 3.5mm 3.5mm;border-right:1.5px solid #e7e5e4;}
+.r-meta{font-size:8pt;color:#666;font-weight:500;margin-bottom:2.5mm;}
+.r-rule{border:none;border-top:2.5px solid #1c1917;margin:0 0 3mm;}
+.r-desc{font-size:8pt;color:#444;font-style:italic;line-height:1.5;padding:1.5mm 2mm 1.5mm 3mm;border-left:3px solid #555;margin-bottom:3mm;}
+/* Metrics box */
+.metrics{display:flex;gap:0;border:1.5px solid #ccc;border-radius:6px;overflow:hidden;margin-bottom:3mm;}
+.metric{flex:1;text-align:center;padding:2.5mm 1mm;border-right:1px solid #ccc;}
+.metric:last-child{border-right:none;}
+.metric-lbl{font-size:6.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:1mm;}
+.metric-val{font-size:11pt;font-weight:900;color:#1c1917;font-variant-numeric:tabular-nums;line-height:1.1;}
+.metric-sub{font-size:6.5pt;color:#888;margin-top:0.5mm;}
+/* Step cards */
+.sc{display:flex;border:1.5px solid #ddd;border-radius:6px;margin-bottom:2mm;overflow:hidden;break-inside:avoid;}
+.sc-left{width:43mm;min-width:43mm;flex-shrink:0;background:#f5f5f4;padding:3mm 3mm 3mm 3.5mm;border-right:1.5px solid #ddd;}
 .sc-right{flex:1;min-width:0;}
-/* Step header */
+/* Step header inside left col */
 .sh{display:flex;align-items:flex-start;gap:2.5mm;margin-bottom:1.5mm;}
-.sn{display:flex;align-items:center;justify-content:center;background:#d97706;color:#fff;border-radius:50%;width:6mm;height:6mm;font-size:8.5pt;font-weight:900;flex-shrink:0;margin-top:0.3mm;}
+.sn{display:flex;align-items:center;justify-content:center;background:#1c1917;color:#fff;border-radius:50%;width:6mm;height:6mm;font-size:8.5pt;font-weight:900;flex-shrink:0;margin-top:0.3mm;}
 .st{font-size:9pt;font-weight:800;color:#1c1917;line-height:1.3;}
-.sd{font-size:7.5pt;color:#78716c;line-height:1.45;padding-left:8.5mm;margin-top:0.5mm;}
+.sd{font-size:7.5pt;color:#555;line-height:1.45;padding-left:8.5mm;margin-top:0.5mm;}
 .cb{padding-left:8.5mm;margin-top:1.5mm;display:flex;flex-wrap:wrap;gap:1mm;}
-.cp{font-size:7pt;font-weight:700;background:#fef3c7;color:#92400e;border-radius:99px;padding:0.3mm 2mm;}
+.cp{font-size:7pt;font-weight:700;background:#e7e5e4;color:#1c1917;border-radius:99px;padding:0.3mm 2mm;}
 /* Ingredient rows */
-.ir{display:flex;align-items:baseline;padding:2.2mm 3.5mm;border-top:1px solid #f5f5f4;}
+.ir{display:flex;align-items:baseline;padding:2mm 3.5mm;border-top:1px solid #eee;}
 .ir:first-child{border-top:none;}
 .in{flex:1;font-size:10.5pt;font-weight:700;color:#1c1917;}
-.iv{font-size:9.5pt;font-weight:600;color:#a8a29e;text-align:right;margin-left:2mm;white-space:nowrap;}
-.iw{font-size:10.5pt;font-weight:800;color:#292524;text-align:right;margin-left:3mm;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:19mm;}
-/* General (unassigned) label */
-.gen-lbl{font-size:7pt;font-weight:800;color:#a8a29e;text-transform:uppercase;letter-spacing:0.08em;padding:2mm 3.5mm 1mm;background:#fafaf9;border-right:1.5px solid #e7e5e4;}
-/* Note/instruction-only step */
-.note{display:flex;align-items:flex-start;gap:2.5mm;padding:2.5mm 3.5mm;background:#fffbeb;border:1.5px solid #fde68a;border-radius:6px;margin-bottom:2mm;break-inside:avoid;}
-.nn{display:flex;align-items:center;justify-content:center;background:#78716c;color:#fff;border-radius:50%;width:6mm;height:6mm;font-size:8.5pt;font-weight:900;flex-shrink:0;}
-.nt{font-size:8.5pt;color:#57534e;line-height:1.45;}
+.iv{font-size:9.5pt;font-weight:600;color:#555;text-align:right;margin-left:2mm;white-space:nowrap;}
+.iw{font-size:10.5pt;font-weight:800;color:#1c1917;text-align:right;margin-left:3mm;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:19mm;}
+/* Note/instruction steps */
+.note{display:flex;align-items:flex-start;gap:2.5mm;padding:2.5mm 3.5mm;background:#f5f5f4;border:1.5px solid #ddd;border-radius:6px;margin-bottom:2mm;break-inside:avoid;}
+.nn{display:flex;align-items:center;justify-content:center;background:#666;color:#fff;border-radius:50%;width:6mm;height:6mm;font-size:8.5pt;font-weight:900;flex-shrink:0;}
+.nt{font-size:8.5pt;color:#444;line-height:1.45;}
 .nt-title{font-weight:800;color:#1c1917;}
 /* Total bar */
 .total{display:flex;justify-content:space-between;align-items:center;background:#1c1917;color:#fff;border-radius:6px;padding:3mm 5mm;margin-top:3mm;}
-.tl{font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#a8a29e;}
+.tl{font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#aaa;}
 .tv{font-size:16pt;font-weight:900;font-variant-numeric:tabular-nums;}`;
 
         const rows=items.map(item=>{
-          const{recipe,steps,ingredients}=item;
-          const totalG=ingredients.reduce((s,r)=>s+Number(r.weight_g||0),0);
-          const bw=totalG>=1000?(totalG/1000).toFixed(3)+' kg':totalG?totalG.toFixed(0)+'g':'';
+          const{recipe,steps,ingredients,metrics}=item;
+          const m=metrics||{totalG:0,finishedG:0,serveG:300,serves:0,totalCost:0,costPerServe:0};
           const descTxt=[recipe.description,recipe.notes].filter(Boolean).join(' — ');
           const ingRow=ri=>`<div class="ir"><span class="in">${esc(ri.ingredient?.name||'')}</span><span class="iv">${esc(ri.volumetric_note||'')}</span><span class="iw">${(Number(ri.weight_g||0)/1000).toFixed(3)}&nbsp;kg</span></div>`;
+          const fmt=(n,d=3)=>n>=1000?(n/1000).toFixed(d)+' kg':n.toFixed(0)+'g';
           let h=`<div class="rpc">
 <div class="r-name">${esc(recipe.name)}</div>
-<div class="r-meta">${esc(recipe.category||'')} &nbsp;&middot;&nbsp; Version ${esc(String(recipe.version||1))}${bw?' &nbsp;&middot;&nbsp; '+esc(bw)+' batch':''}</div>
+<div class="r-meta">${esc(recipe.category||'')} &nbsp;&middot;&nbsp; Version ${esc(String(recipe.version||1))}</div>
 <hr class="r-rule">
+<div class="metrics">
+  <div class="metric"><div class="metric-lbl">Raw Batch</div><div class="metric-val">${(m.totalG/1000).toFixed(2)}</div><div class="metric-sub">kg</div></div>
+  <div class="metric"><div class="metric-lbl">Finished</div><div class="metric-val">${(m.finishedG/1000).toFixed(2)}</div><div class="metric-sub">kg</div></div>
+  <div class="metric"><div class="metric-lbl">Serve Size</div><div class="metric-val">${m.serveG}</div><div class="metric-sub">g</div></div>
+  <div class="metric"><div class="metric-lbl">Serves</div><div class="metric-val">${m.serves}</div><div class="metric-sub">portions</div></div>
+  <div class="metric"><div class="metric-lbl">Total Cost</div><div class="metric-val">$${m.totalCost.toFixed(2)}</div><div class="metric-sub">est.</div></div>
+  <div class="metric"><div class="metric-lbl">Cost / Serve</div><div class="metric-val">$${m.costPerServe.toFixed(2)}</div><div class="metric-sub">est.</div></div>
+</div>
 ${descTxt?`<div class="r-desc">${esc(descTxt)}</div>`:''}`;
           steps.forEach((step,idx)=>{
             const si=ingredients.filter(r=>r.step_id===step.id);
             const hasCook=step.cook_time||step.cook_temp||step.cook_method||step.cook_action;
             if(si.length>0){
-              h+=`<div class="sc">
-<div class="sc-left"><div class="sh"><div class="sn">${idx+1}</div><div class="st">${esc(step.title||'Step '+(idx+1))}</div></div>${step.description?`<div class="sd">${esc(step.description)}</div>`:''} ${hasCook?`<div class="cb">${[step.cook_time,step.cook_temp,step.cook_method,step.cook_action].filter(Boolean).map(v=>`<span class="cp">${esc(v)}</span>`).join('')}</div>`:''}</div>
-<div class="sc-right">${si.map(ingRow).join('')}</div>
-</div>`;
+              h+=`<div class="sc"><div class="sc-left"><div class="sh"><div class="sn">${idx+1}</div><div class="st">${esc(step.title||'Step '+(idx+1))}</div></div>${step.description?`<div class="sd">${esc(step.description)}</div>`:''} ${hasCook?`<div class="cb">${[step.cook_time,step.cook_temp,step.cook_method,step.cook_action].filter(Boolean).map(v=>`<span class="cp">${esc(v)}</span>`).join('')}</div>`:''}</div><div class="sc-right">${si.map(ingRow).join('')}</div></div>`;
             } else {
               h+=`<div class="note"><div class="nn">${idx+1}</div><div class="nt">${step.title?`<span class="nt-title">${esc(step.title)}</span>${step.description?' &mdash; ':''}`:''} ${esc(step.description||'')}</div></div>`;
             }
           });
           const gen=ingredients.filter(r=>!r.step_id);
           if(gen.length){
-            h+=`<div class="sc"><div class="gen-lbl" style="writing-mode:vertical-rl;transform:rotate(180deg);display:flex;align-items:center;justify-content:center;padding:3mm 2mm;font-size:7pt;font-weight:800;color:#a8a29e;text-transform:uppercase;letter-spacing:0.08em;background:#fafaf9;border-right:1.5px solid #e7e5e4;width:10mm;min-width:10mm;">General</div><div class="sc-right">${gen.map(ingRow).join('')}</div></div>`;
+            h+=`<div class="sc"><div class="sc-left" style="display:flex;align-items:center;"><div style="font-size:8pt;font-weight:800;color:#666;text-transform:uppercase;letter-spacing:0.08em;">General</div></div><div class="sc-right">${gen.map(ingRow).join('')}</div></div>`;
           }
-          h+=`<div class="total"><span class="tl">Total raw batch</span><span class="tv">${(totalG/1000).toFixed(3)} kg</span></div></div>`;
+          h+=`<div class="total"><span class="tl">Total raw batch</span><span class="tv">${(m.totalG/1000).toFixed(3)} kg</span></div></div>`;
           return h;
         }).join('');
         return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Revive Cafe — Recipes</title><style>${CSS}</style></head><body>${rows}</body></html>`;
@@ -1720,9 +1741,10 @@ ${descTxt?`<div class="r-desc">${esc(descTxt)}</div>`:''}`;
           const recipe=recipes.value.find(r=>r.id===id);
           const[{data:steps},{data:ings}]=await Promise.all([
             sb.from('recipe_steps').select('*').eq('recipe_id',id).order('step_order'),
-            sb.from('recipe_ingredients').select('*,ingredient:ingredients(name)').eq('recipe_id',id)
+            sb.from('recipe_ingredients').select('*,ingredient:ingredients(*)').eq('recipe_id',id)
           ]);
-          results.push({recipe,steps:steps||[],ingredients:ings||[]});
+          const ingList=ings||[];
+          results.push({recipe,steps:steps||[],ingredients:ingList,metrics:computePrintMetrics(recipe,ingList)});
         }
         const CO=['Muesli','Hotpots','Dahls','Meals & Savoury','Sauces','Porridge'];
         results.sort((a,b)=>{
@@ -1737,7 +1759,8 @@ ${descTxt?`<div class="r-desc">${esc(descTxt)}</div>`:''}`;
         printLoading.value=false;
       }
       function printRecipe(){
-        openPrintWindow([{recipe:currentRecipe.value,steps:viewSteps.value,ingredients:viewIngredients.value}]);
+        const ings=viewIngredients.value;
+        openPrintWindow([{recipe:currentRecipe.value,steps:viewSteps.value,ingredients:ings,metrics:computePrintMetrics(currentRecipe.value,ings)}]);
       }
 
       // ---- INGREDIENT MANAGER ----
