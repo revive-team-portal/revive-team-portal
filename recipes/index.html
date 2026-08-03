@@ -9,8 +9,35 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"></script>
   <style>
     [v-cloak] { display: none; }
-    @media print { .no-print { display: none !important; } body { background: white; } }
+    .print-section { display: none; }
     .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+      #app > .flex { display: none !important; }
+      .print-section { display: block !important; }
+      @page { size: A4 portrait; margin: 11mm 13mm; }
+      .rpc { page-break-after: always; font-family: sans-serif; }
+      .rpc:last-child { page-break-after: avoid; }
+      .rpc h1 { font-size: 1.35em; font-weight: 800; margin: 0 0 0.1em; line-height: 1.2; }
+      .rpc .meta { font-size: 0.75em; color: #666; margin-bottom: 0.4em; }
+      .rpc .desc { font-size: 0.82em; color: #555; font-style: italic; margin-bottom: 0.5em; border-left: 2px solid #d97706; padding-left: 0.5em; }
+      .rpc hr { border: none; border-top: 2px solid #1c1917; margin: 0.35em 0; }
+      .rpc .step-block { display: flex; gap: 0; margin-bottom: 0.25em; }
+      .rpc .step-left { width: 5.5em; min-width: 5.5em; font-weight: 700; padding-right: 0.5em; }
+      .rpc .step-num { display: inline-block; background: #d97706; color: white; border-radius: 50%; width: 1.3em; height: 1.3em; text-align: center; line-height: 1.3em; font-size: 0.9em; margin-right: 0.3em; }
+      .rpc .step-right { flex: 1; }
+      .rpc .step-title { font-weight: 700; }
+      .rpc .step-desc { font-size: 0.85em; color: #444; margin-bottom: 0.2em; }
+      .rpc table { width: 100%; border-collapse: collapse; }
+      .rpc td { padding: 0.06em 0.3em; vertical-align: baseline; }
+      .rpc td.ing { font-weight: 600; flex: 1; }
+      .rpc td.vol { color: #888; width: 5.5em; text-align: right; }
+      .rpc td.wt { font-weight: 700; width: 5em; text-align: right; font-variant-numeric: tabular-nums; }
+      .rpc .step-sep { border-top: 1px solid #e7e5e4; margin: 0.2em 0; }
+      .rpc .total-row { display: flex; justify-content: space-between; font-weight: 700; border-top: 2px solid #1c1917; padding-top: 0.3em; margin-top: 0.2em; }
+      .rpc .notes-row { font-size: 0.82em; color: #555; margin-top: 0.4em; border: 1px solid #fde68a; background: #fffbeb; padding: 0.3em 0.5em; border-radius: 4px; }
+    }
   </style>
 </head>
 <body class="bg-stone-50 font-sans text-stone-900">
@@ -73,6 +100,12 @@
         <input v-model="searchQuery" type="text" placeholder="Search recipes..."
           class="flex-1 border border-stone-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
         <span class="text-stone-400 text-sm shrink-0">{{ filteredRecipes.length }} recipe{{ filteredRecipes.length!==1?'s':'' }}</span>
+        <button v-if="selectedRecipes.length>0" @click="printSelected" :disabled="printLoading"
+          class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition shrink-0 disabled:opacity-60">
+          {{ printLoading?'Loading…':'Print '+selectedRecipes.length+' recipe'+(selectedRecipes.length>1?'s':'') }}
+        </button>
+        <button v-if="selectedRecipes.length>0" @click="selectedRecipes=[]"
+          class="text-stone-400 hover:text-stone-700 text-xs px-2 py-2 transition shrink-0">Clear</button>
       </div>
 
       <div v-if="loadingRecipes" class="text-center text-stone-400 py-24 text-sm">Loading...</div>
@@ -90,6 +123,7 @@
           <!-- Column headers -->
           <div class="flex items-center gap-4 px-4 py-1 mb-1">
             <div class="w-4 shrink-0"></div>
+            <div class="w-4 shrink-0"></div>
             <span class="flex-1 text-xs text-stone-400"></span>
             <span class="text-xs text-stone-400 w-24 text-right shrink-0">Batch size</span>
             <span class="text-xs text-stone-400 w-24 text-right shrink-0">Batch cost</span>
@@ -100,7 +134,12 @@
           <div class="space-y-0.5">
             <div v-for="recipe in group.recipes" :key="recipe.id"
               @click="viewRecipe(recipe)"
-              class="flex items-center gap-4 px-4 py-2.5 rounded-lg cursor-pointer hover:bg-amber-50 border border-transparent hover:border-amber-200 transition group">
+              class="flex items-center gap-4 px-4 py-2.5 rounded-lg cursor-pointer hover:bg-amber-50 border border-transparent hover:border-amber-200 transition group"
+              :class="selectedRecipes.includes(recipe.id)?'bg-amber-50 border-amber-200':''">
+              <!-- Checkbox -->
+              <input type="checkbox" :checked="selectedRecipes.includes(recipe.id)"
+                @click.stop="toggleSelectRecipe(recipe.id)"
+                class="w-4 h-4 rounded accent-amber-600 shrink-0 cursor-pointer">
               <!-- Status dot -->
               <div class="w-4 shrink-0 flex items-center justify-center">
                 <span v-if="recipe._hasMissingPrices" title="Missing ingredient prices" class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
@@ -1136,6 +1175,63 @@ Method:
     </div>
   </div>
 
+    <!-- ============ PRINT SECTION ============ -->
+    <div class="print-section" :style="{fontSize: printFontSize}">
+      <div v-for="item in printData" :key="item.recipe.id" class="rpc">
+        <!-- Header -->
+        <h1>{{ item.recipe.name }}</h1>
+        <div class="meta">
+          {{ item.recipe.category }}&nbsp;&middot;&nbsp;Version {{ item.recipe.version }}
+          <span v-if="printBatchWeight(item)"> &middot; {{ printBatchWeight(item) }} batch</span>
+        </div>
+        <hr>
+        <!-- Description + Notes -->
+        <div v-if="item.recipe.description||item.recipe.notes" class="desc">
+          <span v-if="item.recipe.description">{{ item.recipe.description }}</span>
+          <span v-if="item.recipe.description&amp;&amp;item.recipe.notes"> &mdash; </span>
+          <span v-if="item.recipe.notes">{{ item.recipe.notes }}</span>
+        </div>
+        <!-- Steps with ingredients -->
+        <template v-for="(step,idx) in item.steps" :key="step.id">
+          <div class="step-block">
+            <div class="step-left">
+              <span class="step-num">{{ idx+1 }}</span>
+            </div>
+            <div class="step-right">
+              <div class="step-title">{{ step.title||'Step '+(idx+1) }}</div>
+              <div v-if="step.description" class="step-desc">{{ step.description }}</div>
+              <table>
+                <tr v-for="ri in item.ingredients.filter(r=>r.step_id===step.id)" :key="ri.id">
+                  <td class="ing">{{ ri.ingredient?.name }}</td>
+                  <td class="vol">{{ ri.volumetric_note||'' }}</td>
+                  <td class="wt">{{ (ri.weight_g/1000).toFixed(3) }}&nbsp;kg</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+          <div v-if="idx<item.steps.length-1" class="step-sep"></div>
+        </template>
+        <!-- Unassigned ingredients -->
+        <div v-if="item.ingredients.filter(r=>!r.step_id).length>0" class="step-block">
+          <div class="step-left"><strong>General</strong></div>
+          <div class="step-right">
+            <table>
+              <tr v-for="ri in item.ingredients.filter(r=>!r.step_id)" :key="ri.id">
+                <td class="ing">{{ ri.ingredient?.name }}</td>
+                <td class="vol">{{ ri.volumetric_note||'' }}</td>
+                <td class="wt">{{ (ri.weight_g/1000).toFixed(3) }}&nbsp;kg</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <!-- Total -->
+        <div class="total-row">
+          <span>Total batch</span>
+          <span>{{ (item.ingredients.reduce((s,r)=>s+r.weight_g,0)/1000).toFixed(3) }} kg</span>
+        </div>
+      </div>
+    </div>
+
 </div><!-- end #app -->
 
 <script>
@@ -1218,6 +1314,11 @@ Method:
       const importTab = ref('text'); const importText = ref(''); const importImageData = ref(null); const importImageType = ref('image/jpeg');
       const importLoading = ref(false); const importError = ref('');
       const moistureFactor = ref(0.90);
+      // Print
+      const selectedRecipes = ref([]);
+      const printData = ref([]);
+      const printLoading = ref(false);
+      const printFontSize = ref('9pt');
 
       // ---- COMPUTED ----
       const allCategories = computed(()=>[...new Set(recipes.value.map(r=>r.category).filter(Boolean))].sort());
@@ -1500,6 +1601,56 @@ Method:
         if(!confirm('Delete "'+recipe.name+'" (v'+recipe.version+')? Cannot be undone.'))return;
         await sb.from('recipes').delete().eq('id',recipe.id);await loadRecipes();goToList();
       }
+      function toggleSelectRecipe(id){
+        const idx=selectedRecipes.value.indexOf(id);
+        if(idx>-1) selectedRecipes.value.splice(idx,1);
+        else selectedRecipes.value.push(id);
+      }
+      function printBatchWeight(item){
+        const g=item.ingredients.reduce((s,r)=>s+r.weight_g,0);
+        if(!g) return null;
+        return g>=1000?(g/1000).toFixed(3)+'kg':g.toFixed(0)+'g';
+      }
+      async function printSelected(){
+        printLoading.value=true;
+        const ids=[...selectedRecipes.value];
+        const results=[];
+        for(const id of ids){
+          const recipe=recipes.value.find(r=>r.id===id);
+          const[{data:steps},{data:ings}]=await Promise.all([
+            sb.from('recipe_steps').select('*').eq('recipe_id',id).order('step_order'),
+            sb.from('recipe_ingredients').select('*,ingredient:ingredients(name)').eq('recipe_id',id)
+          ]);
+          results.push({recipe,steps:steps||[],ingredients:ings||[]});
+        }
+        // Sort by category order then name
+        const CO=['Muesli','Hotpots','Dahls','Meals & Savoury','Sauces','Porridge'];
+        results.sort((a,b)=>{
+          const ai=CO.indexOf(a.recipe.category),bi=CO.indexOf(b.recipe.category);
+          return (ai===-1?99:ai)-(bi===-1?99:bi)||a.recipe.name.localeCompare(b.recipe.name);
+        });
+        // Compute font size based on longest recipe
+        function contentRows(item){
+          let r=4;
+          if(item.recipe.description||item.recipe.notes) r+=Math.ceil(((item.recipe.description||'').length+(item.recipe.notes||'').length)/120)+1;
+          for(const s of item.steps){
+            r+=2;
+            if(s.description) r+=Math.ceil(s.description.length/90);
+            r+=item.ingredients.filter(i=>i.step_id===s.id).length;
+          }
+          const gen=item.ingredients.filter(i=>!i.step_id);
+          if(gen.length){r+=2;r+=gen.length;}
+          r+=2;
+          return r;
+        }
+        const maxRows=Math.max(...results.map(contentRows),1);
+        // A4 portrait: ~265mm usable. At Xpt, 1 line ~ X*0.353*1.35mm
+        const maxPt=Math.floor(265/(maxRows*0.353*1.35));
+        printFontSize.value=Math.min(10,Math.max(7,maxPt))+'pt';
+        printData.value=results;
+        printLoading.value=false;
+        setTimeout(()=>window.print(),150);
+      }
       function printRecipe(){window.print();}
 
       // ---- INGREDIENT MANAGER ----
@@ -1766,7 +1917,8 @@ Method:
         addStep, removeStep, moveStepUp, moveStepDown,
         addIngredientToStep, addGeneralIngredient, removeEditIngredient,
         convertVolumetricToGrams,
-        saveRecipe, confirmDeleteRecipe, printRecipe,
+        saveRecipe, confirmDeleteRecipe, printRecipe, toggleSelectRecipe, printSelected,
+        selectedRecipes, printData, printLoading, printFontSize, printBatchWeight,
         openIngredientModal, saveIngredient, confirmDeleteIngredient, estimateCookRatio,
         autoFillLoading, autoFillStatus, autoFillNIP,
         searchUSDA, selectUSDAFood,
