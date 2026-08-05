@@ -1,7 +1,7 @@
 const { TODAY_SQL, queueJob, db } = require('./_posqueries');
 const { gql } = require('./_shopify');
 const { rest } = require('./_appsdb');
-const { spendRange } = require('./_metasync');
+const { spendRange, metaAccountTz } = require('./_metasync');
 const NZ = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' });
 function nzToday() { return NZ.format(new Date()); }
 
@@ -19,7 +19,13 @@ function todayAndWeekStart() {
 }
 async function metaSpend() {
   try {
-    const { today, weekStart } = todayAndWeekStart();
+    // Meta dates are in the AD ACCOUNT's timezone (e.g. Etc/GMT+12 = UTC-12), which
+    // differs from NZ — so compute today / week-start in that zone, not NZ.
+    const tz = await metaAccountTz();
+    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+    const today = fmt.format(new Date());
+    const d = new Date(today + 'T00:00:00Z'); const back = (d.getUTCDay() - 6 + 7) % 7; d.setUTCDate(d.getUTCDate() - back);
+    const weekStart = d.toISOString().slice(0, 10);
     const [t, w] = await Promise.all([spendRange(today, today), spendRange(weekStart, today)]);
     return { meta_today: Math.round(t * 100) / 100, meta_week: Math.round(w * 100) / 100 };
   } catch (e) { return { meta_today: null, meta_week: null }; }

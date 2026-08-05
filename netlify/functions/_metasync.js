@@ -62,4 +62,14 @@ async function spendRange(since, until) {
   if (j.error) throw new Error('Meta ' + String(j.error.message || '').slice(0, 160));
   return Number((j.data && j.data[0] && j.data[0].spend) || 0);
 }
-module.exports = { syncMeta, spendRange };
+let _acctTz = null;
+async function metaAccountTz() {
+  if (_acctTz) return _acctTz;
+  try {
+    const res = await fetch(GRAPH + '/' + ACCT + '?fields=timezone_name&access_token=' + encodeURIComponent(TOKEN));
+    const j = await res.json().catch(() => ({}));
+    _acctTz = (j && j.timezone_name) || 'Etc/GMT+12';
+  } catch (e) { _acctTz = 'Etc/GMT+12'; }
+  return _acctTz;
+}
+module.exports = { syncMeta, spendRange, metaAccountTz };
