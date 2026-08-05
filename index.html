@@ -314,6 +314,8 @@ async function loadTodayBar(refresh){
     if(j.sales!=null){ h+=box('Cafe $ today','$'+Math.round(j.sales).toLocaleString()); h+=box('Covers today',Math.round(j.covers).toLocaleString()); }
     if(j.shopify_today!=null) h+=box('Shopify today','$'+Math.round(j.shopify_today).toLocaleString());
     if(j.shopify_week!=null) h+=box('Shopify this week','$'+Math.round(j.shopify_week).toLocaleString());
+    if(j.meta_today!=null) h+=box('Meta spend today','$'+Math.round(j.meta_today).toLocaleString()+(j.meta_today_pct!=null?' \u00b7 '+j.meta_today_pct+'%':''));
+    if(j.meta_week!=null) h+=box('Meta spend this week','$'+Math.round(j.meta_week).toLocaleString()+(j.meta_week_pct!=null?' \u00b7 '+j.meta_week_pct+'%':''));
     if(j.orders_to_fulfil!=null) h+=box('To fulfil',j.orders_to_fulfil.toLocaleString());
     if(j.orders_fulfilled_today!=null) h+=box('Fulfilled today',j.orders_fulfilled_today.toLocaleString());
     if(j.outstanding_tickets!=null) h+=box('Outstanding tickets',j.outstanding_tickets.toLocaleString());
