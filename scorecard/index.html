@@ -479,7 +479,7 @@ createApp({
     const ready=ref(false), gateError=ref(''), level=ref(''), email=ref(''), screen=ref('team');
     const msg=ref('');
     const today=reactive({sales:null,covers:null,updated_at:null,shopify_today:null,shopify_week:null,orders_to_fulfil:null,orders_fulfilled_today:null,outstanding_tickets:null});
-    async function loadToday(refresh){ try{ const r=await fetch('/.netlify/functions/cafe-today'+(refresh?'?refresh=1':'')); const j=await r.json(); if(j&&!j.error){ today.sales=j.sales; today.covers=j.covers; today.updated_at=j.updated_at; today.shopify_today=j.shopify_today; today.shopify_week=j.shopify_week; today.orders_to_fulfil=j.orders_to_fulfil; today.orders_fulfilled_today=j.orders_fulfilled_today; today.outstanding_tickets=j.outstanding_tickets; } }catch(e){} }
+    async function loadToday(refresh){ try{ const r=await fetch('/.netlify/functions/cafe-today'+(refresh?'?refresh=1':'')); const j=await r.json(); if(j&&!j.error){ today.sales=j.sales; today.covers=j.covers; today.updated_at=j.updated_at; today.shopify_today=j.shopify_today; today.shopify_week=j.shopify_week; today.orders_to_fulfil=j.orders_to_fulfil; today.orders_fulfilled_today=j.orders_fulfilled_today; today.outstanding_tickets=j.outstanding_tickets; } if(refresh) setTimeout(()=>loadToday(false),7000); }catch(e){} }
     const todayTime=computed(()=>{ if(!today.updated_at) return ''; const d=new Date(today.updated_at); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); });
     let flashT=null;
     function flash(t){ msg.value=t; clearTimeout(flashT); flashT=setTimeout(()=>msg.value='',2600); }
@@ -847,7 +847,7 @@ createApp({
       if(level.value==='manager'){ initTargetForm(); initTopline(); }
     }
     onMounted(async()=>{
-      loadToday(true); setInterval(()=>{ if(!document.hidden) loadToday(); },900000);
+      loadToday(true); setInterval(()=>{ if(!document.hidden) loadToday(); },900000); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) loadToday(true); });
       const { data:{ session:p } }=await portal.auth.getSession();
       if(!p){ window.location.href='/'; return; }
       email.value=p.user.email||'';

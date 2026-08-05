@@ -321,9 +321,11 @@ async function loadTodayBar(refresh){
     h+='<span class="tstamp">as at '+t+'</span><a class="rf" title="Refresh">\u21bb</a>';
     bar.innerHTML=h; bar.classList.remove('hidden');
     const rf=bar.querySelector('.rf'); if(rf) rf.onclick=()=>loadTodayBar(true);
+    if(refresh) setTimeout(()=>loadTodayBar(false), 7000);
   }catch(e){}
 }
 setInterval(()=>{ if(!document.hidden) loadTodayBar(); }, 900000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) loadTodayBar(true); });
 
 async function enterApp(){
   hide(boot); hide(loginView); show(appView);
