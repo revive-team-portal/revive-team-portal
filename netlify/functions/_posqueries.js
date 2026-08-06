@@ -40,8 +40,14 @@ const UBER_SQL =
   " WHERE m.MediaType IN (3,5) AND t.Receipt_Date_Time >= DATEADD(week,-10,GETDATE())" +
   " GROUP BY " + WEEK_END + " ORDER BY 1;";
 async function queueJob(note, sql) {
-  const ex = await db('pos_jobs?status=eq.pending&note=eq.' + encodeURIComponent(note) + '&select=id');
+  const cutoff = new Date(Date.now() - 4 * 60000).toISOString();
+  // A recent pending job of this type already covers it — skip.
+  const ex = await db('pos_jobs?status=eq.pending&note=eq.' + encodeURIComponent(note) + '&created_at=gte.' + cutoff + '&select=id');
   if (ex && ex.length) return { queued: false };
+  // Expire older stuck pending jobs (e.g. the agent was offline) so one dead job can't
+  // block the queue, and so the agent runs a fresh query rather than an ancient one.
+  await db('pos_jobs?status=eq.pending&note=eq.' + encodeURIComponent(note) + '&created_at=lt.' + cutoff,
+    { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'stale' }) }).catch(() => {});
   await db('pos_jobs', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify([{ sql, note }]) });
   return { queued: true };
 }
