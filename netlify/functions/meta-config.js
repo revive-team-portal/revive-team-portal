@@ -26,7 +26,7 @@ exports.handler = async (event) => {
   if (qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
   try {
     const [acct, camps, sets] = await Promise.all([
-      g(ACCT, 'name,currency,timezone_name,spend_cap,amount_spent,balance,account_status'),
+      g(ACCT, 'name,currency,timezone_name,spend_cap,amount_spent,balance,account_status,disable_reason,adtrust_dsl,is_prepay_account,funding_source_details,min_daily_budget'),
       g(ACCT + '/campaigns', 'name,status,effective_status,objective,buying_type,bid_strategy,daily_budget,lifetime_budget,budget_remaining,spend_cap,start_time,stop_time,budget_rebalance_flag', '&effective_status=' + encodeURIComponent(JSON.stringify(['ACTIVE', 'PAUSED']))),
       g(ACCT + '/adsets', 'name,status,effective_status,campaign_id,daily_budget,lifetime_budget,budget_remaining,bid_strategy,bid_amount,billing_event,optimization_goal,pacing_type,start_time,end_time,adset_schedule,attribution_spec', '&effective_status=' + encodeURIComponent(JSON.stringify(['ACTIVE', 'PAUSED']))),
     ]);
