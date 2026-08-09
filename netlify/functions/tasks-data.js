@@ -209,8 +209,10 @@ exports.handler = async (event) => {
     if (action === 'save_task') {
       const row = pick(body.task || {}, TASK_FIELDS);
       if (!isManager) { row.owner_id = me; delete row.is_gm_action; delete row.for_person_id; }
-      if (!row.title || !String(row.title).trim()) return json(400, { error: 'A task needs a title.' });
-      row.title = String(row.title).slice(0, 500);
+      if (!body.id || 'title' in row) {
+        if (!row.title || !String(row.title).trim()) return json(400, { error: 'A task needs a title.' });
+        row.title = String(row.title).slice(0, 500);
+      }
       row.updated_at = new Date().toISOString();
 
       if (body.id) {
@@ -324,9 +326,13 @@ exports.handler = async (event) => {
     // ---------------------------------------------------------------- goals
     if (action === 'save_goal') {
       const row = pick(body.goal || {}, GOAL_FIELDS);
-      if (!isManager) row.owner_id = me;
-      if (!row.title || !String(row.title).trim()) return json(400, { error: 'A goal needs a title.' });
-      row.title = String(row.title).slice(0, 300);
+      if (!isManager && !body.id) row.owner_id = me;
+      // Partial updates (status flip, progress slider) send only the changed field,
+      // so only insist on a title when one was supplied or the goal is new.
+      if (!body.id || 'title' in row) {
+        if (!row.title || !String(row.title).trim()) return json(400, { error: 'A goal needs a title.' });
+        row.title = String(row.title).slice(0, 300);
+      }
       row.updated_at = new Date().toISOString();
       if (body.id) {
         if (!(await ownGuard('goal', body.id))) return json(403, { error: 'Not your goal.' });
