@@ -63,9 +63,17 @@ async function outstandingTickets() {
   try { const rows = await rest('tickets?status=neq.Resolved&select=id&limit=1000'); return { outstanding_tickets: Array.isArray(rows) ? rows.length : null }; }
   catch (e) { return { outstanding_tickets: null }; }
 }
+const RESP_H = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
+const send = (o) => ({ statusCode: 200, headers: RESP_H, body: JSON.stringify(o) });
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
+  const only = qp.only;
   try {
+    // Per-source endpoints so the loading bar can tick each independently.
+    if (only === 'pos') { if (qp.refresh) await queueJob('cafe-today', TODAY_SQL).catch(() => {}); const rows = await db('pos_today?id=eq.1&select=sales,covers,updated_at'); const t = (rows && rows[0]) || {}; return send({ sales: t.sales, covers: t.covers, updated_at: t.updated_at }); }
+    if (only === 'shopify') { const [ss, oc] = await Promise.all([shopifySums(), orderCounts()]); return send({ ...ss, ...oc }); }
+    if (only === 'meta') { const ms = await metaSpend(); return send(ms); }
+    if (only === 'support') { const tk = await outstandingTickets(); return send(tk); }
     if (qp.refresh) await queueJob('cafe-today', TODAY_SQL).catch(() => {});
     const [rows, oc, ss, tk, ms] = await Promise.all([db('pos_today?id=eq.1&select=sales,covers,updated_at'), orderCounts(), shopifySums(), outstandingTickets(), metaSpend()]);
     const pct = (spend, sales) => (spend != null && sales != null && sales > 0) ? Math.round(spend / sales * 100) : null;
