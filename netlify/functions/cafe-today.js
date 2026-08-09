@@ -70,16 +70,16 @@ exports.handler = async (event) => {
   const only = qp.only;
   try {
     // Per-source endpoints so the loading bar can tick each independently.
-    if (only === 'pos') { if (qp.refresh) await queueJob('cafe-today', TODAY_SQL).catch(() => {}); const rows = await db('pos_today?id=eq.1&select=sales,covers,updated_at'); const t = (rows && rows[0]) || {}; return send({ sales: t.sales, covers: t.covers, updated_at: t.updated_at }); }
+    if (only === 'pos') { if (qp.refresh) await queueJob('cafe-today', TODAY_SQL).catch(() => {}); const rows = await db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at'); const t = (rows && rows[0]) || {}; return send({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at }); }
     if (only === 'shopify') { const [ss, oc] = await Promise.all([shopifySums(), orderCounts()]); return send({ ...ss, ...oc }); }
     if (only === 'meta') { const ms = await metaSpend(); return send(ms); }
     if (only === 'support') { const tk = await outstandingTickets(); return send(tk); }
     if (qp.refresh) await queueJob('cafe-today', TODAY_SQL).catch(() => {});
-    const [rows, oc, ss, tk, ms] = await Promise.all([db('pos_today?id=eq.1&select=sales,covers,updated_at'), orderCounts(), shopifySums(), outstandingTickets(), metaSpend()]);
+    const [rows, oc, ss, tk, ms] = await Promise.all([db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at'), orderCounts(), shopifySums(), outstandingTickets(), metaSpend()]);
     const pct = (spend, sales) => (spend != null && sales != null && sales > 0) ? Math.round(spend / sales * 100) : null;
     const t = (rows && rows[0]) || {};
     return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ sales: t.sales, covers: t.covers, updated_at: t.updated_at,
+      body: JSON.stringify({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at,
         shopify_today: ss.shopify_today, shopify_week: ss.shopify_week,
         orders_to_fulfil: oc.orders_to_fulfil, orders_fulfilled_today: oc.orders_fulfilled_today, outstanding_tickets: tk.outstanding_tickets,
         meta_today: ms.meta_today, meta_week: ms.meta_week, meta_today_pct: pct(ms.meta_today, ss.shopify_today), meta_week_pct: pct(ms.meta_week, ss.shopify_week) }) };

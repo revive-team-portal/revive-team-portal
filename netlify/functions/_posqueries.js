@@ -20,7 +20,8 @@ const WEEKLY_SQL =
   " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
   " WHERE t.Receipt_Date_Time >= DATEADD(week,-10,GETDATE()) GROUP BY " + WEEK_END + " ORDER BY 1;";
 const TODAY_SQL =
-  "SELECT SUM(i.Sales) AS sales, SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS covers" +
+  "SELECT SUM(i.Sales) AS sales, SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS covers," +
+  " SUM(CASE WHEN DATEPART(hour,t.Receipt_Date_Time)*60+DATEPART(minute,t.Receipt_Date_Time) < 765 THEN i.Sales ELSE 0 END) AS sales_1245" +
   " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
   " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
   " WHERE CAST(t.Receipt_Date_Time AS date)=CAST(GETDATE() AS date);";
@@ -60,8 +61,8 @@ async function ingest(note, result) {
   if (!note) return;
   if (note.indexOf('cafe-today') === 0) {
     const { cols, rows } = parseTSV(result); const r = rows[0] || []; const ix = c => cols.indexOf(c);
-    const sales = Number(r[ix('sales')] || 0), covers = Number(r[ix('covers')] || 0);
-    await db('pos_today?id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sales, covers, updated_at: new Date().toISOString() }) });
+    const sales = Number(r[ix('sales')] || 0), covers = Number(r[ix('covers')] || 0), sales_1245 = Number(r[ix('sales_1245')] || 0);
+    await db('pos_today?id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sales, covers, sales_1245, updated_at: new Date().toISOString() }) });
     return;
   }
   if (note.indexOf('weekly-feed') === 0) {
