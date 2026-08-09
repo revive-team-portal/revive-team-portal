@@ -4,6 +4,7 @@ const { rest } = require('./_appsdb');
 const { spendRange, metaAccountTz } = require('./_metasync');
 const NZ = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' });
 function nzToday() { return NZ.format(new Date()); }
+function nzToday_() { return NZ.format(new Date()); }
 
 async function orderCounts() {
   try {
@@ -19,14 +20,21 @@ function todayAndWeekStart() {
 }
 async function metaSpend() {
   try {
-    // Meta dates are in the AD ACCOUNT's timezone (e.g. Etc/GMT+12 = UTC-12), which
-    // differs from NZ — so compute today / week-start in that zone, not NZ.
+    // Anchor the Sat-Fri week to NZ (the business calendar), then map to the ad
+    // account's own calendar for the Meta query. The account tz (Etc/GMT+12 = UTC-12)
+    // runs a full day behind NZ, so its dates are offset — derive that offset live
+    // rather than assuming, then shift the NZ dates onto the account's dates.
     const tz = await metaAccountTz();
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
-    const today = fmt.format(new Date());
-    const d = new Date(today + 'T00:00:00Z'); const back = (d.getUTCDay() - 6 + 7) % 7; d.setUTCDate(d.getUTCDate() - back);
-    const weekStart = d.toISOString().slice(0, 10);
-    const [t, w] = await Promise.all([spendRange(today, today), spendRange(weekStart, today)]);
+    const acctFmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+    const now = new Date();
+    const nzToday = nzToday_();                 // NZ calendar date
+    const acctToday = acctFmt.format(now);      // ad-account calendar date (== NZ today's 24h window)
+    const d = new Date(nzToday + 'T00:00:00Z'); const back = (d.getUTCDay() - 6 + 7) % 7; d.setUTCDate(d.getUTCDate() - back);
+    const nzWeekStart = d.toISOString().slice(0, 10);   // most recent NZ Saturday
+    const dayDiff = Math.round((Date.parse(acctToday + 'T00:00:00Z') - Date.parse(nzToday + 'T00:00:00Z')) / 86400000);
+    const shift = (ymd, n) => { const x = new Date(ymd + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    const acctWeekStart = shift(nzWeekStart, dayDiff);
+    const [t, w] = await Promise.all([spendRange(acctToday, acctToday), spendRange(acctWeekStart, acctToday)]);
     return { meta_today: Math.round(t * 100) / 100, meta_week: Math.round(w * 100) / 100 };
   } catch (e) { return { meta_today: null, meta_week: null }; }
 }
