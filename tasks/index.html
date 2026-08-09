@@ -72,12 +72,17 @@
       <button v-for="t in tabs" :key="t.id" @click="screen=t.id"
         class="text-sm font-medium px-3 py-1.5 rounded-lg border"
         :class="screen===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">{{ t.label }}</button>
-      <div v-if="isManager && people.length>1" class="ml-auto flex items-center gap-2">
-        <span class="text-xs text-stone-400 hidden sm:inline">Showing</span>
-        <select v-model="viewPerson" class="text-sm border border-stone-300 rounded-lg px-2 py-1.5 bg-white">
-          <option value="all">Everyone</option>
-          <option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option>
-        </select>
+      <div v-if="isManager && people.length>1" class="ml-auto flex items-center gap-1 flex-wrap">
+        <span class="text-xs text-stone-400 hidden lg:inline mr-1">Board</span>
+        <button @click="viewPerson='all'" class="text-sm font-medium px-3 py-1.5 rounded-lg border"
+          :class="viewPerson==='all' ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">Everyone</button>
+        <button v-for="p in people" :key="p.id" @click="viewPerson=p.id"
+          class="text-sm font-medium pl-1.5 pr-3 py-1 rounded-lg border flex items-center gap-1.5"
+          :class="viewPerson===p.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">
+          <span class="w-6 h-6 rounded-full text-[10px] font-semibold flex items-center justify-center"
+            :class="viewPerson===p.id ? 'bg-white/25 text-white' : 'bg-stone-200 text-stone-600'">{{ initials(p.full_name) }}</span>
+          {{ p.full_name.split(' ')[0] }}
+        </button>
       </div>
     </div>
 
@@ -120,8 +125,9 @@
               <span class="w-8 h-8 rounded-full flex items-center justify-center text-base" :class="tint(c.colour,'soft')">{{ c.icon }}</span>
               <div class="flex-1 min-w-0">
                 <h3 class="font-semibold text-sm text-stone-800 truncate">{{ c.name }}</h3>
-                <p class="text-[11px] text-stone-400">{{ c.tasks.filter(t=>!t.done).length }} open<span v-if="c.owner_id"> · personal</span></p>
+                <p class="text-[11px] text-stone-400 truncate">{{ c.tasks.filter(t=>!t.done).length }} open{{ boardLabel(c) }}</p>
               </div>
+              <span v-if="c.shared" class="text-[10px] bg-sky-50 text-sky-700 rounded px-1.5 py-px flex-none" title="Shared with everyone">shared</span>
               <button v-if="c.id" @click="openCategory(c)" class="text-stone-300 hover:text-stone-600 text-sm no-print" title="Edit category">✎</button>
             </div>
             <div class="tile-body px-2 py-2 flex-1">
@@ -141,7 +147,7 @@
                     <span v-if="t.carry_count>0 && !t.done" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">carried ×{{ t.carry_count }}</span>
                     <span v-if="t.due_date" class="text-[10px] rounded px-1.5 py-px" :class="dueClass(t)">{{ shortDate(t.due_date) }}</span>
                     <span v-if="t.goal_id" class="text-[10px] bg-violet-50 text-violet-700 rounded px-1.5 py-px">🎯 {{ goalTitle(t.goal_id) }}</span>
-                    <span v-if="viewPerson==='all' && isManager" class="text-[10px] text-stone-400">{{ personName(t.owner_id) }}</span>
+                    <span v-if="showOwner(t)" class="text-[10px] text-stone-400">{{ personName(t.owner_id) }}</span>
                   </div>
                 </div>
                 <button @click="commitToggle(t)" class="opacity-0 group-hover:opacity-100 text-xs flex-none no-print" :title="t.horizon==='week' ? 'Take off this week' : 'Commit to this week'">{{ t.horizon==='week' ? '📌' : '📍' }}</button>
@@ -387,7 +393,23 @@
               <button v-for="c in colourChoices" :key="c" @click="cat.colour=c" class="w-7 h-7 rounded-full border-2" :class="[tint(c,'dot'), cat.colour===c ? 'border-stone-800' : 'border-transparent']"></button>
             </div>
           </div>
-          <label class="text-sm flex items-center gap-2"><input type="checkbox" v-model="cat.personal" :disabled="!isManager && !cat.id"> Personal to me (not shared with the team)</label>
+          <div>
+            <p class="text-sm mb-1">Who can see it</p>
+            <div class="space-y-1.5">
+              <label v-if="isManager" class="flex items-start gap-2 text-sm border rounded-lg px-2.5 py-2 cursor-pointer" :class="cat.visibility==='team' ? 'border-green-600 bg-green-50' : 'border-stone-200'">
+                <input type="radio" value="team" v-model="cat.visibility" class="mt-1">
+                <span><b>Team board</b><br><span class="text-xs text-stone-500">No single owner. Everyone uses the board, but each person still sees only their own tasks in it.</span></span>
+              </label>
+              <label class="flex items-start gap-2 text-sm border rounded-lg px-2.5 py-2 cursor-pointer" :class="cat.visibility==='private' ? 'border-green-600 bg-green-50' : 'border-stone-200'">
+                <input type="radio" value="private" v-model="cat.visibility" class="mt-1">
+                <span><b>My board — private</b><br><span class="text-xs text-stone-500">Only you (and a manager) can see it.</span></span>
+              </label>
+              <label class="flex items-start gap-2 text-sm border rounded-lg px-2.5 py-2 cursor-pointer" :class="cat.visibility==='shared' ? 'border-green-600 bg-green-50' : 'border-stone-200'">
+                <input type="radio" value="shared" v-model="cat.visibility" class="mt-1">
+                <span><b>My board — shared</b><br><span class="text-xs text-stone-500">You own it, but everyone can see it and add their own tasks. They can only tick off tasks they own.</span></span>
+              </label>
+            </div>
+          </div>
           <p v-if="cat.err" class="text-sm text-red-600">{{ cat.err }}</p>
           <div class="flex justify-between pt-1">
             <button v-if="cat.id" @click="removeCategory" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
@@ -432,7 +454,7 @@
 </div>
 
 <script>
-const { createApp, ref, reactive, computed, onMounted } = Vue;
+const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
 const { createClient } = supabase;
 const portal = createClient(PORTAL_URL, PORTAL_ANON);
 
@@ -486,6 +508,7 @@ createApp({
     function goalLabel(s){ return ({on_track:'On track',off_track:'Off track',done:'Done',dropped:'Dropped'})[s]||s; }
     function goalCls(s){ return ({on_track:'bg-green-100 text-green-800',off_track:'bg-red-100 text-red-800',done:'bg-stone-100 text-stone-600',dropped:'bg-stone-100 text-stone-600'})[s]||'bg-stone-100 text-stone-600'; }
     function canEdit(t){ return isManager.value || t.owner_id===me.value; }
+    function showOwner(t){ return personFilter.value==='all' || t.owner_id!==personFilter.value; }
 
     async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
     async function call(payload){
@@ -497,19 +520,37 @@ createApp({
 
     // ---- filtering ----------------------------------------------------------
     const personFilter=computed(()=> viewPerson.value==='me' ? me.value : viewPerson.value);
-    function mine(list){ return personFilter.value==='all' ? list : list.filter(t=>t.owner_id===personFilter.value); }
+    // Boards someone has explicitly ticked as shared show everyone's tasks. Team boards
+    // (no owner) are a shared category list only — you still see just your own work in them.
+    const sharedBoardIds=computed(()=> new Set(categories.value.filter(c=>c.shared).map(c=>c.id)));
+    function mine(list){
+      if(personFilter.value==='all') return list;
+      if(isManager.value) return list.filter(t=>t.owner_id===personFilter.value);
+      return list.filter(t=> t.owner_id===me.value || sharedBoardIds.value.has(t.category_id));
+    }
     const visibleTasks=computed(()=> mine(tasks.value).filter(t=> showDone.value || !t.done));
     const openCount=computed(()=> mine(tasks.value).filter(t=>!t.done).length);
     const weekCount=computed(()=> mine(tasks.value).filter(t=>!t.done && t.horizon==='week').length);
 
-    const myCategories=computed(()=> categories.value.filter(c=> !c.owner_id || c.owner_id===me.value || (isManager.value && personFilter.value!=='all' && c.owner_id===personFilter.value)));
+    // Boards on screen: team boards, boards shared by anyone, my own, and — for a
+    // manager — the boards belonging to whoever's button is selected.
+    const myCategories=computed(()=> categories.value.filter(c=>
+      !c.owner_id || c.shared || c.owner_id===me.value ||
+      (isManager.value && (personFilter.value==='all' || c.owner_id===personFilter.value))
+    ));
+
+    function boardLabel(c){
+      if(!c.owner_id) return '';
+      if(c.owner_id===me.value) return c.shared ? ' · my board, shared' : ' · my board';
+      return ' · ' + personName(c.owner_id) + "'s board";
+    }
 
     const boardTiles=computed(()=>{
       const byCat={};
       visibleTasks.value.forEach(t=>{ const k=t.category_id||'none'; (byCat[k]=byCat[k]||[]).push(t); });
       const sortT=(a,b)=> (a.done-b.done) || (a.priority-b.priority) || (a.sort_order-b.sort_order);
-      const tiles=myCategories.value.map(c=>({key:c.id,id:c.id,name:c.name,icon:c.icon||'📌',colour:c.colour||'stone',owner_id:c.owner_id,tasks:(byCat[c.id]||[]).sort(sortT)}));
-      tiles.push({key:'none',id:null,name:'Uncategorised',icon:'🗂',colour:'stone',owner_id:null,tasks:(byCat['none']||[]).sort(sortT)});
+      const tiles=myCategories.value.map(c=>({key:c.id,id:c.id,name:c.name,icon:c.icon||'📌',colour:c.colour||'stone',owner_id:c.owner_id,shared:c.shared,tasks:(byCat[c.id]||[]).sort(sortT)}));
+      tiles.push({key:'none',id:null,name:'Uncategorised',icon:'🗂',colour:'stone',owner_id:null,shared:false,tasks:(byCat['none']||[]).sort(sortT)});
       return tiles;
     });
 
@@ -637,11 +678,17 @@ createApp({
       catch(e){ edit.err=e.message; }
     }
 
-    function openCategory(c){ Object.assign(cat,{open:true,err:'',id:c?c.id:null,name:c?c.name:'',icon:c?(c.icon||'📌'):'📌',colour:c?(c.colour||'stone'):'sky',personal:c?!!c.owner_id:!isManager.value}); }
+    function visibilityOf(c){ if(!c || !c.owner_id) return 'team'; return c.shared ? 'shared' : 'private'; }
+    function openCategory(c){
+      Object.assign(cat,{open:true,err:'',id:c?c.id:null,name:c?c.name:'',icon:c?(c.icon||'📌'):'📌',
+        colour:c?(c.colour||'stone'):'sky', visibility: c?visibilityOf(c):(isManager.value?'team':'private')});
+    }
     async function saveCategory(){
       if(!cat.name.trim()){ cat.err='Give the category a name.'; return; }
+      const owner_id = cat.visibility==='team' ? null : me.value;
+      const shared = cat.visibility==='shared';
       try{
-        const j=await call({action:'save_category',id:cat.id,category:{name:cat.name.trim(),icon:cat.icon,colour:cat.colour,owner_id:cat.personal?me.value:null}});
+        const j=await call({action:'save_category',id:cat.id,category:{name:cat.name.trim(),icon:cat.icon,colour:cat.colour,owner_id,shared}});
         if(j.category) upsertLocal(categories,j.category);
         categories.value=[...categories.value].sort((a,b)=>(a.sort_order-b.sort_order)||a.name.localeCompare(b.name));
         cat.open=false; flash('Saved');
@@ -692,6 +739,9 @@ createApp({
       if(j.carried) flash(j.carried+' unfinished task(s) rolled into this week');
     }
 
+    // Switching to someone's board should also aim the quick-add box at them.
+    watch(viewPerson, v=>{ quick.owner_id = (v==='all'||v==='me') ? me.value : v; });
+
     onMounted(async()=>{
       const { data:{ session:p } }=await portal.auth.getSession();
       if(!p){ window.location.href='/'; return; }
@@ -714,7 +764,7 @@ createApp({
     return { ready,gateError,msg,screen,tabs,showDone,me,level,isManager,myName,today,week,quarter,
       people,categories,tasks,goals,logs,viewPerson,quarterFilter,quarterOptions,
       inlineAdd,gmAdd,notes,quick,edit,cat,gm,iconChoices,colourChoices,dragOver,
-      tint,personName,initials,catName,goalTitle,goalTaskCount,shortDate,longDate,dueClass,goalLabel,goalCls,canEdit,
+      tint,personName,initials,catName,goalTitle,goalTaskCount,shortDate,longDate,dueClass,goalLabel,goalCls,canEdit,showOwner,boardLabel,
       boardTiles,myCategories,openCount,weekCount,oneOnOnePeople,weekTasks,gmActions,goalsFor,
       futureTasks,futureGrouped,somedayTasks,reviewWeeks,stat,hitRate,carriedList,
       toggle,commitToggle,dragStart,dropOn,addQuick,addInline,addGm,

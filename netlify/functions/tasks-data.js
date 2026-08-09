@@ -142,7 +142,7 @@ async function rollover(weekStart) {
 const TASK_FIELDS = ['title', 'notes', 'owner_id', 'category_id', 'goal_id', 'priority',
   'horizon', 'committed_week', 'due_date', 'done', 'sort_order', 'is_gm_action', 'for_person_id'];
 const GOAL_FIELDS = ['title', 'detail', 'owner_id', 'quarter', 'due_date', 'status', 'progress', 'sort_order'];
-const CAT_FIELDS  = ['name', 'icon', 'colour', 'owner_id', 'sort_order', 'archived'];
+const CAT_FIELDS  = ['name', 'icon', 'colour', 'owner_id', 'shared', 'sort_order', 'archived'];
 
 function pick(src, fields) {
   const out = {};
@@ -182,15 +182,27 @@ exports.handler = async (event) => {
       const people = await syncPeople();
       const carried = await rollover(week);
 
-      const catFilter = isManager ? '' : '&or=(owner_id.is.null,owner_id.eq.' + me + ')';
-      const taskFilter = isManager ? '' : '&or=(owner_id.eq.' + me + ',for_person_id.eq.' + me + ')';
+      // A non-manager sees: team boards (no owner), their own boards, and any board
+      // someone else has ticked as shared.
+      const catFilter = isManager ? '' : '&or=(owner_id.is.null,owner_id.eq.' + me + ',shared.is.true)';
+      const categories = await db('category?select=*&archived=eq.false' + catFilter + '&order=sort_order.asc,name.asc');
+
+      // A team board (no owner) is a shared *category*, not shared visibility — everyone
+      // uses it but still sees only their own tasks in it. A board explicitly ticked as
+      // shared is the opposite: everyone sees every task in it.
+      const openBoards = (categories || []).filter(c => c.shared).map(c => c.id);
+      let taskFilter = '';
+      if (!isManager) {
+        const clauses = ['owner_id.eq.' + me, 'for_person_id.eq.' + me];
+        if (openBoards.length) clauses.push('category_id.in.(' + openBoards.join(',') + ')');
+        taskFilter = '&or=(' + clauses.join(',') + ')';
+      }
       const goalFilter = isManager ? '' : '&owner_id=eq.' + me;
 
       // Done tasks older than 60 days stay in the database but out of the payload.
       const cutoff = addDays(today, -60);
 
-      const [categories, tasksOpen, tasksDone, goals, checkins, logs] = await Promise.all([
-        db('category?select=*&archived=eq.false' + catFilter + '&order=sort_order.asc,name.asc'),
+      const [tasksOpen, tasksDone, goals, checkins, logs] = await Promise.all([
         db('task?select=*&done=eq.false' + taskFilter + '&order=sort_order.asc,created_at.asc'),
         db('task?select=*&done=eq.true&done_at=gte.' + cutoff + 'T00:00:00Z' + taskFilter + '&order=done_at.desc'),
         db('goal?select=*' + goalFilter + '&order=sort_order.asc,created_at.asc'),
