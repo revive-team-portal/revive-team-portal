@@ -99,7 +99,7 @@
 
           <!-- capture feedback -->
           <div v-if="busy" class="mt-4 text-center text-sm text-stone-500">
-            <span class="inline-block animate-pulse">📸 Capturing photo &amp; location…</span>
+            <span class="inline-block animate-pulse">{{ capMsg }}</span>
           </div>
           <div v-if="lastResult" class="mt-4 bg-white border border-stone-200 rounded-xl p-3 flex items-center gap-3">
             <img v-if="lastSelfie" :src="lastSelfie" class="w-12 h-12 rounded-lg object-cover border">
@@ -287,8 +287,8 @@
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 max-h-[85vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-2"><h2 class="font-bold text-stone-800">How Time Clock uses your data</h2><button @click="showPrivacy=false" class="text-stone-400 text-xl">×</button></div>
         <div class="text-sm text-stone-600 space-y-2">
-          <p><b>What we collect.</b> When you clock in, out, or take a break we record the time, the area you selected, a photo (selfie) taken at that moment, and your phone’s location.</p>
-          <p><b>Why.</b> The photo confirms it’s really you (it stops someone clocking in for you) and the location confirms you’re at the cafe. Together they keep everyone’s hours accurate and fair.</p>
+          <p><b>What we collect.</b> Every time you clock in, out, or start/end a break we record the time, the area, and your phone’s location. When you clock <b>in</b> or <b>out</b> we also take a photo (selfie) at that moment — breaks don’t take a photo.</p>
+          <p><b>Why.</b> The photo confirms it’s really you at the start and end of your shift (it stops someone clocking in for you), and the location confirms you’re at the cafe. Together they keep everyone’s hours accurate and fair.</p>
           <p><b>Who sees it.</b> Only your supervisor can view the photos and location, alongside your timesheet.</p>
           <p><b>How long.</b> Photos are automatically deleted after {{ settings.selfie_retention_days || 90 }} days. Your hours are kept for payroll.</p>
           <p><b>Face matching.</b> We do <b>not</b> run facial-recognition matching — the photo is simply stored against the punch for a human to see if needed.</p>
@@ -312,7 +312,7 @@
       const staff=ref([]), areas=ref([]);
       const settings=reactive({});
       const punches=ref([]), myRequests=ref([]), actorPunches=ref([]);
-      const busy=ref(false), err=ref(''), lastResult=ref(null), lastSelfie=ref(''), lastAreaId=ref(null);
+      const busy=ref(false), err=ref(''), lastResult=ref(null), lastSelfie=ref(''), lastAreaId=ref(null), capMsg=ref('');
       const whosOn=ref([]);
       const feed=ref(null), reviewDate=ref(nzToday());
       const showPrivacy=ref(false);
@@ -359,8 +359,10 @@
       async function punch(type,areaId){
         if(busy.value) return; busy.value=true; err.value=''; lastResult.value=null; lastSelfie.value='';
         try{
-          await ensureCamera();
-          const selfie=snapSelfie();
+          const needPhoto=(type==='in'||type==='out');
+          capMsg.value = needPhoto ? '📸 Capturing photo & location…' : '📍 Getting location…';
+          let selfie=null;
+          if(needPhoto){ await ensureCamera(); selfie=snapSelfie(); }
           const geo=await getGeo();
           const payload={action:'punch',type,area_id:areaId||null,selfie,device_time:new Date().toISOString(),...(geo||{})};
           if(actingOther.value) payload.staff_id=actingId.value;
@@ -460,7 +462,7 @@
       });
 
       return { ready,gateError,toast,isSupervisor,myId,myName,actingId,staff,areas,settings,state,punches,myRequests,busy,err,lastResult,lastSelfie,lastAreaId,whosOn,feed,reviewDate,showPrivacy,
-        vid,cnv,chg,selfieView,tabs,visibleTabs,screen,activeStaff,actingOther,actorLabel,stateLabel,currentArea,elapsed,shifts,whosOnGrouped,exceptionCount,
+        vid,cnv,chg,selfieView,tabs,visibleTabs,screen,activeStaff,actingOther,actorLabel,stateLabel,currentArea,elapsed,shifts,whosOnGrouped,exceptionCount,capMsg,
         hm,punchShort,punchLong,go,punch,reloadForActor,loadWhosOn,loadReview,openChange,submitChange,resolve,viewSelfie,setToHere,saveSettings };
     }
   }).mount('#app');
