@@ -99,6 +99,28 @@ async function syncPeople() {
   return db('person?select=*&active=eq.true&order=is_manager.desc,full_name.asc');
 }
 
+// Categories belong to one person, so a new user starts with their own copy of a
+// sensible default set rather than an empty screen. Runs once — the moment they
+// own at least one board (even after deleting the rest) it never fires again.
+const DEFAULT_BOARDS = [
+  { name: 'Cafe',              icon: '☕',  colour: 'amber',   sort_order: 10 },
+  { name: 'Wholesale & Sales', icon: '📊', colour: 'sky',     sort_order: 20 },
+  { name: 'Marketing',         icon: '📣', colour: 'rose',    sort_order: 30 },
+  { name: 'Production',        icon: '🧇', colour: 'green',   sort_order: 40 },
+  { name: 'People & Team',     icon: '👥', colour: 'violet',  sort_order: 50 },
+  { name: 'Finance & Admin',   icon: '💰', colour: 'emerald', sort_order: 60 },
+  { name: 'Systems & IT',      icon: '⚙️', colour: 'slate',   sort_order: 70 },
+];
+async function seedBoards(userId) {
+  const existing = await db('category?select=id&limit=1&owner_id=eq.' + userId);
+  if (Array.isArray(existing) && existing.length) return false;
+  await db('category', {
+    method: 'POST', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(DEFAULT_BOARDS.map(b => ({ ...b, owner_id: userId, shared: false }))),
+  });
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Weekly rollover. Any task still committed to a week before this one, and not
 // done, rolls forward and its carry counter ticks up — that visible number is
@@ -182,14 +204,14 @@ exports.handler = async (event) => {
       const people = await syncPeople();
       const carried = await rollover(week);
 
-      // A non-manager sees: team boards (no owner), their own boards, and any board
-      // someone else has ticked as shared.
-      const catFilter = isManager ? '' : '&or=(owner_id.is.null,owner_id.eq.' + me + ',shared.is.true)';
+      // Every board belongs to one person. A non-manager sees their own boards plus
+      // anything anyone has ticked as shared.
+      await seedBoards(me);
+      const catFilter = isManager ? '' : '&or=(owner_id.eq.' + me + ',shared.is.true)';
       const categories = await db('category?select=*&archived=eq.false' + catFilter + '&order=sort_order.asc,name.asc');
 
-      // A team board (no owner) is a shared *category*, not shared visibility — everyone
-      // uses it but still sees only their own tasks in it. A board explicitly ticked as
-      // shared is the opposite: everyone sees every task in it.
+      // A board ticked as shared shows everyone's tasks; a private board shows only
+      // its owner's work (and, to a manager, everything).
       const openBoards = (categories || []).filter(c => c.shared).map(c => c.id);
       let taskFilter = '';
       if (!isManager) {
@@ -303,12 +325,12 @@ exports.handler = async (event) => {
       const row = pick(body.category || {}, CAT_FIELDS);
       if (!row.name || !String(row.name).trim()) return json(400, { error: 'A category needs a name.' });
       row.name = String(row.name).slice(0, 80);
-      // Only a manager may create or edit a shared (owner_id null) tile.
-      if (!isManager && !row.owner_id) row.owner_id = me;
+      // Every board has exactly one owner. Only a manager may create one for someone else.
+      if (!isManager || !row.owner_id) row.owner_id = isManager ? (row.owner_id || me) : me;
       if (body.id) {
         if (!isManager) {
           const rows = await db('category?select=owner_id&id=eq.' + body.id);
-          if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: 'Only a manager can change a shared category.' });
+          if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: "That board belongs to someone else." });
         }
         const out = await db('category?id=eq.' + body.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
         return json(200, { category: out && out[0] });
@@ -320,7 +342,7 @@ exports.handler = async (event) => {
     if (action === 'delete_category') {
       if (!isManager) {
         const rows = await db('category?select=owner_id&id=eq.' + body.id);
-        if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: 'Only a manager can remove a shared category.' });
+        if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: "That board belongs to someone else." });
       }
       // Tasks survive; they fall back to Uncategorised (category_id set null by FK).
       await db('category?id=eq.' + body.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });

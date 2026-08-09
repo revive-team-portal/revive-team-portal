@@ -130,31 +130,44 @@
               <span v-if="c.shared" class="text-[10px] bg-sky-50 text-sky-700 rounded px-1.5 py-px flex-none" title="Shared with everyone">shared</span>
               <button v-if="c.id" @click="openCategory(c)" class="text-stone-300 hover:text-stone-600 text-sm no-print" title="Edit category">✎</button>
             </div>
-            <div class="tile-body px-2 py-2 flex-1">
-              <p v-if="!c.tasks.length" class="text-xs text-stone-300 text-center py-6">Nothing here</p>
-              <div v-for="t in c.tasks" :key="t.id"
-                :draggable="canEdit(t)" @dragstart="dragStart(t,$event)" @dragend="dragOver=null"
-                class="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-stone-50 drag-me">
-                <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px]"
-                  :class="t.done ? 'bg-green-600 border-green-600 text-white' : (t.priority===1 ? 'border-red-400' : 'border-stone-300')">{{ t.done ? '✓' : '' }}</button>
-                <div class="flex-1 min-w-0" @click="openTask(t)">
-                  <p class="text-sm leading-snug cursor-pointer" :class="t.done ? 'text-stone-400 strike' : 'text-stone-800'">{{ t.title }}</p>
-                  <div class="flex flex-wrap items-center gap-1 mt-0.5">
-                    <span v-if="t.priority===1" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">Must</span>
-                    <span v-if="t.priority===2" class="text-[10px] bg-amber-100 text-amber-800 rounded px-1.5 py-px">Should</span>
-                    <span v-if="t.horizon==='week'" class="text-[10px] bg-green-100 text-green-800 rounded px-1.5 py-px">This week</span>
-                    <span v-if="t.horizon==='someday'" class="text-[10px] bg-stone-100 text-stone-600 rounded px-1.5 py-px">Someday</span>
-                    <span v-if="t.carry_count>0 && !t.done" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">carried ×{{ t.carry_count }}</span>
-                    <span v-if="t.due_date" class="text-[10px] rounded px-1.5 py-px" :class="dueClass(t)">{{ shortDate(t.due_date) }}</span>
-                    <span v-if="t.goal_id" class="text-[10px] bg-violet-50 text-violet-700 rounded px-1.5 py-px">🎯 {{ goalTitle(t.goal_id) }}</span>
-                    <span v-if="showOwner(t)" class="text-[10px] text-stone-400">{{ personName(t.owner_id) }}</span>
-                  </div>
+            <div class="tile-body px-2 py-1.5 flex-1">
+              <div v-for="s in sections" :key="s.key" class="rounded-lg mb-1"
+                @dragover.prevent.stop="dragOver=c.key+'|'+s.key" @dragleave.stop="dragOver=null" @drop.prevent.stop="dropOn(c,s.key)"
+                :class="dragOver===c.key+'|'+s.key ? 'drop-on' : ''">
+
+                <div class="flex items-center gap-1.5 px-1 pt-1.5 pb-1">
+                  <span class="text-[10px] uppercase tracking-wide font-semibold" :class="s.key==='week' ? 'text-green-700' : 'text-stone-400'">{{ s.label }}</span>
+                  <span v-if="c.sections[s.key].length" class="text-[10px] text-stone-400 bg-stone-100 rounded-full px-1.5">{{ c.sections[s.key].length }}</span>
+                  <span class="flex-1 border-t" :class="s.key==='week' ? 'border-green-200' : 'border-stone-100'"></span>
                 </div>
-                <button @click="commitToggle(t)" class="opacity-0 group-hover:opacity-100 text-xs flex-none no-print" :title="t.horizon==='week' ? 'Take off this week' : 'Commit to this week'">{{ t.horizon==='week' ? '📌' : '📍' }}</button>
+
+                <p v-if="!c.sections[s.key].length" class="text-[11px] text-stone-300 px-2 pb-1">—</p>
+
+                <div v-for="t in c.sections[s.key]" :key="t.id"
+                  :draggable="canEdit(t)" @dragstart="dragStart(t,$event)" @dragend="dragOver=null"
+                  class="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-stone-50 drag-me">
+                  <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px]"
+                    :class="t.done ? 'bg-green-600 border-green-600 text-white' : (t.priority===1 ? 'border-red-400' : 'border-stone-300')">{{ t.done ? '✓' : '' }}</button>
+                  <div class="flex-1 min-w-0" @click="openTask(t)">
+                    <p class="text-sm leading-snug cursor-pointer" :class="t.done ? 'text-stone-400 strike' : 'text-stone-800'">{{ t.title }}</p>
+                    <p v-if="t.notes" class="text-[11px] leading-snug text-stone-500 mt-0.5 whitespace-pre-line line-clamp-3">{{ t.notes }}</p>
+                    <div class="flex flex-wrap items-center gap-1 mt-0.5">
+                      <span v-if="t.priority===1" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">Must</span>
+                      <span v-if="t.priority===2" class="text-[10px] bg-amber-100 text-amber-800 rounded px-1.5 py-px">Should</span>
+                      <span v-if="t.carry_count>0 && !t.done" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">carried ×{{ t.carry_count }}</span>
+                      <span v-if="t.due_date" class="text-[10px] rounded px-1.5 py-px" :class="dueClass(t)">{{ shortDate(t.due_date) }}</span>
+                      <span v-if="t.goal_id" class="text-[10px] bg-violet-50 text-violet-700 rounded px-1.5 py-px">🎯 {{ goalTitle(t.goal_id) }}</span>
+                      <span v-if="showOwner(t)" class="text-[10px] text-stone-400">{{ personName(t.owner_id) }}</span>
+                    </div>
+                  </div>
+                  <button @click="commitToggle(t)" class="opacity-0 group-hover:opacity-100 text-xs flex-none no-print" :title="t.horizon==='week' ? 'Take off this week' : 'Move to this week'">{{ t.horizon==='week' ? '📌' : '📍' }}</button>
+                </div>
+
+                <div v-if="s.key!=='week'" class="px-1 pb-1 no-print">
+                  <input v-model="inlineAdd[c.key+'|'+s.key]" @keyup.enter="addInline(c,s.key)" type="text" :placeholder="'+ add to ' + s.short"
+                    class="w-full text-[13px] border border-transparent hover:border-stone-200 focus:border-stone-300 rounded-lg px-2 py-1 bg-stone-50 focus:bg-white outline-none">
+                </div>
               </div>
-            </div>
-            <div class="px-2 pb-2 no-print">
-              <input v-model="inlineAdd[c.key]" @keyup.enter="addInline(c)" type="text" placeholder="+ add" class="w-full text-sm border border-transparent hover:border-stone-200 focus:border-stone-300 rounded-lg px-2 py-1.5 bg-stone-50 focus:bg-white outline-none">
             </div>
           </div>
         </div>
@@ -274,11 +287,11 @@
       <!-- ============ FUTURE ============ -->
       <section v-if="screen==='future'">
         <h1 class="text-lg font-bold text-stone-800 mb-1">Future &amp; someday</h1>
-        <p class="text-xs text-stone-500 mb-3">Dated work beyond this week, plus the backlog you're not committing to yet.</p>
+        <p class="text-xs text-stone-500 mb-3">Everything in the Future band, plus what you've parked.</p>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div class="bg-white border border-stone-200 rounded-2xl p-3">
             <h3 class="text-sm font-semibold text-stone-700 mb-2">Scheduled ahead</h3>
-            <p v-if="!futureTasks.length" class="text-xs text-stone-400 py-3">Nothing scheduled beyond this week.</p>
+            <p v-if="!futureTasks.length" class="text-xs text-stone-400 py-3">Nothing in Future.</p>
             <div v-for="grp in futureGrouped" :key="grp.label" class="mb-3">
               <p class="text-[11px] uppercase tracking-wide text-stone-400 mb-1">{{ grp.label }}</p>
               <div v-for="t in grp.items" :key="t.id" class="flex items-start gap-2 py-1 border-t border-stone-50 first:border-0">
@@ -292,8 +305,8 @@
             </div>
           </div>
           <div class="bg-white border border-stone-200 rounded-2xl p-3">
-            <h3 class="text-sm font-semibold text-stone-700 mb-2">Someday / maybe</h3>
-            <p v-if="!somedayTasks.length" class="text-xs text-stone-400 py-3">Backlog is empty.</p>
+            <h3 class="text-sm font-semibold text-stone-700 mb-2">Park</h3>
+            <p v-if="!somedayTasks.length" class="text-xs text-stone-400 py-3">Nothing parked.</p>
             <div v-for="t in somedayTasks" :key="t.id" class="flex items-start gap-2 py-1 border-t border-stone-50 first:border-0">
               <div class="flex-1 min-w-0 cursor-pointer" @click="openTask(t)">
                 <p class="text-sm text-stone-800">{{ t.title }}</p>
@@ -352,7 +365,7 @@
             <label class="text-sm">Category<select v-model="edit.category_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="null">None</option><option v-for="c in myCategories" :key="c.id" :value="c.id">{{ c.icon }} {{ c.name }}</option></select></label>
             <label class="text-sm">Owner<select v-model="edit.owner_id" :disabled="!isManager" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white disabled:bg-stone-100"><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
             <label class="text-sm">Priority<select v-model.number="edit.priority" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="1">Must do</option><option :value="2">Should do</option><option :value="3">Normal</option></select></label>
-            <label class="text-sm">When<select v-model="edit.horizon" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="week">This week</option><option value="anytime">Anytime</option><option value="future">Scheduled</option><option value="someday">Someday</option></select></label>
+            <label class="text-sm">Band<select v-model="edit.horizon" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="week">Current (this week)</option><option value="future">Future</option><option value="someday">Park</option></select></label>
             <label class="text-sm">Due date<input v-model="edit.due_date" type="date" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
             <label class="text-sm">Linked goal<select v-model="edit.goal_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="null">None</option><option v-for="g in goalsFor(edit.owner_id)" :key="g.id" :value="g.id">{{ g.title }}</option></select></label>
           </div>
@@ -396,17 +409,13 @@
           <div>
             <p class="text-sm mb-1">Who can see it</p>
             <div class="space-y-1.5">
-              <label v-if="isManager" class="flex items-start gap-2 text-sm border rounded-lg px-2.5 py-2 cursor-pointer" :class="cat.visibility==='team' ? 'border-green-600 bg-green-50' : 'border-stone-200'">
-                <input type="radio" value="team" v-model="cat.visibility" class="mt-1">
-                <span><b>Team board</b><br><span class="text-xs text-stone-500">No single owner. Everyone uses the board, but each person still sees only their own tasks in it.</span></span>
-              </label>
               <label class="flex items-start gap-2 text-sm border rounded-lg px-2.5 py-2 cursor-pointer" :class="cat.visibility==='private' ? 'border-green-600 bg-green-50' : 'border-stone-200'">
                 <input type="radio" value="private" v-model="cat.visibility" class="mt-1">
-                <span><b>My board — private</b><br><span class="text-xs text-stone-500">Only you (and a manager) can see it.</span></span>
+                <span><b>Private</b><br><span class="text-xs text-stone-500">Only {{ ownerLabel }} (and a manager) can see this board.</span></span>
               </label>
               <label class="flex items-start gap-2 text-sm border rounded-lg px-2.5 py-2 cursor-pointer" :class="cat.visibility==='shared' ? 'border-green-600 bg-green-50' : 'border-stone-200'">
                 <input type="radio" value="shared" v-model="cat.visibility" class="mt-1">
-                <span><b>My board — shared</b><br><span class="text-xs text-stone-500">You own it, but everyone can see it and add their own tasks. They can only tick off tasks they own.</span></span>
+                <span><b>Shared</b><br><span class="text-xs text-stone-500">{{ ownerLabel }} owns it, but everyone can see it and add their own tasks. They can only tick off tasks they own.</span></span>
               </label>
             </div>
           </div>
@@ -509,6 +518,7 @@ createApp({
     function goalCls(s){ return ({on_track:'bg-green-100 text-green-800',off_track:'bg-red-100 text-red-800',done:'bg-stone-100 text-stone-600',dropped:'bg-stone-100 text-stone-600'})[s]||'bg-stone-100 text-stone-600'; }
     function canEdit(t){ return isManager.value || t.owner_id===me.value; }
     function showOwner(t){ return personFilter.value==='all' || t.owner_id!==personFilter.value; }
+    const ownerLabel=computed(()=> (cat.owner_id && cat.owner_id!==me.value) ? personName(cat.owner_id) : 'you');
 
     async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
     async function call(payload){
@@ -532,25 +542,42 @@ createApp({
     const openCount=computed(()=> mine(tasks.value).filter(t=>!t.done).length);
     const weekCount=computed(()=> mine(tasks.value).filter(t=>!t.done && t.horizon==='week').length);
 
-    // Boards on screen: team boards, boards shared by anyone, my own, and — for a
-    // manager — the boards belonging to whoever's button is selected.
-    const myCategories=computed(()=> categories.value.filter(c=>
-      !c.owner_id || c.shared || c.owner_id===me.value ||
-      (isManager.value && (personFilter.value==='all' || c.owner_id===personFilter.value))
-    ));
+    // Every category belongs to one person. On screen you get the categories of
+    // whoever's board you're looking at, plus anything anyone has ticked as shared.
+    const myCategories=computed(()=>{
+      const pf=personFilter.value;
+      return categories.value.filter(c=>{
+        if(c.shared) return true;
+        if(pf==='all') return isManager.value || c.owner_id===me.value;
+        return c.owner_id===pf;
+      });
+    });
 
     function boardLabel(c){
-      if(!c.owner_id) return '';
-      if(c.owner_id===me.value) return c.shared ? ' · my board, shared' : ' · my board';
-      return ' · ' + personName(c.owner_id) + "'s board";
+      if(c.owner_id===me.value) return c.shared ? ' · mine, shared' : ' · mine';
+      return ' · ' + personName(c.owner_id) + "'s";
     }
+
+    // Each tile is split into the three bands Jeremy works to.
+    const sections=[
+      {key:'week',   label:'Current (this week)', short:'current'},
+      {key:'future', label:'Future',              short:'future'},
+      {key:'park',   label:'Park',                short:'park'},
+    ];
+    function sectionOf(t){ return t.horizon==='week' ? 'week' : (t.horizon==='someday' ? 'park' : 'future'); }
+    const HORIZON_FOR={week:'week',future:'future',park:'someday'};
 
     const boardTiles=computed(()=>{
       const byCat={};
       visibleTasks.value.forEach(t=>{ const k=t.category_id||'none'; (byCat[k]=byCat[k]||[]).push(t); });
-      const sortT=(a,b)=> (a.done-b.done) || (a.priority-b.priority) || (a.sort_order-b.sort_order);
-      const tiles=myCategories.value.map(c=>({key:c.id,id:c.id,name:c.name,icon:c.icon||'📌',colour:c.colour||'stone',owner_id:c.owner_id,shared:c.shared,tasks:(byCat[c.id]||[]).sort(sortT)}));
-      tiles.push({key:'none',id:null,name:'Uncategorised',icon:'🗂',colour:'stone',owner_id:null,shared:false,tasks:(byCat['none']||[]).sort(sortT)});
+      const sortT=(a,b)=> (a.done-b.done) || (b.carry_count-a.carry_count) || (a.priority-b.priority) || (a.sort_order-b.sort_order);
+      const split=list=>{
+        const out={week:[],future:[],park:[]};
+        (list||[]).sort(sortT).forEach(t=>out[sectionOf(t)].push(t));
+        return out;
+      };
+      const tiles=myCategories.value.map(c=>({key:c.id,id:c.id,name:c.name,icon:c.icon||'📌',colour:c.colour||'stone',owner_id:c.owner_id,shared:c.shared,tasks:(byCat[c.id]||[]),sections:split(byCat[c.id])}));
+      tiles.push({key:'none',id:null,name:'Uncategorised',icon:'🗂',colour:'stone',owner_id:me.value,shared:false,tasks:(byCat['none']||[]),sections:split(byCat['none'])});
       return tiles;
     });
 
@@ -606,7 +633,7 @@ createApp({
 
     async function commitToggle(t){
       if(!canEdit(t)){ flash('That task belongs to someone else.'); return; }
-      const to = t.horizon==='week' ? 'anytime' : 'week';
+      const to = t.horizon==='week' ? 'future' : 'week';
       try{
         await call({action:'move_tasks',items:[{id:t.id,horizon:to,committed_week: to==='week'?week.value:null}]});
         t.horizon=to; t.committed_week = to==='week'?week.value:null;
@@ -616,13 +643,20 @@ createApp({
     }
 
     function dragStart(t,e){ if(!canEdit(t)){ e.preventDefault(); return; } dragging.value=t; e.dataTransfer.effectAllowed='move'; }
-    async function dropOn(tile){
+    // Dropping sets both the category and the band, so you can drag straight from
+    // Park in one tile to Current in another.
+    async function dropOn(tile,section){
       dragOver.value=null;
       const t=dragging.value; dragging.value=null;
-      if(!t || t.category_id===tile.id) return;
-      const prev=t.category_id; t.category_id=tile.id;
-      try{ await call({action:'move_tasks',items:[{id:t.id,category_id:tile.id}]}); flash('Moved to '+tile.name); }
-      catch(e){ t.category_id=prev; flash('Could not move: '+e.message); }
+      if(!t) return;
+      const horizon=HORIZON_FOR[section]||t.horizon;
+      if(t.category_id===tile.id && t.horizon===horizon) return;
+      const prev={category_id:t.category_id,horizon:t.horizon,committed_week:t.committed_week};
+      t.category_id=tile.id; t.horizon=horizon; t.committed_week = horizon==='week'?week.value:null;
+      try{
+        await call({action:'move_tasks',items:[{id:t.id,category_id:tile.id,horizon,committed_week:t.committed_week}]});
+        flash('Moved to '+tile.name+' · '+(sections.find(s=>s.key===section)||{}).short);
+      }catch(e){ Object.assign(t,prev); flash('Could not move: '+e.message); }
     }
 
     async function addTaskRaw(row){
@@ -633,14 +667,16 @@ createApp({
     async function addQuick(){
       if(!quick.title.trim()) return;
       try{
-        await addTaskRaw({title:quick.title.trim(),category_id:quick.category_id,owner_id:quick.owner_id||me.value,horizon:quick.thisWeek?'week':'anytime',committed_week:quick.thisWeek?week.value:null,priority:3});
+        await addTaskRaw({title:quick.title.trim(),category_id:quick.category_id,owner_id:quick.owner_id||me.value,horizon:quick.thisWeek?'week':'future',committed_week:quick.thisWeek?week.value:null,priority:3});
         quick.title=''; flash('Added');
       }catch(e){ flash('Could not add: '+e.message); }
     }
-    async function addInline(tile){
-      const v=(inlineAdd[tile.key]||'').trim(); if(!v) return;
-      inlineAdd[tile.key]='';
-      try{ await addTaskRaw({title:v,category_id:tile.id,owner_id: personFilter.value==='all'?me.value:personFilter.value,horizon:'anytime',priority:3}); }
+    async function addInline(tile,section){
+      const k=tile.key+'|'+section;
+      const v=(inlineAdd[k]||'').trim(); if(!v) return;
+      inlineAdd[k]='';
+      const horizon=HORIZON_FOR[section]||'future';
+      try{ await addTaskRaw({title:v,category_id:tile.id,owner_id: personFilter.value==='all'?me.value:personFilter.value,horizon,committed_week: horizon==='week'?week.value:null,priority:3}); }
       catch(e){ flash('Could not add: '+e.message); }
     }
     async function addGm(p){
@@ -654,7 +690,7 @@ createApp({
       Object.assign(edit,{open:true,busy:false,err:'',id:t?t.id:null,
         title:t?t.title:'', notes:t?(t.notes||''):'', category_id:t?t.category_id:null,
         owner_id:t?t.owner_id:(personFilter.value==='all'?me.value:personFilter.value),
-        goal_id:t?t.goal_id:null, priority:t?t.priority:3, horizon:t?t.horizon:'anytime',
+        goal_id:t?t.goal_id:null, priority:t?t.priority:3, horizon:t?(t.horizon==='anytime'?'future':t.horizon):'future',
         due_date:t?(t.due_date||''):'', is_gm_action:t?!!t.is_gm_action:false,
         for_person_id:t?t.for_person_id:null, carry_count:t?t.carry_count:0});
     }
@@ -678,14 +714,14 @@ createApp({
       catch(e){ edit.err=e.message; }
     }
 
-    function visibilityOf(c){ if(!c || !c.owner_id) return 'team'; return c.shared ? 'shared' : 'private'; }
     function openCategory(c){
       Object.assign(cat,{open:true,err:'',id:c?c.id:null,name:c?c.name:'',icon:c?(c.icon||'📌'):'📌',
-        colour:c?(c.colour||'stone'):'sky', visibility: c?visibilityOf(c):(isManager.value?'team':'private')});
+        colour:c?(c.colour||'stone'):'sky', visibility:(c&&c.shared)?'shared':'private',
+        owner_id: c ? (c.owner_id||me.value) : (personFilter.value==='all'?me.value:personFilter.value)});
     }
     async function saveCategory(){
       if(!cat.name.trim()){ cat.err='Give the category a name.'; return; }
-      const owner_id = cat.visibility==='team' ? null : me.value;
+      const owner_id = cat.owner_id || me.value;
       const shared = cat.visibility==='shared';
       try{
         const j=await call({action:'save_category',id:cat.id,category:{name:cat.name.trim(),icon:cat.icon,colour:cat.colour,owner_id,shared}});
@@ -765,7 +801,7 @@ createApp({
       people,categories,tasks,goals,logs,viewPerson,quarterFilter,quarterOptions,
       inlineAdd,gmAdd,notes,quick,edit,cat,gm,iconChoices,colourChoices,dragOver,
       tint,personName,initials,catName,goalTitle,goalTaskCount,shortDate,longDate,dueClass,goalLabel,goalCls,canEdit,showOwner,boardLabel,
-      boardTiles,myCategories,openCount,weekCount,oneOnOnePeople,weekTasks,gmActions,goalsFor,
+      boardTiles,myCategories,sections,ownerLabel,openCount,weekCount,oneOnOnePeople,weekTasks,gmActions,goalsFor,
       futureTasks,futureGrouped,somedayTasks,reviewWeeks,stat,hitRate,carriedList,
       toggle,commitToggle,dragStart,dropOn,addQuick,addInline,addGm,
       openTask,saveTask,removeTask,openCategory,saveCategory,removeCategory,
