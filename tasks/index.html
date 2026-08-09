@@ -530,8 +530,8 @@ createApp({
 
     // ---- filtering ----------------------------------------------------------
     const personFilter=computed(()=> viewPerson.value==='me' ? me.value : viewPerson.value);
-    // Boards someone has explicitly ticked as shared show everyone's tasks. Team boards
-    // (no owner) are a shared category list only — you still see just your own work in them.
+    // Every board belongs to one person. A board ticked as shared shows everyone's
+    // tasks; a private board shows only its owner's work.
     const sharedBoardIds=computed(()=> new Set(categories.value.filter(c=>c.shared).map(c=>c.id)));
     function mine(list){
       if(personFilter.value==='all') return list;
