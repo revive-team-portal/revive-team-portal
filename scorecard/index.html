@@ -228,6 +228,7 @@ td.der .subn,td .subn{opacity:.85}
   <div v-if="barReady && (today.sales!=null || today.orders_to_fulfil!=null)" class="todaybar">
     <span class="seg" v-if="today.sales!=null" :class="{stale:cautions.sales}" :title="cautions.sales?('Till not updating \u2014 last good '+tillTime):null"><span class="lab">Cafe $ today<template v-if="cautions.sales"> ⚠️</template></span><b>${{ fm(today.sales,0) }}</b></span>
     <span class="seg" v-if="today.sales!=null" :class="{stale:cautions.covers}" :title="cautions.covers?('Till not updating \u2014 last good '+tillTime):null"><span class="lab">Covers today<template v-if="cautions.covers"> ⚠️</template></span><b>{{ fm(today.covers,0) }}</b></span>
+    <span class="seg" v-if="projShow" :class="{stale:cautions.sales}"><span class="lab">Halfway / projection<template v-if="cautions.sales"> ⚠️</template></span><b>{{ projText }}</b></span>
     <span class="seg" v-if="today.shopify_today!=null" :class="{stale:cautions.shopify_today}"><span class="lab">Shopify today<template v-if="cautions.shopify_today"> ⚠️</template></span><b>${{ fm(today.shopify_today,0) }}</b></span>
     <span class="seg" v-if="today.shopify_week!=null" :class="{stale:cautions.shopify_week}"><span class="lab">Shopify this week<template v-if="cautions.shopify_week"> ⚠️</template></span><b>${{ fm(today.shopify_week,0) }}</b></span>
     <span class="seg" v-if="today.meta_today!=null" :class="{stale:cautions.meta_today}"><span class="lab">Meta spend today<template v-if="cautions.meta_today"> ⚠️</template></span><b>${{ fm(today.meta_today,0) }}<template v-if="today.meta_today_pct!=null"> · {{ today.meta_today_pct }}%</template></b></span>
@@ -488,7 +489,7 @@ createApp({
   setup(){
     const ready=ref(false), gateError=ref(''), level=ref(''), email=ref(''), screen=ref('team');
     const msg=ref('');
-    const today=reactive({sales:null,covers:null,updated_at:null,shopify_today:null,shopify_week:null,meta_today:null,meta_week:null,meta_today_pct:null,meta_week_pct:null,orders_to_fulfil:null,orders_fulfilled_today:null,outstanding_tickets:null});
+    const today=reactive({sales:null,covers:null,sales_1245:null,updated_at:null,shopify_today:null,shopify_week:null,meta_today:null,meta_week:null,meta_today_pct:null,meta_week_pct:null,orders_to_fulfil:null,orders_fulfilled_today:null,outstanding_tickets:null});
     const tbStamp=reactive({}); const cautions=reactive({}); const barReady=ref(false); const fetchedAt=ref(null);
     const ticks=reactive({shopify:false,meta:false,pos:false,support:false});
     const tbSources=[{k:'shopify',lab:'Shopify'},{k:'meta',lab:'Meta'},{k:'pos',lab:'POS'},{k:'support',lab:'Support'}];
@@ -499,6 +500,7 @@ createApp({
       if(j.sales!=null){ today.sales=j.sales; tbStamp.sales=tillMs||now; }
       if(j.covers!=null){ today.covers=j.covers; tbStamp.covers=tillMs||now; }
       if(j.updated_at) today.updated_at=j.updated_at;
+      if(j.sales_1245!=null) today.sales_1245=j.sales_1245;
       LIVE.forEach(f=>{ if(j[f]!=null){ today[f]=j[f]; tbStamp[f]=now; } }); }
     function sPct(){ today.meta_today_pct=(today.meta_today!=null&&today.shopify_today>0)?Math.round(today.meta_today/today.shopify_today*100):null; today.meta_week_pct=(today.meta_week!=null&&today.shopify_week>0)?Math.round(today.meta_week/today.shopify_week*100):null; }
     function sRecompute(){ const now=Date.now(); ['sales','covers',...LIVE].forEach(f=>{ cautions[f]=(!tbStamp[f]||(now-tbStamp[f]>TB_STALE_MS)); }); sPct(); fetchedAt.value=now; }
@@ -518,6 +520,9 @@ createApp({
     const hhmm=(ms)=>{ const d=new Date(ms); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
     const todayTime=computed(()=> fetchedAt.value?hhmm(fetchedAt.value):'');
     const tillTime=computed(()=> tbStamp.sales?hhmm(tbStamp.sales):'');
+    const nzMin=()=>{ const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Pacific/Auckland',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); let h=0,m=0; p.forEach(x=>{if(x.type==='hour')h=+x.value;if(x.type==='minute')m=+x.value;}); return h*60+m; };
+    const projShow=computed(()=> fetchedAt.value!=null && nzMin()>=765 && today.sales_1245>0);
+    const projText=computed(()=> today.sales_1245>0 ? ('$'+fm(today.sales_1245,0)+' → $'+fm(today.sales_1245*2,0)) : '');
     let flashT=null;
     function flash(t){ msg.value=t; clearTimeout(flashT); flashT=setTimeout(()=>msg.value='',2600); }
 
@@ -917,7 +922,7 @@ createApp({
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
-      today,loadToday,todayTime,tillTime,cautions,barReady,ticks,tbSources,
+      today,loadToday,todayTime,tillTime,cautions,barReady,ticks,tbSources,projShow,projText,
       fm,shortDate,longDate,colLabel };
   }
 }).mount('#app');

@@ -336,15 +336,18 @@ async function tbGet(only,refresh){ const r=await fetch('/.netlify/functions/caf
 function tbIngest(j){ if(!j||j.error) return; const now=Date.now(); const tillMs=j.updated_at?Date.parse(j.updated_at):null;
   if(j.sales!=null){ tbStore.sales=j.sales; tbStamp.sales=tillMs||now; }
   if(j.covers!=null){ tbStore.covers=j.covers; tbStamp.covers=tillMs||now; }
+  if(j.sales_1245!=null){ tbStore.sales_1245=j.sales_1245; }
   ['shopify_today','shopify_week','meta_today','meta_week','orders_to_fulfil','orders_fulfilled_today','outstanding_tickets'].forEach(f=>{ if(j[f]!=null){ tbStore[f]=j[f]; tbStamp[f]=now; } }); }
 function tbPct(){ tbStore.meta_today_pct=(tbStore.meta_today!=null&&tbStore.shopify_today>0)?Math.round(tbStore.meta_today/tbStore.shopify_today*100):null; tbStore.meta_week_pct=(tbStore.meta_week!=null&&tbStore.shopify_week>0)?Math.round(tbStore.meta_week/tbStore.shopify_week*100):null; }
 function tbPlaceholder(){ const bar=$('todayBar'); if(!bar||tbShown) return; let h='<span class="tload">Loading</span>'; TB_SRC.forEach(([k,lab])=>{ h+='<span class="tsrc'+(tbTick[k]?' done':'')+'">'+lab+' '+(tbTick[k]?'✓':'○')+'</span>'; }); bar.innerHTML=h; bar.classList.remove('hidden'); }
+function tbNzMin(){ const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Pacific/Auckland',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); let h=0,m=0; p.forEach(x=>{if(x.type==='hour')h=+x.value;if(x.type==='minute')m=+x.value;}); return h*60+m; }
 function tbRender(){
   const bar=$('todayBar'); if(!bar) return; const now=Date.now();
   const caut=f=>(!tbStamp[f]||(now-tbStamp[f]>TB_STALE_MS));
   const box=(lab,val,f)=>{ const c=caut(f); return '<span class="seg'+(c?' stale':'')+'"'+(c?' title="Not updating — last good '+(tbStamp[f]?tbHM(tbStamp[f]):'never')+'"':'')+'><span class="lab">'+lab+(c?' ⚠️':'')+'</span><b>'+val+'</b></span>'; };
   let h='';
   if(tbStore.sales!=null){ h+=box('Cafe $ today','$'+Math.round(tbStore.sales).toLocaleString(),'sales'); h+=box('Covers today',Math.round(tbStore.covers).toLocaleString(),'covers'); }
+  if(tbNzMin()>=765 && tbStore.sales_1245>0){ const hv=tbStore.sales_1245; h+=box('Halfway / projection','$'+Math.round(hv).toLocaleString()+' → $'+Math.round(hv*2).toLocaleString(),'sales'); }
   if(tbStore.shopify_today!=null) h+=box('Shopify today','$'+Math.round(tbStore.shopify_today).toLocaleString(),'shopify_today');
   if(tbStore.shopify_week!=null) h+=box('Shopify this week','$'+Math.round(tbStore.shopify_week).toLocaleString(),'shopify_week');
   if(tbStore.meta_today!=null) h+=box('Meta spend today','$'+Math.round(tbStore.meta_today).toLocaleString()+(tbStore.meta_today_pct!=null?' · '+tbStore.meta_today_pct+'%':''),'meta_today');
