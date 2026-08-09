@@ -146,6 +146,8 @@
                 @dragover.prevent.stop="dragOver=c.key+'|'+s.key" @dragleave.stop="dragOver=null" @drop.prevent.stop="dropOn(c,s.key)"
                 :class="[tint(c.colour,s.key), dragOver===c.key+'|'+s.key ? 'drop-on' : '']">
 
+                <p class="text-[9px] uppercase tracking-widest font-semibold text-stone-500/70 px-0.5 mb-0.5 select-none">{{ s.short }}</p>
+
                 <div v-for="t in c.sections[s.key]" :key="t.id"
                   :draggable="canEdit(t)" @dragstart="dragStart(t,$event)" @dragend="dragOver=null"
                   class="group flex items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/60 drag-me">
