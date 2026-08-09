@@ -154,6 +154,16 @@ exports.handler = async (event) => {
       return json(200, { ok: true, state: stateFrom(newLast.type), punch: { id: newLast.id, type: newLast.type, punched_at: newLast.punched_at, distance_m: distance, in_range: inRange } });
     }
 
+    if (action === 'actor_state') {
+      if (!sup) return json(403, { error: 'Supervisor access required.' });
+      const sid = Number(body.staff_id);
+      if (!sid) return json(400, { error: 'staff_id required.' });
+      const today = nzDate();
+      const ps = await db('punch?staff_id=eq.' + sid + '&select=id,type,area_id,punched_at,distance_m,in_range&order=punched_at.asc');
+      const todayPs = (ps || []).filter(p => nzDate(p.punched_at) === today);
+      return json(200, { punches: todayPs, state: stateFrom(todayPs.length ? todayPs[todayPs.length - 1].type : null) });
+    }
+
     if (action === 'my_timesheet') {
       if (!me) return json(200, { punches: [], requests: [], me: null });
       const days = Math.min(Math.max(parseInt(body.days || 14, 10) || 14, 1), 62);

@@ -311,7 +311,7 @@
       const myId=ref(null), myName=ref(''), actingId=ref(null);
       const staff=ref([]), areas=ref([]);
       const settings=reactive({});
-      const state=ref('out'), punches=ref([]), myRequests=ref([]);
+      const punches=ref([]), myRequests=ref([]), actorPunches=ref([]);
       const busy=ref(false), err=ref(''), lastResult=ref(null), lastSelfie=ref(''), lastAreaId=ref(null);
       const whosOn=ref([]);
       const feed=ref(null), reviewDate=ref(nzToday());
@@ -365,7 +365,7 @@
           const payload={action:'punch',type,area_id:areaId||null,selfie,device_time:new Date().toISOString(),...(geo||{})};
           if(actingOther.value) payload.staff_id=actingId.value;
           const res=await callData(payload);
-          state.value=res.state; if(type==='in') lastAreaId.value=areaId;
+          if(type==='in') lastAreaId.value=areaId;
           lastSelfie.value=selfie||'';
           const p=res.punch;
           let loc,locClass;
@@ -373,7 +373,7 @@
           else if(p.in_range===false){ loc='⚠ '+p.distance_m+'m from cafe'; locClass='text-amber-600'; }
           else { loc='location not shared'; locClass='text-stone-400'; }
           lastResult.value={ msg: punchLong(type)+' · '+hm(p.punched_at), loc, locClass };
-          await loadTimesheet();
+          if(actingOther.value) await loadActorState(); else await loadTimesheet();
         }catch(e){ err.value=e.message; }
         busy.value=false;
       }
@@ -385,16 +385,19 @@
         Object.assign(settings, b.settings||{});
         if(b.me){ myId.value=b.me.id; myName.value=b.me.name; actingId.value=b.me.id; }
         else if(b.is_supervisor && (b.staff||[]).length){ /* no own staff record; leave acting null until picked */ actingId.value=null; }
-        state.value=b.my_state||'out';
       }
       async function loadTimesheet(){
-        const who = actingOther.value ? null : null; // my_timesheet is always caller's; acting-as review is via Review tab
         const t=await callData({action:'my_timesheet',days:14});
         punches.value=t.punches||[]; myRequests.value=t.requests||[];
-        if(t.me){ state.value=deriveState(punches.value); }
       }
-      function deriveState(ps){ const today=ps.filter(p=>true); if(!today.length) return 'out'; const last=today[today.length-1]; return ({out:'out',in:'in',break_end:'in',break_start:'on_break'})[last.type]||'out'; }
-      async function reloadForActor(){ /* switching actor only affects punch target + review; clock state banner uses own timesheet */ }
+      async function loadActorState(){
+        if(!actingOther.value){ actorPunches.value=[]; return; }
+        try{ const r=await callData({action:'actor_state',staff_id:actingId.value}); actorPunches.value=r.punches||[]; }
+        catch(e){ actorPunches.value=[]; flash('Could not load that staff member'); }
+      }
+      function deriveState(ps){ if(!ps||!ps.length) return 'out'; const last=ps[ps.length-1]; return ({out:'out',in:'in',break_end:'in',break_start:'on_break'})[last.type]||'out'; }
+      function openInPunch(ps){ let cur=null; ps.slice().sort((a,b)=>new Date(a.punched_at)-new Date(b.punched_at)).forEach(p=>{ if(p.type==='in') cur=p; if(p.type==='out') cur=null; }); return cur; }
+      async function reloadForActor(){ lastResult.value=null; err.value=''; await loadActorState(); }
 
       async function loadWhosOn(){ try{ const w=await callData({action:'whos_on'}); whosOn.value=w.on||[]; }catch(e){ flash('Could not load'); } }
       async function loadReview(){ if(!isSupervisor.value) return; try{ feed.value=await callData({action:'supervisor_feed',date:reviewDate.value}); }catch(e){ flash('Could not load review: '+e.message); } }
@@ -422,10 +425,13 @@
 
       const whosOnGrouped=computed(()=>{ const g={}; whosOn.value.forEach(p=>{ (g[p.area]=g[p.area]||[]).push(p); }); return Object.keys(g).sort().map(a=>({area:a,people:g[a]})); });
 
-      // current shift banner
-      const currentArea=computed(()=>{ const s=shifts.value.find(x=>x.open); return s?s.area:null; });
+      // current shift banner — reflects whoever is being clocked (self or acting-as)
+      const ownTodayPunches=computed(()=> punches.value.filter(p=>nzDateOf(p.punched_at)===nzToday()));
+      const bannerPunches=computed(()=> actingOther.value ? actorPunches.value : ownTodayPunches.value);
+      const state=computed(()=> deriveState(bannerPunches.value));
+      const currentArea=computed(()=>{ const inP=openInPunch(bannerPunches.value); return inP ? ((areas.value.find(a=>a.id===inP.area_id)||{}).label||null) : null; });
       const stateLabel=computed(()=> ({out:'Clocked out',in:'Clocked in',on_break:'On break'})[state.value]||'—');
-      const elapsed=computed(()=>{ const s=shifts.value.find(x=>x.open); if(!s) return ''; const inP=s.punches.find(p=>p.type==='in'); if(!inP) return ''; const ms=now.value-new Date(inP.punched_at).getTime(); const h=Math.floor(ms/3600000), m=Math.floor(ms%3600000/60000); return (h?h+'h ':'')+m+'m'; });
+      const elapsed=computed(()=>{ const inP=openInPunch(bannerPunches.value); if(!inP) return ''; const ms=now.value-new Date(inP.punched_at).getTime(); const h=Math.floor(ms/3600000), m=Math.floor(ms%3600000/60000); return (h?h+'h ':'')+m+'m'; });
 
       // ---- change requests ----
       function openChange(sh){ Object.assign(chg,{open:true,punch_id:null,time:'',reason:'',punches:sh.punches,dateLabel:sh.dateLabel,day:sh.key}); }
