@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Time Clock">
+  <meta name="theme-color" content="#15803d">
+  <link rel="apple-touch-icon" href="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png">
+  <title>Revive — Time Clock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    [v-cloak]{display:none}
+    html{-webkit-text-size-adjust:100%}
+    ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
+    .tap{ -webkit-tap-highlight-color:transparent; user-select:none }
+  </style>
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+<script>
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+<!-- tailwind safelist -->
+<div class="hidden bg-emerald-600 bg-emerald-700 bg-amber-500 bg-amber-100 text-amber-800 bg-red-600 bg-red-100 text-red-700 bg-sky-100 text-sky-800 bg-stone-200 ring-emerald-500 border-emerald-600"></div>
+
+<div id="app" v-cloak>
+  <!-- LOADING / GATE -->
+  <div v-if="!ready" class="min-h-screen flex items-center justify-center relative overflow-hidden" style="background:#14532d">
+    <div class="text-center relative z-10 px-6">
+      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-52 max-w-[60vw] mx-auto mb-5" alt="Revive">
+      <p v-if="!gateError" class="text-white/90 text-sm">Loading Time Clock…</p>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
+    </div>
+  </div>
+
+  <div v-else class="min-h-screen flex flex-col max-w-2xl mx-auto">
+    <!-- top bar -->
+    <nav class="text-white px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#15803d">
+      <div class="flex items-center gap-2"><img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revive"><span class="text-white/90 text-sm font-medium">Time Clock</span></div>
+      <div class="flex items-center gap-3">
+        <span v-if="isSupervisor" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Supervisor</span>
+        <button @click="showPrivacy=true" class="text-white/80 text-xs underline">Privacy</button>
+        <a href="/" class="text-white/80 hover:text-white text-xs">Portal</a>
+      </div>
+    </nav>
+
+    <!-- tabs -->
+    <div class="bg-white border-b border-stone-200 px-2 py-2 flex gap-1.5 overflow-x-auto sticky top-[52px] z-30">
+      <button v-for="t in visibleTabs" :key="t.id" @click="go(t.id)" class="tap whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded-lg border" :class="screen===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300'">{{ t.label }}</button>
+    </div>
+
+    <main class="flex-1 w-full px-3 py-4">
+
+      <!-- ============ CLOCK ============ -->
+      <section v-if="screen==='clock'">
+        <!-- supervisor acting-as -->
+        <div v-if="isSupervisor" class="mb-3 bg-white border border-stone-200 rounded-xl p-2.5 flex items-center gap-2 text-sm">
+          <span class="text-xs text-stone-500">Clocking for</span>
+          <select v-model="actingId" @change="reloadForActor" class="flex-1 border border-stone-300 rounded-lg px-2 py-1.5 bg-white text-sm">
+            <option :value="myId">{{ myName ? myName+' (me)' : 'Me' }}</option>
+            <option v-for="s in staff" :key="s.id" :value="s.id" v-show="s.id!==myId">{{ s.name }}</option>
+          </select>
+          <span class="text-[10px] text-stone-400">kiosk / manual</span>
+        </div>
+
+        <div v-if="!activeStaff" class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          You're signed in, but not yet set up as a clock-in staff member. A supervisor can add you. Supervisors can still review and manage below.
+        </div>
+
+        <template v-else>
+          <!-- status banner -->
+          <div class="text-center mb-4">
+            <p class="text-stone-500 text-sm">{{ actorLabel }}</p>
+            <p class="text-2xl font-bold" :class="state==='out' ? 'text-stone-700' : (state==='on_break' ? 'text-amber-600' : 'text-green-700')">{{ stateLabel }}</p>
+            <p v-if="state!=='out'" class="text-sm text-stone-500 mt-0.5">{{ currentArea ? currentArea+' · ' : '' }}{{ elapsed }}</p>
+          </div>
+
+          <!-- OUT: pick an area to clock in -->
+          <div v-if="state==='out'">
+            <p class="text-center text-sm text-stone-500 mb-2">Tap your area to clock in</p>
+            <div class="grid grid-cols-2 gap-2.5">
+              <button v-for="a in areas" :key="a.id" @click="punch('in', a.id)" :disabled="busy" class="tap bg-white border border-stone-200 rounded-2xl py-5 px-3 text-center shadow-sm active:scale-95 transition disabled:opacity-50" :class="lastAreaId===a.id ? 'ring-2 ring-emerald-500' : ''">
+                <div class="text-base font-semibold text-stone-800 leading-tight">{{ a.label }}</div>
+                <div class="text-[10px] text-stone-400 mt-1">{{ a.job_number }}</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- IN: big clock-out + break -->
+          <div v-else class="space-y-3">
+            <button v-if="state==='in'" @click="punch('break_start')" :disabled="busy" class="tap w-full bg-amber-500 text-white rounded-2xl py-5 text-lg font-bold shadow active:scale-95 transition disabled:opacity-50">Start break</button>
+            <button v-if="state==='on_break'" @click="punch('break_end')" :disabled="busy" class="tap w-full bg-emerald-600 text-white rounded-2xl py-5 text-lg font-bold shadow active:scale-95 transition disabled:opacity-50">End break</button>
+            <button @click="punch('out')" :disabled="busy" class="tap w-full bg-green-700 text-white rounded-2xl py-6 text-xl font-bold shadow active:scale-95 transition disabled:opacity-50">Clock out</button>
+          </div>
+
+          <!-- capture feedback -->
+          <div v-if="busy" class="mt-4 text-center text-sm text-stone-500">
+            <span class="inline-block animate-pulse">📸 Capturing photo &amp; location…</span>
+          </div>
+          <div v-if="lastResult" class="mt-4 bg-white border border-stone-200 rounded-xl p-3 flex items-center gap-3">
+            <img v-if="lastSelfie" :src="lastSelfie" class="w-12 h-12 rounded-lg object-cover border">
+            <div class="text-sm">
+              <div class="font-medium text-stone-800">{{ lastResult.msg }}</div>
+              <div class="text-xs" :class="lastResult.locClass">{{ lastResult.loc }}</div>
+            </div>
+          </div>
+          <p v-if="err" class="mt-3 text-sm text-red-600 text-center">{{ err }}</p>
+        </template>
+        <!-- hidden capture elements -->
+        <video ref="vid" autoplay playsinline muted class="hidden"></video>
+        <canvas ref="cnv" class="hidden"></canvas>
+      </section>
+
+      <!-- ============ MY TIMESHEET ============ -->
+      <section v-if="screen==='timesheet'">
+        <h1 class="text-lg font-bold text-stone-800 mb-2">My timesheet</h1>
+        <p v-if="!shifts.length" class="text-sm text-stone-500 bg-white border border-dashed border-stone-300 rounded-xl p-6 text-center">No shifts recorded in the last 14 days.</p>
+        <div v-for="sh in shifts" :key="sh.key" class="bg-white border border-stone-200 rounded-xl p-3 mb-2.5">
+          <div class="flex items-center justify-between">
+            <div class="font-semibold text-stone-800">{{ sh.dateLabel }}</div>
+            <div class="text-sm text-stone-500">{{ sh.hours!=null ? sh.hours+'h' : (sh.open?'in progress':'—') }}</div>
+          </div>
+          <div class="text-sm text-stone-600 mt-0.5">{{ sh.area || '—' }} · {{ sh.inLabel }} → {{ sh.outLabel }}</div>
+          <div v-if="sh.breakMin" class="text-xs text-stone-400">− {{ sh.breakMin }} min unpaid break</div>
+          <div class="mt-1.5 flex items-center gap-2">
+            <span v-for="p in sh.punches" :key="p.id" class="text-[10px] px-1.5 py-0.5 rounded" :class="p.in_range===false?'bg-red-100 text-red-700':'bg-stone-100 text-stone-500'">{{ punchShort(p.type) }} {{ hm(p.punched_at) }}</span>
+            <button @click="openChange(sh)" class="ml-auto text-xs text-emerald-700 underline">Request a fix</button>
+          </div>
+        </div>
+        <div v-if="myRequests.length" class="mt-4">
+          <h2 class="text-sm font-semibold text-stone-600 mb-1.5">My change requests</h2>
+          <div v-for="r in myRequests" :key="r.id" class="text-sm bg-white border border-stone-200 rounded-lg px-3 py-2 mb-1.5 flex items-center justify-between">
+            <span class="text-stone-600">{{ r.reason }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full" :class="r.status==='approved'?'bg-emerald-100 text-emerald-700':(r.status==='rejected'?'bg-red-100 text-red-700':'bg-amber-100 text-amber-800')">{{ r.status }}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TEAM (who's on) ============ -->
+      <section v-if="screen==='team'">
+        <div class="flex items-center justify-between mb-2"><h1 class="text-lg font-bold text-stone-800">On now</h1><button @click="loadWhosOn" class="text-xs border border-stone-300 rounded-lg px-2.5 py-1">Refresh</button></div>
+        <p v-if="!whosOn.length" class="text-sm text-stone-500 bg-white border border-dashed border-stone-300 rounded-xl p-6 text-center">Nobody is clocked in right now.</p>
+        <div v-for="grp in whosOnGrouped" :key="grp.area" class="mb-3">
+          <div class="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-1">{{ grp.area }}</div>
+          <div v-for="p in grp.people" :key="p.staff_id" class="bg-white border border-stone-200 rounded-lg px-3 py-2 mb-1 flex items-center justify-between">
+            <span class="text-sm font-medium text-stone-800">{{ p.name }}</span>
+            <span class="text-xs" :class="p.state==='on_break'?'text-amber-600':'text-green-700'">{{ p.state==='on_break'?'on break':'since '+hm(p.since) }}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ REVIEW (supervisor) ============ -->
+      <section v-if="screen==='review' && isSupervisor">
+        <div class="flex items-center justify-between mb-2">
+          <h1 class="text-lg font-bold text-stone-800">Review</h1>
+          <input type="date" v-model="reviewDate" @change="loadReview" class="border border-stone-300 rounded-lg px-2 py-1 text-sm">
+        </div>
+
+        <!-- exceptions first -->
+        <div v-if="feed" class="space-y-3">
+          <div v-if="exceptionCount===0" class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800">✓ Nothing needs attention for {{ feed.date }}.</div>
+
+          <div v-if="feed.exceptions.open_past_warn.length" class="bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <div class="text-sm font-semibold text-amber-800 mb-1">Still clocked in after {{ feed.warn_hour }}:00</div>
+            <div v-for="o in feed.exceptions.open_past_warn" :key="o.staff_id" class="text-sm text-amber-900 flex justify-between"><span>{{ o.name }}</span><span class="text-xs">since {{ hm(o.since) }}</span></div>
+          </div>
+
+          <div v-if="feed.exceptions.out_of_range.length" class="bg-red-50 border border-red-200 rounded-xl p-3">
+            <div class="text-sm font-semibold text-red-700 mb-1">Out of range (GPS)</div>
+            <div v-for="p in feed.exceptions.out_of_range" :key="p.id" class="text-sm text-red-800 flex justify-between items-center">
+              <span>{{ p.staff_name }} · {{ punchShort(p.type) }} {{ hm(p.punched_at) }}</span>
+              <span class="text-xs">{{ p.distance_m }}m <button @click="viewSelfie(p.id)" class="underline ml-1">selfie</button></span>
+            </div>
+          </div>
+
+          <!-- pending change requests -->
+          <div v-if="feed.pending.length" class="bg-white border border-stone-200 rounded-xl p-3">
+            <div class="text-sm font-semibold text-stone-700 mb-1.5">Change requests</div>
+            <div v-for="r in feed.pending" :key="r.id" class="border-t border-stone-100 pt-2 mt-2 first:border-0 first:pt-0 first:mt-0">
+              <div class="text-sm text-stone-800">{{ r.staff_name }} <span class="text-stone-400">·</span> {{ r.reason }}</div>
+              <div class="text-xs text-stone-500">{{ r.field || r.kind }}: {{ r.original_value || '—' }} → <b>{{ r.requested_value || '—' }}</b></div>
+              <div class="mt-1.5 flex gap-2">
+                <button @click="resolve(r.id,'approve')" class="text-xs bg-emerald-600 text-white rounded-lg px-3 py-1">Approve</button>
+                <button @click="resolve(r.id,'reject')" class="text-xs border border-stone-300 text-stone-600 rounded-lg px-3 py-1">Reject</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- who's on now (open shifts) -->
+          <div v-if="feed.open.length" class="bg-white border border-stone-200 rounded-xl p-3">
+            <div class="text-sm font-semibold text-stone-700 mb-1.5">Currently clocked in ({{ feed.open.length }})</div>
+            <div v-for="o in feed.open" :key="o.staff_id" class="text-sm flex justify-between"><span>{{ o.name }}</span><span class="text-xs" :class="o.state==='on_break'?'text-amber-600':'text-green-700'">{{ o.state==='on_break'?'on break':'since '+hm(o.since) }}</span></div>
+          </div>
+
+          <!-- full day log -->
+          <div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
+            <div class="text-sm font-semibold text-stone-700 px-3 pt-3">All punches — {{ feed.date }}</div>
+            <p v-if="!feed.punches.length" class="text-sm text-stone-400 px-3 py-4">No punches this day.</p>
+            <table v-else class="w-full text-sm mt-2">
+              <tbody>
+                <tr v-for="p in feed.punches" :key="p.id" class="border-t border-stone-100">
+                  <td class="px-3 py-1.5">{{ p.staff_name }}</td>
+                  <td class="px-2 py-1.5 text-stone-500">{{ punchLong(p.type) }}</td>
+                  <td class="px-2 py-1.5">{{ hm(p.punched_at) }}</td>
+                  <td class="px-2 py-1.5 text-xs" :class="p.in_range===false?'text-red-600':'text-stone-400'">{{ p.distance_m!=null ? p.distance_m+'m' : 'no GPS' }}</td>
+                  <td class="px-2 py-1.5 text-right"><button @click="viewSelfie(p.id)" class="text-xs text-emerald-700 underline">selfie</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ LEAVE (skeleton) ============ -->
+      <section v-if="screen==='leave'">
+        <h1 class="text-lg font-bold text-stone-800 mb-2">Leave</h1>
+        <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 text-sm text-sky-900 mb-3">
+          Leave tracking is <b>set up but not switched on yet</b>. Balances, requests and public-holiday-worked / alternative days will live here — hours-based, no pay calculation. No data has been entered yet.
+        </div>
+        <div class="bg-white border border-stone-200 rounded-xl p-4 opacity-70">
+          <div class="text-sm font-semibold text-stone-600 mb-2">Balances (coming soon)</div>
+          <div class="text-sm text-stone-400">Annual · Sick · Alternative days — hours</div>
+          <div class="mt-3 text-sm font-semibold text-stone-600 mb-1">Requests (coming soon)</div>
+          <div class="text-sm text-stone-400">Staff request → supervisor approves → audit trail</div>
+        </div>
+      </section>
+
+      <!-- ============ SETTINGS (supervisor) ============ -->
+      <section v-if="screen==='settings' && isSupervisor">
+        <h1 class="text-lg font-bold text-stone-800 mb-2">Settings</h1>
+        <div class="bg-white border border-stone-200 rounded-xl p-4 mb-3">
+          <div class="text-sm font-semibold text-stone-700 mb-2">Cafe location (geofence)</div>
+          <p class="text-xs text-stone-500 mb-2">{{ settings.cafe_address }} — punches record distance from here; they’re flagged, not blocked, when out of range.</p>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <label>Latitude<input v-model="settings.geofence_lat" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
+            <label>Longitude<input v-model="settings.geofence_lng" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
+            <label>Radius (m)<input v-model="settings.geofence_radius_m" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
+            <label>Warn if still in after (hour)<input v-model="settings.open_shift_warn_hour" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button @click="setToHere" class="text-sm border border-emerald-600 text-emerald-700 rounded-lg px-3 py-1.5">📍 Set to my current location</button>
+            <button @click="saveSettings" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Save</button>
+          </div>
+        </div>
+        <div class="bg-white border border-stone-200 rounded-xl p-4">
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <label>Unpaid break (min)<input v-model="settings.unpaid_break_min" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
+            <label>Selfie retention (days)<input v-model="settings.selfie_retention_days" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
+          </div>
+          <button @click="saveSettings" class="mt-3 text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Save</button>
+        </div>
+      </section>
+    </main>
+
+    <p v-if="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow z-50">{{ toast }}</p>
+
+    <!-- CHANGE REQUEST MODAL -->
+    <div v-if="chg.open" class="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-3" @click.self="chg.open=false">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-4">
+        <div class="flex items-center justify-between mb-2"><h2 class="font-bold text-stone-800">Request a fix</h2><button @click="chg.open=false" class="text-stone-400 text-xl">×</button></div>
+        <p class="text-xs text-stone-500 mb-3">{{ chg.dateLabel }} — your supervisor reviews this; the original times are kept.</p>
+        <label class="text-sm block mb-2">Which punch<select v-model="chg.punch_id" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5 bg-white">
+          <option :value="null">A missing punch (nothing recorded)</option>
+          <option v-for="p in chg.punches" :key="p.id" :value="p.id">{{ punchLong(p.type) }} — {{ hm(p.punched_at) }}</option>
+        </select></label>
+        <label class="text-sm block mb-2">Correct time (if editing)<input type="time" v-model="chg.time" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
+        <label class="text-sm block mb-3">Reason<textarea v-model="chg.reason" rows="2" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5" placeholder="e.g. forgot to clock out, phone died"></textarea></label>
+        <div class="flex justify-end gap-2"><button @click="chg.open=false" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5">Cancel</button><button @click="submitChange" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Send request</button></div>
+      </div>
+    </div>
+
+    <!-- SELFIE MODAL -->
+    <div v-if="selfieView.open" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" @click.self="selfieView.open=false">
+      <div class="bg-white rounded-2xl shadow-xl max-w-xs w-full p-3 text-center">
+        <img v-if="selfieView.src" :src="selfieView.src" class="w-full rounded-xl">
+        <p v-else class="text-sm text-stone-500 py-8">No photo (older than retention, or not captured).</p>
+        <button @click="selfieView.open=false" class="mt-2 text-sm text-stone-600">Close</button>
+      </div>
+    </div>
+
+    <!-- PRIVACY MODAL -->
+    <div v-if="showPrivacy" class="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-3" @click.self="showPrivacy=false">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-2"><h2 class="font-bold text-stone-800">How Time Clock uses your data</h2><button @click="showPrivacy=false" class="text-stone-400 text-xl">×</button></div>
+        <div class="text-sm text-stone-600 space-y-2">
+          <p><b>What we collect.</b> When you clock in, out, or take a break we record the time, the area you selected, a photo (selfie) taken at that moment, and your phone’s location.</p>
+          <p><b>Why.</b> The photo confirms it’s really you (it stops someone clocking in for you) and the location confirms you’re at the cafe. Together they keep everyone’s hours accurate and fair.</p>
+          <p><b>Who sees it.</b> Only your supervisor can view the photos and location, alongside your timesheet.</p>
+          <p><b>How long.</b> Photos are automatically deleted after {{ settings.selfie_retention_days || 90 }} days. Your hours are kept for payroll.</p>
+          <p><b>Face matching.</b> We do <b>not</b> run facial-recognition matching — the photo is simply stored against the punch for a human to see if needed.</p>
+          <p><b>If you decline location.</b> Your punch is still recorded; it just notes that no location was shared.</p>
+        </div>
+        <button @click="showPrivacy=false" class="mt-4 w-full bg-green-700 text-white rounded-lg py-2 text-sm">Got it</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+  const portal = supabase.createClient(PORTAL_URL, PORTAL_ANON);
+
+  createApp({
+    setup(){
+      const ready=ref(false), gateError=ref(''), toast=ref('');
+      const isSupervisor=ref(false);
+      const myId=ref(null), myName=ref(''), actingId=ref(null);
+      const staff=ref([]), areas=ref([]);
+      const settings=reactive({});
+      const state=ref('out'), punches=ref([]), myRequests=ref([]);
+      const busy=ref(false), err=ref(''), lastResult=ref(null), lastSelfie=ref(''), lastAreaId=ref(null);
+      const whosOn=ref([]);
+      const feed=ref(null), reviewDate=ref(nzToday());
+      const showPrivacy=ref(false);
+      const now=ref(Date.now());
+      const vid=ref(null), cnv=ref(null); let stream=null;
+      const chg=reactive({open:false,punch_id:null,time:'',reason:'',punches:[],dateLabel:''});
+      const selfieView=reactive({open:false,src:''});
+
+      const tabs=[
+        {id:'clock',label:'Clock'},{id:'timesheet',label:'My timesheet'},{id:'team',label:'On now'},
+        {id:'review',label:'Review',sup:true},{id:'leave',label:'Leave'},{id:'settings',label:'Settings',sup:true},
+      ];
+      const visibleTabs=computed(()=> tabs.filter(t=> !t.sup || isSupervisor.value));
+      const screen=ref('clock');
+
+      const activeStaff=computed(()=> !!(actingId.value));
+      const actingOther=computed(()=> actingId.value && actingId.value!==myId.value);
+      const actorLabel=computed(()=>{ if(actingOther.value){ const s=staff.value.find(x=>x.id===actingId.value); return 'Clocking for '+(s?s.name:'staff'); } return myName.value; });
+
+      function nzToday(){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
+      function hm(iso){ if(!iso) return '—'; return new Intl.DateTimeFormat('en-NZ',{timeZone:'Pacific/Auckland',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(iso)); }
+      function nzDateOf(iso){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(iso)); }
+      function dateLabel(d){ const dt=new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}); }
+      function punchShort(t){ return ({in:'IN',break_start:'BRK',break_end:'END',out:'OUT'})[t]||t; }
+      function punchLong(t){ return ({in:'Clock in',break_start:'Break start',break_end:'Break end',out:'Clock out'})[t]||t; }
+
+      async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
+      async function callData(payload){
+        const r=await fetch('/.netlify/functions/timeclock-data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},body:JSON.stringify(payload)});
+        const j=await r.json().catch(()=>({error:'bad response'})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j;
+      }
+      function flash(t){ toast.value=t; setTimeout(()=>toast.value='',2400); }
+      function go(id){ screen.value=id; if(id==='team') loadWhosOn(); if(id==='review') loadReview(); }
+
+      // ---- camera + gps ----
+      async function ensureCamera(){
+        if(stream) return true;
+        try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:480}}}); vid.value.srcObject=stream; await vid.value.play().catch(()=>{}); await new Promise(r=>setTimeout(r,350)); return true; }
+        catch(e){ return false; }
+      }
+      function snapSelfie(){ try{ const v=vid.value,c=cnv.value; if(!v||!v.videoWidth) return null; const w=320,h=Math.round(v.videoHeight*(w/v.videoWidth)); c.width=w;c.height=h; c.getContext('2d').drawImage(v,0,0,w,h); return c.toDataURL('image/jpeg',0.5); }catch(e){ return null; } }
+      function getGeo(){ return new Promise(res=>{ if(!navigator.geolocation) return res(null); navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy}),()=>res(null),{enableHighAccuracy:true,timeout:8000,maximumAge:30000}); }); }
+
+      async function punch(type,areaId){
+        if(busy.value) return; busy.value=true; err.value=''; lastResult.value=null; lastSelfie.value='';
+        try{
+          await ensureCamera();
+          const selfie=snapSelfie();
+          const geo=await getGeo();
+          const payload={action:'punch',type,area_id:areaId||null,selfie,device_time:new Date().toISOString(),...(geo||{})};
+          if(actingOther.value) payload.staff_id=actingId.value;
+          const res=await callData(payload);
+          state.value=res.state; if(type==='in') lastAreaId.value=areaId;
+          lastSelfie.value=selfie||'';
+          const p=res.punch;
+          let loc,locClass;
+          if(p.in_range===true){ loc='✓ at the cafe'; locClass='text-emerald-600'; }
+          else if(p.in_range===false){ loc='⚠ '+p.distance_m+'m from cafe'; locClass='text-amber-600'; }
+          else { loc='location not shared'; locClass='text-stone-400'; }
+          lastResult.value={ msg: punchLong(type)+' · '+hm(p.punched_at), loc, locClass };
+          await loadTimesheet();
+        }catch(e){ err.value=e.message; }
+        busy.value=false;
+      }
+
+      // ---- data loads ----
+      async function boot(){
+        const b=await callData({action:'bootstrap'});
+        isSupervisor.value=b.is_supervisor; areas.value=b.areas||[]; staff.value=b.staff||[];
+        Object.assign(settings, b.settings||{});
+        if(b.me){ myId.value=b.me.id; myName.value=b.me.name; actingId.value=b.me.id; }
+        else if(b.is_supervisor && (b.staff||[]).length){ /* no own staff record; leave acting null until picked */ actingId.value=null; }
+        state.value=b.my_state||'out';
+      }
+      async function loadTimesheet(){
+        const who = actingOther.value ? null : null; // my_timesheet is always caller's; acting-as review is via Review tab
+        const t=await callData({action:'my_timesheet',days:14});
+        punches.value=t.punches||[]; myRequests.value=t.requests||[];
+        if(t.me){ state.value=deriveState(punches.value); }
+      }
+      function deriveState(ps){ const today=ps.filter(p=>true); if(!today.length) return 'out'; const last=today[today.length-1]; return ({out:'out',in:'in',break_end:'in',break_start:'on_break'})[last.type]||'out'; }
+      async function reloadForActor(){ /* switching actor only affects punch target + review; clock state banner uses own timesheet */ }
+
+      async function loadWhosOn(){ try{ const w=await callData({action:'whos_on'}); whosOn.value=w.on||[]; }catch(e){ flash('Could not load'); } }
+      async function loadReview(){ if(!isSupervisor.value) return; try{ feed.value=await callData({action:'supervisor_feed',date:reviewDate.value}); }catch(e){ flash('Could not load review: '+e.message); } }
+
+      const exceptionCount=computed(()=>{ const f=feed.value; if(!f) return 0; return (f.exceptions.open_past_warn.length)+(f.exceptions.out_of_range.length)+(f.pending.length); });
+
+      // ---- timesheet grouping ----
+      const shifts=computed(()=>{
+        const byDay={};
+        punches.value.forEach(p=>{ const d=nzDateOf(p.punched_at); (byDay[d]=byDay[d]||[]).push(p); });
+        const out=[];
+        Object.keys(byDay).sort().reverse().forEach(d=>{
+          const ps=byDay[d].sort((a,b)=>new Date(a.punched_at)-new Date(b.punched_at));
+          const inP=ps.find(p=>p.type==='in'); const outP=[...ps].reverse().find(p=>p.type==='out');
+          let breakMs=0, bs=null;
+          ps.forEach(p=>{ if(p.type==='break_start') bs=new Date(p.punched_at); if(p.type==='break_end'&&bs){ breakMs+=new Date(p.punched_at)-bs; bs=null; } });
+          const open=!outP;
+          let hours=null;
+          if(inP&&outP){ const gross=new Date(outP.punched_at)-new Date(inP.punched_at); hours=Math.round((gross-breakMs)/3600000*100)/100; }
+          const area=(areas.value.find(a=>a.id===(inP&&inP.area_id))||{}).label||null;
+          out.push({ key:d, dateLabel:dateLabel(d), area, inLabel:inP?hm(inP.punched_at):'—', outLabel:outP?hm(outP.punched_at):(open?'in progress':'—'), hours, open, breakMin:Math.round(breakMs/60000)||0, punches:ps });
+        });
+        return out;
+      });
+
+      const whosOnGrouped=computed(()=>{ const g={}; whosOn.value.forEach(p=>{ (g[p.area]=g[p.area]||[]).push(p); }); return Object.keys(g).sort().map(a=>({area:a,people:g[a]})); });
+
+      // current shift banner
+      const currentArea=computed(()=>{ const s=shifts.value.find(x=>x.open); return s?s.area:null; });
+      const stateLabel=computed(()=> ({out:'Clocked out',in:'Clocked in',on_break:'On break'})[state.value]||'—');
+      const elapsed=computed(()=>{ const s=shifts.value.find(x=>x.open); if(!s) return ''; const inP=s.punches.find(p=>p.type==='in'); if(!inP) return ''; const ms=now.value-new Date(inP.punched_at).getTime(); const h=Math.floor(ms/3600000), m=Math.floor(ms%3600000/60000); return (h?h+'h ':'')+m+'m'; });
+
+      // ---- change requests ----
+      function openChange(sh){ Object.assign(chg,{open:true,punch_id:null,time:'',reason:'',punches:sh.punches,dateLabel:sh.dateLabel,day:sh.key}); }
+      async function submitChange(){
+        if(!chg.reason.trim()){ flash('Add a reason'); return; }
+        let requested_value=null, field=null, original_value=null, kind='add_punch';
+        if(chg.punch_id){ const p=chg.punches.find(x=>x.id===chg.punch_id); field='punched_at'; kind='edit_time'; original_value=p?p.punched_at:null;
+          if(chg.time){ const iso=new Date(chg.day+'T'+chg.time+':00').toISOString(); requested_value=iso; } }
+        try{ await callData({action:'submit_change',punch_id:chg.punch_id,kind,field,original_value,requested_value,reason:chg.reason}); chg.open=false; flash('Sent to your supervisor'); await loadTimesheet(); }catch(e){ flash('Failed: '+e.message); }
+      }
+
+      // ---- supervisor actions ----
+      async function resolve(id,decision){ try{ await callData({action:'resolve_change',id,decision}); await loadReview(); flash(decision==='approve'?'Approved':'Rejected'); }catch(e){ flash('Failed: '+e.message); } }
+      async function viewSelfie(pid){ selfieView.open=true; selfieView.src=''; try{ const r=await callData({action:'get_selfie',punch_id:pid}); selfieView.src=r.selfie||''; }catch(e){ selfieView.src=''; } }
+
+      async function setToHere(){ const g=await getGeo(); if(!g){ flash('Could not read location — allow location and try again'); return; } settings.geofence_lat=String(g.lat.toFixed(6)); settings.geofence_lng=String(g.lng.toFixed(6)); flash('Set — remember to Save'); }
+      async function saveSettings(){ try{ const keys=['cafe_address','geofence_lat','geofence_lng','geofence_radius_m','open_shift_warn_hour','unpaid_break_min','selfie_retention_days']; for(const k of keys){ if(settings[k]!=null) await callData({action:'save_setting',key:k,value:settings[k]}); } flash('Saved'); }catch(e){ flash('Failed: '+e.message); } }
+
+      onMounted(async()=>{
+        const { data:{ session } }=await portal.auth.getSession();
+        if(!session){ window.location.href='/'; return; }
+        try{ await boot(); await loadTimesheet(); }
+        catch(e){ gateError.value = /access/i.test(e.message)? 'You do not have access to Time Clock. Ask an administrator.' : ('Could not load: '+e.message); ready.value=true; return; }
+        ready.value=true;
+        setInterval(()=>{ now.value=Date.now(); },30000);
+      });
+
+      return { ready,gateError,toast,isSupervisor,myId,myName,actingId,staff,areas,settings,state,punches,myRequests,busy,err,lastResult,lastSelfie,lastAreaId,whosOn,feed,reviewDate,showPrivacy,
+        vid,cnv,chg,selfieView,tabs,visibleTabs,screen,activeStaff,actingOther,actorLabel,stateLabel,currentArea,elapsed,shifts,whosOnGrouped,exceptionCount,
+        hm,punchShort,punchLong,go,punch,reloadForActor,loadWhosOn,loadReview,openChange,submitChange,resolve,viewSelfie,setToHere,saveSettings };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>
