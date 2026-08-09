@@ -72,4 +72,4 @@ async function metaAccountTz() {
   } catch (e) { _acctTz = 'Etc/GMT+12'; }
   return _acctTz;
 }
-module.exports = { syncMeta, spendRange, metaAccountTz };
+module.exports = { syncMeta, spendRange, metaAccountTz, fetchInsights };
