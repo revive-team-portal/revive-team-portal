@@ -467,6 +467,7 @@ td.der .subn,td .subn{opacity:.85}
               <tr class="tot"><td class="mname">Total sales</td><td>{{ fm(reportData.deptQty,0) }}</td><td>${{ fm(reportData.deptTotal,2) }}</td></tr>
               <tr class="sub2"><td class="mname">Covers (salads + meals)</td><td>{{ fm(reportData.covers,0) }}</td><td></td></tr>
               <tr class="sub2"><td class="mname">Transactions</td><td>{{ fm(reportData.txns,0) }}</td><td></td></tr>
+              <tr class="sub2"><td class="mname">Trading days</td><td>{{ fm(reportData.tradeDays,0) }}</td><td></td></tr>
             </tbody>
           </table>
           <h3 class="rh">By media type</h3>
@@ -856,15 +857,16 @@ createApp({
     }
     function parseReport(tsv){
       const lines=String(tsv||'').replace(/\r/g,'').trim().split('\n'); const cols=lines[0].split('\t'); const ix=c=>cols.indexOf(c);
-      const depts=[],media=[]; let covers=0,txns=0;
+      const depts=[],media=[]; let covers=0,txns=0,tradeDays=0;
       for(const ln of lines.slice(1)){ const r=ln.split('\t'); const sec=r[ix('section')];
         if(sec==='dept'){ const g=Number(r[ix('code')]); depts.push({label:DEPTNAMES[g]||('Group '+g), amount:Number(r[ix('amount')]||0), qty:Number(r[ix('qty')]||0)}); }
         else if(sec==='cover'){ covers=Number(r[ix('qty')]||0); }
         else if(sec==='txn'){ txns=Number(r[ix('txns')]||0); }
+        else if(sec==='tradedays'){ tradeDays=Number(r[ix('txns')]||0); }
         else if(sec==='media'){ media.push({label:r[ix('label')]||('Media '+r[ix('code')]), amount:Number(r[ix('amount')]||0), txns:Number(r[ix('txns')]||0)}); }
       }
       depts.sort((a,b)=>b.amount-a.amount); media.sort((a,b)=>b.amount-a.amount);
-      return {depts, deptTotal:depts.reduce((x,d)=>x+d.amount,0), deptQty:depts.reduce((x,d)=>x+d.qty,0), covers, txns, media, mediaTotal:media.reduce((x,d)=>x+d.amount,0)};
+      return {depts, deptTotal:depts.reduce((x,d)=>x+d.amount,0), deptQty:depts.reduce((x,d)=>x+d.qty,0), covers, txns, tradeDays, media, mediaTotal:media.reduce((x,d)=>x+d.amount,0)};
     }
     async function runReport(){
       reportBusy.value=true; reportErr.value=''; reportData.value=null;
