@@ -188,12 +188,32 @@ exports.handler = async (event) => {
   let body; try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Bad request.' }); }
   const action = body.action;
 
-  // A non-manager may only ever touch their own rows.
+  // Boards the caller can work inside: their own, plus any shared with them.
+  // Everyone on a shared board can edit every task in it — that was the point of sharing.
+  let _boardsCache = null;
+  async function myBoardIds() {
+    if (_boardsCache) return _boardsCache;
+    const [own, shared] = await Promise.all([
+      db('category?select=id&owner_id=eq.' + me),
+      db('category_share?select=category_id&person_id=eq.' + me),
+    ]);
+    _boardsCache = new Set([].concat(
+      (own || []).map(c => c.id),
+      (shared || []).map(s => s.category_id),
+    ));
+    return _boardsCache;
+  }
+
+  // A non-manager may touch their own rows, and anything sitting on a board they share.
   const ownGuard = async (table, id) => {
     if (isManager) return true;
-    const rows = await db(table + '?select=owner_id,for_person_id&id=eq.' + id);
+    const cols = table === 'task' ? 'owner_id,for_person_id,category_id' : 'owner_id';
+    const rows = await db(table + '?select=' + cols + '&id=eq.' + id);
     const r = rows && rows[0];
-    return !!r && (r.owner_id === me || r.for_person_id === me);
+    if (!r) return false;
+    if (r.owner_id === me || r.for_person_id === me) return true;
+    if (table === 'task' && r.category_id) return (await myBoardIds()).has(r.category_id);
+    return false;
   };
 
   try {
@@ -204,14 +224,21 @@ exports.handler = async (event) => {
       const people = await syncPeople();
       const carried = await rollover(week);
 
-      // Every board belongs to one person. A non-manager sees their own boards plus
-      // anything anyone has ticked as shared.
+      // Every board belongs to one person and may be shared with named people.
       await seedBoards(me);
-      const catFilter = isManager ? '' : '&or=(owner_id.eq.' + me + ',shared.is.true)';
+      const shares = await db('category_share?select=category_id,person_id');
+      const sharedWithMe = (shares || []).filter(s => s.person_id === me).map(s => s.category_id);
+
+      let catFilter = '';
+      if (!isManager) {
+        const clauses = ['owner_id.eq.' + me];
+        if (sharedWithMe.length) clauses.push('id.in.(' + sharedWithMe.join(',') + ')');
+        catFilter = '&or=(' + clauses.join(',') + ')';
+      }
       const categories = await db('category?select=*&archived=eq.false' + catFilter + '&order=sort_order.asc,name.asc');
 
-      // A board ticked as shared shows everyone's tasks; a private board shows only
-      // its owner's work (and, to a manager, everything).
+      // A shared board shows every task in it to everyone it's shared with; a private
+      // board shows only its owner's work (a manager sees everything either way).
       const openBoards = (categories || []).filter(c => c.shared).map(c => c.id);
       let taskFilter = '';
       if (!isManager) {
@@ -234,7 +261,7 @@ exports.handler = async (event) => {
 
       return json(200, {
         me, level, today, week, quarter: quarterOf(today), carried,
-        people, categories, goals, checkins, logs,
+        people, categories, shares, goals, checkins, logs,
         tasks: [].concat(tasksOpen || [], tasksDone || []),
       });
     }
@@ -327,16 +354,36 @@ exports.handler = async (event) => {
       row.name = String(row.name).slice(0, 80);
       // Every board has exactly one owner. Only a manager may create one for someone else.
       if (!isManager || !row.owner_id) row.owner_id = isManager ? (row.owner_id || me) : me;
+
+      // share_with: the people this board is visible to and editable by, besides the owner.
+      const shareWith = Array.isArray(body.share_with)
+        ? [...new Set(body.share_with.filter(Boolean))].filter(id => id !== row.owner_id)
+        : null;
+      if (shareWith) row.shared = shareWith.length > 0;
+
+      let saved;
       if (body.id) {
         if (!isManager) {
           const rows = await db('category?select=owner_id&id=eq.' + body.id);
-          if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: "That board belongs to someone else." });
+          if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: 'That board belongs to someone else.' });
         }
         const out = await db('category?id=eq.' + body.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
-        return json(200, { category: out && out[0] });
+        saved = out && out[0];
+      } else {
+        const out = await db('category', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
+        saved = out && out[0];
       }
-      const out = await db('category', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
-      return json(200, { category: out && out[0] });
+
+      if (saved && shareWith) {
+        await db('category_share?category_id=eq.' + saved.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+        if (shareWith.length) {
+          await db('category_share', {
+            method: 'POST', headers: { Prefer: 'return=minimal' },
+            body: JSON.stringify(shareWith.map(pid => ({ category_id: saved.id, person_id: pid }))),
+          });
+        }
+      }
+      return json(200, { category: saved, share_with: shareWith });
     }
 
     if (action === 'delete_category') {
