@@ -205,6 +205,32 @@ exports.handler = async (event) => {
         uber: 'queued (till agent)', catering: 'running (bulk)' });
     }
 
+    if (action === 'pos_report') {
+      if (level === 'team') return json(403, { error: 'Reports need Supervisor access.' });
+      const ok = d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+      if (!ok(body.start) || !ok(body.end)) return json(400, { error: 'Bad date range.' });
+      const start = body.start;
+      const en = new Date(body.end + 'T00:00:00Z'); en.setUTCDate(en.getUTCDate() + 1); const endNext = en.toISOString().slice(0, 10);
+      const W = "t.Receipt_Date_Time >= '" + start + "' AND t.Receipt_Date_Time < '" + endNext + "'";
+      const sql =
+        "SELECT 'dept' AS section, CAST(p.Product_Group AS varchar(10)) AS code, CAST(NULL AS varchar(64)) AS label, CAST(SUM(i.Sales) AS decimal(18,2)) AS amount, CAST(SUM(i.Qty) AS int) AS qty, CAST(NULL AS int) AS txns" +
+        " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode WHERE " + W + " GROUP BY p.Product_Group" +
+        " UNION ALL SELECT 'cover', NULL, NULL, NULL, CAST(SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS int), NULL" +
+        " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode WHERE " + W +
+        " UNION ALL SELECT 'txn', NULL, NULL, NULL, NULL, CAST(COUNT(DISTINCT t.Transaction_Number) AS int)" +
+        " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number WHERE " + W +
+        " UNION ALL SELECT 'media', CAST(m.MediaType AS varchar(10)), CAST(MAX(md.MediaDescription) AS varchar(64)), CAST(SUM(m.MediaAmount) AS decimal(18,2)), NULL, CAST(COUNT(DISTINCT m.Transaction_Number) AS int)" +
+        " FROM EJMediaTable m JOIN EJTable t ON t.Transaction_Number=m.Transaction_Number LEFT JOIN MediaDescriptionTable md ON md.MediaNumber=m.MediaType WHERE " + W + " AND m.MediaType < 100 GROUP BY m.MediaType HAVING SUM(m.MediaAmount) <> 0" +
+        " ORDER BY 1, 4 DESC;";
+      const ins = await appsDb('pos_jobs', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify([{ sql, note: 'report' }]) });
+      return json(200, { id: ins && ins[0] ? ins[0].id : null });
+    }
+    if (action === 'pos_report_result') {
+      const id = Number(body.id); if (!id) return json(400, { error: 'no id' });
+      const rows = await appsDb('pos_jobs?id=eq.' + id + '&select=status,result,error');
+      const r = (rows && rows[0]) || {};
+      return json(200, { status: r.status, result: r.result, error: r.error });
+    }
     return json(400, { error: 'Unknown action.' });
   } catch (e) {
     return json(502, { error: String(e.message || e).slice(0, 300) });
