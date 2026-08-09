@@ -82,19 +82,19 @@
   .sub{color:var(--muted);font-size:14px;margin:0 0 26px}
 
   /* ---------- TILES ---------- */
-  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
   .tile{
-    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 12px;
     box-shadow:var(--shadow);transition:transform .12s,box-shadow .12s;position:relative;
-    display:flex;flex-direction:column;gap:4px;min-height:132px;
+    display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;
   }
   .tile.live{cursor:pointer}
   .tile.live:hover{transform:translateY(-3px);box-shadow:0 4px 10px rgba(20,40,30,.1),0 14px 30px rgba(20,40,30,.1)}
   .tile.soon{opacity:.72}
-  .tile .ic{font-size:30px;margin-bottom:6px}
-  .tile h3{margin:0;font-size:16px}
-  .tile p{margin:2px 0 0;color:var(--muted);font-size:13.5px;line-height:1.45}
-  .badge{position:absolute;top:14px;right:14px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;letter-spacing:.02em}
+  .tile .ic{font-size:26px;margin-bottom:2px}
+  .tile h3{margin:0;font-size:14.5px;line-height:1.25}
+  .tile p{display:none}
+  .badge{position:absolute;top:9px;right:9px;font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;letter-spacing:.02em}
   .badge.soon{background:#fbf1dc;color:var(--amber)}
   .badge.live{background:#eaf6f0;color:var(--green-d)}
   .empty{background:#fff;border:1px dashed var(--line);border-radius:14px;padding:40px;text-align:center;color:var(--muted)}
@@ -162,12 +162,11 @@
     .wrap{padding:22px 14px 48px}
     .page-head h2{font-size:20px}
     .sub{font-size:13px;margin-bottom:20px}
-    .tiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
-    .tile{padding:14px;min-height:114px;border-radius:14px;gap:2px}
-    .tile .ic{font-size:26px;margin-bottom:4px}
-    .tile h3{font-size:15px}
-    .tile p{font-size:12.5px;line-height:1.4}
-    .badge{top:10px;right:10px;font-size:10px;padding:3px 7px}
+    .tiles{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+    .tile{padding:12px 8px;border-radius:12px}
+    .tile .ic{font-size:23px}
+    .tile h3{font-size:13.5px}
+    .badge{top:7px;right:7px;font-size:9px;padding:2px 6px}
     .fr-new{flex-direction:column}
     .fr-new .btn{align-self:flex-end}
     .fr-list{grid-template-columns:1fr}
