@@ -2,7 +2,7 @@
 // first few days of each month; sends once (guarded), retrying on later days if the
 // till PC was unreachable on the 1st.
 const { reportSql, parseReport, emailHtml } = require('./_posreport');
-const { sendMail } = require('./_gmail');
+const { sendMail } = require('./_mail');
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
 const sleep = ms => new Promise(r => setTimeout(r, ms));

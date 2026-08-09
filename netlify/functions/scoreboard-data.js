@@ -239,7 +239,7 @@ exports.handler = async (event) => {
       const to = (rows && rows[0] && rows[0].value) || '';
       if (!to) return json(400, { error: 'No recipients set — add at least one email.' });
       const { emailHtml } = require('./_posreport');
-      const { sendMail } = require('./_gmail');
+      const { sendMail } = require('./_mail');
       const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const fmt = d => { const p = String(d || '').split('-'); return p.length === 3 ? (Number(p[2]) + ' ' + MON[Number(p[1]) - 1] + ' ' + p[0]) : d; };
       const label = fmt(body.start) + ' – ' + fmt(body.end);
