@@ -66,8 +66,9 @@ const ORDER_FIELDS = `
   name createdAt sourceName test
   currentTotalPriceSet{ shopMoney{ amount } }
   customer{ numberOfOrders }
+  discountCodes
   landingPageUrl referrerUrl
-  customerJourneySummary{ momentsCount{ count } daysToConversion
+  customerJourneySummary{ momentsCount{ count } daysToConversion customerOrderIndex
     firstVisit{ source sourceType referrerUrl landingPage utmParameters{ source medium campaign } }
     lastVisit{ source sourceType referrerUrl landingPage utmParameters{ source medium campaign } } }`;
 
@@ -89,6 +90,7 @@ async function shopifyOrders(startNz, endNz) {
         amount: Number((n.currentTotalPriceSet && n.currentTotalPriceSet.shopMoney && n.currentTotalPriceSet.shopMoney.amount) || 0),
         channel: n.sourceName, test: !!n.test, landing: n.landingPageUrl || null, referrer: n.referrerUrl || null,
         customer_orders: n.customer ? n.customer.numberOfOrders : null,
+        codes: n.discountCodes || [], order_index: j.customerOrderIndex == null ? null : j.customerOrderIndex,
         moments: (j.momentsCount && j.momentsCount.count != null) ? j.momentsCount.count : null,
         days_to_conv: j.daysToConversion == null ? null : j.daysToConversion,
         last_source: lv.source || null, last_type: lv.sourceType || null, last_ref: lv.referrerUrl || null,
