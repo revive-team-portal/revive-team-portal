@@ -1,7 +1,8 @@
 // Unified email send. Uses Resend (resend.com) when RESEND_KEY is set on this site,
 // otherwise falls back to the shared Gmail mailbox. `to` may be a comma-separated list.
 const RESEND_KEY = process.env.RESEND_KEY;
-const RESEND_FROM = process.env.RESEND_FROM || 'Revive Cafe <reports@revive.co.nz>';
+// This app's send address (each app controls its own). Override with RESEND_FROM if ever needed.
+const RESEND_FROM = process.env.RESEND_FROM || 'Revive Cafe <noreply@revive.co.nz>';
 async function sendViaResend({ to, subject, html, text }) {
   const toList = String(to || '').split(',').map(x => x.trim()).filter(Boolean);
   if (!toList.length) return { ok: false, error: 'No recipients.' };
