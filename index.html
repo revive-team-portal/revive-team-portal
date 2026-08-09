@@ -354,7 +354,7 @@ function tbRender(){
   if(tbStore.meta_week!=null) h+=box('Meta spend this week','$'+Math.round(tbStore.meta_week).toLocaleString()+(tbStore.meta_week_pct!=null?' · '+tbStore.meta_week_pct+'%':''),'meta_week');
   if(tbStore.orders_to_fulfil!=null) h+=box('To fulfil',tbStore.orders_to_fulfil.toLocaleString(),'orders_to_fulfil');
   if(tbStore.orders_fulfilled_today!=null) h+=box('Fulfilled today',tbStore.orders_fulfilled_today.toLocaleString(),'orders_fulfilled_today');
-  if(tbStore.outstanding_tickets!=null) h+=box('Outstanding tickets',tbStore.outstanding_tickets.toLocaleString(),'outstanding_tickets');
+  if(tbStore.outstanding_tickets!=null) h+=box('Tickets',tbStore.outstanding_tickets.toLocaleString(),'outstanding_tickets');
   if(!h){ return; }
   h+='<span class="tstamp">as at '+tbHM(now)+'</span><a class="rf" title="Refresh">↻</a>';
   bar.innerHTML=h; bar.classList.remove('hidden'); tbShown=true;

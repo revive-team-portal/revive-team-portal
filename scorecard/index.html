@@ -235,7 +235,7 @@ td.der .subn,td .subn{opacity:.85}
     <span class="seg" v-if="today.meta_week!=null" :class="{stale:cautions.meta_week}"><span class="lab">Meta spend this week<template v-if="cautions.meta_week"> ⚠️</template></span><b>${{ fm(today.meta_week,0) }}<template v-if="today.meta_week_pct!=null"> · {{ today.meta_week_pct }}%</template></b></span>
     <span class="seg" v-if="today.orders_to_fulfil!=null" :class="{stale:cautions.orders_to_fulfil}"><span class="lab">To fulfil<template v-if="cautions.orders_to_fulfil"> ⚠️</template></span><b>{{ fm(today.orders_to_fulfil,0) }}</b></span>
     <span class="seg" v-if="today.orders_fulfilled_today!=null" :class="{stale:cautions.orders_fulfilled_today}"><span class="lab">Fulfilled today<template v-if="cautions.orders_fulfilled_today"> ⚠️</template></span><b>{{ fm(today.orders_fulfilled_today,0) }}</b></span>
-    <span class="seg" v-if="today.outstanding_tickets!=null" :class="{stale:cautions.outstanding_tickets}"><span class="lab">Outstanding tickets<template v-if="cautions.outstanding_tickets"> ⚠️</template></span><b>{{ fm(today.outstanding_tickets,0) }}</b></span>
+    <span class="seg" v-if="today.outstanding_tickets!=null" :class="{stale:cautions.outstanding_tickets}"><span class="lab">Tickets<template v-if="cautions.outstanding_tickets"> ⚠️</template></span><b>{{ fm(today.outstanding_tickets,0) }}</b></span>
     <span class="tstamp">as at {{ todayTime }}</span><a class="ttr" @click="loadToday(true)" title="Refresh">↻</a>
   </div>
   <!-- loader / gate -->
