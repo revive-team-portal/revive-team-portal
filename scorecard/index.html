@@ -210,6 +210,20 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .dcell small{font-size:9.5px;color:var(--steel-lt);margin-top:1px}
 .subn{font-size:8.5px;color:var(--steel-lt);vertical-align:super;margin-left:3px;font-family:var(--mono)}
 td.der .subn,td .subn{opacity:.85}
+.rov{position:fixed;inset:0;background:rgba(20,30,25,.55);display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;z-index:50;overflow:auto}
+.rmodal{background:var(--paper);border:1px solid var(--line);border-radius:14px;max-width:640px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:18px 20px}
+.rhead{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line-2);padding-bottom:10px;margin-bottom:12px}
+.rhead h2{margin:0;font-size:18px}
+.rx{cursor:pointer;font-size:16px;color:var(--steel);text-decoration:none}
+.rrange{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.rcust{display:inline-flex;align-items:center;gap:5px;margin-left:auto}
+.rcust input{font-family:inherit;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:6px}
+.rcust .arr{color:var(--steel-lt)}
+.rload,.rerr{padding:22px;text-align:center;color:var(--steel)}
+.rerr{color:var(--bad)}
+.rsub{font-family:var(--mono);font-size:11.5px;color:var(--steel);margin-bottom:8px}
+.rh{font-size:13px;margin:16px 0 6px;color:var(--ink)}
+.dmx tr.sub2 td{border-top:1px dashed var(--line-2);color:var(--steel);font-weight:600}
 </style>
 </head>
 <body>
@@ -378,6 +392,7 @@ td.der .subn,td .subn{opacity:.85}
         <div class="ehead">
           <div class="wkpick"><button @click="stepWeek(-1)" :disabled="entryIdx<=0">◀</button><span>Week ending {{ longDate(entryWeek) }}</span><button @click="stepWeek(1)" :disabled="entryIdx>=weeks.length-1">▶</button></div>
           <button class="mini" @click="newWeek">+ New week</button>
+          <button class="mini" @click="openReport">\ud83d\udcca POS report</button>
           <div class="rcpt"><input type="file" ref="rcptInput" accept="image/*" multiple capture="environment" style="display:none" @change="onReceiptFiles"><button class="mini" :disabled="receiptBusy" @click="$refs.rcptInput.click()">{{ receiptBusy?'Reading receipt…':'\ud83d\udcf7 Upload till receipt' }}</button><span v-if="receiptMsg" class="rcptmsg">{{ receiptMsg }}</span></div>
           <div class="feeds">
             <button class="mini pri" :disabled="feedsBusy" @click="getFeeds">{{ feedsBusy?'Pulling…':'↻ Get auto feeds' }}</button>
@@ -424,6 +439,39 @@ td.der .subn,td .subn{opacity:.85}
         </div>
       </div>
       <p class="note">Blue cells will fill automatically once the Shopify, Meta, Klaviyo and TimeKeeper feeds are wired in. Type over an auto value and the app keeps the original and records it as an override. Grey cells are calculated and can't be typed in.</p>
+    </div>
+
+    <!-- ============ POS REPORT MODAL ============ -->
+    <div v-if="reportOpen" class="rov" @click.self="reportOpen=false">
+      <div class="rmodal">
+        <div class="rhead"><h2>Cafe POS report</h2><a class="rx" @click="reportOpen=false">✕</a></div>
+        <div class="rrange">
+          <button v-for="pp in REPORT_PRESETS" :key="pp[0]" class="mini" :class="{pri:reportRange===pp[0]}" @click="setPreset(pp[0]);runReport()">{{ pp[1] }}</button>
+          <span class="rcust"><input type="date" v-model="reportStart"><span class="arr">→</span><input type="date" v-model="reportEnd"><button class="mini pri" @click="reportRange='custom';runReport()">Go</button></span>
+        </div>
+        <div v-if="reportBusy" class="rload">Pulling from the till…</div>
+        <div v-else-if="reportErr" class="rerr">{{ reportErr }}</div>
+        <div v-else-if="reportData" class="rbody">
+          <div class="rsub">{{ longDate(reportStart) }} – {{ longDate(reportEnd) }} · all figures GST-inclusive</div>
+          <table class="dmx">
+            <thead><tr><th class="mname">Department</th><th>Qty</th><th>Sales</th></tr></thead>
+            <tbody>
+              <tr v-for="d in reportData.depts" :key="d.label"><td class="mname">{{ d.label }}</td><td>{{ fm(d.qty,0) }}</td><td>${{ fm(d.amount,2) }}</td></tr>
+              <tr class="tot"><td class="mname">Total sales</td><td>{{ fm(reportData.deptQty,0) }}</td><td>${{ fm(reportData.deptTotal,2) }}</td></tr>
+              <tr class="sub2"><td class="mname">Covers (salads + meals)</td><td>{{ fm(reportData.covers,0) }}</td><td></td></tr>
+              <tr class="sub2"><td class="mname">Transactions</td><td>{{ fm(reportData.txns,0) }}</td><td></td></tr>
+            </tbody>
+          </table>
+          <h3 class="rh">By media type</h3>
+          <table class="dmx">
+            <thead><tr><th class="mname">Media</th><th>Count</th><th>Amount</th></tr></thead>
+            <tbody>
+              <tr v-for="m in reportData.media" :key="m.label"><td class="mname">{{ m.label }}</td><td>{{ fm(m.txns,0) }}</td><td>${{ fm(m.amount,2) }}</td></tr>
+              <tr class="tot"><td class="mname">Total</td><td></td><td>${{ fm(reportData.mediaTotal,2) }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ============ TARGETS ============ -->
@@ -778,6 +826,46 @@ createApp({
     function feedIn(f){ return !!(f.metric && val(f.metric,entryWeek.value).v!=null); }
     async function getFeeds(){ feedsBusy.value=true; try{ await callData({action:'get_feeds'}); await refresh(); loadEntry(entryWeek.value); flash('Auto feeds pulling — till figures land shortly…'); setTimeout(async()=>{ try{ await refresh(); loadEntry(entryWeek.value); flash('Auto feeds updated'); }catch(e){} }, 9000); }catch(e){ flash('Feeds failed: '+e.message); } feedsBusy.value=false; }
     async function newWeek(){ try{ const r=await callData({action:'new_week'}); await refresh(); loadEntry(r.period_end); flash('Added week ending '+shortDate(r.period_end)); }catch(e){ flash('Failed: '+e.message); } }
+    // ---------- POS REPORT ----------
+    const reportOpen=ref(false), reportBusy=ref(false), reportErr=ref(''), reportRange=ref('last_month'), reportStart=ref(''), reportEnd=ref(''), reportData=ref(null);
+    const REPORT_PRESETS=[['last_month','Last month'],['mtd','This month'],['wtd','Week to date'],['yesterday','Yesterday'],['today','Today']];
+    const DEPTNAMES={1:'Salads',2:'Meals',3:'Other',4:'Sweets',5:'Drinks',6:'Shop',7:'Surcharges',8:'Cards / flyers',99:'Vouchers'};
+    function nzD(){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
+    function addDaysY(ymd,n){ const d=new Date(ymd+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+    function setPreset(kind){
+      const today=nzD(); const [Y,M]=today.split('-').map(Number); const pad=x=>String(x).padStart(2,'0'); let s,e;
+      if(kind==='today'){ s=e=today; }
+      else if(kind==='yesterday'){ s=e=addDaysY(today,-1); }
+      else if(kind==='wtd'){ const dt=new Date(today+'T00:00:00Z'); const back=(dt.getUTCDay()-6+7)%7; s=addDaysY(today,-back); e=today; }
+      else if(kind==='mtd'){ s=Y+'-'+pad(M)+'-01'; e=today; }
+      else { const lm=M===1?12:M-1, ly=M===1?Y-1:Y; s=ly+'-'+pad(lm)+'-01'; const last=new Date(Date.UTC(ly,lm,0)).getUTCDate(); e=ly+'-'+pad(lm)+'-'+pad(last); }
+      reportRange.value=kind; reportStart.value=s; reportEnd.value=e;
+    }
+    function parseReport(tsv){
+      const lines=String(tsv||'').replace(/\r/g,'').trim().split('\n'); const cols=lines[0].split('\t'); const ix=c=>cols.indexOf(c);
+      const depts=[],media=[]; let covers=0,txns=0;
+      for(const ln of lines.slice(1)){ const r=ln.split('\t'); const sec=r[ix('section')];
+        if(sec==='dept'){ const g=Number(r[ix('code')]); depts.push({label:DEPTNAMES[g]||('Group '+g), amount:Number(r[ix('amount')]||0), qty:Number(r[ix('qty')]||0)}); }
+        else if(sec==='cover'){ covers=Number(r[ix('qty')]||0); }
+        else if(sec==='txn'){ txns=Number(r[ix('txns')]||0); }
+        else if(sec==='media'){ media.push({label:r[ix('label')]||('Media '+r[ix('code')]), amount:Number(r[ix('amount')]||0), txns:Number(r[ix('txns')]||0)}); }
+      }
+      depts.sort((a,b)=>b.amount-a.amount); media.sort((a,b)=>b.amount-a.amount);
+      return {depts, deptTotal:depts.reduce((x,d)=>x+d.amount,0), deptQty:depts.reduce((x,d)=>x+d.qty,0), covers, txns, media, mediaTotal:media.reduce((x,d)=>x+d.amount,0)};
+    }
+    async function runReport(){
+      reportBusy.value=true; reportErr.value=''; reportData.value=null;
+      try{
+        const st=await callData({action:'pos_report', start:reportStart.value, end:reportEnd.value});
+        if(!st.id) throw new Error('Could not start the report.');
+        let res=null;
+        for(let i=0;i<25;i++){ await new Promise(r=>setTimeout(r,2000)); const g=await callData({action:'pos_report_result', id:st.id}); if(g.status==='done'){ res=g.result; break; } if(g.status==='error') throw new Error(g.error||'Till error'); }
+        if(res==null) throw new Error('Timed out waiting for the till (is the cafe PC on?).');
+        reportData.value=parseReport(res);
+      }catch(e){ reportErr.value=e.message; }
+      reportBusy.value=false;
+    }
+    function openReport(){ reportOpen.value=true; if(!reportData.value){ setPreset('last_month'); runReport(); } }
     function downscaleToB64(file){
       return new Promise((resolve,reject)=>{ const img=new Image(); const url=URL.createObjectURL(file);
         img.onload=()=>{ let w=img.width,h=img.height; const sc=Math.min(1,1500/Math.max(w,h)); w=Math.round(w*sc); h=Math.round(h*sc); const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); const d=c.toDataURL('image/jpeg',0.85); URL.revokeObjectURL(url); resolve({media_type:'image/jpeg',data:d.split(',')[1]}); };
@@ -920,7 +1008,7 @@ createApp({
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
       windowWeeks,currentWeek,curWeekObj,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
-      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,
+      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,REPORT_PRESETS,setPreset,runReport,openReport,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
       today,loadToday,todayTime,tillTime,cautions,barReady,ticks,tbSources,projShow,projText,projValue,
