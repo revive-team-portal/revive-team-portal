@@ -228,7 +228,7 @@ td.der .subn,td .subn{opacity:.85}
   <div v-if="barReady && (today.sales!=null || today.orders_to_fulfil!=null)" class="todaybar">
     <span class="seg" v-if="today.sales!=null" :class="{stale:cautions.sales}" :title="cautions.sales?('Till not updating \u2014 last good '+tillTime):null"><span class="lab">Cafe $ today<template v-if="cautions.sales"> ⚠️</template></span><b>${{ fm(today.sales,0) }}</b></span>
     <span class="seg" v-if="today.sales!=null" :class="{stale:cautions.covers}" :title="cautions.covers?('Till not updating \u2014 last good '+tillTime):null"><span class="lab">Covers today<template v-if="cautions.covers"> ⚠️</template></span><b>{{ fm(today.covers,0) }}</b></span>
-    <span class="seg" v-if="projShow" :class="{stale:cautions.sales}"><span class="lab">Halfway / projection<template v-if="cautions.sales"> ⚠️</template></span><b>{{ projText }}</b></span>
+    <span class="seg" v-if="today.sales!=null" :class="{stale:projShow&&cautions.sales}"><span class="lab">Halfway / projection<template v-if="projShow&&cautions.sales"> ⚠️</template></span><b>{{ projValue }}</b></span>
     <span class="seg" v-if="today.shopify_today!=null" :class="{stale:cautions.shopify_today}"><span class="lab">Shopify today<template v-if="cautions.shopify_today"> ⚠️</template></span><b>${{ fm(today.shopify_today,0) }}</b></span>
     <span class="seg" v-if="today.shopify_week!=null" :class="{stale:cautions.shopify_week}"><span class="lab">Shopify this week<template v-if="cautions.shopify_week"> ⚠️</template></span><b>${{ fm(today.shopify_week,0) }}</b></span>
     <span class="seg" v-if="today.meta_today!=null" :class="{stale:cautions.meta_today}"><span class="lab">Meta spend today<template v-if="cautions.meta_today"> ⚠️</template></span><b>${{ fm(today.meta_today,0) }}<template v-if="today.meta_today_pct!=null"> · {{ today.meta_today_pct }}%</template></b></span>
@@ -523,6 +523,7 @@ createApp({
     const nzMin=()=>{ const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Pacific/Auckland',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); let h=0,m=0; p.forEach(x=>{if(x.type==='hour')h=+x.value;if(x.type==='minute')m=+x.value;}); return h*60+m; };
     const projShow=computed(()=> fetchedAt.value!=null && nzMin()>=765 && today.sales_1245>0);
     const projText=computed(()=> today.sales_1245>0 ? ('$'+fm(today.sales_1245,0)+' → $'+fm(today.sales_1245*2,0)) : '');
+    const projValue=computed(()=> projShow.value ? projText.value : '\u00A0');
     let flashT=null;
     function flash(t){ msg.value=t; clearTimeout(flashT); flashT=setTimeout(()=>msg.value='',2600); }
 
@@ -922,7 +923,7 @@ createApp({
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
-      today,loadToday,todayTime,tillTime,cautions,barReady,ticks,tbSources,projShow,projText,
+      today,loadToday,todayTime,tillTime,cautions,barReady,ticks,tbSources,projShow,projText,projValue,
       fm,shortDate,longDate,colLabel };
   }
 }).mount('#app');

@@ -344,10 +344,10 @@ function tbNzMin(){ const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Pacific/A
 function tbRender(){
   const bar=$('todayBar'); if(!bar) return; const now=Date.now();
   const caut=f=>(!tbStamp[f]||(now-tbStamp[f]>TB_STALE_MS));
-  const box=(lab,val,f)=>{ const c=caut(f); return '<span class="seg'+(c?' stale':'')+'"'+(c?' title="Not updating — last good '+(tbStamp[f]?tbHM(tbStamp[f]):'never')+'"':'')+'><span class="lab">'+lab+(c?' ⚠️':'')+'</span><b>'+val+'</b></span>'; };
+  const box=(lab,val,f)=>{ const c=f?caut(f):false; return '<span class="seg'+(c?' stale':'')+'"'+(c?' title="Not updating — last good '+(tbStamp[f]?tbHM(tbStamp[f]):'never')+'"':'')+'><span class="lab">'+lab+(c?' ⚠️':'')+'</span><b>'+val+'</b></span>'; };
   let h='';
   if(tbStore.sales!=null){ h+=box('Cafe $ today','$'+Math.round(tbStore.sales).toLocaleString(),'sales'); h+=box('Covers today',Math.round(tbStore.covers).toLocaleString(),'covers'); }
-  if(tbNzMin()>=765 && tbStore.sales_1245>0){ const hv=tbStore.sales_1245; h+=box('Halfway / projection','$'+Math.round(hv).toLocaleString()+' → $'+Math.round(hv*2).toLocaleString(),'sales'); }
+  { const rel=(tbNzMin()>=765 && tbStore.sales_1245>0); const pv=rel?('$'+Math.round(tbStore.sales_1245).toLocaleString()+' → $'+Math.round(tbStore.sales_1245*2).toLocaleString()):'\u00a0'; h+=box('Halfway / projection', pv, rel?'sales':null); }
   if(tbStore.shopify_today!=null) h+=box('Shopify today','$'+Math.round(tbStore.shopify_today).toLocaleString(),'shopify_today');
   if(tbStore.shopify_week!=null) h+=box('Shopify this week','$'+Math.round(tbStore.shopify_week).toLocaleString(),'shopify_week');
   if(tbStore.meta_today!=null) h+=box('Meta spend today','$'+Math.round(tbStore.meta_today).toLocaleString()+(tbStore.meta_today_pct!=null?' · '+tbStore.meta_today_pct+'%':''),'meta_today');
