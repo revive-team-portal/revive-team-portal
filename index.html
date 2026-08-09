@@ -474,7 +474,7 @@ function renderTiles(apps){
     t.addEventListener('click',()=>{
       if(t.dataset.status!=='live'){ toast('This app is being wired into the portal — coming soon.'); return; }
       const url=t.dataset.url;
-      if(url) window.location.href=url; else toast('No link set for this app yet.');
+      if(url){ if(url.startsWith('http')) window.open(url,'_blank'); else window.location.href=url; } else toast('No link set for this app yet.');
     });
   });
 }
