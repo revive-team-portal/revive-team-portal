@@ -224,6 +224,13 @@ td.der .subn,td .subn{opacity:.85}
 .rsub{font-family:var(--mono);font-size:11.5px;color:var(--steel);margin-bottom:8px}
 .rh{font-size:13px;margin:16px 0 6px;color:var(--ink)}
 .dmx tr.sub2 td{border-top:1px dashed var(--line-2);color:var(--steel);font-weight:600}
+.teamtools{display:flex;justify-content:flex-end;margin:0 0 10px}
+.remail{border-top:1px solid var(--line-2);margin-top:16px;padding-top:12px}
+.remail label{display:block;font-size:11.5px;font-weight:600;color:var(--steel);margin-bottom:4px}
+.remail textarea{width:100%;font-family:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;resize:vertical}
+.remail-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.remail .remsg{font-size:12px;color:var(--steel)}
+.remail .renote{font-size:11px;color:var(--steel-lt);margin-top:6px}
 </style>
 </head>
 <body>
@@ -277,6 +284,7 @@ td.der .subn,td .subn{opacity:.85}
 
     <!-- ============ TEAM BOARD ============ -->
     <div v-if="screen==='team'">
+      <div v-if="level!=='team'" class="teamtools"><button class="mini" @click="openReport">📊 CAFE POS REPORT</button></div>
       <div class="ipad">
         <div class="bhead">
           <div>
@@ -392,7 +400,6 @@ td.der .subn,td .subn{opacity:.85}
         <div class="ehead">
           <div class="wkpick"><button @click="stepWeek(-1)" :disabled="entryIdx<=0">◀</button><span>Week ending {{ longDate(entryWeek) }}</span><button @click="stepWeek(1)" :disabled="entryIdx>=weeks.length-1">▶</button></div>
           <button class="mini" @click="newWeek">+ New week</button>
-          <button class="mini" @click="openReport">\ud83d\udcca POS report</button>
           <div class="rcpt"><input type="file" ref="rcptInput" accept="image/*" multiple capture="environment" style="display:none" @change="onReceiptFiles"><button class="mini" :disabled="receiptBusy" @click="$refs.rcptInput.click()">{{ receiptBusy?'Reading receipt…':'\ud83d\udcf7 Upload till receipt' }}</button><span v-if="receiptMsg" class="rcptmsg">{{ receiptMsg }}</span></div>
           <div class="feeds">
             <button class="mini pri" :disabled="feedsBusy" @click="getFeeds">{{ feedsBusy?'Pulling…':'↻ Get auto feeds' }}</button>
@@ -470,6 +477,12 @@ td.der .subn,td .subn{opacity:.85}
               <tr class="tot"><td class="mname">Total</td><td></td><td>${{ fm(reportData.mediaTotal,2) }}</td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="remail">
+          <label>Monthly auto-email recipients (comma-separated)</label>
+          <textarea v-model="reportEmails" rows="2" placeholder="name@revive.co.nz, ..."></textarea>
+          <div class="remail-row"><button class="mini" @click="saveReportEmails">Save list</button><button class="mini pri" :disabled="!reportData" @click="sendReportNow">Email this report now</button><span class="remsg">{{ reportEmailMsg }}</span></div>
+          <div class="renote">Sent automatically on the 1st of each month with the prior month's numbers.</div>
         </div>
       </div>
     </div>
@@ -827,7 +840,7 @@ createApp({
     async function getFeeds(){ feedsBusy.value=true; try{ await callData({action:'get_feeds'}); await refresh(); loadEntry(entryWeek.value); flash('Auto feeds pulling — till figures land shortly…'); setTimeout(async()=>{ try{ await refresh(); loadEntry(entryWeek.value); flash('Auto feeds updated'); }catch(e){} }, 9000); }catch(e){ flash('Feeds failed: '+e.message); } feedsBusy.value=false; }
     async function newWeek(){ try{ const r=await callData({action:'new_week'}); await refresh(); loadEntry(r.period_end); flash('Added week ending '+shortDate(r.period_end)); }catch(e){ flash('Failed: '+e.message); } }
     // ---------- POS REPORT ----------
-    const reportOpen=ref(false), reportBusy=ref(false), reportErr=ref(''), reportRange=ref('last_month'), reportStart=ref(''), reportEnd=ref(''), reportData=ref(null);
+    const reportOpen=ref(false), reportBusy=ref(false), reportErr=ref(''), reportRange=ref('last_month'), reportStart=ref(''), reportEnd=ref(''), reportData=ref(null), reportEmails=ref(''), reportEmailMsg=ref('');
     const REPORT_PRESETS=[['last_month','Last month'],['mtd','This month'],['wtd','Week to date'],['yesterday','Yesterday'],['today','Today']];
     const DEPTNAMES={1:'Salads',2:'Meals',3:'Other',4:'Sweets',5:'Drinks',6:'Shop',7:'Surcharges',8:'Cards / flyers',99:'Vouchers'};
     function nzD(){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
@@ -865,7 +878,10 @@ createApp({
       }catch(e){ reportErr.value=e.message; }
       reportBusy.value=false;
     }
-    function openReport(){ reportOpen.value=true; if(!reportData.value){ setPreset('last_month'); runReport(); } }
+    async function loadReportCfg(){ try{ const c=await callData({action:'pos_report_cfg'}); reportEmails.value=c.emails||''; }catch(e){} }
+    async function saveReportEmails(){ reportEmailMsg.value='Saving…'; try{ const r=await callData({action:'pos_report_cfg_save', emails:reportEmails.value}); reportEmails.value=r.emails; reportEmailMsg.value='Recipient list saved'; }catch(e){ reportEmailMsg.value='Failed: '+e.message; } }
+    async function sendReportNow(){ if(!reportData.value) return; reportEmailMsg.value='Sending…'; try{ const r=await callData({action:'pos_report_send', start:reportStart.value, end:reportEnd.value, data:reportData.value}); reportEmailMsg.value='Sent to '+r.to; }catch(e){ reportEmailMsg.value='Failed: '+e.message; } }
+    function openReport(){ reportOpen.value=true; reportEmailMsg.value=''; loadReportCfg(); if(!reportData.value){ setPreset('last_month'); runReport(); } }
     function downscaleToB64(file){
       return new Promise((resolve,reject)=>{ const img=new Image(); const url=URL.createObjectURL(file);
         img.onload=()=>{ let w=img.width,h=img.height; const sc=Math.min(1,1500/Math.max(w,h)); w=Math.round(w*sc); h=Math.round(h*sc); const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); const d=c.toDataURL('image/jpeg',0.85); URL.revokeObjectURL(url); resolve({media_type:'image/jpeg',data:d.split(',')[1]}); };
@@ -1008,7 +1024,7 @@ createApp({
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
       windowWeeks,currentWeek,curWeekObj,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
-      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,REPORT_PRESETS,setPreset,runReport,openReport,
+      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
       today,loadToday,todayTime,tillTime,cautions,barReady,ticks,tbSources,projShow,projText,projValue,
