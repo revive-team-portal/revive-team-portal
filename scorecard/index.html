@@ -776,7 +776,7 @@ createApp({
     const receiptBusy=ref(false), receiptMsg=ref(''), feedsBusy=ref(false);
     const feedList=[{name:'Till receipt',metric:'cafe_sales'},{name:'Shopify',metric:'online_sales'},{name:'Catering',metric:'catering_sales'},{name:'Uber',metric:'uber_total'},{name:'Meta ads',metric:'ad_spend'},{name:'TimeKeeper',metric:'hours_foh_cafe'},{name:'Support',metric:'support_first_response'},{name:'Secret shopper',metric:'secret_shopper_count'}];
     function feedIn(f){ return !!(f.metric && val(f.metric,entryWeek.value).v!=null); }
-    async function getFeeds(){ feedsBusy.value=true; try{ await callData({action:'get_feeds'}); await refresh(); loadEntry(entryWeek.value); flash('Auto feeds pulled'); }catch(e){ flash('Feeds failed: '+e.message); } feedsBusy.value=false; }
+    async function getFeeds(){ feedsBusy.value=true; try{ await callData({action:'get_feeds'}); await refresh(); loadEntry(entryWeek.value); flash('Auto feeds pulling — till figures land shortly…'); setTimeout(async()=>{ try{ await refresh(); loadEntry(entryWeek.value); flash('Auto feeds updated'); }catch(e){} }, 9000); }catch(e){ flash('Feeds failed: '+e.message); } feedsBusy.value=false; }
     async function newWeek(){ try{ const r=await callData({action:'new_week'}); await refresh(); loadEntry(r.period_end); flash('Added week ending '+shortDate(r.period_end)); }catch(e){ flash('Failed: '+e.message); } }
     function downscaleToB64(file){
       return new Promise((resolve,reject)=>{ const img=new Image(); const url=URL.createObjectURL(file);

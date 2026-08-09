@@ -173,10 +173,13 @@ exports.handler = async (event) => {
 
     if (action === 'new_week') {
       if (level === 'team') return json(403, { error: 'Adding a week needs Supervisor access.' });
+      const nzToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
       const latest = await appsDb('week?select=period_end&order=period_end.desc&limit=1');
       let next;
       if (latest && latest[0]) { const d = new Date(latest[0].period_end + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 7); next = d.toISOString().slice(0, 10); }
-      else next = new Date().toISOString().slice(0, 10);
+      else next = nzToday;
+      // Only add a week once it has finished — never a future / in-progress week.
+      if (next >= nzToday) return json(400, { error: 'The week ending ' + next + " hasn't finished yet — you can add it once it's past (this Friday's week becomes available on the Saturday)." });
       await appsDb('week', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify([{ period_end: next, status: 'open' }]) });
       return json(200, { ok: true, period_end: next });
     }
@@ -185,10 +188,12 @@ exports.handler = async (event) => {
       if (level === 'team') return json(403, { error: 'Pulling feeds needs Supervisor access.' });
       const { syncShopify } = require('./_shopifysync');
       const { syncMeta } = require('./_metasync');
-      const { UBER_SQL, queueJob } = require('./_posqueries');
+      const { WEEKLY_SQL, DEPT_SQL, UBER_SQL, queueJob } = require('./_posqueries');
       const today = new Date().toISOString().slice(0, 10);
       const sd = new Date(); sd.setUTCDate(sd.getUTCDate() - 42); const shopStart = sd.toISOString().slice(0, 10);
       const [tk, sh, mt] = await Promise.allSettled([runSync(6), syncShopify(shopStart, today), syncMeta(shopStart, today)]);
+      await queueJob('weekly-feed', WEEKLY_SQL).catch(() => {});
+      await queueJob('dept-feed', DEPT_SQL).catch(() => {});
       await queueJob('uber-feed', UBER_SQL).catch(() => {});
       const base = process.env.URL || 'https://team.revive.co.nz';
       await fetch(base + '/.netlify/functions/catering-sync-background').catch(() => {});
