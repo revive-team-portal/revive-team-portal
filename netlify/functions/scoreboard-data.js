@@ -211,17 +211,8 @@ exports.handler = async (event) => {
       if (!ok(body.start) || !ok(body.end)) return json(400, { error: 'Bad date range.' });
       const start = body.start;
       const en = new Date(body.end + 'T00:00:00Z'); en.setUTCDate(en.getUTCDate() + 1); const endNext = en.toISOString().slice(0, 10);
-      const W = "t.Receipt_Date_Time >= '" + start + "' AND t.Receipt_Date_Time < '" + endNext + "'";
-      const sql =
-        "SELECT 'dept' AS section, CAST(p.Product_Group AS varchar(10)) AS code, CAST(NULL AS varchar(64)) AS label, CAST(SUM(i.Sales) AS decimal(18,2)) AS amount, CAST(SUM(i.Qty) AS int) AS qty, CAST(NULL AS int) AS txns" +
-        " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode WHERE " + W + " GROUP BY p.Product_Group" +
-        " UNION ALL SELECT 'cover', NULL, NULL, NULL, CAST(SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS int), NULL" +
-        " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode WHERE " + W +
-        " UNION ALL SELECT 'txn', NULL, NULL, NULL, NULL, CAST(COUNT(DISTINCT t.Transaction_Number) AS int)" +
-        " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number WHERE " + W +
-        " UNION ALL SELECT 'media', CAST(m.MediaType AS varchar(10)), CAST(MAX(md.MediaDescription) AS varchar(64)), CAST(SUM(m.MediaAmount) AS decimal(18,2)), NULL, CAST(COUNT(DISTINCT m.Transaction_Number) AS int)" +
-        " FROM EJMediaTable m JOIN EJTable t ON t.Transaction_Number=m.Transaction_Number LEFT JOIN MediaDescriptionTable md ON md.MediaNumber=m.MediaType WHERE " + W + " AND m.MediaType < 100 GROUP BY m.MediaType HAVING SUM(m.MediaAmount) <> 0" +
-        " ORDER BY 1, 4 DESC;";
+      const { reportSql } = require('./_posreport');
+      const sql = reportSql(start, endNext);
       const ins = await appsDb('pos_jobs', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify([{ sql, note: 'report' }]) });
       return json(200, { id: ins && ins[0] ? ins[0].id : null });
     }
@@ -230,6 +221,32 @@ exports.handler = async (event) => {
       const rows = await appsDb('pos_jobs?id=eq.' + id + '&select=status,result,error');
       const r = (rows && rows[0]) || {};
       return json(200, { status: r.status, result: r.result, error: r.error });
+    }
+    if (action === 'pos_report_cfg') {
+      const rows = await appsDb('app_setting?key=eq.pos_report_emails&select=value');
+      return json(200, { emails: (rows && rows[0] && rows[0].value) || '' });
+    }
+    if (action === 'pos_report_cfg_save') {
+      if (level === 'team') return json(403, { error: 'Editing recipients needs Supervisor access.' });
+      const list = String(body.emails || '').split(',').map(e => e.trim()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+      const value = list.join(',');
+      await appsDb('app_setting?on_conflict=key', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([{ key: 'pos_report_emails', value, updated_at: new Date().toISOString() }]) });
+      return json(200, { ok: true, emails: value });
+    }
+    if (action === 'pos_report_send') {
+      if (level === 'team') return json(403, { error: 'Sending needs Supervisor access.' });
+      const rows = await appsDb('app_setting?key=eq.pos_report_emails&select=value');
+      const to = (rows && rows[0] && rows[0].value) || '';
+      if (!to) return json(400, { error: 'No recipients set — add at least one email.' });
+      const { emailHtml } = require('./_posreport');
+      const { sendMail } = require('./_gmail');
+      const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const fmt = d => { const p = String(d || '').split('-'); return p.length === 3 ? (Number(p[2]) + ' ' + MON[Number(p[1]) - 1] + ' ' + p[0]) : d; };
+      const label = fmt(body.start) + ' – ' + fmt(body.end);
+      const html = emailHtml(label, body.data || { depts: [], media: [], deptTotal: 0, deptQty: 0, covers: 0, txns: 0, mediaTotal: 0 });
+      const r = await sendMail({ to, subject: 'Cafe POS report — ' + label, html, text: 'Cafe POS report ' + label });
+      if (!r.ok) return json(502, { error: r.error });
+      return json(200, { ok: true, to });
     }
     return json(400, { error: 'Unknown action.' });
   } catch (e) {
