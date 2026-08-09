@@ -27,7 +27,8 @@ function parseReport(tsv) {
     else if (sec === 'media') media.push({ label: r[ix('label')] || ('Media ' + r[ix('code')]), amount: Number(r[ix('amount')] || 0), txns: Number(r[ix('txns')] || 0) });
   }
   depts.sort((a, b) => b.amount - a.amount); media.sort((a, b) => b.amount - a.amount);
-  return { depts, deptTotal: depts.reduce((s, d) => s + d.amount, 0), deptQty: depts.reduce((s, d) => s + d.qty, 0), covers, txns, tradeDays, media, mediaTotal: media.reduce((s, d) => s + d.amount, 0) };
+  const deptTotal = depts.reduce((s, d) => s + d.amount, 0);
+  return { depts, deptTotal, deptQty: depts.reduce((s, d) => s + d.qty, 0), covers, txns, tradeDays, avgCoversDay: tradeDays > 0 ? covers / tradeDays : 0, avgSalesDay: tradeDays > 0 ? deptTotal / tradeDays : 0, media, mediaTotal: media.reduce((s, d) => s + d.amount, 0) };
 }
 const money = n => '$' + (Number(n) || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = n => (Number(n) || 0).toLocaleString('en-NZ');
@@ -44,9 +45,8 @@ function emailHtml(label, d) {
   h += '<table style="border-collapse:collapse;width:100%;margin-bottom:22px"><thead><tr><th ' + thl + '>Department</th><th ' + th + '>Qty</th><th ' + th + '>Sales</th></tr></thead><tbody>';
   d.depts.forEach(x => { h += '<tr><td ' + tdl + '>' + x.label + '</td><td ' + td + '>' + num(x.qty) + '</td><td ' + td + '>' + money(x.amount) + '</td></tr>'; });
   h += '<tr><td ' + totl + '>Total sales</td><td ' + tot + '>' + num(d.deptQty) + '</td><td ' + tot + '>' + money(d.deptTotal) + '</td></tr>';
-  h += '<tr><td ' + tdl + '>Covers (salads + meals)</td><td ' + td + '>' + num(d.covers) + '</td><td ' + td + '></td></tr>';
-  h += '<tr><td ' + tdl + '>Transactions</td><td ' + td + '>' + num(d.txns) + '</td><td ' + td + '></td></tr>';
-  h += '<tr><td ' + tdl + '>Trading days</td><td ' + td + '>' + num(d.tradeDays) + '</td><td ' + td + '></td></tr>';
+  h += '<tr><td ' + tdl + '>Covers (salads + meals)</td><td ' + td + '>' + num(d.covers) + '</td><td ' + td + '><span style="color:#6b7b72;font-size:11px">AVG/DAY</span> ' + num(Math.round(d.avgCoversDay)) + '</td></tr>';
+  h += '<tr><td ' + tdl + '>Trading days</td><td ' + td + '>' + num(d.tradeDays) + '</td><td ' + td + '><span style="color:#6b7b72;font-size:11px">AVG/DAY</span> ' + money(d.avgSalesDay) + '</td></tr>';
   h += '</tbody></table>';
   h += '<h3 style="margin:0 0 6px">By media type</h3>';
   h += '<table style="border-collapse:collapse;width:100%"><thead><tr><th ' + thl + '>Media</th><th ' + th + '>Count</th><th ' + th + '>Amount</th></tr></thead><tbody>';

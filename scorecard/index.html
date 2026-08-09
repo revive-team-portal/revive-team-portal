@@ -231,6 +231,7 @@ td.der .subn,td .subn{opacity:.85}
 .remail-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
 .remail .remsg{font-size:12px;color:var(--steel)}
 .remail .renote{font-size:11px;color:var(--steel-lt);margin-top:6px}
+.dmx .avgd{font-size:9px;color:var(--steel-lt);letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -465,9 +466,8 @@ td.der .subn,td .subn{opacity:.85}
             <tbody>
               <tr v-for="d in reportData.depts" :key="d.label"><td class="mname">{{ d.label }}</td><td>{{ fm(d.qty,0) }}</td><td>${{ fm(d.amount,2) }}</td></tr>
               <tr class="tot"><td class="mname">Total sales</td><td>{{ fm(reportData.deptQty,0) }}</td><td>${{ fm(reportData.deptTotal,2) }}</td></tr>
-              <tr class="sub2"><td class="mname">Covers (salads + meals)</td><td>{{ fm(reportData.covers,0) }}</td><td></td></tr>
-              <tr class="sub2"><td class="mname">Transactions</td><td>{{ fm(reportData.txns,0) }}</td><td></td></tr>
-              <tr class="sub2"><td class="mname">Trading days</td><td>{{ fm(reportData.tradeDays,0) }}</td><td></td></tr>
+              <tr class="sub2"><td class="mname">Covers (salads + meals)</td><td>{{ fm(reportData.covers,0) }}</td><td><span class="avgd">AVG/DAY</span> {{ fm(reportData.avgCoversDay,0) }}</td></tr>
+              <tr class="sub2"><td class="mname">Trading days</td><td>{{ fm(reportData.tradeDays,0) }}</td><td><span class="avgd">AVG/DAY</span> ${{ fm(reportData.avgSalesDay,0) }}</td></tr>
             </tbody>
           </table>
           <h3 class="rh">By media type</h3>
@@ -866,7 +866,7 @@ createApp({
         else if(sec==='media'){ media.push({label:r[ix('label')]||('Media '+r[ix('code')]), amount:Number(r[ix('amount')]||0), txns:Number(r[ix('txns')]||0)}); }
       }
       depts.sort((a,b)=>b.amount-a.amount); media.sort((a,b)=>b.amount-a.amount);
-      return {depts, deptTotal:depts.reduce((x,d)=>x+d.amount,0), deptQty:depts.reduce((x,d)=>x+d.qty,0), covers, txns, tradeDays, media, mediaTotal:media.reduce((x,d)=>x+d.amount,0)};
+      return {depts, deptTotal:depts.reduce((x,d)=>x+d.amount,0), deptQty:depts.reduce((x,d)=>x+d.qty,0), covers, txns, tradeDays, avgCoversDay:tradeDays>0?covers/tradeDays:0, avgSalesDay:tradeDays>0?depts.reduce((x,d)=>x+d.amount,0)/tradeDays:0, media, mediaTotal:media.reduce((x,d)=>x+d.amount,0)};
     }
     async function runReport(){
       reportBusy.value=true; reportErr.value=''; reportData.value=null;
