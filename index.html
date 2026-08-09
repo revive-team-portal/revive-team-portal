@@ -471,10 +471,10 @@ function renderTiles(apps){
     </div>`;
   }).join('');
   wrap.querySelectorAll('.tile').forEach(t=>{
-    t.addEventListener('click',()=>{
+    t.addEventListener('click', async ()=>{
       if(t.dataset.status!=='live'){ toast('This app is being wired into the portal — coming soon.'); return; }
       const url=t.dataset.url;
-      if(url){ if(url.startsWith('http')) window.open(url,'_blank'); else window.location.href=url; } else toast('No link set for this app yet.');
+      if(url){ if(url.startsWith('http')){ const { data:{ session } } = await sb.auth.getSession(); const dest = session ? url+(url.includes('?')?'&':'?')+'pt='+session.access_token : url; window.open(dest,'_blank'); } else window.location.href=url; } else toast('No link set for this app yet.');
     });
   });
 }
