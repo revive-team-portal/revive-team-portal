@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revive — Tasks</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    [v-cloak]{display:none}
+    ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
+    .tile-body{max-height:26rem;overflow-y:auto}
+    .drop-on{outline:2px dashed #15803d;outline-offset:-3px;background:#f0fdf4}
+    .drag-me{cursor:grab}
+    .strike{text-decoration:line-through}
+    @media print{
+      @page{size:A4 portrait;margin:12mm}
+      body{background:#fff !important}
+      .no-print{display:none !important}
+      .print-block{break-inside:avoid}
+      .tile-body{max-height:none;overflow:visible}
+    }
+  </style>
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+
+<script>
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+
+<!-- Tailwind CDN safelist: these classes are built at runtime, so they must appear literally somewhere in the DOM. -->
+<div class="hidden
+  bg-stone-400 bg-stone-50 text-stone-700 border-stone-200 bg-amber-400 bg-amber-50 text-amber-700 border-amber-200
+  bg-sky-400 bg-sky-50 text-sky-700 border-sky-200 bg-rose-400 bg-rose-50 text-rose-700 border-rose-200
+  bg-green-400 bg-green-50 text-green-700 border-green-200 bg-violet-400 bg-violet-50 text-violet-700 border-violet-200
+  bg-emerald-400 bg-emerald-50 text-emerald-700 border-emerald-200 bg-slate-400 bg-slate-50 text-slate-700 border-slate-200
+  bg-indigo-400 bg-indigo-50 text-indigo-700 border-indigo-200 bg-teal-400 bg-teal-50 text-teal-700 border-teal-200
+  bg-orange-400 bg-orange-50 text-orange-700 border-orange-200 bg-red-400 bg-red-50 text-red-700 border-red-200
+  bg-red-100 text-red-800 bg-amber-100 text-amber-800 bg-green-100 text-green-800 bg-stone-100 text-stone-600"></div>
+
+<div id="app" v-cloak>
+
+  <!-- ================= GATE ================= -->
+  <div v-if="!ready" class="min-h-screen flex items-center justify-center relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="text-center relative z-10">
+      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
+      <p v-if="!gateError" class="text-white/90 text-sm">Loading Tasks…</p>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
+    </div>
+  </div>
+
+  <!-- ================= APP ================= -->
+  <div v-else class="min-h-screen flex flex-col">
+
+    <nav class="text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow no-print" style="background:#15803d">
+      <div class="flex items-center gap-2">
+        <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
+        <span class="text-white/90 text-sm hidden sm:inline font-medium">Tasks</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isManager ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ isManager ? 'Manager' : 'Team' }}</span>
+        <span class="text-white/80 text-xs hidden md:inline">{{ myName }}</span>
+        <a href="/" class="text-white/80 hover:text-white text-xs">Portal</a>
+      </div>
+    </nav>
+
+    <!-- tabs + person picker -->
+    <div class="bg-white border-b border-stone-200 px-3 py-2 flex flex-wrap items-center gap-2 no-print sticky top-[44px] z-30">
+      <button v-for="t in tabs" :key="t.id" @click="screen=t.id"
+        class="text-sm font-medium px-3 py-1.5 rounded-lg border"
+        :class="screen===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">{{ t.label }}</button>
+      <div v-if="isManager && people.length>1" class="ml-auto flex items-center gap-2">
+        <span class="text-xs text-stone-400 hidden sm:inline">Showing</span>
+        <select v-model="viewPerson" class="text-sm border border-stone-300 rounded-lg px-2 py-1.5 bg-white">
+          <option value="all">Everyone</option>
+          <option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option>
+        </select>
+      </div>
+    </div>
+
+    <main class="flex-1 max-w-[110rem] mx-auto w-full px-3 py-4">
+
+      <!-- ============ BOARD ============ -->
+      <section v-if="screen==='board'">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 no-print">
+          <div>
+            <h1 class="text-lg font-bold text-stone-800">Board</h1>
+            <p class="text-xs text-stone-500">{{ openCount }} open · {{ weekCount }} committed this week · drag a task onto another tile to move it</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-stone-500 flex items-center gap-1"><input type="checkbox" v-model="showDone"> show done</label>
+            <button @click="openCategory(null)" class="text-xs border border-green-700 text-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">+ Category</button>
+            <button @click="openTask(null)" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Task</button>
+          </div>
+        </div>
+
+        <!-- quick add -->
+        <div class="bg-white border border-stone-200 rounded-xl p-2.5 mb-4 flex flex-wrap gap-2 items-center no-print">
+          <input v-model="quick.title" @keyup.enter="addQuick" type="text" placeholder="Add a task and press Enter…" class="flex-1 min-w-[12rem] border border-stone-300 rounded-lg px-3 py-1.5 text-sm">
+          <select v-model="quick.category_id" class="border border-stone-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+            <option :value="null">No category</option>
+            <option v-for="c in myCategories" :key="c.id" :value="c.id">{{ c.icon }} {{ c.name }}</option>
+          </select>
+          <select v-if="isManager" v-model="quick.owner_id" class="border border-stone-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+            <option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option>
+          </select>
+          <label class="text-xs text-stone-500 flex items-center gap-1 px-1"><input type="checkbox" v-model="quick.thisWeek"> this week</label>
+          <button @click="addQuick" class="text-sm bg-green-700 text-white rounded-lg px-3 py-1.5">Add</button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div v-for="c in boardTiles" :key="c.key"
+            class="bg-white border rounded-2xl shadow-sm flex flex-col"
+            :class="[dragOver===c.key ? 'drop-on' : 'border-stone-200']"
+            @dragover.prevent="dragOver=c.key" @dragleave="dragOver=null" @drop.prevent="dropOn(c)">
+            <div class="flex items-center gap-2 px-3 py-2.5 border-b" :class="tint(c.colour,'border')">
+              <span class="w-8 h-8 rounded-full flex items-center justify-center text-base" :class="tint(c.colour,'soft')">{{ c.icon }}</span>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-semibold text-sm text-stone-800 truncate">{{ c.name }}</h3>
+                <p class="text-[11px] text-stone-400">{{ c.tasks.filter(t=>!t.done).length }} open<span v-if="c.owner_id"> · personal</span></p>
+              </div>
+              <button v-if="c.id" @click="openCategory(c)" class="text-stone-300 hover:text-stone-600 text-sm no-print" title="Edit category">✎</button>
+            </div>
+            <div class="tile-body px-2 py-2 flex-1">
+              <p v-if="!c.tasks.length" class="text-xs text-stone-300 text-center py-6">Nothing here</p>
+              <div v-for="t in c.tasks" :key="t.id"
+                :draggable="canEdit(t)" @dragstart="dragStart(t,$event)" @dragend="dragOver=null"
+                class="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-stone-50 drag-me">
+                <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px]"
+                  :class="t.done ? 'bg-green-600 border-green-600 text-white' : (t.priority===1 ? 'border-red-400' : 'border-stone-300')">{{ t.done ? '✓' : '' }}</button>
+                <div class="flex-1 min-w-0" @click="openTask(t)">
+                  <p class="text-sm leading-snug cursor-pointer" :class="t.done ? 'text-stone-400 strike' : 'text-stone-800'">{{ t.title }}</p>
+                  <div class="flex flex-wrap items-center gap-1 mt-0.5">
+                    <span v-if="t.priority===1" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">Must</span>
+                    <span v-if="t.priority===2" class="text-[10px] bg-amber-100 text-amber-800 rounded px-1.5 py-px">Should</span>
+                    <span v-if="t.horizon==='week'" class="text-[10px] bg-green-100 text-green-800 rounded px-1.5 py-px">This week</span>
+                    <span v-if="t.horizon==='someday'" class="text-[10px] bg-stone-100 text-stone-600 rounded px-1.5 py-px">Someday</span>
+                    <span v-if="t.carry_count>0 && !t.done" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">carried ×{{ t.carry_count }}</span>
+                    <span v-if="t.due_date" class="text-[10px] rounded px-1.5 py-px" :class="dueClass(t)">{{ shortDate(t.due_date) }}</span>
+                    <span v-if="t.goal_id" class="text-[10px] bg-violet-50 text-violet-700 rounded px-1.5 py-px">🎯 {{ goalTitle(t.goal_id) }}</span>
+                    <span v-if="viewPerson==='all' && isManager" class="text-[10px] text-stone-400">{{ personName(t.owner_id) }}</span>
+                  </div>
+                </div>
+                <button @click="commitToggle(t)" class="opacity-0 group-hover:opacity-100 text-xs flex-none no-print" :title="t.horizon==='week' ? 'Take off this week' : 'Commit to this week'">{{ t.horizon==='week' ? '📌' : '📍' }}</button>
+              </div>
+            </div>
+            <div class="px-2 pb-2 no-print">
+              <input v-model="inlineAdd[c.key]" @keyup.enter="addInline(c)" type="text" placeholder="+ add" class="w-full text-sm border border-transparent hover:border-stone-200 focus:border-stone-300 rounded-lg px-2 py-1.5 bg-stone-50 focus:bg-white outline-none">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ THIS WEEK / 1:1 ============ -->
+      <section v-if="screen==='week'">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 no-print">
+          <div>
+            <h1 class="text-lg font-bold text-stone-800">This week &amp; 1:1</h1>
+            <p class="text-xs text-stone-500">Week of {{ longDate(week) }} — the agenda for your one-on-ones</p>
+          </div>
+          <button @click="window.print()" class="text-xs border border-stone-300 rounded-lg px-3 py-1.5 hover:bg-stone-50">🖨 Print</button>
+        </div>
+
+        <div v-for="p in oneOnOnePeople" :key="p.id" class="mb-6 print-block">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-7 h-7 rounded-full bg-green-700 text-white text-xs flex items-center justify-center font-semibold">{{ initials(p.full_name) }}</span>
+            <h2 class="font-bold text-stone-800">{{ p.full_name }}</h2>
+            <span class="text-xs px-2 py-0.5 rounded-full" :class="hitRate(p.id).cls">{{ hitRate(p.id).label }}</span>
+          </div>
+
+          <!-- goals strip -->
+          <div class="mb-3">
+            <p class="text-[11px] uppercase tracking-wide text-stone-400 mb-1">Quarterly goals — {{ quarter }}</p>
+            <div v-if="!goalsFor(p.id).length" class="text-xs text-stone-400 bg-white border border-dashed border-stone-300 rounded-xl p-3">No goals set for this quarter. <button @click="screen='goals'" class="text-green-700 underline no-print">Add one</button></div>
+            <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div v-for="g in goalsFor(p.id)" :key="g.id" class="bg-white border border-stone-200 rounded-xl p-2.5">
+                <div class="flex items-start justify-between gap-2">
+                  <p class="text-sm font-medium text-stone-800 leading-snug">{{ g.title }}</p>
+                  <span class="text-[10px] rounded px-1.5 py-px flex-none font-semibold" :class="goalCls(g.status)">{{ goalLabel(g.status) }}</span>
+                </div>
+                <div class="mt-2 h-1.5 bg-stone-100 rounded-full overflow-hidden"><div class="h-full bg-green-600" :style="{width:(g.progress||0)+'%'}"></div></div>
+                <div class="flex items-center justify-between mt-1"><span class="text-[10px] text-stone-400">{{ g.progress||0 }}%</span><span v-if="g.due_date" class="text-[10px] text-stone-400">{{ shortDate(g.due_date) }}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <!-- committed -->
+            <div class="lg:col-span-2 bg-white border border-stone-200 rounded-2xl p-3">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-semibold text-stone-700">Committed this week</h3>
+                <span class="text-xs text-stone-400">{{ weekTasks(p.id).filter(t=>t.done).length }}/{{ weekTasks(p.id).length }} done</span>
+              </div>
+              <p v-if="!weekTasks(p.id).length" class="text-xs text-stone-400 py-3">Nothing committed yet. Pin tasks from the Board.</p>
+              <div v-for="t in weekTasks(p.id)" :key="t.id" class="flex items-start gap-2 py-1.5 border-t border-stone-50 first:border-0">
+                <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px]" :class="t.done ? 'bg-green-600 border-green-600 text-white' : (t.carry_count>0 ? 'border-red-400' : 'border-stone-300')">{{ t.done ? '✓' : '' }}</button>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm" :class="t.done ? 'text-stone-400 strike' : 'text-stone-800'">{{ t.title }}</p>
+                  <div class="flex flex-wrap gap-1 mt-0.5">
+                    <span class="text-[10px] text-stone-400">{{ catName(t.category_id) }}</span>
+                    <span v-if="t.carry_count>0 && !t.done" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">carried ×{{ t.carry_count }}</span>
+                    <span v-if="t.priority===1" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px">Must</span>
+                  </div>
+                </div>
+                <button @click="openTask(t)" class="text-stone-300 hover:text-stone-600 text-xs no-print">✎</button>
+              </div>
+            </div>
+
+            <!-- GM actions + notes -->
+            <div class="space-y-3">
+              <div class="bg-white border border-stone-200 rounded-2xl p-3">
+                <h3 class="text-sm font-semibold text-stone-700 mb-1">What I owe {{ p.full_name.split(' ')[0] }}</h3>
+                <p class="text-[11px] text-stone-400 mb-2">Blockers and decisions the GM has to clear.</p>
+                <div v-for="t in gmActions(p.id)" :key="t.id" class="flex items-start gap-2 py-1">
+                  <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px]" :class="t.done ? 'bg-green-600 border-green-600 text-white' : 'border-stone-300'">{{ t.done ? '✓' : '' }}</button>
+                  <p class="text-sm flex-1" :class="t.done ? 'text-stone-400 strike' : 'text-stone-800'">{{ t.title }}</p>
+                </div>
+                <input v-if="isManager" v-model="gmAdd[p.id]" @keyup.enter="addGm(p)" type="text" placeholder="+ something I need to do" class="w-full text-sm mt-2 border border-stone-200 rounded-lg px-2 py-1.5 bg-stone-50 outline-none no-print">
+              </div>
+
+              <div class="bg-white border border-stone-200 rounded-2xl p-3">
+                <h3 class="text-sm font-semibold text-stone-700 mb-2">1:1 notes</h3>
+                <textarea v-model="notes[p.id]" @blur="saveNotes(p)" rows="5" placeholder="What was discussed, decisions, follow-ups…" class="w-full text-sm border border-stone-300 rounded-lg px-2 py-1.5"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ GOALS ============ -->
+      <section v-if="screen==='goals'">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 no-print">
+          <div>
+            <h1 class="text-lg font-bold text-stone-800">Quarterly goals</h1>
+            <p class="text-xs text-stone-500">3–5 per person per quarter. Reviewed on-track / off-track every week.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select v-model="quarterFilter" class="text-sm border border-stone-300 rounded-lg px-2 py-1.5 bg-white">
+              <option v-for="q in quarterOptions" :key="q" :value="q">{{ q }}</option>
+            </select>
+            <button @click="openGoal(null)" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Goal</button>
+          </div>
+        </div>
+
+        <div v-for="p in oneOnOnePeople" :key="p.id" class="mb-5">
+          <h2 class="text-sm font-semibold text-stone-600 mb-2">{{ p.full_name }} <span class="text-stone-400 font-normal">· {{ goalsFor(p.id).length }} goal(s)</span></h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div v-for="g in goalsFor(p.id)" :key="g.id" class="bg-white border border-stone-200 rounded-2xl p-3">
+              <div class="flex items-start justify-between gap-2 mb-1">
+                <p class="font-medium text-stone-800 text-sm leading-snug">{{ g.title }}</p>
+                <button @click="openGoal(g)" class="text-stone-300 hover:text-stone-600 text-xs no-print">✎</button>
+              </div>
+              <p v-if="g.detail" class="text-xs text-stone-500 mb-2">{{ g.detail }}</p>
+              <div class="flex items-center gap-1.5 mb-2 no-print">
+                <button v-for="s in ['on_track','off_track','done']" :key="s" @click="setGoalStatus(g,s)" class="text-[10px] rounded px-2 py-0.5 border" :class="g.status===s ? goalCls(s)+' border-transparent font-semibold' : 'border-stone-200 text-stone-400'">{{ goalLabel(s) }}</button>
+              </div>
+              <input type="range" min="0" max="100" step="5" v-model.number="g.progress" @change="saveGoalProgress(g)" class="w-full accent-green-700 no-print">
+              <div class="flex items-center justify-between"><span class="text-[11px] text-stone-400">{{ g.progress||0 }}% complete</span><span class="text-[11px] text-stone-400">{{ goalTaskCount(g.id) }} linked task(s)</span></div>
+            </div>
+            <div v-if="!goalsFor(p.id).length" class="text-xs text-stone-400 bg-white border border-dashed border-stone-300 rounded-2xl p-5 text-center">No goals for {{ quarterFilter }}.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FUTURE ============ -->
+      <section v-if="screen==='future'">
+        <h1 class="text-lg font-bold text-stone-800 mb-1">Future &amp; someday</h1>
+        <p class="text-xs text-stone-500 mb-3">Dated work beyond this week, plus the backlog you're not committing to yet.</p>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div class="bg-white border border-stone-200 rounded-2xl p-3">
+            <h3 class="text-sm font-semibold text-stone-700 mb-2">Scheduled ahead</h3>
+            <p v-if="!futureTasks.length" class="text-xs text-stone-400 py-3">Nothing scheduled beyond this week.</p>
+            <div v-for="grp in futureGrouped" :key="grp.label" class="mb-3">
+              <p class="text-[11px] uppercase tracking-wide text-stone-400 mb-1">{{ grp.label }}</p>
+              <div v-for="t in grp.items" :key="t.id" class="flex items-start gap-2 py-1 border-t border-stone-50 first:border-0">
+                <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 border-stone-300 flex-none"></button>
+                <div class="flex-1 min-w-0 cursor-pointer" @click="openTask(t)">
+                  <p class="text-sm text-stone-800">{{ t.title }}</p>
+                  <span class="text-[10px] text-stone-400">{{ catName(t.category_id) }} · {{ personName(t.owner_id) }} · {{ shortDate(t.due_date) }}</span>
+                </div>
+                <button @click="commitToggle(t)" class="text-xs no-print" title="Pull into this week">📍</button>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white border border-stone-200 rounded-2xl p-3">
+            <h3 class="text-sm font-semibold text-stone-700 mb-2">Someday / maybe</h3>
+            <p v-if="!somedayTasks.length" class="text-xs text-stone-400 py-3">Backlog is empty.</p>
+            <div v-for="t in somedayTasks" :key="t.id" class="flex items-start gap-2 py-1 border-t border-stone-50 first:border-0">
+              <div class="flex-1 min-w-0 cursor-pointer" @click="openTask(t)">
+                <p class="text-sm text-stone-800">{{ t.title }}</p>
+                <span class="text-[10px] text-stone-400">{{ catName(t.category_id) }} · {{ personName(t.owner_id) }}</span>
+              </div>
+              <button @click="commitToggle(t)" class="text-xs no-print" title="Pull into this week">📍</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ REVIEW ============ -->
+      <section v-if="screen==='review'">
+        <h1 class="text-lg font-bold text-stone-800 mb-1">Review</h1>
+        <p class="text-xs text-stone-500 mb-3">Committed vs completed by week. The benchmark for a healthy team is 90%.</p>
+        <div class="bg-white border border-stone-200 rounded-2xl overflow-x-auto">
+          <table class="w-full text-sm" style="min-width:640px">
+            <thead class="bg-stone-50 text-stone-500 text-xs uppercase">
+              <tr><th class="text-left px-3 py-2">Person</th><th v-for="w in reviewWeeks" :key="w" class="px-3 py-2 text-center whitespace-nowrap">{{ shortDate(w) }}</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in oneOnOnePeople" :key="p.id" class="border-t border-stone-100">
+                <td class="px-3 py-2 font-medium text-stone-700 whitespace-nowrap">{{ p.full_name }}</td>
+                <td v-for="w in reviewWeeks" :key="w" class="px-3 py-2 text-center">
+                  <span v-if="stat(p.id,w).total" class="text-xs rounded px-2 py-0.5 font-semibold" :class="stat(p.id,w).cls">{{ stat(p.id,w).done }}/{{ stat(p.id,w).total }}</span>
+                  <span v-else class="text-stone-300">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-white border border-stone-200 rounded-2xl p-3 mt-3">
+          <h3 class="text-sm font-semibold text-stone-700 mb-2">Longest carried</h3>
+          <p v-if="!carriedList.length" class="text-xs text-stone-400">Nothing is being carried. Good week.</p>
+          <div v-for="t in carriedList" :key="t.id" class="flex items-center gap-2 py-1 border-t border-stone-50 first:border-0">
+            <span class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold flex-none">×{{ t.carry_count }}</span>
+            <p class="text-sm flex-1 truncate cursor-pointer" @click="openTask(t)">{{ t.title }}</p>
+            <span class="text-[11px] text-stone-400 flex-none">{{ personName(t.owner_id) }}</span>
+          </div>
+        </div>
+      </section>
+
+      <p v-if="msg" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow z-50 no-print">{{ msg }}</p>
+    </main>
+
+    <!-- ============ TASK MODAL ============ -->
+    <div v-if="edit.open" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto no-print" @click.self="edit.open=false">
+      <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full my-8">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-stone-100">
+          <h2 class="font-bold text-stone-800">{{ edit.id ? 'Edit task' : 'New task' }}</h2>
+          <button @click="edit.open=false" class="text-stone-400 hover:text-stone-700 text-xl">×</button>
+        </div>
+        <div class="p-5 space-y-3">
+          <label class="text-sm block">Task<input v-model="edit.title" type="text" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="text-sm">Category<select v-model="edit.category_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="null">None</option><option v-for="c in myCategories" :key="c.id" :value="c.id">{{ c.icon }} {{ c.name }}</option></select></label>
+            <label class="text-sm">Owner<select v-model="edit.owner_id" :disabled="!isManager" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white disabled:bg-stone-100"><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
+            <label class="text-sm">Priority<select v-model.number="edit.priority" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="1">Must do</option><option :value="2">Should do</option><option :value="3">Normal</option></select></label>
+            <label class="text-sm">When<select v-model="edit.horizon" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="week">This week</option><option value="anytime">Anytime</option><option value="future">Scheduled</option><option value="someday">Someday</option></select></label>
+            <label class="text-sm">Due date<input v-model="edit.due_date" type="date" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
+            <label class="text-sm">Linked goal<select v-model="edit.goal_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="null">None</option><option v-for="g in goalsFor(edit.owner_id)" :key="g.id" :value="g.id">{{ g.title }}</option></select></label>
+          </div>
+          <label v-if="isManager" class="text-sm flex items-center gap-2"><input type="checkbox" v-model="edit.is_gm_action"> This is something <b>I</b> owe them (shows in their 1:1)</label>
+          <label v-if="isManager && edit.is_gm_action" class="text-sm block">For<select v-model="edit.for_person_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="null">—</option><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
+          <label class="text-sm block">Notes<textarea v-model="edit.notes" rows="3" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></textarea></label>
+          <p v-if="edit.carry_count>0" class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">This task has been carried over {{ edit.carry_count }} week(s). Worth asking why in the 1:1 — is it too big, blocked, or not actually a priority?</p>
+          <p v-if="edit.err" class="text-sm text-red-600">{{ edit.err }}</p>
+          <div class="flex justify-between pt-1">
+            <button v-if="edit.id" @click="removeTask" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
+            <div class="flex gap-2">
+              <button @click="edit.open=false" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5">Cancel</button>
+              <button @click="saveTask" :disabled="edit.busy" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5 disabled:opacity-50">{{ edit.busy ? 'Saving…' : 'Save' }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CATEGORY MODAL ============ -->
+    <div v-if="cat.open" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto no-print" @click.self="cat.open=false">
+      <div class="bg-white rounded-2xl shadow-xl max-w-md w-full my-10">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-stone-100">
+          <h2 class="font-bold text-stone-800">{{ cat.id ? 'Edit category' : 'New category' }}</h2>
+          <button @click="cat.open=false" class="text-stone-400 hover:text-stone-700 text-xl">×</button>
+        </div>
+        <div class="p-5 space-y-3">
+          <label class="text-sm block">Name<input v-model="cat.name" type="text" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
+          <div>
+            <p class="text-sm mb-1">Icon</p>
+            <div class="flex flex-wrap gap-1">
+              <button v-for="i in iconChoices" :key="i" @click="cat.icon=i" class="w-9 h-9 rounded-lg border text-lg" :class="cat.icon===i ? 'border-green-700 bg-green-50' : 'border-stone-200'">{{ i }}</button>
+            </div>
+          </div>
+          <div>
+            <p class="text-sm mb-1">Colour</p>
+            <div class="flex flex-wrap gap-1.5">
+              <button v-for="c in colourChoices" :key="c" @click="cat.colour=c" class="w-7 h-7 rounded-full border-2" :class="[tint(c,'dot'), cat.colour===c ? 'border-stone-800' : 'border-transparent']"></button>
+            </div>
+          </div>
+          <label class="text-sm flex items-center gap-2"><input type="checkbox" v-model="cat.personal" :disabled="!isManager && !cat.id"> Personal to me (not shared with the team)</label>
+          <p v-if="cat.err" class="text-sm text-red-600">{{ cat.err }}</p>
+          <div class="flex justify-between pt-1">
+            <button v-if="cat.id" @click="removeCategory" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
+            <div class="flex gap-2">
+              <button @click="cat.open=false" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5">Cancel</button>
+              <button @click="saveCategory" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ GOAL MODAL ============ -->
+    <div v-if="gm.open" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto no-print" @click.self="gm.open=false">
+      <div class="bg-white rounded-2xl shadow-xl max-w-md w-full my-10">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-stone-100">
+          <h2 class="font-bold text-stone-800">{{ gm.id ? 'Edit goal' : 'New quarterly goal' }}</h2>
+          <button @click="gm.open=false" class="text-stone-400 hover:text-stone-700 text-xl">×</button>
+        </div>
+        <div class="p-5 space-y-3">
+          <label class="text-sm block">Goal<input v-model="gm.title" type="text" placeholder="e.g. Lift wholesale accounts from 18 to 25" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
+          <label class="text-sm block">What "done" looks like<textarea v-model="gm.detail" rows="3" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></textarea></label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="text-sm">Owner<select v-model="gm.owner_id" :disabled="!isManager" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white disabled:bg-stone-100"><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
+            <label class="text-sm">Quarter<select v-model="gm.quarter" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="q in quarterOptions" :key="q" :value="q">{{ q }}</option></select></label>
+            <label class="text-sm">Due<input v-model="gm.due_date" type="date" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
+            <label class="text-sm">Status<select v-model="gm.status" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="on_track">On track</option><option value="off_track">Off track</option><option value="done">Done</option><option value="dropped">Dropped</option></select></label>
+          </div>
+          <p v-if="gm.err" class="text-sm text-red-600">{{ gm.err }}</p>
+          <div class="flex justify-between pt-1">
+            <button v-if="gm.id" @click="removeGoal" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
+            <div class="flex gap-2">
+              <button @click="gm.open=false" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5">Cancel</button>
+              <button @click="saveGoal" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+const { createClient } = supabase;
+const portal = createClient(PORTAL_URL, PORTAL_ANON);
+
+const TINTS = {
+  stone:{dot:'bg-stone-400',soft:'bg-stone-50 text-stone-700',border:'border-stone-200'},
+  amber:{dot:'bg-amber-400',soft:'bg-amber-50 text-amber-700',border:'border-amber-200'},
+  sky:{dot:'bg-sky-400',soft:'bg-sky-50 text-sky-700',border:'border-sky-200'},
+  rose:{dot:'bg-rose-400',soft:'bg-rose-50 text-rose-700',border:'border-rose-200'},
+  green:{dot:'bg-green-400',soft:'bg-green-50 text-green-700',border:'border-green-200'},
+  violet:{dot:'bg-violet-400',soft:'bg-violet-50 text-violet-700',border:'border-violet-200'},
+  emerald:{dot:'bg-emerald-400',soft:'bg-emerald-50 text-emerald-700',border:'border-emerald-200'},
+  slate:{dot:'bg-slate-400',soft:'bg-slate-50 text-slate-700',border:'border-slate-200'},
+  indigo:{dot:'bg-indigo-400',soft:'bg-indigo-50 text-indigo-700',border:'border-indigo-200'},
+  teal:{dot:'bg-teal-400',soft:'bg-teal-50 text-teal-700',border:'border-teal-200'},
+  orange:{dot:'bg-orange-400',soft:'bg-orange-50 text-orange-700',border:'border-orange-200'},
+  red:{dot:'bg-red-400',soft:'bg-red-50 text-red-700',border:'border-red-200'},
+};
+
+createApp({
+  setup(){
+    const ready=ref(false), gateError=ref(''), msg=ref('');
+    const screen=ref('board'), showDone=ref(false);
+    const me=ref(''), level=ref('team'), today=ref(''), week=ref(''), quarter=ref('');
+    const people=ref([]), categories=ref([]), tasks=ref([]), goals=ref([]), logs=ref([]), checkins=ref([]);
+    const viewPerson=ref('me'), quarterFilter=ref('');
+    const dragging=ref(null), dragOver=ref(null);
+    const inlineAdd=reactive({}), gmAdd=reactive({}), notes=reactive({});
+    const quick=reactive({title:'',category_id:null,owner_id:'',thisWeek:false});
+    const edit=reactive({open:false,busy:false,err:''});
+    const cat=reactive({open:false,err:''});
+    const gm=reactive({open:false,err:''});
+
+    const iconChoices=['📌','☕','📊','📣','🧇','👥','💰','⚙️','🚚','🧾','📦','🎯','🛠','🌱','🧹','📞','💡','🔥','✅','🗓'];
+    const colourChoices=Object.keys(TINTS);
+
+    const isManager=computed(()=> level.value==='manager');
+    const myName=computed(()=> (people.value.find(p=>p.id===me.value)||{}).full_name || '');
+    const tabs=computed(()=>[{id:'board',label:'Board'},{id:'week',label:'This week'},{id:'goals',label:'Goals'},{id:'future',label:'Future'},{id:'review',label:'Review'}]);
+
+    function tint(c,k){ return (TINTS[c]||TINTS.stone)[k]; }
+    function personName(id){ const p=people.value.find(x=>x.id===id); return p?p.full_name.split(' ')[0]:''; }
+    function initials(n){ return String(n||'').split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase(); }
+    function catName(id){ const c=categories.value.find(x=>x.id===id); return c?c.name:'Uncategorised'; }
+    function goalTitle(id){ const g=goals.value.find(x=>x.id===id); return g?(g.title.length>22?g.title.slice(0,22)+'…':g.title):''; }
+    function goalTaskCount(id){ return tasks.value.filter(t=>t.goal_id===id).length; }
+    function shortDate(d){ return d ? new Date(d+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'}) : ''; }
+    function longDate(d){ return d ? new Date(d+'T00:00:00').toLocaleDateString('en-NZ',{weekday:'long',day:'numeric',month:'long'}) : ''; }
+    function addDays(iso,n){ const d=new Date(iso+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+    function flash(t){ msg.value=t; setTimeout(()=>msg.value='',2200); }
+    function dueClass(t){ if(!t.due_date) return 'bg-stone-100 text-stone-600'; if(t.due_date < today.value) return 'bg-red-100 text-red-800'; if(t.due_date <= addDays(today.value,2)) return 'bg-amber-100 text-amber-800'; return 'bg-stone-100 text-stone-600'; }
+    function goalLabel(s){ return ({on_track:'On track',off_track:'Off track',done:'Done',dropped:'Dropped'})[s]||s; }
+    function goalCls(s){ return ({on_track:'bg-green-100 text-green-800',off_track:'bg-red-100 text-red-800',done:'bg-stone-100 text-stone-600',dropped:'bg-stone-100 text-stone-600'})[s]||'bg-stone-100 text-stone-600'; }
+    function canEdit(t){ return isManager.value || t.owner_id===me.value; }
+
+    async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
+    async function call(payload){
+      const r=await fetch('/.netlify/functions/tasks-data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},body:JSON.stringify(payload)});
+      const j=await r.json().catch(()=>({error:'Unexpected server response'}));
+      if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+      return j;
+    }
+
+    // ---- filtering ----------------------------------------------------------
+    const personFilter=computed(()=> viewPerson.value==='me' ? me.value : viewPerson.value);
+    function mine(list){ return personFilter.value==='all' ? list : list.filter(t=>t.owner_id===personFilter.value); }
+    const visibleTasks=computed(()=> mine(tasks.value).filter(t=> showDone.value || !t.done));
+    const openCount=computed(()=> mine(tasks.value).filter(t=>!t.done).length);
+    const weekCount=computed(()=> mine(tasks.value).filter(t=>!t.done && t.horizon==='week').length);
+
+    const myCategories=computed(()=> categories.value.filter(c=> !c.owner_id || c.owner_id===me.value || (isManager.value && personFilter.value!=='all' && c.owner_id===personFilter.value)));
+
+    const boardTiles=computed(()=>{
+      const byCat={};
+      visibleTasks.value.forEach(t=>{ const k=t.category_id||'none'; (byCat[k]=byCat[k]||[]).push(t); });
+      const sortT=(a,b)=> (a.done-b.done) || (a.priority-b.priority) || (a.sort_order-b.sort_order);
+      const tiles=myCategories.value.map(c=>({key:c.id,id:c.id,name:c.name,icon:c.icon||'📌',colour:c.colour||'stone',owner_id:c.owner_id,tasks:(byCat[c.id]||[]).sort(sortT)}));
+      tiles.push({key:'none',id:null,name:'Uncategorised',icon:'🗂',colour:'stone',owner_id:null,tasks:(byCat['none']||[]).sort(sortT)});
+      return tiles;
+    });
+
+    const oneOnOnePeople=computed(()=>{
+      if(!isManager.value) return people.value.filter(p=>p.id===me.value);
+      if(personFilter.value==='all') return people.value;
+      return people.value.filter(p=>p.id===personFilter.value);
+    });
+
+    function weekTasks(pid){ return tasks.value.filter(t=>t.owner_id===pid && t.horizon==='week' && !t.is_gm_action && (t.committed_week===week.value || (!t.done && !t.committed_week))).sort((a,b)=>(a.done-b.done)||(b.carry_count-a.carry_count)||(a.priority-b.priority)); }
+    function gmActions(pid){ return tasks.value.filter(t=>t.is_gm_action && t.for_person_id===pid && (!t.done || showDone.value)); }
+    function goalsFor(pid){ return goals.value.filter(g=>g.owner_id===pid && g.quarter===quarterFilter.value && g.status!=='dropped'); }
+
+    const futureTasks=computed(()=> mine(tasks.value).filter(t=>!t.done && t.horizon==='future').sort((a,b)=>String(a.due_date||'9999').localeCompare(String(b.due_date||'9999'))));
+    const somedayTasks=computed(()=> mine(tasks.value).filter(t=>!t.done && t.horizon==='someday'));
+    const futureGrouped=computed(()=>{
+      const g={}; futureTasks.value.forEach(t=>{ const k=t.due_date? t.due_date.slice(0,7) : 'No date'; (g[k]=g[k]||[]).push(t); });
+      return Object.keys(g).sort().map(k=>({label: k==='No date'?'No date':new Date(k+'-01T00:00:00').toLocaleDateString('en-NZ',{month:'long',year:'numeric'}), items:g[k]}));
+    });
+
+    const reviewWeeks=computed(()=>{ const out=[]; for(let i=7;i>=0;i--) out.push(addDays(week.value,-7*i)); return out; });
+    function stat(pid,w){
+      const rows=logs.value.filter(l=>l.person_id===pid && l.week_start===w);
+      const total=rows.length, done=rows.filter(r=>r.completed).length;
+      const pct= total? done/total : 0;
+      return {total,done,cls: !total?'':(pct>=0.9?'bg-green-100 text-green-800':(pct>=0.6?'bg-amber-100 text-amber-800':'bg-red-100 text-red-800'))};
+    }
+    function hitRate(pid){
+      const last=addDays(week.value,-7);
+      const s=stat(pid,last);
+      if(!s.total) return {label:'No history yet',cls:'bg-stone-100 text-stone-600'};
+      const pct=Math.round(s.done/s.total*100);
+      return {label:'Last week '+pct+'%',cls:s.cls};
+    }
+    const carriedList=computed(()=> mine(tasks.value).filter(t=>!t.done && t.carry_count>0).sort((a,b)=>b.carry_count-a.carry_count).slice(0,10));
+
+    const quarterOptions=computed(()=>{
+      const d=today.value||new Date().toISOString().slice(0,10);
+      const y=Number(d.slice(0,4)), q=Math.ceil(Number(d.slice(5,7))/3);
+      const out=[]; for(let i=-2;i<=2;i++){ let qq=q+i, yy=y; while(qq<1){qq+=4;yy--;} while(qq>4){qq-=4;yy++;} out.push(yy+'-Q'+qq); }
+      return [...new Set(out)].sort();
+    });
+
+    // ---- actions ------------------------------------------------------------
+    function upsertLocal(list,row){ const i=list.value.findIndex(x=>x.id===row.id); if(i>=0) list.value[i]=row; else list.value.push(row); }
+
+    async function toggle(t){
+      if(!canEdit(t)){ flash('That task belongs to someone else.'); return; }
+      const was=t.done; t.done=!was; t.done_at=t.done?new Date().toISOString():null;
+      try{ const j=await call({action:'toggle_task',id:t.id,done:t.done}); if(j.task) upsertLocal(tasks,j.task); await refreshLogs(); }
+      catch(e){ t.done=was; flash('Could not save: '+e.message); }
+    }
+
+    async function commitToggle(t){
+      if(!canEdit(t)){ flash('That task belongs to someone else.'); return; }
+      const to = t.horizon==='week' ? 'anytime' : 'week';
+      try{
+        await call({action:'move_tasks',items:[{id:t.id,horizon:to,committed_week: to==='week'?week.value:null}]});
+        t.horizon=to; t.committed_week = to==='week'?week.value:null;
+        flash(to==='week'?'Committed to this week':'Taken off this week');
+        await refreshLogs();
+      }catch(e){ flash('Could not save: '+e.message); }
+    }
+
+    function dragStart(t,e){ if(!canEdit(t)){ e.preventDefault(); return; } dragging.value=t; e.dataTransfer.effectAllowed='move'; }
+    async function dropOn(tile){
+      dragOver.value=null;
+      const t=dragging.value; dragging.value=null;
+      if(!t || t.category_id===tile.id) return;
+      const prev=t.category_id; t.category_id=tile.id;
+      try{ await call({action:'move_tasks',items:[{id:t.id,category_id:tile.id}]}); flash('Moved to '+tile.name); }
+      catch(e){ t.category_id=prev; flash('Could not move: '+e.message); }
+    }
+
+    async function addTaskRaw(row){
+      const j=await call({action:'save_task',task:row});
+      if(j.task) tasks.value.push(j.task);
+      return j.task;
+    }
+    async function addQuick(){
+      if(!quick.title.trim()) return;
+      try{
+        await addTaskRaw({title:quick.title.trim(),category_id:quick.category_id,owner_id:quick.owner_id||me.value,horizon:quick.thisWeek?'week':'anytime',committed_week:quick.thisWeek?week.value:null,priority:3});
+        quick.title=''; flash('Added');
+      }catch(e){ flash('Could not add: '+e.message); }
+    }
+    async function addInline(tile){
+      const v=(inlineAdd[tile.key]||'').trim(); if(!v) return;
+      inlineAdd[tile.key]='';
+      try{ await addTaskRaw({title:v,category_id:tile.id,owner_id: personFilter.value==='all'?me.value:personFilter.value,horizon:'anytime',priority:3}); }
+      catch(e){ flash('Could not add: '+e.message); }
+    }
+    async function addGm(p){
+      const v=(gmAdd[p.id]||'').trim(); if(!v) return;
+      gmAdd[p.id]='';
+      try{ await addTaskRaw({title:v,owner_id:me.value,is_gm_action:true,for_person_id:p.id,horizon:'week',committed_week:week.value,priority:2}); flash('Added to your list'); }
+      catch(e){ flash('Could not add: '+e.message); }
+    }
+
+    function openTask(t){
+      Object.assign(edit,{open:true,busy:false,err:'',id:t?t.id:null,
+        title:t?t.title:'', notes:t?(t.notes||''):'', category_id:t?t.category_id:null,
+        owner_id:t?t.owner_id:(personFilter.value==='all'?me.value:personFilter.value),
+        goal_id:t?t.goal_id:null, priority:t?t.priority:3, horizon:t?t.horizon:'anytime',
+        due_date:t?(t.due_date||''):'', is_gm_action:t?!!t.is_gm_action:false,
+        for_person_id:t?t.for_person_id:null, carry_count:t?t.carry_count:0});
+    }
+    async function saveTask(){
+      if(!edit.title.trim()){ edit.err='Give the task a title.'; return; }
+      edit.busy=true; edit.err='';
+      const row={title:edit.title.trim(),notes:edit.notes||null,category_id:edit.category_id||null,owner_id:edit.owner_id,
+        goal_id:edit.goal_id||null,priority:edit.priority,horizon:edit.horizon,due_date:edit.due_date||null,
+        committed_week: edit.horizon==='week'?week.value:null,
+        is_gm_action:!!edit.is_gm_action,for_person_id:edit.is_gm_action?(edit.for_person_id||null):null};
+      try{
+        const j=await call({action:'save_task',id:edit.id,task:row});
+        if(j.task) upsertLocal(tasks,j.task);
+        edit.open=false; flash('Saved');
+      }catch(e){ edit.err=e.message; }
+      edit.busy=false;
+    }
+    async function removeTask(){
+      if(!confirm('Delete this task?')) return;
+      try{ await call({action:'delete_task',id:edit.id}); tasks.value=tasks.value.filter(t=>t.id!==edit.id); edit.open=false; flash('Deleted'); }
+      catch(e){ edit.err=e.message; }
+    }
+
+    function openCategory(c){ Object.assign(cat,{open:true,err:'',id:c?c.id:null,name:c?c.name:'',icon:c?(c.icon||'📌'):'📌',colour:c?(c.colour||'stone'):'sky',personal:c?!!c.owner_id:!isManager.value}); }
+    async function saveCategory(){
+      if(!cat.name.trim()){ cat.err='Give the category a name.'; return; }
+      try{
+        const j=await call({action:'save_category',id:cat.id,category:{name:cat.name.trim(),icon:cat.icon,colour:cat.colour,owner_id:cat.personal?me.value:null}});
+        if(j.category) upsertLocal(categories,j.category);
+        categories.value=[...categories.value].sort((a,b)=>(a.sort_order-b.sort_order)||a.name.localeCompare(b.name));
+        cat.open=false; flash('Saved');
+      }catch(e){ cat.err=e.message; }
+    }
+    async function removeCategory(){
+      if(!confirm('Delete this category? Its tasks move to Uncategorised.')) return;
+      try{ await call({action:'delete_category',id:cat.id}); tasks.value.forEach(t=>{ if(t.category_id===cat.id) t.category_id=null; }); categories.value=categories.value.filter(c=>c.id!==cat.id); cat.open=false; flash('Deleted'); }
+      catch(e){ cat.err=e.message; }
+    }
+
+    function openGoal(g){ Object.assign(gm,{open:true,err:'',id:g?g.id:null,title:g?g.title:'',detail:g?(g.detail||''):'',
+      owner_id:g?g.owner_id:(personFilter.value==='all'?me.value:personFilter.value),quarter:g?g.quarter:quarterFilter.value,
+      due_date:g?(g.due_date||''):'',status:g?g.status:'on_track',progress:g?g.progress:0}); }
+    async function saveGoal(){
+      if(!gm.title.trim()){ gm.err='Give the goal a title.'; return; }
+      try{
+        const j=await call({action:'save_goal',id:gm.id,goal:{title:gm.title.trim(),detail:gm.detail||null,owner_id:gm.owner_id,quarter:gm.quarter,due_date:gm.due_date||null,status:gm.status,progress:gm.progress||0}});
+        if(j.goal) upsertLocal(goals,j.goal);
+        gm.open=false; flash('Saved');
+      }catch(e){ gm.err=e.message; }
+    }
+    async function removeGoal(){
+      if(!confirm('Delete this goal? Linked tasks stay but lose the link.')) return;
+      try{ await call({action:'delete_goal',id:gm.id}); goals.value=goals.value.filter(g=>g.id!==gm.id); gm.open=false; flash('Deleted'); }
+      catch(e){ gm.err=e.message; }
+    }
+    async function setGoalStatus(g,s){ const was=g.status; g.status=s; try{ await call({action:'save_goal',id:g.id,goal:{status:s}}); }catch(e){ g.status=was; flash('Could not save'); } }
+    async function saveGoalProgress(g){ try{ await call({action:'save_goal',id:g.id,goal:{progress:g.progress}}); }catch(e){ flash('Could not save'); } }
+
+    async function saveNotes(p){
+      try{ await call({action:'save_checkin',person_id:p.id,week_start:week.value,notes:notes[p.id]||''}); }
+      catch(e){ flash('Could not save notes'); }
+    }
+
+    async function refreshLogs(){ try{ const j=await call({action:'bootstrap'}); logs.value=j.logs||[]; }catch(e){} }
+
+    // ---- boot ---------------------------------------------------------------
+    async function load(){
+      const j=await call({action:'bootstrap'});
+      me.value=j.me; level.value=j.level; today.value=j.today; week.value=j.week; quarter.value=j.quarter;
+      people.value=j.people||[]; categories.value=j.categories||[]; tasks.value=j.tasks||[];
+      goals.value=j.goals||[]; logs.value=j.logs||[]; checkins.value=j.checkins||[];
+      if(!quarterFilter.value) quarterFilter.value=j.quarter;
+      if(viewPerson.value==='me') viewPerson.value=j.me;
+      quick.owner_id=j.me;
+      (j.checkins||[]).forEach(c=>{ if(c.week_start===j.week) notes[c.person_id]=c.notes||''; });
+      if(j.carried) flash(j.carried+' unfinished task(s) rolled into this week');
+    }
+
+    onMounted(async()=>{
+      const { data:{ session:p } }=await portal.auth.getSession();
+      if(!p){ window.location.href='/'; return; }
+      try{
+        try{ await load(); }
+        catch(e1){
+          if(/not authenticated|401|jwt|expired|token/i.test(e1.message||'')){
+            try{ if(portal.auth.refreshSession) await portal.auth.refreshSession(); }catch(_){}
+            await load();
+          } else throw e1;
+        }
+        ready.value=true;
+      }catch(e){
+        const m=e.message||'';
+        gateError.value=/access/i.test(m) ? "You don't have access to Tasks. Ask an administrator to grant it." : ('Could not load Tasks: '+m);
+        ready.value=true;
+      }
+    });
+
+    return { ready,gateError,msg,screen,tabs,showDone,me,level,isManager,myName,today,week,quarter,
+      people,categories,tasks,goals,logs,viewPerson,quarterFilter,quarterOptions,
+      inlineAdd,gmAdd,notes,quick,edit,cat,gm,iconChoices,colourChoices,dragOver,
+      tint,personName,initials,catName,goalTitle,goalTaskCount,shortDate,longDate,dueClass,goalLabel,goalCls,canEdit,
+      boardTiles,myCategories,openCount,weekCount,oneOnOnePeople,weekTasks,gmActions,goalsFor,
+      futureTasks,futureGrouped,somedayTasks,reviewWeeks,stat,hitRate,carriedList,
+      toggle,commitToggle,dragStart,dropOn,addQuick,addInline,addGm,
+      openTask,saveTask,removeTask,openCategory,saveCategory,removeCategory,
+      openGoal,saveGoal,removeGoal,setGoalStatus,saveGoalProgress,saveNotes,window };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
