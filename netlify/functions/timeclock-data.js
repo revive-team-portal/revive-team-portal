@@ -21,6 +21,15 @@ async function db(path, opts = {}) {
   return data;
 }
 
+// The portal keeps the canonical email in profiles; the auth token's email can be
+// empty depending on how the session was created, so read it from the profile.
+async function portalProfile(userId) {
+  const r = await fetch(PORTAL_URL + '/rest/v1/profiles?id=eq.' + userId + '&select=email,full_name', {
+    headers: { apikey: PORTAL_KEY, Authorization: 'Bearer ' + PORTAL_KEY },
+  }).then(r => r.json()).catch(() => []);
+  return (r && r[0]) || null;
+}
+
 async function isSupervisor(userId) {
   const p = await fetch(PORTAL_URL + '/rest/v1/profiles?id=eq.' + userId + '&select=is_admin', {
     headers: { apikey: PORTAL_KEY, Authorization: 'Bearer ' + PORTAL_KEY },
@@ -86,10 +95,11 @@ exports.handler = async (event) => {
 
   let body; try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Bad request.' }); }
   const action = body.action;
-  const email = auth.user.email;
 
   try {
     const sup = await isSupervisor(auth.user.id);
+    const prof = await portalProfile(auth.user.id);
+    const email = (prof && prof.email) || auth.user.email || null;
     const me = await staffByEmail(email);
 
     if (action === 'bootstrap') {
@@ -252,7 +262,7 @@ exports.handler = async (event) => {
       const [staff, areas, punchesRaw, pending] = await Promise.all([
         db('staff?active=eq.true&select=id,name'),
         db('area?select=id,label'),
-        db('punch?punched_at=gte.' + from + '&punched_at=lte.' + to + '&select=id,staff_id,type,area_id,punched_at,distance_m,in_range,source&order=punched_at.asc'),
+        db('punch?punched_at=gte.' + from + '&punched_at=lte.' + to + '&select=id,staff_id,type,area_id,punched_at,distance_m,in_range,source,selfie&order=punched_at.asc'),
         db('change_request?status=eq.pending&select=*&order=created_at.asc'),
       ]);
       const sMap = {}; staff.forEach(s => { sMap[s.id] = s.name; });

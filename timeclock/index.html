@@ -175,7 +175,7 @@
             <div class="text-sm font-semibold text-red-700 mb-1">Out of range (GPS)</div>
             <div v-for="p in feed.exceptions.out_of_range" :key="p.id" class="text-sm text-red-800 flex justify-between items-center">
               <span>{{ p.staff_name }} · {{ punchShort(p.type) }} {{ hm(p.punched_at) }}</span>
-              <span class="text-xs">{{ p.distance_m }}m <button @click="viewSelfie(p.id)" class="underline ml-1">selfie</button></span>
+              <span class="text-xs flex items-center gap-1.5">{{ p.distance_m }}m <img v-if="p.selfie" :src="p.selfie" @click="showSelfie(p.selfie)" class="w-8 h-8 rounded object-cover border cursor-pointer"></span>
             </div>
           </div>
 
@@ -209,7 +209,7 @@
                   <td class="px-2 py-1.5 text-stone-500">{{ punchLong(p.type) }}</td>
                   <td class="px-2 py-1.5">{{ hm(p.punched_at) }}</td>
                   <td class="px-2 py-1.5 text-xs" :class="p.in_range===false?'text-red-600':'text-stone-400'">{{ p.distance_m!=null ? p.distance_m+'m' : 'no GPS' }}</td>
-                  <td class="px-2 py-1.5 text-right"><button @click="viewSelfie(p.id)" class="text-xs text-emerald-700 underline">selfie</button></td>
+                  <td class="px-2 py-1.5 text-right w-12"><img v-if="p.selfie" :src="p.selfie" @click="showSelfie(p.selfie)" class="inline-block w-9 h-9 rounded object-cover border cursor-pointer"><span v-else class="text-stone-300 text-xs">—</span></td>
                 </tr>
               </tbody>
             </table>
@@ -486,6 +486,7 @@
       // ---- supervisor actions ----
       async function resolve(id,decision){ try{ await callData({action:'resolve_change',id,decision}); await loadReview(); flash(decision==='approve'?'Approved':'Rejected'); }catch(e){ flash('Failed: '+e.message); } }
       async function viewSelfie(pid){ selfieView.open=true; selfieView.src=''; try{ const r=await callData({action:'get_selfie',punch_id:pid}); selfieView.src=r.selfie||''; }catch(e){ selfieView.src=''; } }
+      function showSelfie(src){ selfieView.open=true; selfieView.src=src||''; }
 
       async function setToHere(){ const g=await getGeo(); if(!g){ flash('Could not read location — allow location and try again'); return; } settings.geofence_lat=String(g.lat.toFixed(6)); settings.geofence_lng=String(g.lng.toFixed(6)); flash('Set — remember to Save'); }
       async function saveSettings(){ try{ const keys=['cafe_address','geofence_lat','geofence_lng','geofence_radius_m','open_shift_warn_hour','unpaid_break_min','selfie_retention_days']; for(const k of keys){ if(settings[k]!=null) await callData({action:'save_setting',key:k,value:settings[k]}); } flash('Saved'); }catch(e){ flash('Failed: '+e.message); } }
@@ -502,7 +503,7 @@
 
       return { ready,gateError,toast,isSupervisor,myId,myName,signedInAs,areas,settings,state,punches,myRequests,busy,err,lastResult,lastSelfie,lastAreaId,whosOn,feed,reviewDate,reviewErr,showPrivacy,
         cam,camVid,camCnv,chg,selfieView,tabs,visibleTabs,screen,activeStaff,stateLabel,currentArea,currentAreaId,areaColor,elapsed,shifts,whosOnGrouped,exceptionCount,capMsg,
-        hm,punchShort,punchLong,go,startPunch,useShot,continueNoPhoto,cancelCam,retake,loadWhosOn,loadReview,openChange,submitChange,resolve,viewSelfie,setToHere,saveSettings };
+        hm,punchShort,punchLong,go,startPunch,useShot,continueNoPhoto,cancelCam,retake,loadWhosOn,loadReview,openChange,submitChange,resolve,viewSelfie,showSelfie,setToHere,saveSettings };
     }
   }).mount('#app');
 </script>
