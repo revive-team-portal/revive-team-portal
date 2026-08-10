@@ -55,7 +55,7 @@ function stateFrom(lastType) {
 }
 function allowedNext(state) {
   if (state === 'out') return ['in'];
-  if (state === 'in') return ['break_start', 'out'];
+  if (state === 'in') return ['break_start', 'out', 'switch'];
   if (state === 'on_break') return ['break_end', 'out'];
   return [];
 }
@@ -116,7 +116,7 @@ exports.handler = async (event) => {
       if (!target) return json(403, { error: 'You are not set up as a clock-in staff member yet. Ask a supervisor.' });
 
       const type = body.type;
-      if (!['in', 'break_start', 'break_end', 'out'].includes(type)) return json(400, { error: 'Unknown punch type.' });
+      if (!['in', 'break_start', 'break_end', 'out', 'switch'].includes(type)) return json(400, { error: 'Unknown punch type.' });
 
       const last = await lastPunch(target.id);
       const state = stateFrom(last && last.type);
@@ -124,7 +124,7 @@ exports.handler = async (event) => {
         const nice = { out: 'clocked out', in: 'clocked in', on_break: 'on a break' };
         return json(409, { error: 'You are currently ' + (nice[state] || state) + ' — that action is not available.' });
       }
-      if (type === 'in' && !body.area_id) return json(400, { error: 'Pick an area to clock into.' });
+      if ((type === 'in' || type === 'switch') && !body.area_id) return json(400, { error: 'Pick an area.' });
 
       // Geofence
       const s = await settingsObj();
@@ -138,7 +138,7 @@ exports.handler = async (event) => {
       const row = {
         staff_id: target.id,
         type,
-        area_id: (type === 'in') ? Number(body.area_id) : null,
+        area_id: (type === 'in' || type === 'switch') ? Number(body.area_id) : null,
         device_time: body.device_time || null,
         lat: body.lat != null ? Number(body.lat) : null,
         lng: body.lng != null ? Number(body.lng) : null,
@@ -203,10 +203,11 @@ exports.handler = async (event) => {
         const p = lp && lp[0];
         const state = stateFrom(p && p.type);
         if (state === 'in' || state === 'on_break') {
-          // find the area from the most recent 'in'
-          const inp = await db('punch?staff_id=eq.' + st.id + "&type=eq.in&select=area_id,punched_at&order=punched_at.desc&limit=1");
-          const areaId = inp && inp[0] && inp[0].area_id;
-          const sinceIn = inp && inp[0] && inp[0].punched_at;
+          // area = most recent area-bearing punch (in OR switch); since = most recent 'in'
+          const areaP = await db('punch?staff_id=eq.' + st.id + '&type=in.(in,switch)&select=area_id&order=punched_at.desc&limit=1');
+          const sinceP = await db('punch?staff_id=eq.' + st.id + '&type=eq.in&select=punched_at&order=punched_at.desc&limit=1');
+          const areaId = areaP && areaP[0] && areaP[0].area_id;
+          const sinceIn = sinceP && sinceP[0] && sinceP[0].punched_at;
           out.push({ staff_id: st.id, name: st.name, state, area: areaMap[areaId] || '—', since: sinceIn });
         }
       }
