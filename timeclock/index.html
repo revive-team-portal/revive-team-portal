@@ -58,7 +58,7 @@
       <!-- ============ CLOCK ============ -->
       <section v-if="screen==='clock'">
         <div v-if="!activeStaff" class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-          You're signed in, but not yet set up as a clock-in staff member. A supervisor can add you. Supervisors can still review and manage below.
+          You're signed in as <b>{{ signedInAs || 'unknown' }}</b>, but that email isn't set up as a clock-in staff member yet. A supervisor can add it. Supervisors can still review and manage below.
         </div>
 
         <template v-else>
@@ -337,7 +337,7 @@
     setup(){
       const ready=ref(false), gateError=ref(''), toast=ref('');
       const isSupervisor=ref(false);
-      const myId=ref(null), myName=ref('');
+      const myId=ref(null), myName=ref(''), signedInAs=ref('');
       const areas=ref([]);
       const settings=reactive({});
       const punches=ref([]), myRequests=ref([]);
@@ -427,6 +427,7 @@
         const b=await callData({action:'bootstrap'});
         isSupervisor.value=b.is_supervisor; areas.value=b.areas||[]; staff.value=b.staff||[];
         Object.assign(settings, b.settings||{});
+        signedInAs.value=b.signed_in_as||'';
         if(b.me){ myId.value=b.me.id; myName.value=b.me.name; }
       }
       async function loadTimesheet(){
@@ -499,7 +500,7 @@
         setInterval(()=>{ now.value=Date.now(); },30000);
       });
 
-      return { ready,gateError,toast,isSupervisor,myId,myName,areas,settings,state,punches,myRequests,busy,err,lastResult,lastSelfie,lastAreaId,whosOn,feed,reviewDate,reviewErr,showPrivacy,
+      return { ready,gateError,toast,isSupervisor,myId,myName,signedInAs,areas,settings,state,punches,myRequests,busy,err,lastResult,lastSelfie,lastAreaId,whosOn,feed,reviewDate,reviewErr,showPrivacy,
         cam,camVid,camCnv,chg,selfieView,tabs,visibleTabs,screen,activeStaff,stateLabel,currentArea,currentAreaId,areaColor,elapsed,shifts,whosOnGrouped,exceptionCount,capMsg,
         hm,punchShort,punchLong,go,startPunch,useShot,continueNoPhoto,cancelCam,retake,loadWhosOn,loadReview,openChange,submitChange,resolve,viewSelfie,setToHere,saveSettings };
     }

@@ -71,8 +71,10 @@ async function lastPunch(staffId) {
 }
 async function staffByEmail(email) {
   if (!email) return null;
-  const r = await db('staff?email=ilike.' + encodeURIComponent(email) + '&active=eq.true&select=*&limit=1');
-  return (r && r[0]) || null;
+  // Match in code (case-insensitive, trimmed) to avoid any URL-encoding/ilike edge cases.
+  const target = String(email).trim().toLowerCase();
+  const all = await db('staff?active=eq.true&select=id,name,email,leave_basis,tk_employee_id');
+  return (all || []).find(s => String(s.email || '').trim().toLowerCase() === target) || null;
 }
 
 exports.handler = async (event) => {
@@ -100,6 +102,7 @@ exports.handler = async (event) => {
       const staff = sup ? await db('staff?active=eq.true&select=id,name,email&order=name') : [];
       return json(200, {
         me: me ? { id: me.id, name: me.name, email: me.email } : null,
+        signed_in_as: email || null,
         is_supervisor: sup, areas, settings,
         my_state: myState, my_last: myLast, staff,
         server_now: new Date().toISOString(),
