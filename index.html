@@ -387,6 +387,22 @@ async function enterApp(){
   me = prof;
   $('whoami').textContent = prof.full_name ? `${prof.full_name}` : prof.email;
   if(prof.is_admin){ show($('adminBtn')); } else { hide($('adminBtn')); }
+
+  // Express login: a non-admin whose only app is live goes straight to it.
+  // Add ?portal=1 to force the dashboard (used by the in-app "Portal" link so
+  // single-app users can still reach sign-out).
+  try{
+    const _params=new URLSearchParams(location.search);
+    if(!prof.is_admin && !_params.has('portal')){
+      const [{ data:_apps }, { data:_acc }] = await Promise.all([
+        sb.from('apps').select('id,url,status').order('sort_order'),
+        sb.from('user_app_access').select('app_id').eq('user_id', user.id),
+      ]);
+      const _ids=new Set((_acc||[]).map(a=>a.app_id));
+      const _mine=(_apps||[]).filter(a=>_ids.has(a.id));
+      if(_mine.length===1 && _mine[0].url && _mine[0].status==='live'){ window.location.replace(_mine[0].url); return; }
+    }
+  }catch(_e){ /* fall through to dashboard */ }
   await loadDashboard();
   goDashboard();
   initTodayBar();
