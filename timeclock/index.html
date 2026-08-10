@@ -73,9 +73,9 @@
           <div v-if="state==='out'">
             <p class="text-center text-sm text-stone-500 mb-2">Tap your area to clock in</p>
             <div class="grid grid-cols-2 gap-2.5">
-              <button v-for="a in changeAreas" :key="a.id" @click="startPunch('in', a.id)" :disabled="busy" class="tap bg-white border border-stone-200 rounded-2xl py-5 px-3 text-center shadow-sm active:scale-95 transition disabled:opacity-50" :class="isRecent(a.id) ? 'ring-2 ring-emerald-500' : ''">
-                <div class="text-base font-semibold text-stone-800 leading-tight">{{ a.label }}</div>
-                <div class="text-[10px] mt-1" :class="isRecent(a.id)?'text-emerald-500':'text-stone-400'">{{ isRecent(a.id) ? 'recent' : a.job_number }}</div>
+              <button v-for="a in areas" :key="a.id" @click="startPunch('in', a.id)" :disabled="busy" :style="{background:areaColor(a)}" class="tap rounded-2xl py-5 px-3 text-center shadow-sm active:scale-95 transition disabled:opacity-50 text-white">
+                <div class="text-base font-semibold leading-tight">{{ a.label }}</div>
+                <div class="text-[10px] text-white/70 mt-1">{{ a.job_number }}</div>
               </button>
             </div>
           </div>
@@ -85,11 +85,12 @@
             <!-- change job: one tap, recent first -->
             <div v-if="state==='in'" class="bg-white border border-stone-200 rounded-xl p-3">
               <div class="text-xs text-stone-500 mb-2">Job: <b class="text-stone-700">{{ currentArea || '—' }}</b> — tap another to switch</div>
-              <div class="grid grid-cols-3 gap-2">
-                <button v-for="a in changeAreas" :key="a.id" @click="startPunch('switch', a.id)" :disabled="busy || a.id===currentAreaId"
-                  class="tap rounded-xl py-2.5 px-1 text-xs font-medium border leading-tight active:scale-95 transition"
-                  :class="a.id===currentAreaId ? 'bg-green-700 text-white border-green-700' : (isRecent(a.id) ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-white text-stone-600 border-stone-300')">
-                  {{ a.label }}<div v-if="isRecent(a.id) && a.id!==currentAreaId" class="text-[8px] text-emerald-500 leading-none mt-0.5">recent</div>
+              <div class="grid grid-cols-4 gap-2">
+                <button v-for="a in areas" :key="a.id" @click="startPunch('switch', a.id)" :disabled="busy || a.id===currentAreaId" :style="{background:areaColor(a)}"
+                  class="tap relative rounded-xl py-3 px-1 text-[11px] font-semibold leading-tight text-white active:scale-95 transition"
+                  :class="a.id===currentAreaId ? 'ring-4 ring-stone-800/40' : 'opacity-90'">
+                  {{ a.label }}
+                  <span v-if="a.id===currentAreaId" class="absolute -top-1 -right-1 bg-white text-stone-700 text-[8px] rounded-full px-1 shadow">now</span>
                 </button>
               </div>
             </div>
@@ -155,11 +156,14 @@
       <section v-if="screen==='review' && isSupervisor">
         <div class="flex items-center justify-between mb-2">
           <h1 class="text-lg font-bold text-stone-800">Review</h1>
-          <input type="date" v-model="reviewDate" @change="loadReview" class="border border-stone-300 rounded-lg px-2 py-1 text-sm">
+          <div class="flex items-center gap-2"><button @click="loadReview" class="text-xs border border-stone-300 rounded-lg px-2 py-1">Refresh</button><input type="date" v-model="reviewDate" @change="loadReview" class="border border-stone-300 rounded-lg px-2 py-1 text-sm"></div>
         </div>
 
+        <p v-if="reviewErr" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">Couldn’t load: {{ reviewErr }}</p>
+        <p v-else-if="!feed" class="text-sm text-stone-400 bg-white border border-stone-200 rounded-lg p-4">Loading…</p>
+
         <!-- exceptions first -->
-        <div v-if="feed" class="space-y-3">
+        <div v-else class="space-y-3">
           <div v-if="exceptionCount===0" class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800">✓ Nothing needs attention for {{ feed.date }}.</div>
 
           <div v-if="feed.exceptions.open_past_warn.length" class="bg-amber-50 border border-amber-200 rounded-xl p-3">
@@ -339,7 +343,7 @@
       const punches=ref([]), myRequests=ref([]);
       const busy=ref(false), err=ref(''), lastResult=ref(null), lastSelfie=ref(''), lastAreaId=ref(null), capMsg=ref('');
       const whosOn=ref([]);
-      const feed=ref(null), reviewDate=ref(nzToday());
+      const feed=ref(null), reviewDate=ref(nzToday()), reviewErr=ref('');
       const showPrivacy=ref(false);
       const now=ref(Date.now());
       const cam=reactive({open:false,count:0,shot:null,error:false,pending:{type:'',areaId:null}});
@@ -362,6 +366,8 @@
       function dateLabel(d){ const dt=new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}); }
       function punchShort(t){ return ({in:'IN',break_start:'BRK',break_end:'END',out:'OUT',switch:'JOB'})[t]||t; }
       function punchLong(t){ return ({in:'Clock in',break_start:'Break start',break_end:'Break end',out:'Clock out',switch:'Changed job'})[t]||t; }
+      const AREA_COLOR={P01:'#0d9488',P02:'#0284c7',P03:'#b45309',P04:'#ea580c',P05:'#059669',P06:'#4f46e5',P07:'#db2777',P08:'#7c3aed',P09:'#dc2626',P10:'#0891b2'};
+      function areaColor(a){ return (a && AREA_COLOR[a.job_number]) || '#15803d'; }
 
       async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
       async function callData(payload){
@@ -432,7 +438,7 @@
       function currentAreaPunch(ps){ let started=false,cur=null; ps.slice().sort((a,b)=>new Date(a.punched_at)-new Date(b.punched_at)).forEach(p=>{ if(p.type==='in'){ started=true; cur=p; } else if(p.type==='switch'&&started){ cur=p; } else if(p.type==='out'){ started=false; cur=null; } }); return started?cur:null; }
 
       async function loadWhosOn(){ try{ const w=await callData({action:'whos_on'}); whosOn.value=w.on||[]; }catch(e){ flash('Could not load'); } }
-      async function loadReview(){ if(!isSupervisor.value) return; try{ feed.value=await callData({action:'supervisor_feed',date:reviewDate.value}); }catch(e){ flash('Could not load review: '+e.message); } }
+      async function loadReview(){ if(!isSupervisor.value) return; reviewErr.value=''; try{ feed.value=await callData({action:'supervisor_feed',date:reviewDate.value}); }catch(e){ reviewErr.value=e.message; feed.value=null; } }
 
       const exceptionCount=computed(()=>{ const f=feed.value; if(!f) return 0; return (f.exceptions.open_past_warn.length)+(f.exceptions.out_of_range.length)+(f.pending.length); });
 
@@ -463,9 +469,6 @@
       const curAreaPunch=computed(()=> currentAreaPunch(bannerPunches.value));
       const currentAreaId=computed(()=> curAreaPunch.value ? curAreaPunch.value.area_id : null);
       const currentArea=computed(()=> currentAreaId.value ? ((areas.value.find(a=>a.id===currentAreaId.value)||{}).label||null) : null);
-      const recentAreaIds=computed(()=>{ const ids=[]; [...punches.value].sort((a,b)=>new Date(b.punched_at)-new Date(a.punched_at)).forEach(p=>{ if(p.area_id && !ids.includes(p.area_id)) ids.push(p.area_id); }); return ids; });
-      function isRecent(id){ return recentAreaIds.value.slice(0,3).includes(id); }
-      const changeAreas=computed(()=>{ const rec=recentAreaIds.value; const inRec=rec.map(id=>areas.value.find(a=>a.id===id)).filter(Boolean); const rest=areas.value.filter(a=>!rec.includes(a.id)); return [...inRec,...rest]; });
       const stateLabel=computed(()=> ({out:'Clocked out',in:'Clocked in',on_break:'On break'})[state.value]||'—');
       const elapsed=computed(()=>{ const inP=openInPunch(bannerPunches.value); if(!inP) return ''; const ms=now.value-new Date(inP.punched_at).getTime(); const h=Math.floor(ms/3600000), m=Math.floor(ms%3600000/60000); return (h?h+'h ':'')+m+'m'; });
 
@@ -492,11 +495,12 @@
         try{ await boot(); await loadTimesheet(); }
         catch(e){ gateError.value = /access/i.test(e.message)? 'You do not have access to Time Clock. Ask an administrator.' : ('Could not load: '+e.message); ready.value=true; return; }
         ready.value=true;
+        if(isSupervisor.value) loadReview();
         setInterval(()=>{ now.value=Date.now(); },30000);
       });
 
-      return { ready,gateError,toast,isSupervisor,myId,myName,areas,settings,state,punches,myRequests,busy,err,lastResult,lastSelfie,lastAreaId,whosOn,feed,reviewDate,showPrivacy,
-        cam,camVid,camCnv,chg,selfieView,tabs,visibleTabs,screen,activeStaff,stateLabel,currentArea,currentAreaId,changeAreas,isRecent,elapsed,shifts,whosOnGrouped,exceptionCount,capMsg,
+      return { ready,gateError,toast,isSupervisor,myId,myName,areas,settings,state,punches,myRequests,busy,err,lastResult,lastSelfie,lastAreaId,whosOn,feed,reviewDate,reviewErr,showPrivacy,
+        cam,camVid,camCnv,chg,selfieView,tabs,visibleTabs,screen,activeStaff,stateLabel,currentArea,currentAreaId,areaColor,elapsed,shifts,whosOnGrouped,exceptionCount,capMsg,
         hm,punchShort,punchLong,go,startPunch,useShot,continueNoPhoto,cancelCam,retake,loadWhosOn,loadReview,openChange,submitChange,resolve,viewSelfie,setToHere,saveSettings };
     }
   }).mount('#app');

@@ -126,6 +126,30 @@ exports.handler = async (event) => {
       }
       if ((type === 'in' || type === 'switch') && !body.area_id) return json(400, { error: 'Pick an area.' });
 
+      // Job switch within 1 minute of the last area change = a mistake correction:
+      // ignore the short segment rather than littering the timesheet.
+      if (type === 'switch') {
+        const newArea = Number(body.area_id);
+        const recentAreas = await db('punch?staff_id=eq.' + target.id + '&type=in.(in,switch)&select=id,type,area_id,punched_at&order=punched_at.desc&limit=2');
+        const lastA = recentAreas && recentAreas[0];
+        const prevA = recentAreas && recentAreas[1];
+        if (lastA && (Date.now() - new Date(lastA.punched_at).getTime()) < 60000) {
+          if (lastA.area_id === newArea) {
+            return json(200, { ok: true, state: 'in', corrected: true, punch: { id: lastA.id, type: lastA.type, punched_at: lastA.punched_at, distance_m: null, in_range: null } });
+          }
+          if (lastA.type === 'in') {
+            await db('punch?id=eq.' + lastA.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ area_id: newArea, note: 'area corrected within 1 min' }) });
+            return json(200, { ok: true, state: 'in', corrected: true, punch: { id: lastA.id, type: 'in', punched_at: lastA.punched_at, distance_m: null, in_range: null } });
+          }
+          // last was a short switch -> delete it (ignore the short segment)
+          await db('punch?id=eq.' + lastA.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+          if (prevA && prevA.area_id === newArea) {
+            return json(200, { ok: true, state: 'in', corrected: true, punch: { id: prevA.id, type: prevA.type, punched_at: prevA.punched_at, distance_m: null, in_range: null } });
+          }
+          // else fall through and insert a fresh switch to newArea
+        }
+      }
+
       // Geofence
       const s = await settingsObj();
       let distance = null, inRange = null;
