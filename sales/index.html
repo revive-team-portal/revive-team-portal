@@ -720,6 +720,8 @@
   ];
   const SMAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
   const REGIONS = ['Northland','Auckland Central','Auckland North','Auckland West','Auckland East','Auckland South','Waikato','Bay of Plenty','Lower North Island','Wellington','Christchurch','Rest of South Island','All NZ'];
+  // Generic mailbox providers — never treat these as a store's "own" domain when matching emails.
+  const GENERIC_EMAIL_DOMAINS = new Set(['gmail.com','googlemail.com','yahoo.com','yahoo.co.nz','yahoo.co.uk','hotmail.com','hotmail.co.nz','hotmail.co.uk','outlook.com','outlook.co.nz','live.com','live.co.nz','msn.com','icloud.com','me.com','mac.com','aol.com','gmx.com','mail.com','hey.com','protonmail.com','proton.me','xtra.co.nz','clear.net.nz','vodafone.co.nz','vodafone.net.nz','slingshot.co.nz','actrix.co.nz','paradise.net.nz','orcon.net.nz','inspire.net.nz','ihug.co.nz','callplus.net.nz','windowslive.com']);
   const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World','Woolworths','Bin Inn','Other','None'];
   const EVENT_TYPES = ['call','phone_in','email','meeting','sample'];
   const MERGE_FIELDS = ['{{firstname}}','{{customer}}'];
@@ -1391,10 +1393,17 @@
         try{
           const r=await fetch('/.netlify/functions/gmail-inbox',{method:'POST',headers:{'Authorization':'Bearer '+(await portalToken())}});
           const d=await r.json(); const msgs=d.messages||[];
-          const byEmail={}; for(const st of stores.value){ [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ const v=(e||'').trim().toLowerCase(); if(v.includes('@')) byEmail[v]=st.id; }); }
+          const byEmail={}; const domCount={}, domStore={};
+          for(const st of stores.value){
+            const doms=new Set();
+            [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ const v=(e||'').trim().toLowerCase(); const at=v.indexOf('@'); if(at>0){ byEmail[v]=st.id; const dom=v.slice(at+1); if(dom && !GENERIC_EMAIL_DOMAINS.has(dom)) doms.add(dom); } });
+            doms.forEach(dom=>{ domCount[dom]=(domCount[dom]||0)+1; domStore[dom]=st.id; });
+          }
+          // Domain fallback: only for a non-generic domain owned by exactly ONE store (never a catch-all).
+          const byDomain={}; for(const dom in domCount){ if(domCount[dom]===1) byDomain[dom]=domStore[dom]; }
           const existing=new Map(); activities.value.forEach(a=>{ if(a.gmail_id) existing.set(a.gmail_id,a); });
           const rows=[]; const flagIds=[];
-          for(const m of msgs){ const sid=byEmail[(m.email||'').toLowerCase()]; if(!sid||!m.id) continue; const ex=existing.get(m.id);
+          for(const m of msgs){ const em=(m.email||'').toLowerCase(); let sid=byEmail[em]; if(!sid){ const at=em.indexOf('@'); if(at>0) sid=byDomain[em.slice(at+1)]; } if(!sid||!m.id) continue; const ex=existing.get(m.id);
             if(!ex){ rows.push({store_id:sid,type:'email',result:'📥 '+decodeHtml(m.subject||'(no subject)')+(m.snippet? '\n'+decodeHtml(m.snippet):''),gmail_id:m.id,unread:true,created_by:'Gmail',occurred_at:m.date? new Date(m.date).toISOString(): new Date().toISOString()}); }
             else if(!ex.unread){ flagIds.push(m.id); }
           }
