@@ -1783,77 +1783,29 @@ ${descTxt?`<div class="r-desc">${esc(descTxt)}</div>`:''}`;
         openPrintWindow([{recipe:currentRecipe.value,steps:viewSteps.value,ingredients:ings,metrics:computePrintMetrics(currentRecipe.value,ings)}]);
       }
       function printBlankTemplate(){
-        const CSS=`
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:#fff;color:#1c1917;font-size:9pt;}
-@page{size:A4 portrait;margin:12mm 14mm;}
-.brand{font-size:12pt;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;}
-.sheet-title{font-size:8.5pt;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#666;margin-top:0.5mm;}
-.header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:3mm;}
-.header-right{display:flex;flex-direction:column;gap:2mm;align-items:flex-end;}
-hr{border:none;border-top:2.5px solid #1c1917;margin:2.5mm 0 3mm;}
-.fl{display:flex;align-items:baseline;gap:2mm;}
-.lbl{font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#666;white-space:nowrap;}
-.ln{border-bottom:1px solid #aaa;height:4.5mm;}
-.ln-xl{flex:1;}
-.ln-lg{width:55mm;}
-.ln-md{width:38mm;}
-.ln-sm{width:22mm;}
-.ln-xs{width:16mm;}
-.top-row{display:flex;gap:5mm;margin-bottom:2.5mm;}
-.sec{font-size:7pt;font-weight:900;text-transform:uppercase;letter-spacing:0.14em;color:#1c1917;background:#f0f0ef;border-left:3px solid #1c1917;padding:1.5mm 3mm;margin:3.5mm 0 2mm;}
-table.ings{width:100%;border-collapse:collapse;}
-table.ings th{font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#666;border-top:1.5px solid #1c1917;border-bottom:1.5px solid #1c1917;padding:1.5mm 2.5mm;text-align:left;}
-table.ings th.r{text-align:right;}
-table.ings td{border-bottom:0.5px solid #e5e5e5;height:7.5mm;padding:0 2.5mm;vertical-align:middle;}
-table.ings td.n{color:#bbb;font-size:7pt;text-align:center;width:7mm;}
-table.ings td.v{width:40mm;color:#ccc;}
-table.ings td.w{width:28mm;border-left:0.5px solid #ddd;}
-table.ings tfoot td{border-top:2px solid #1c1917;border-bottom:none;padding-top:2mm;font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:#666;}
-.steps{}
-.step{display:flex;gap:3mm;margin-bottom:3.5mm;break-inside:avoid;}
-.snum{width:7mm;height:7mm;border:2px solid #1c1917;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8.5pt;font-weight:900;flex-shrink:0;margin-top:0.5mm;}
-.sbody{flex:1;}
-.wl{border-bottom:0.75px solid #ccc;height:5.5mm;margin-bottom:1.5mm;}
-.smeta{display:flex;gap:4mm;margin-top:0.5mm;flex-wrap:wrap;}
-.mi{display:flex;align-items:baseline;gap:1.5mm;}
-.ml{font-size:6pt;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap;}
-.mline{border-bottom:0.75px solid #ccc;width:22mm;height:3.5mm;}
-.mline-lg{width:34mm;}
-.mbox{border:2px solid #1c1917;border-radius:6px;overflow:hidden;margin-top:4mm;}
-.mbox-hdr{background:#1c1917;color:#fff;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;padding:2mm 4mm;}
-.mcells{display:flex;}
-.mcell{flex:1;border-right:1.5px solid #1c1917;padding:3mm 4mm 4mm;}
-.mcell:last-child{border-right:none;}
-.mclbl{font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#666;margin-bottom:4mm;}
-.mcval{display:flex;align-items:baseline;gap:2mm;}
-.mcline{border-bottom:1.5px solid #1c1917;flex:1;height:7mm;}
-.mcunit{font-size:8pt;font-weight:700;color:#555;white-space:nowrap;}
-.narea .wl{margin-bottom:2mm;}
-.footer{margin-top:6mm;text-align:center;font-size:6.5pt;color:#aaa;letter-spacing:0.06em;border-top:0.5px solid #ddd;padding-top:2.5mm;}`;
+        const CSS='*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,"Helvetica Neue",Arial,sans-serif;background:#fff;color:#1c1917;font-size:9pt;}@page{size:A4 portrait;margin:12mm 14mm;}.brand{font-size:12pt;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;}.sheet-title{font-size:8.5pt;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#666;margin-top:0.5mm;}.header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:3mm;}.header-right{display:flex;flex-direction:column;gap:2mm;align-items:flex-end;}hr{border:none;border-top:2.5px solid #1c1917;margin:2.5mm 0 3mm;}.fl{display:flex;align-items:baseline;gap:2mm;}.lbl{font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#666;white-space:nowrap;}.ln{border-bottom:1px solid #aaa;height:4.5mm;}.ln-xl{flex:1;}.ln-lg{width:55mm;}.ln-md{width:38mm;}.ln-sm{width:22mm;}.ln-xs{width:16mm;}.top-row{display:flex;gap:5mm;margin-bottom:2.5mm;}.sec{font-size:7pt;font-weight:900;text-transform:uppercase;letter-spacing:0.14em;color:#1c1917;background:#f0f0ef;border-left:3px solid #1c1917;padding:1.5mm 3mm;margin:3.5mm 0 2mm;}table.ings{width:100%;border-collapse:collapse;}table.ings th{font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#666;border-top:1.5px solid #1c1917;border-bottom:1.5px solid #1c1917;padding:1.5mm 2.5mm;text-align:left;}table.ings th.r{text-align:right;}table.ings td{border-bottom:0.5px solid #e5e5e5;height:7.5mm;padding:0 2.5mm;vertical-align:middle;}table.ings td.n{color:#bbb;font-size:7pt;text-align:center;width:7mm;}table.ings td.v{width:40mm;color:#ccc;}table.ings td.w{width:28mm;border-left:0.5px solid #ddd;}table.ings tfoot td{border-top:2px solid #1c1917;border-bottom:none;padding-top:2mm;font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:#666;}.step{display:flex;gap:3mm;margin-bottom:3.5mm;break-inside:avoid;}.snum{width:7mm;height:7mm;border:2px solid #1c1917;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8.5pt;font-weight:900;flex-shrink:0;margin-top:0.5mm;}.sbody{flex:1;}.wl{border-bottom:0.75px solid #ccc;height:5.5mm;margin-bottom:1.5mm;}.smeta{display:flex;gap:4mm;margin-top:0.5mm;flex-wrap:wrap;}.mi{display:flex;align-items:baseline;gap:1.5mm;}.ml{font-size:6pt;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap;}.mline{border-bottom:0.75px solid #ccc;width:22mm;height:3.5mm;}.mline-lg{width:34mm;}.mbox{border:2px solid #1c1917;border-radius:6px;overflow:hidden;margin-top:4mm;}.mbox-hdr{background:#1c1917;color:#fff;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;padding:2mm 4mm;}.mcells{display:flex;}.mcell{flex:1;border-right:1.5px solid #1c1917;padding:3mm 4mm 4mm;}.mcell:last-child{border-right:none;}.mclbl{font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#666;margin-bottom:4mm;}.mcval{display:flex;align-items:baseline;gap:2mm;}.mcline{border-bottom:1.5px solid #1c1917;flex:1;height:7mm;}.mcunit{font-size:8pt;font-weight:700;color:#555;white-space:nowrap;}.narea .wl{margin-bottom:2mm;}.footer{margin-top:6mm;text-align:center;font-size:6.5pt;color:#aaa;letter-spacing:0.06em;border-top:0.5px solid #ddd;padding-top:2.5mm;}';
         let ingRows='';
-        for(let i=1;i<=22;i++) ingRows+=`<tr><td class="n">${i}</td><td></td><td class="v"></td><td class="w"></td></tr>`;
+        for(let i=1;i<=22;i++) ingRows+='<tr><td class="n">'+i+'</td><td></td><td class="v"></td><td class="w"></td></tr>';
         let stepRows='';
-        for(let i=1;i<=10;i++) stepRows+=`<div class="step"><div class="snum">${i}</div><div class="sbody"><div class="wl"></div><div class="wl"></div><div class="smeta"><div class="mi"><span class="ml">Time</span><div class="mline"></div></div><div class="mi"><span class="ml">Temp</span><div class="mline"></div></div><div class="mi"><span class="ml">Method</span><div class="mline mline-lg"></div></div><div class="mi"><span class="ml">Action</span><div class="mline mline-lg"></div></div></div></div></div>`;
-        const html=\`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Recipe Development Sheet — Revive Cafe</title><style>\${CSS}</style></head><body>
-<div class="header"><div><div class="brand">Revive Cafe</div><div class="sheet-title">Recipe Development Sheet</div></div><div class="header-right"><div class="fl"><span class="lbl">Date</span><div class="ln ln-md"></div></div><div class="fl"><span class="lbl">Developer</span><div class="ln ln-md"></div></div></div></div>
-<hr>
-<div class="top-row"><div class="fl" style="flex:1"><span class="lbl">Recipe Name</span><div class="ln ln-xl"></div></div><div class="fl"><span class="lbl">Category</span><div class="ln ln-md"></div></div><div class="fl"><span class="lbl">Version</span><div class="ln ln-xs"></div></div></div>
-<div class="sec">Ingredients</div>
-<table class="ings"><thead><tr><th style="width:7mm">#</th><th>Ingredient</th><th style="width:40mm">Volumetric Measure</th><th class="r" style="width:28mm">Weight (g)</th></tr></thead><tbody>\${ingRows}</tbody><tfoot><tr><td colspan="2">Total Raw Batch</td><td class="v"></td><td class="w"></td></tr></tfoot></table>
-<div class="sec">Method</div>
-<div class="steps">\${stepRows}</div>
-<div class="mbox"><div class="mbox-hdr">Batch Metrics &mdash; complete after cooking</div><div class="mcells"><div class="mcell"><div class="mclbl">End Weight (Raw)</div><div class="mcval"><div class="mcline"></div><span class="mcunit">kg</span></div></div><div class="mcell"><div class="mclbl">After Cooking</div><div class="mcval"><div class="mcline"></div><span class="mcunit">kg</span></div></div><div class="mcell"><div class="mclbl">Per Serve</div><div class="mcval"><div class="mcline"></div><span class="mcunit">g</span></div></div><div class="mcell"><div class="mclbl">No. of Serves</div><div class="mcval"><div class="mcline"></div><span class="mcunit"></span></div></div></div></div>
-<div class="sec">Notes</div>
-<div class="narea"><div class="wl"></div><div class="wl"></div><div class="wl"></div><div class="wl"></div></div>
-<div class="footer">Scan &amp; enter into portal as a draft recipe &mdash; Cost &amp; NIP calculated automatically</div>
-</body></html>\`;
+        for(let i=1;i<=10;i++) stepRows+='<div class="step"><div class="snum">'+i+'</div><div class="sbody"><div class="wl"></div><div class="wl"></div><div class="smeta"><div class="mi"><span class="ml">Time</span><div class="mline"></div></div><div class="mi"><span class="ml">Temp</span><div class="mline"></div></div><div class="mi"><span class="ml">Method</span><div class="mline mline-lg"></div></div><div class="mi"><span class="ml">Action</span><div class="mline mline-lg"></div></div></div></div></div>';
+        const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Recipe Development Sheet</title><style>'+CSS+'</style></head><body>'
+          +'<div class="header"><div><div class="brand">Revive Cafe</div><div class="sheet-title">Recipe Development Sheet</div></div><div class="header-right"><div class="fl"><span class="lbl">Date</span><div class="ln ln-md"></div></div><div class="fl"><span class="lbl">Developer</span><div class="ln ln-md"></div></div></div></div>'
+          +'<hr>'
+          +'<div class="top-row"><div class="fl" style="flex:1"><span class="lbl">Recipe Name</span><div class="ln ln-xl"></div></div><div class="fl"><span class="lbl">Category</span><div class="ln ln-md"></div></div><div class="fl"><span class="lbl">Version</span><div class="ln ln-xs"></div></div></div>'
+          +'<div class="sec">Ingredients</div>'
+          +'<table class="ings"><thead><tr><th style="width:7mm">#</th><th>Ingredient</th><th style="width:40mm">Volumetric Measure</th><th class="r" style="width:28mm">Weight (g)</th></tr></thead><tbody>'+ingRows+'</tbody><tfoot><tr><td colspan="2">Total Raw Batch</td><td class="v"></td><td class="w"></td></tr></tfoot></table>'
+          +'<div class="sec">Method</div>'
+          +'<div class="steps">'+stepRows+'</div>'
+          +'<div class="mbox"><div class="mbox-hdr">Batch Metrics &mdash; complete after cooking</div><div class="mcells"><div class="mcell"><div class="mclbl">End Weight (Raw)</div><div class="mcval"><div class="mcline"></div><span class="mcunit">kg</span></div></div><div class="mcell"><div class="mclbl">After Cooking</div><div class="mcval"><div class="mcline"></div><span class="mcunit">kg</span></div></div><div class="mcell"><div class="mclbl">Per Serve</div><div class="mcval"><div class="mcline"></div><span class="mcunit">g</span></div></div><div class="mcell"><div class="mclbl">No. of Serves</div><div class="mcval"><div class="mcline"></div><span class="mcunit"></span></div></div></div></div>'
+          +'<div class="sec">Notes</div>'
+          +'<div class="narea"><div class="wl"></div><div class="wl"></div><div class="wl"></div><div class="wl"></div></div>'
+          +'<div class="footer">Scan &amp; enter into portal as a draft recipe &mdash; Cost &amp; NIP calculated automatically</div>'
+          +'</body></html>';
         const pw=window.open('','_blank');
         if(!pw){alert('Please allow pop-ups to print the template.');return;}
         pw.document.open();pw.document.write(html);pw.document.close();pw.focus();
         setTimeout(()=>pw.print(),400);
       }
-
       // ---- INGREDIENT MANAGER ----
       function openIngredientModal(ing){
         ingForm.value=ing?{...ing,state:ing.state||'raw',raw_ingredient_id:ing.raw_ingredient_id||null,cook_ratio:ing.cook_ratio||null,price_is_estimate:!!ing.price_is_estimate,ingredient_type:ing.ingredient_type||'ambient',main_supplier:ing.main_supplier||'',last_price_update:ing.last_price_update||null,upload_notes:ing.upload_notes||''}:blankIngForm();
