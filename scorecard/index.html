@@ -222,6 +222,7 @@ td.der .subn,td .subn{opacity:.85}
 .remail .renote{font-size:11px;color:var(--steel-lt);margin-top:6px}
 .dmx .avgd{font-size:9px;color:var(--steel-lt);letter-spacing:.04em}
 </style>
+<link rel="stylesheet" href="/chrome.css">
 </head>
 <body>
 <script src="/today-bar.js" defer></script>
@@ -234,23 +235,25 @@ td.der .subn,td .subn{opacity:.85}
 
 <div id="app" v-cloak>
   <!-- loader / gate -->
-  <div v-if="!ready" class="loader">
-    <div class="card">
-      <div class="logo">Revive Scorecard</div>
-      <p v-if="!gateError" style="color:var(--steel);font-size:13px">Loading…</p>
-      <div v-else><p style="color:var(--bad);font-size:13px;margin-bottom:10px">{{ gateError }}</p><a href="/" style="color:var(--info);font-size:13px;text-decoration:underline">← Back to portal</a></div>
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading Scorecard</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
+      <div v-else><p style="color:#fff;font-size:13px;margin-bottom:10px">{{ gateError }}</p><a href="/" style="color:#fff;font-size:13px;text-decoration:underline">← Back to portal</a></div>
     </div>
   </div>
 
   <div v-else class="wrap">
-    <div class="topbar">
-      <div class="brandmark"><span class="logo">Revive Scorecard</span></div>
-      <div class="who">
+    <nav class="rv-nav" style="margin:0 -18px 14px">
+      <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Scorecard</span></div>
+      <div class="rv-right">
         <span class="pill" :class="level==='manager'?'mgr':(level==='supervisor'?'sup':'')">{{ levelLabel }}</span>
-        <span>{{ email }}</span>
-        <a href="/" style="text-decoration:underline">Portal</a>
+        <span class="rv-who">{{ email }}</span>
+        <a href="/" class="rv-portal">&larr; Main Portal</a>
       </div>
-    </div>
+    </nav>
 
     <div class="tabs">
       <button v-for="t in tabs" :key="t.id" class="tab" :class="{on:screen===t.id}" @click="screen=t.id">{{ t.label }}</button>

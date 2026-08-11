@@ -13,6 +13,7 @@
     ::-webkit-scrollbar{width:9px;height:9px}
     ::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
   </style>
+<link rel="stylesheet" href="/chrome.css">
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
 
@@ -29,11 +30,12 @@
 <div id="app" v-cloak>
 
   <!-- ============ GATE ============ -->
-  <div v-if="!ready" class="min-h-screen flex items-center justify-center revive-waffle relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
-    <div class="absolute inset-0 bg-black/40"></div>
-    <div class="text-center relative z-10">
-      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
-      <p v-if="!gateError" class="text-white/90 text-sm">Loading Sales CRM…</p>
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading Sales CRM</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
         <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
         <a href="/" class="text-amber-700 underline text-sm">← Back to portal</a>
@@ -43,10 +45,10 @@
 
   <div v-else class="min-h-screen flex flex-col">
     <!-- NAV -->
-    <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#25b4e8">
+    <nav class="rv-nav">
       <div class="flex items-center gap-2">
-        <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
-        <span class="text-white/90 text-sm hidden sm:inline font-medium">Sales CRM</span>
+        <img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+        <span class="rv-appname">Sales CRM</span>
       </div>
       <div class="flex items-center gap-2">
         <button @click="openNewStore" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">+ Store</button>
@@ -55,7 +57,7 @@
         <button @click="showMotivation=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
         <button v-if="isAdmin" @click="openAdmin" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Admin</button>
         <span class="text-white/80 text-xs hidden md:inline ml-1">{{ me }}</span>
-        <a href="/" class="text-white/80 hover:text-white text-xs ml-1">Portal</a>
+        <a href="/" class="rv-portal">&larr; Main Portal</a>
       </div>
     </nav>
 

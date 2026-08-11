@@ -39,6 +39,7 @@
       .rpc .notes-row { font-size: 0.82em; color: #555; margin-top: 0.4em; border: 1px solid #fde68a; background: #fffbeb; padding: 0.3em 0.5em; border-radius: 4px; }
     }
   </style>
+<link rel="stylesheet" href="/chrome.css">
 </head>
 <body class="bg-stone-50 font-sans text-stone-900">
 
@@ -55,10 +56,12 @@
 <div id="app" v-cloak>
 
   <!-- ==================== LOADING / GATE ==================== -->
-  <div v-if="!user" class="min-h-screen flex items-center justify-center bg-stone-100">
-    <div class="text-center">
-      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" alt="Revive Cafe" class="w-14 h-14 mx-auto mb-3">
-      <p v-if="!gateError" class="text-stone-500 text-sm">Loading Recipe Manager…</p>
+  <div v-if="!user" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading Recipe Manager</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
         <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
         <a href="/" class="text-amber-700 underline text-sm">&larr; Back to portal</a>
@@ -70,9 +73,9 @@
   <div v-else class="min-h-screen flex flex-col">
 
     <!-- NAV -->
-    <nav class="bg-stone-800 text-white px-6 py-3 flex items-center justify-between no-print sticky top-0 z-50 shadow-md">
+    <nav class="rv-nav no-print">
       <div class="flex items-center gap-5">
-        <span class="font-bold text-amber-400 text-lg select-none inline-flex items-center gap-2"><img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" alt="" class="w-7 h-7 rounded-full">Revive Cafe</span>
+        <span class="inline-flex items-center gap-2"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Recipe Manager</span></span>
         <button @click="goToList" class="text-sm transition"
           :class="currentView==='list'?'text-amber-400 font-semibold':'text-stone-300 hover:text-white'">Recipes</button>
         <button @click="goToMeals" class="text-sm transition"
@@ -93,7 +96,8 @@
           class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition no-print">
           + New Recipe
         </button>
-        <button @click="logout" class="text-stone-400 hover:text-white text-xs transition ml-1 no-print">Logout</button>
+        <a href="/" class="rv-portal">&larr; Main Portal</a>
+        <button @click="logout" class="rv-btn ml-1 no-print">Logout</button>
       </div>
     </nav>
 

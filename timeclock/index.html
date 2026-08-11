@@ -18,6 +18,7 @@
     ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
     .tap{ -webkit-tap-highlight-color:transparent; user-select:none }
   </style>
+<link rel="stylesheet" href="/chrome.css">
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
 <script src="/today-bar.js" defer></script>
@@ -30,22 +31,24 @@
 
 <div id="app" v-cloak>
   <!-- LOADING / GATE -->
-  <div v-if="!ready" class="min-h-screen flex items-center justify-center relative overflow-hidden" style="background:#14532d">
-    <div class="text-center relative z-10 px-6">
-      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-52 max-w-[60vw] mx-auto mb-5" alt="Revive">
-      <p v-if="!gateError" class="text-white/90 text-sm">Loading Time Clock…</p>
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading Time Clock</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
     </div>
   </div>
 
   <div v-else class="min-h-screen flex flex-col max-w-2xl mx-auto">
     <!-- top bar -->
-    <nav class="text-white px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#15803d">
-      <div class="flex items-center gap-2"><img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revive"><span class="text-white/90 text-sm font-medium">Time Clock</span></div>
+    <nav class="rv-nav">
+      <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Time Clock</span></div>
       <div class="flex items-center gap-3">
         <span v-if="isSupervisor" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Supervisor</span>
-        <button @click="showPrivacy=true" class="text-white/80 text-xs underline">Privacy</button>
-        <a href="/" class="text-white/80 hover:text-white text-xs">Portal</a>
+        <button @click="showPrivacy=true" class="rv-btn">Privacy</button>
+        <a href="/" class="rv-portal">&larr; Main Portal</a>
       </div>
     </nav>
 

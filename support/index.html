@@ -9,6 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="quotes.js"></script>
   <style>[v-cloak]{display:none}::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}</style>
+<link rel="stylesheet" href="/chrome.css">
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
 <script src="/today-bar.js" defer></script>
@@ -18,23 +19,25 @@
   let PORTAL_TOKEN = null;
 </script>
 
-<div id="gate" class="min-h-screen flex items-center justify-center" style="background:#007020">
-  <div class="text-center">
-    <span style="background:#fff;border-radius:24px;padding:14px 20px;display:inline-block;margin-bottom:18px"><img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="w-44 max-w-[60vw]" alt="Revive Café"></span>
-    <p id="gateMsg" class="text-white/90 text-sm">Loading Customer Service…</p>
+<div id="gate" class="rv-load">
+  <div class="rv-load__scrim"></div>
+  <div class="rv-load__box">
+    <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+    <p id="gateMsg" class="rv-load__text">Loading Customer Service</p>
+    <div class="rv-load__bar"><i></i></div>
   </div>
 </div>
 
 <div id="app" class="hidden min-h-screen flex flex-col">
-  <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#007020">
+  <nav class="rv-nav">
     <div class="flex items-center gap-2">
-      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="h-8" alt="Revive Café">
-      <span class="text-white/90 text-sm hidden sm:inline font-medium">Customer Service</span>
+      <img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <span class="rv-appname">Customer Service</span>
     </div>
     <div class="flex items-center gap-3 text-xs">
       <span class="hidden md:inline bg-white/15 rounded px-2 py-1">cafe@revive.co.nz</span>
       <span id="me" class="text-white/80 hidden md:inline"></span>
-      <a href="/" class="text-white/80 hover:text-white">← Portal</a>
+      <a href="/" class="rv-portal">&larr; Main Portal</a>
     </div>
   </nav>
 

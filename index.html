@@ -31,7 +31,7 @@
   }
   .brand{display:flex;flex-direction:column;align-items:center;margin-bottom:26px;text-align:center}
   .brand .mark{
-    width:58px;height:58px;border-radius:16px;background:var(--green);
+    width:58px;height:58px;border-radius:16px;background:transparent;
     display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:14px;
   }
   .brand h1{font-size:21px;margin:0;font-weight:700}
@@ -60,12 +60,15 @@
 
   /* ---------- APP CHROME ---------- */
   .topbar{
-    background:#fff;border-bottom:1px solid var(--line);padding:0 22px;
+    background:var(--green-d);border-bottom:1px solid rgba(255,255,255,.10);padding:0 22px;
     display:flex;align-items:center;justify-content:space-between;height:62px;position:sticky;top:0;z-index:10;
   }
   .topbar .left{display:flex;align-items:center;gap:11px}
-  .topbar .mark{width:34px;height:34px;border-radius:9px;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:18px}
-  .topbar .title{font-weight:700;font-size:16px}
+  .topbar .mark{width:36px;height:36px;border-radius:50%;background:transparent;display:flex;align-items:center;justify-content:center}
+  .topbar .who{color:rgba(255,255,255,.85)}
+  .topbar .btn-ghost{color:#fff;border-color:rgba(255,255,255,.45);background:transparent}
+  .topbar .btn-ghost:hover{background:rgba(255,255,255,.14)}
+  .topbar .title{font-weight:700;font-size:16px;color:#fff}
   .topbar .right{display:flex;align-items:center;gap:10px}
   .who{font-size:13px;color:var(--muted);margin-right:4px}
   .wrap{max-width:980px;margin:0 auto;padding:30px 22px 60px}
@@ -165,19 +168,27 @@
     .login-card{padding:30px 22px}
   }
 </style>
+<link rel="stylesheet" href="/chrome.css">
 </head>
 <body>
 <script>window.__reviveTodayBarManual=true;</script>
 <script src="/today-bar.js" defer></script>
 
 <!-- BOOT -->
-<div id="bootScreen"><span class="loader dark"></span>&nbsp;Loading portal…</div>
+<div id="bootScreen" class="rv-load">
+  <div class="rv-load__scrim"></div>
+  <div class="rv-load__box">
+    <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+    <p class="rv-load__text">Loading Portal</p>
+    <div class="rv-load__bar"><i></i></div>
+  </div>
+</div>
 
 <!-- LOGIN -->
 <div id="loginView" class="hidden">
   <form class="login-card" id="loginForm" autocomplete="on">
     <div class="brand">
-      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" alt="Revive Cafe" class="mark" style="background:transparent;object-fit:contain;border-radius:50%;">
+      <img src="/assets/revive-logo.png" alt="Revive Cafe" class="mark" style="background:transparent;object-fit:contain;border-radius:50%;">
       <h1>Revive Team Portal</h1>
       <p>Sign in to access your apps</p>
     </div>
@@ -198,7 +209,7 @@
 <div id="appView" class="hidden">
   <div class="topbar">
     <div class="left">
-      <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" alt="Revive Cafe" class="mark" style="background:transparent;object-fit:contain;border-radius:50%;">
+      <img src="/assets/revive-logo.png" alt="Revive Cafe" class="mark" style="background:transparent;object-fit:contain;border-radius:50%;">
       <div class="title">Revive Team Portal</div>
     </div>
     <div class="right">

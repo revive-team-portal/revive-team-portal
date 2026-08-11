@@ -23,6 +23,7 @@
       #printArea tr{page-break-inside:avoid}
     }
   </style>
+<link rel="stylesheet" href="/chrome.css">
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
 <script src="/today-bar.js" defer></script>
@@ -38,21 +39,23 @@
 
 <div id="app" v-cloak>
 
-  <div v-if="!ready" class="min-h-screen flex items-center justify-center relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
-    <div class="absolute inset-0 bg-black/40"></div>
-    <div class="text-center relative z-10"><img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
-      <p v-if="!gateError" class="text-white/90 text-sm">Loading Production…</p>
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading Production</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
     </div>
   </div>
 
   <div v-else class="min-h-screen flex flex-col">
-    <nav class="text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow no-print" style="background:#15803d">
-      <div class="flex items-center gap-2"><img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods"><span class="text-white/90 text-sm hidden sm:inline font-medium">Production</span></div>
-      <div class="flex items-center gap-3"><span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ roleLabel }}</span><span class="text-white/80 text-xs hidden md:inline">{{ me }}</span><a href="/" class="text-white/80 hover:text-white text-xs">Portal</a></div>
+    <nav class="rv-nav no-print">
+      <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Production</span></div>
+      <div class="flex items-center gap-3"><span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ roleLabel }}</span><span class="text-white/80 text-xs hidden md:inline">{{ me }}</span><a href="/" class="rv-portal">&larr; Main Portal</a></div>
     </nav>
 
-    <div class="bg-white border-b border-stone-200 px-3 py-2 flex flex-wrap gap-2 no-print sticky top-[44px] z-30">
+    <div class="bg-white border-b border-stone-200 px-3 py-2 flex flex-wrap gap-2 no-print sticky top-[53px] z-30">
       <button v-for="t in tabs" :key="t.id" @click="screen=t.id" class="text-sm font-medium px-3 py-1.5 rounded-lg border" :class="screen===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">{{ t.label }}</button>
     </div>
 
