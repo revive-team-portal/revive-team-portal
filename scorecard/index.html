@@ -583,7 +583,7 @@ createApp({
     const todayTime=computed(()=> fetchedAt.value?hhmm(fetchedAt.value):'');
     const tillTime=computed(()=> tbStamp.sales?hhmm(tbStamp.sales):'');
     const nzMin=()=>{ const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Pacific/Auckland',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); let h=0,m=0; p.forEach(x=>{if(x.type==='hour')h=+x.value;if(x.type==='minute')m=+x.value;}); return h*60+m; };
-    const projShow=computed(()=> fetchedAt.value!=null && nzMin()>=765 && today.sales_1245>0);
+    const projShow=computed(()=> fetchedAt.value!=null && nzMin()>=770 && today.sales_1245>0);
     const projText=computed(()=> today.sales_1245>0 ? ('$'+fm(today.sales_1245,0)+' → $'+fm(today.sales_1245*2,0)) : '');
     const projValue=computed(()=> projShow.value ? projText.value : '\u00A0');
     let flashT=null;

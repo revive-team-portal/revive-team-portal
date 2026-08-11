@@ -21,7 +21,7 @@ const WEEKLY_SQL =
   " WHERE t.Receipt_Date_Time >= DATEADD(week,-10,GETDATE()) GROUP BY " + WEEK_END + " ORDER BY 1;";
 const TODAY_SQL =
   "SELECT SUM(i.Sales) AS sales, SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS covers," +
-  " SUM(CASE WHEN DATEPART(hour,t.Receipt_Date_Time)*60+DATEPART(minute,t.Receipt_Date_Time) < 765 THEN i.Sales ELSE 0 END) AS sales_1245" +
+  " SUM(CASE WHEN DATEPART(hour,t.Receipt_Date_Time)*60+DATEPART(minute,t.Receipt_Date_Time) < 770 THEN i.Sales ELSE 0 END) AS sales_1245" +
   " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
   " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
   " WHERE CAST(t.Receipt_Date_Time AS date)=CAST(GETDATE() AS date);";
