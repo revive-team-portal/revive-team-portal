@@ -432,7 +432,7 @@ function renderTiles(apps){
   }
   wrap.innerHTML = apps.map(a=>{
     const live = a.status==='live';
-    const badge = live ? `<span class="badge live">Live</span>` : `<span class="badge soon">Coming soon</span>`;
+    const badge = live ? `` : `<span class="badge soon">Coming soon</span>`;
     return `<div class="tile ${live?'live':'soon'}" data-app="${esc(a.id)}" data-url="${esc(a.url)}" data-status="${a.status}">
       ${badge}
       <div class="ic">${a.icon||'📦'}</div>
