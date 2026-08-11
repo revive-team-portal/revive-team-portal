@@ -25,17 +25,6 @@
 
   /* ---------- LOGIN ---------- */
   #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .today-bar{background:var(--green);color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap}
-  .today-bar .seg{background:rgba(255,255,255,.14);border-radius:9px;padding:5px 13px;display:flex;flex-direction:column;line-height:1.12;min-width:58px}
-  .today-bar .seg .lab{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.9;font-weight:600}
-  .today-bar .seg b{font-size:17px;font-weight:800;letter-spacing:-.01em}
-  .today-bar .tstamp{font-size:11.5px;opacity:.8;margin-left:4px}
-  .today-bar .rf{cursor:pointer;color:#fff;text-decoration:none;font-size:22px;line-height:1}
-  .today-bar .rf:hover{opacity:.75}
-  .today-bar .seg.stale{opacity:.5}
-  .today-bar .tload{font-weight:800;font-size:14px;margin-right:6px}
-  .today-bar .tsrc{font-size:13px;opacity:.82;display:inline-flex;align-items:center;gap:5px}
-  .today-bar .tsrc.done{opacity:1;font-weight:700}
   .login-card{
     background:var(--card);border:1px solid var(--line);border-radius:18px;
     box-shadow:var(--shadow);width:100%;max-width:400px;padding:38px 34px;
@@ -178,6 +167,8 @@
 </style>
 </head>
 <body>
+<script>window.__reviveTodayBarManual=true;</script>
+<script src="/today-bar.js" defer></script>
 
 <!-- BOOT -->
 <div id="bootScreen"><span class="loader dark"></span>&nbsp;Loading portal…</div>
@@ -218,7 +209,6 @@
     </div>
   </div>
 
-  <div id="todayBar" class="today-bar hidden"></div>
 
   <!-- DASHBOARD -->
   <div class="wrap" id="dashboardView">
@@ -328,54 +318,7 @@ async function start(){
   if(session){ await enterApp(); } else { showLogin(); }
 }
 function showLogin(){ hide(boot); hide(appView); show(loginView); }
-const TB_STALE_MS=20*60000, tbStore={}, tbStamp={}; let tbShown=false;
-const TB_SRC=[['shopify','Shopify'],['meta','Meta'],['pos','POS'],['support','Support']];
-const tbTick={shopify:false,meta:false,pos:false,support:false};
-function tbHM(ms){ const d=new Date(ms); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
-async function tbGet(only,refresh){ const r=await fetch('/.netlify/functions/cafe-today?only='+only+(refresh?'&refresh=1':'')); return await r.json(); }
-function tbIngest(j){ if(!j||j.error) return; const now=Date.now(); const tillMs=j.updated_at?Date.parse(j.updated_at):null;
-  if(j.sales!=null){ tbStore.sales=j.sales; tbStamp.sales=tillMs||now; }
-  if(j.covers!=null){ tbStore.covers=j.covers; tbStamp.covers=tillMs||now; }
-  if(j.sales_1245!=null){ tbStore.sales_1245=j.sales_1245; }
-  ['shopify_today','shopify_week','meta_today','meta_week','orders_to_fulfil','orders_fulfilled_today','outstanding_tickets'].forEach(f=>{ if(j[f]!=null){ tbStore[f]=j[f]; tbStamp[f]=now; } }); }
-function tbPct(){ tbStore.meta_today_pct=(tbStore.meta_today!=null&&tbStore.shopify_today>0)?Math.round(tbStore.meta_today/tbStore.shopify_today*100):null; tbStore.meta_week_pct=(tbStore.meta_week!=null&&tbStore.shopify_week>0)?Math.round(tbStore.meta_week/tbStore.shopify_week*100):null; }
-function tbPlaceholder(){ const bar=$('todayBar'); if(!bar||tbShown) return; let h='<span class="tload">Loading</span>'; TB_SRC.forEach(([k,lab])=>{ h+='<span class="tsrc'+(tbTick[k]?' done':'')+'">'+lab+' '+(tbTick[k]?'✓':'○')+'</span>'; }); bar.innerHTML=h; bar.classList.remove('hidden'); }
-function tbNzMin(){ const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Pacific/Auckland',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); let h=0,m=0; p.forEach(x=>{if(x.type==='hour')h=+x.value;if(x.type==='minute')m=+x.value;}); return h*60+m; }
-function tbRender(){
-  const bar=$('todayBar'); if(!bar) return; const now=Date.now();
-  const caut=f=>(!tbStamp[f]||(now-tbStamp[f]>TB_STALE_MS));
-  const box=(lab,val,f)=>{ const c=f?caut(f):false; return '<span class="seg'+(c?' stale':'')+'"'+(c?' title="Not updating — last good '+(tbStamp[f]?tbHM(tbStamp[f]):'never')+'"':'')+'><span class="lab">'+lab+(c?' ⚠️':'')+'</span><b>'+val+'</b></span>'; };
-  let h='';
-  if(tbStore.sales!=null){ h+=box('Cafe $ today','$'+Math.round(tbStore.sales).toLocaleString(),'sales'); h+=box('Covers today',Math.round(tbStore.covers).toLocaleString(),'covers'); }
-  { const rel=(tbNzMin()>=765 && tbStore.sales_1245>0); const pv=rel?('$'+Math.round(tbStore.sales_1245).toLocaleString()+' → $'+Math.round(tbStore.sales_1245*2).toLocaleString()):'\u00a0'; h+=box('Halfway / projection', pv, rel?'sales':null); }
-  if(tbStore.shopify_today!=null) h+=box('Shopify today','$'+Math.round(tbStore.shopify_today).toLocaleString(),'shopify_today');
-  if(tbStore.shopify_week!=null) h+=box('Shopify this week','$'+Math.round(tbStore.shopify_week).toLocaleString(),'shopify_week');
-  if(tbStore.meta_today!=null) h+=box('Meta spend today','$'+Math.round(tbStore.meta_today).toLocaleString()+(tbStore.meta_today_pct!=null?' · '+tbStore.meta_today_pct+'%':''),'meta_today');
-  if(tbStore.meta_week!=null) h+=box('Meta spend this week','$'+Math.round(tbStore.meta_week).toLocaleString()+(tbStore.meta_week_pct!=null?' · '+tbStore.meta_week_pct+'%':''),'meta_week');
-  if(tbStore.orders_to_fulfil!=null) h+=box('To fulfil',tbStore.orders_to_fulfil.toLocaleString(),'orders_to_fulfil');
-  if(tbStore.orders_fulfilled_today!=null) h+=box('Fulfilled today',tbStore.orders_fulfilled_today.toLocaleString(),'orders_fulfilled_today');
-  if(tbStore.outstanding_tickets!=null) h+=box('Tickets',tbStore.outstanding_tickets.toLocaleString(),'outstanding_tickets');
-  if(!h){ return; }
-  h+='<span class="tstamp">as at '+tbHM(now)+'</span><a class="rf" title="Refresh">↻</a>';
-  bar.innerHTML=h; bar.classList.remove('hidden'); tbShown=true;
-  const rf=bar.querySelector('.rf'); if(rf) rf.onclick=()=>loadTodayBar(true);
-}
-function tbAllTicked(){ return TB_SRC.every(([k])=>tbTick[k]); }
-async function tbLoadSource(k){
-  try{
-    if(k==='pos'){ const j=await tbGet('pos',true); tbIngest(j); const fresh=j&&j.updated_at&&(Date.now()-Date.parse(j.updated_at)<3*60000); if(!fresh){ await new Promise(r=>setTimeout(r,7000)); try{ tbIngest(await tbGet('pos',false)); }catch(e){} } }
-    else { tbIngest(await tbGet(k,false)); }
-  }catch(e){}
-  tbTick[k]=true;
-  if(!tbShown){ tbPlaceholder(); if(tbAllTicked()){ tbPct(); tbRender(); } }
-}
-async function initTodayBar(){ tbShown=false; TB_SRC.forEach(([k])=>tbTick[k]=false); tbPlaceholder(); TB_SRC.forEach(([k])=>tbLoadSource(k)); setTimeout(()=>{ if(!tbShown){ tbPct(); tbRender(); } }, 13000); }
-async function loadTodayBar(refresh){
-  try{ const parts=await Promise.all([tbGet('shopify',false),tbGet('meta',false),tbGet('pos',refresh),tbGet('support',false)]); parts.forEach(tbIngest); tbPct(); tbRender(); if(refresh){ setTimeout(async()=>{ try{ tbIngest(await tbGet('pos',false)); tbPct(); tbRender(); }catch(e){} },7000); } }
-  catch(e){ if(tbShown) tbRender(); }
-}
-setInterval(()=>{ if(!document.hidden) loadTodayBar(); }, 900000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) loadTodayBar(true); });
+
 
 async function enterApp(){
   hide(boot); hide(loginView); show(appView);
@@ -405,7 +348,7 @@ async function enterApp(){
   }catch(_e){ /* fall through to dashboard */ }
   await loadDashboard();
   goDashboard();
-  initTodayBar();
+  if(window.reviveTodayBar) window.reviveTodayBar.start();
 }
 
 /* ===== DASHBOARD ===== */
