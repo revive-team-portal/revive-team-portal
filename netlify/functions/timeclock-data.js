@@ -85,6 +85,11 @@ async function staffByEmail(email) {
   const all = await db('staff?active=eq.true&select=id,name,email,leave_basis,tk_employee_id');
   return (all || []).find(s => String(s.email || '').trim().toLowerCase() === target) || null;
 }
+async function staffByPortalId(uid) {
+  if (!uid) return null;
+  const r = await db('staff?portal_user_id=eq.' + uid + '&active=eq.true&select=id,name,email&limit=1');
+  return (r && r[0]) || null;
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
@@ -100,7 +105,8 @@ exports.handler = async (event) => {
     const sup = await isSupervisor(auth.user.id);
     const prof = await portalProfile(auth.user.id);
     const email = (prof && prof.email) || auth.user.email || null;
-    const me = await staffByEmail(email);
+    // Match staff by portal user id first (bulletproof), then by email.
+    const me = (await staffByPortalId(auth.user.id)) || (await staffByEmail(email));
 
     if (action === 'bootstrap') {
       const [areas, settings] = await Promise.all([
@@ -113,6 +119,7 @@ exports.handler = async (event) => {
       return json(200, {
         me: me ? { id: me.id, name: me.name, email: me.email } : null,
         signed_in_as: email || null,
+        debug_uid: me ? null : (auth.user.id || null),
         is_supervisor: sup, areas, settings,
         my_state: myState, my_last: myLast, staff,
         server_now: new Date().toISOString(),
