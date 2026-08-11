@@ -32,3 +32,7 @@
 
 [functions."timeclock-cleanup"]
   schedule = "0 2 * * *"
+
+# Spam-folder rescue every hour
+[functions."scheduled-spam-check"]
+  schedule = "0 * * * *"
