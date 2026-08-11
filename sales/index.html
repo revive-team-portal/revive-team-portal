@@ -64,16 +64,16 @@
     <main class="flex-1 max-w-[100rem] mx-auto w-full px-4 py-6">
 
       <!-- ===== ANALYTICS BAR ===== -->
-      <div class="flex flex-wrap items-center gap-2 mb-3 bg-white border border-stone-200 rounded-xl px-3 py-2">
+      <div class="flex flex-nowrap items-center gap-2 mb-3 bg-white border border-stone-200 rounded-xl px-3 py-2 overflow-x-auto">
         <button @click="showAnalytics=true" class="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg whitespace-nowrap">📊 Analytics</button>
-        <select v-model="analyticsPreset" @change="setRange(analyticsPreset)" class="border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white">
+        <select v-model="analyticsPreset" @change="setRange(analyticsPreset)" class="border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white shrink-0">
           <option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">This week</option><option value="lastweek">Last week</option><option value="month">This month</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option>
         </select>
         <button @click="setRange('today')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">Today</button>
         <button @click="setRange('yesterday')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">Yesterday</button>
         <button @click="setRange('week')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">This week</button>
         <span class="text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 rounded px-2 py-1 whitespace-nowrap">Total Events: {{ dashTotal }}</span>
-        <span class="hidden md:flex ml-1 flex-wrap gap-x-3 text-xs text-stone-600 items-center">
+        <span class="hidden md:flex ml-1 flex-nowrap gap-x-3 text-xs text-stone-600 items-center shrink-0 whitespace-nowrap">
           <span>📞 Out <b>{{ dashMetrics.phone_out }}</b></span>
           <span>📲 In <b>{{ dashMetrics.phone_in }}</b></span>
           <span>✉ Out <b>{{ dashMetrics.email_out }}</b></span>
@@ -98,7 +98,7 @@
       </div>
 
       <!-- ===== STATUS FILTER ROW (toggle on/off, multi-select) ===== -->
-      <div class="flex flex-wrap items-center gap-2 mb-3">
+      <div class="flex flex-nowrap items-center gap-2 mb-3 overflow-x-auto">
         <button @click="clearStatuses"
           class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="activeStatuses.length===0?'bg-stone-800 text-white border-stone-800':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
@@ -112,7 +112,7 @@
       </div>
 
       <!-- ===== CUSTOMER TYPE FILTER ROW ===== -->
-      <div class="flex flex-wrap items-center gap-2 mb-3">
+      <div class="flex flex-nowrap items-center gap-2 mb-3 overflow-x-auto">
         <button @click="clearTypes"
           class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="activeTypes.length===0?'bg-teal-700 text-white border-teal-700':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
@@ -124,7 +124,7 @@
           {{ t }} <span class="opacity-80">{{ countByType(t) }}</span>
         </button>
       </div>
-      <div class="flex flex-wrap items-center gap-2 mb-4">
+      <div class="flex flex-nowrap items-center gap-2 mb-4 overflow-x-auto">
         <button @click="newEmailsOnly=!newEmailsOnly" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
           :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">📥 New emails {{ newCount }}</button>
         <button @click="actionsOnly=!actionsOnly" title="Show customers with outstanding actions (🔥 due now · 📌 scheduled for later)" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap inline-flex items-center gap-1.5"
