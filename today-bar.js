@@ -11,7 +11,7 @@
   var tick = { shopify: false, meta: false, pos: false, support: false };
   var LIVE = ['shopify_today', 'shopify_week', 'meta_today', 'meta_week', 'orders_to_fulfil', 'orders_fulfilled_today', 'outstanding_tickets'];
 
-  var css = '.rtb-bar{background:#1f6f54;color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
+  var css = '.rtb-bar{background:#16543f;color:#fff;padding:9px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
     + '.rtb-hidden{display:none!important}'
     + '.rtb-seg{background:rgba(255,255,255,.14);border-radius:9px;padding:5px 13px;display:flex;flex-direction:column;line-height:1.12;min-width:58px}'
     + '.rtb-seg.rtb-stale{opacity:.5}'
