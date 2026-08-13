@@ -161,7 +161,8 @@ function panelHTML(id){
   if(id==='settings'){
     return '<h2 class="text-xl font-bold mb-1">Settings</h2><p class="text-stone-500 text-sm mb-4">Best-answer library, reason codes, SLA thresholds, tags, connections, roles.</p>'
       + card('AI reply tone — editable (steers every ✨ draft)', '<textarea id="setTone" rows="6" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')
-      + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')      + card('Analytics targets', '<div class="grid grid-cols-2 gap-2 text-xs"><label>Resolved / day<input id="anaResolved" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Outstanding max<input id="anaOutstanding" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Fulfilled / day<input id="anaFulfilled" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Resends / day<input id="anaResends" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>1st response hours<input id="anaResponse" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label></div>')
+      + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')      + card('Send quality — friendliness gate', '<label class="text-xs text-stone-600">Minimum friendliness score to send (0–10). Replies below this are blocked, lavished up by AI, and returned to review.<input id="setFriendMin" type="number" min="0" max="10" class="w-24 border border-stone-300 rounded px-2 py-1 text-sm block mt-1"></label>')
+      + card('Analytics targets', '<div class="grid grid-cols-2 gap-2 text-xs"><label>Resolved / day<input id="anaResolved" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Outstanding max<input id="anaOutstanding" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Fulfilled / day<input id="anaFulfilled" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Resends / day<input id="anaResends" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>1st response hours<input id="anaResponse" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label></div>')
       + '<div class="mb-4"><button onclick="saveSettings(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save settings</button> <span id="setMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + card('Reason codes (seeded)', '<ul class="list-disc pl-5 text-sm text-stone-600 space-y-1"><li>Delivery — late / lost / damaged / wrong address</li><li>Product — quality / GF-allergen / missing / wrong item</li><li>Order — changed / cancelled / duplicate</li><li>Payment / refund</li><li>Subscription</li><li>Wholesale / enquiry</li><li>General enquiry (no fault)</li></ul>')
       + card('Spam rescue', '<p class="text-xs text-stone-500 mb-2">Legitimate emails caught in Spam are auto-rescued to the inbox every hour. Rescued emails become tickets on the next sync.</p><button onclick="checkSpam(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">Check spam now</button> <span id="spamMsg" class="text-xs text-stone-500 ml-2"></span>')
@@ -448,8 +449,17 @@ async function sendReply(){
   const text=((ta&&ta.value)||'').trim(); if(!text){ if(msg) msg.textContent='Nothing to send.'; return; }
   const to=((((document.getElementById('replyTo')||{}).value)||window.CUR.email||'')).trim();
   if(!to){ if(msg) msg.textContent='No recipient — set the To address.'; return; }
-  if(!confirm('Send this reply to '+to+'?')) return;
-  if(b) b.disabled=true; if(msg) msg.textContent='Sending…';
+  const _min=(window.FRIEND_MIN!=null?window.FRIEND_MIN:8);
+  if(b) b.disabled=true; if(msg) msg.textContent='Checking friendliness…';
+  const fr=await apiPost('support-ai-friendliness',{text});
+  if(fr.ok && fr.data && !isNaN(Number(fr.data.score)) && Number(fr.data.score)<_min){
+    if(b) b.disabled=false;
+    if(ta && fr.data.improved) ta.value=fr.data.improved;
+    if(msg) msg.textContent='Friendliness '+fr.data.score+'/10 (need ≥'+_min+') — lavished it up ✨ review & Send again.';
+    return;
+  }
+  if(!confirm('Send this reply to '+to+'?')){ if(b) b.disabled=false; if(msg) msg.textContent=''; return; }
+  if(msg) msg.textContent='Sending…';
   const r=await apiPost('support-send',{id:window.CUR.id, to, text});
   if(b) b.disabled=false;
   if(!r.ok){ if(msg) msg.textContent=''; alert((r.data&&r.data.error)||'Send failed.'); return; }
@@ -497,12 +507,12 @@ async function addNote(){
 async function loadSettings(){
   const r=await apiPost('support-settings',{}); if(!r.ok) return; const st=r.data.settings||{};
   const tone=document.getElementById('setTone'), foot=document.getElementById('setFooter');
-  if(tone) tone.value=st.ai_tone_prompt||''; if(foot) foot.value=st.reply_footer||''; const per=document.getElementById('setPerish'); if(per) per.value=st.perishable_keywords||''; try{ const tg=JSON.parse(st.analytics_targets||'{}'); const sv=(id,v)=>{ const e=document.getElementById(id); if(e&&v!=null) e.value=v; }; sv('anaResolved',tg.resolved_per_day); sv('anaOutstanding',tg.outstanding_max); sv('anaFulfilled',tg.fulfilled_per_day); sv('anaResends',tg.resends_per_day); sv('anaResponse',tg.response_hours); }catch(e){}
+  if(tone) tone.value=st.ai_tone_prompt||''; if(foot) foot.value=st.reply_footer||''; const per=document.getElementById('setPerish'); if(per) per.value=st.perishable_keywords||''; const fm=document.getElementById('setFriendMin'); if(fm) fm.value=(st.friendliness_min!=null?st.friendliness_min:8); try{ const tg=JSON.parse(st.analytics_targets||'{}'); const sv=(id,v)=>{ const e=document.getElementById(id); if(e&&v!=null) e.value=v; }; sv('anaResolved',tg.resolved_per_day); sv('anaOutstanding',tg.outstanding_max); sv('anaFulfilled',tg.fulfilled_per_day); sv('anaResends',tg.resends_per_day); sv('anaResponse',tg.response_hours); }catch(e){}
 }
 async function saveSettings(btn){
   const tone=(document.getElementById('setTone')||{}).value||''; const footer=(document.getElementById('setFooter')||{}).value||''; const perish=(document.getElementById('setPerish')||{}).value||''; const msg=document.getElementById('setMsg');
   if(btn) btn.disabled=true; if(msg) msg.textContent='Saving…';
-  const gv=(id)=>{ const e=document.getElementById(id); return e&&e.value!==''?Number(e.value):undefined; }; const targets=JSON.stringify({resolved_per_day:gv('anaResolved'),outstanding_max:gv('anaOutstanding'),fulfilled_per_day:gv('anaFulfilled'),resends_per_day:gv('anaResends'),response_hours:gv('anaResponse')}); const r=await apiPost('support-settings',{updates:{ai_tone_prompt:tone, reply_footer:footer, perishable_keywords:perish, analytics_targets:targets}}); window.ANALYTICS_HTML=null;
+  const gv=(id)=>{ const e=document.getElementById(id); return e&&e.value!==''?Number(e.value):undefined; }; const targets=JSON.stringify({resolved_per_day:gv('anaResolved'),outstanding_max:gv('anaOutstanding'),fulfilled_per_day:gv('anaFulfilled'),resends_per_day:gv('anaResends'),response_hours:gv('anaResponse')}); const fmin=(document.getElementById('setFriendMin')||{}).value; const r=await apiPost('support-settings',{updates:{ai_tone_prompt:tone, reply_footer:footer, perishable_keywords:perish, analytics_targets:targets, friendliness_min:(fmin!==''&&fmin!=null?String(fmin):'8')}}); window.ANALYTICS_HTML=null; if(fmin!=='') window.FRIEND_MIN=Number(fmin);
   if(r.ok) window.PERISH_KW=perish.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
   if(btn) btn.disabled=false; if(msg) msg.textContent = r.ok ? 'Saved ✓' : ((r.data&&r.data.error)||'Save failed');
 }
@@ -514,7 +524,7 @@ function inspoPrev(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=(IN
 function inspoInit(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=Math.floor(Date.now()/3600000)%n; inspoRender(); }
 async function loadPerishKw(){
   const r=await apiPost('support-settings',{}); const kw=(r.ok&&r.data.settings&&r.data.settings.perishable_keywords)||'perishable,chilled,frozen,cold,fresh';
-  window.PERISH_KW = kw.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+  window.PERISH_KW = kw.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean); window.FRIEND_MIN = (r.ok&&r.data.settings&&r.data.settings.friendliness_min!=null)?Number(r.data.settings.friendliness_min):8;
 }
 async function checkSpam(btn){ const msg=document.getElementById('spamMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Checking spam…'; const r=await apiPost('support-spam-check',{}); if(btn) btn.disabled=false; if(!r.ok){ if(msg) msg.textContent=(r.data&&r.data.error)||'Failed'; return; } if(msg) msg.textContent='Checked '+(r.data.checked||0)+', rescued '+(r.data.rescued||0)+'.'; }
 async function loadCodes(){
