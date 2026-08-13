@@ -109,8 +109,8 @@ function panelHTML(id){
   if(id==='reports'){
     return '<h2 class="text-xl font-bold mb-1">Reports</h2><p class="text-stone-500 text-sm mb-4">Key support metrics, plus AI commentary from the last 3 months of email.</p>'
       + '<div id="kpiBoxes" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5"><div class="col-span-full text-stone-400 text-sm">Loading metrics…</div></div>'
-      + '<div class="flex items-center gap-2 mb-3"><button onclick="loadAiInsights(this)" class="text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold px-3 py-1.5 rounded-lg">✨ Generate AI insights (scans archive)</button><span id="aiMsg" class="text-xs text-stone-500"></span></div>'
-      + '<div id="aiInsights"></div>';
+      + '<div class="flex items-center gap-2 mb-3"><button onclick="loadAiInsights(this)" class="text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold px-3 py-1.5 rounded-lg">✨ Generate AI insights (scans archive)</button><button onclick="runBenchmark(this)" class="text-xs bg-sky-600 hover:bg-sky-700 text-white font-semibold px-3 py-1.5 rounded-lg">🎯 Benchmark last 20 sent</button><span id="aiMsg" class="text-xs text-stone-500"></span></div>'
+      + '<div id="aiInsights"></div>'+'<div id="benchmark" class="mt-4"></div>';
   }
   if(id==='claims'){
     return '<h2 class="text-xl font-bold mb-1">Resends</h2><p class="text-stone-500 text-sm mb-4">Every order re-sent or with an issue. Set the cause on each; weekly value totals up top.</p><div id="claimsList"><div class="text-stone-400 text-sm">Loading…</div></div>';
@@ -675,6 +675,16 @@ function b64std(x){ x=(''+(x||'')).replace(/-/g,'+').replace(/_/g,'/'); while(x.
 function applyFrames(){ Object.keys(window.MSGHTML||{}).forEach(id=>{ const f=document.getElementById(id); if(!f||f.dataset.done) return; f.dataset.done='1'; f.onload=function(){ try{ const h=f.contentWindow.document.body.scrollHeight; f.style.height=Math.min((h||200)+24,700)+'px'; }catch(e){ f.style.height='340px'; } }; try{ f.srcdoc=window.MSGHTML[id]; }catch(e){} }); }
 async function loadAttachmentImages(){ const q=(window.IMGQ||[]).slice(); window.IMGQ=[]; for(const akey of q){ const a=(window.ATTS||{})[akey]; if(!a||!a.aid) continue; try{ const r=await apiPost('support-attachment',{messageId:a.mid, attachmentId:a.aid}); if(r.ok&&r.data.dataBase64){ const img=document.getElementById(akey); if(img) img.src='data:'+(a.mime||'image/jpeg')+';base64,'+b64std(r.data.dataBase64); } }catch(e){} } }
 async function openAttachment(akey){ const a=(window.ATTS||{})[akey]; if(!a) return; const r=await apiPost('support-attachment',{messageId:a.mid, attachmentId:a.aid}); if(!r.ok){ alert((r.data&&r.data.error)||'Could not open attachment.'); return; } try{ const bin=atob(b64std(r.data.dataBase64)); const arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); const blob=new Blob([arr],{type:a.mime||'application/octet-stream'}); const url=URL.createObjectURL(blob); window.open(url,'_blank'); }catch(e){ alert('Could not open attachment.'); } }
+async function runBenchmark(btn){
+  const el=document.getElementById('benchmark'); if(!el) return;
+  if(btn) btn.disabled=true; el.innerHTML='<div class="text-stone-400 text-sm">Scoring last 20 sent emails…</div>';
+  const r=await apiPost('support-benchmark',{n:20}); if(btn) btn.disabled=false;
+  if(!r.ok){ el.innerHTML='<div class="text-amber-700 text-sm">'+esc((r.data&&r.data.error)||'Benchmark failed.')+'</div>'; return; }
+  const d=r.data; if(!d.count){ el.innerHTML='<div class="text-stone-400 text-sm">No sent emails found.</div>'; return; }
+  const avgHex=d.average>=8?'#16a34a':d.average>=6?'#f59e0b':'#dc2626';
+  const rows=(d.scores||[]).map(x=>'<tr class="border-b border-stone-100"><td class="py-1 pr-2 truncate max-w-[320px]">'+esc(x.subject)+'</td><td class="py-1 font-semibold" style="color:'+(x.score>=8?'#16a34a':x.score>=6?'#f59e0b':'#dc2626')+'">'+(x.score!=null?x.score+'/10':'—')+'</td></tr>').join('');
+  el.innerHTML='<div class="bg-white border border-stone-200 rounded-xl p-4"><div class="flex items-baseline gap-3 mb-2"><div><div class="text-[11px] uppercase tracking-wide text-stone-400">Avg friendliness — last '+d.count+' sent</div><div class="text-3xl font-extrabold" style="color:'+avgHex+'">'+(d.average!=null?d.average:'—')+'<span class="text-base text-stone-400">/10</span></div></div><div class="text-xs text-stone-500">'+(d.below8||0)+' below 8</div></div><table class="w-full text-sm"><tbody>'+rows+'</tbody></table></div>';
+}
 async function loadReports(){
   const el=document.getElementById('kpiBoxes'); if(!el) return;
   const r=await apiPost('support-report',{});
