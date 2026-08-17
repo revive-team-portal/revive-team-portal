@@ -36,10 +36,9 @@ async function accessLevel(userId) {
   const a = await fetch(PORTAL_URL + '/rest/v1/user_app_access?user_id=eq.' + userId + '&app_id=eq.scoreboard&select=role',
     { headers: { apikey: PORTAL_KEY, Authorization: 'Bearer ' + PORTAL_KEY } }).then(r => r.json()).catch(() => []);
   const role = a && a[0] ? (a[0].role || 'team') : null;
-  if (role === 'manager') return 'manager';
-  if (role === 'supervisor') return 'supervisor';
-  if (role) return 'team';
-  return null; // no access row
+  // Any user assigned to the Scoreboard app gets full access to every part.
+  if (role) return 'manager';
+  return null; // no access row = not assigned = no access
 }
 
 // Codes a Team-level (kiosk) session is allowed to see: only what the six public
