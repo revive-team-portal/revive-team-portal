@@ -10,7 +10,7 @@ exports.handler = async (event) => {
   const text = (body.text||'').trim();
   if (!text) return json(400, { error: 'Nothing to polish.' });
   try {
-    const prompt = `Correct spelling and basic grammar in the customer-service reply below. Preserve the meaning, tone, wording, emojis, line breaks and sign-off exactly — only fix genuine errors. Do NOT rewrite, rephrase, add, or remove content. Return ONLY the corrected text, nothing else.\n\n---\n${text}`;
+    const prompt = `Polish this customer-service reply for Revive Cafe so it reads professional, friendly and brief. Fix all spelling and grammar, and smooth any awkward phrasing — the writer may not be a native English speaker, so make it natural, clear and concise while staying warm and polite. Keep ALL facts, order numbers, tracking details, amounts, dates, commitments and the sign-off name identical. Do not add new information. Preserve line breaks. Return ONLY the polished text, nothing else.\n\n---\n${text}`;
     const res = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-api-key':ANTHROPIC_KEY, 'anthropic-version':'2023-06-01' }, body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:1200, messages:[{ role:'user', content: prompt }] }) });
     const d = await res.json().catch(()=>({}));
     if (!res.ok) return json(502, { error: (d&&d.error&&d.error.message)||'Polish failed.' });
