@@ -121,11 +121,9 @@
   .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:60;opacity:0;transition:opacity .2s}
   .toast.show{opacity:.95}
 </style>
-<link rel="stylesheet" href="/chrome.css">
 </head>
 <body>
-<script src="/today-bar.js" defer></script>
-<div id="root"><div class="rv-load"><div class="rv-load__scrim"></div><div class="rv-load__box"><img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe"><p class="rv-load__text">Loading Rostering</p><div class="rv-load__bar"><i></i></div></div></div></div>
+<div id="root"><div class="center"><div class="muted">Loading…</div></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -138,6 +136,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri"];
 const DAY_START=5*60,DAY_END=24*60,SPAN=DAY_END-DAY_START,SNAP=15,MEAL=30,MEAL_MIN=4,REST=10,REST_MIN=2,BAR_W=44;
 const FAMILIES={prod:["#3f7d4e","#5aa06a","#2e6b40","#84c295"],ful:["#d98c3f","#c06f26","#e8ab63","#a85e1d"],kit:["#3a6ea5","#5f92c4","#2b5480","#87addb"],cafe:["#c1493c","#a5352b","#d97064","#8f2b22"],admin:["#7a5ca8","#9a7cc4","#5e4488","#b7a0dd"],other:["#4a9d94","#3a8078","#6bb3aa","#2e625c"]};
+const FAM_LABEL={cafe:"Cafe",kit:"Kitchen",prod:"Production",ful:"Fulfilment / CS",admin:"Admin / odd jobs",other:"Other"};
 const STATUSES=["Draft","Published draft","Published","Revision 1","Revision 2","Revision 3"];
 
 // ================= state =================
@@ -157,7 +156,7 @@ function actById(id){return acts.find(a=>a.id===id)||{name:"?",emoji:"🏷️",c
 function staffById(id){return staff.find(s=>s.id===id)||{first_name:"?"};}
 function staffFirst(id){return staffById(id).first_name;}
 function shiftTarget(b){const a=actById(b.act);if(a.kind!=="variable"||!a.units_per_hour)return "";return Math.round(a.units_per_hour*paidDur(b))+" "+(a.unit||"");}
-function blockLabel(b){const fn=staffFirst(b.sid);const base=b.label?fn+" · "+b.label:fn;if(b.sick)return base+" · COVER";const tg=shiftTarget(b);return tg?base+" · "+tg:base;}
+function blockLabel(b){const fn=staffFirst(b.sid);const base=b.label?fn+" · "+b.label:fn;if(b.sick)return base+" · COVER";return base;}
 function staffHours(w,sid){return w.blocks.filter(b=>b.sid===sid).reduce((a,b)=>a+paidDur(b),0);}
 function dayHours(w,day){return w.blocks.filter(b=>b.day===day).reduce((a,b)=>a+paidDur(b),0);}
 function rosteredHours(w){return w.blocks.reduce((a,b)=>a+paidDur(b),0);}
@@ -171,7 +170,7 @@ function totalFixed(){return fixedActs().reduce((a,f)=>a+(f.weekly_hours||0),0);
 function targetHours(w){return totalRequired(w)+totalFixed();}
 function planHours(w,a){return a.kind==="variable"?(a.units_per_hour>0?(w.demand[a.id]||0)/a.units_per_hour:0):(a.weekly_hours||0);}
 function prevWeekOf(w){const i=weeks.findIndex(x=>x.id===w.id);return i>0?weeks[i-1]:null;}
-function weekEnding(w){const d=new Date(w.start+"T00:00");d.setDate(d.getDate()+5);return d.toISOString().slice(0,10);}
+function weekEnding(w){const d=new Date(w.start+"T00:00");d.setDate(d.getDate()+((5-d.getDay()+7)%7));return d.toISOString().slice(0,10);}
 function isLive(w){return w.status!=="Draft";}
 function normalizeBreaks(w){w.blocks.forEach(b=>{const rawMin=rawDur(b)*60,S=t2m(b.s),F=t2m(b.f);
   if(rawDur(b)>MEAL_MIN&&!b.noBreak&&!b.sick){if(!b.brk)b.brk={at:Math.round((S+rawMin*0.6-MEAL/2)/SNAP)*SNAP,len:MEAL};b.brk.len=Math.max(15,Math.min(b.brk.len,rawMin-15));b.brk.at=Math.max(S,Math.min(F-b.brk.len,b.brk.at));}else b.brk=null;
@@ -245,11 +244,11 @@ async function signOut(){await sb.auth.signOut();location.href="/";}
 
 function renderShell(){
   document.getElementById("root").innerHTML=`
-  <header class="app rv-nav"><div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Rostering</span></div><div class="spacer"></div>
+  <header class="app"><h1>📅 Rostering</h1><span class="tag">Revive</span><div class="spacer"></div>
     <div class="modewrap"><button id="mPlan" class="active" onclick="setMode('plan')">Planner</button>
     <button id="mSettings" onclick="setMode('settings')">Settings</button>
     <button id="mPublic" onclick="setMode('public')">Public view</button></div>
-    <a class="rv-portal" href="/" style="margin-left:14px">&larr; Main Portal</a>
+    <a class="back" href="/" style="margin-left:14px">← Portal</a>
     <a class="back" href="#" onclick="signOut();return false" style="margin-left:14px">Sign out</a>
   </header>
   <div class="wrap">
@@ -282,8 +281,8 @@ function plannerHTML(){return `
   <div class="planner-grid">
     <div class="card timeline"><div class="flex-between"><h3 style="margin:0">Timeline</h3><span class="sub" style="margin:0">5am–midnight · drag to arrange · ❌ paint · 🍽️ unpaid meal break</span></div>
       <div class="tablewrap"><div class="boardV" id="board"></div></div></div>
-    <div class="card job"><h3>Hours by job &amp; weekly targets</h3><div class="tablewrap">
-      <table class="mini"><thead><tr><th>Job</th><th class="num">Target</th><th class="num">Plan hrs</th><th class="num">Roster</th><th class="num">+/-</th></tr></thead>
+    <div class="card job"><h3>Hours by area</h3><div class="tablewrap">
+      <table class="mini"><thead><tr><th>Area</th><th class="num">Hours</th></tr></thead>
       <tbody id="jobTable"></tbody><tfoot id="jobFoot"></tfoot></table></div></div>
     <div class="card emp"><div class="flex-between"><h3 style="margin:0">Employee details</h3><button class="btn ghost small" id="revealBtn" onclick="revealPay()">👁 Reveal pay (20s)</button></div>
       <div class="tablewrap"><table class="mini"><thead><tr><th>Person</th><th class="num">Roster</th><th class="num">Min</th><th class="num">Max</th><th class="num">Rate</th><th class="num">Week $</th></tr></thead>
@@ -312,14 +311,16 @@ function renderPlanner(){const w=wk(activeWeek);if(!w){document.getElementById("
 async function onWeekMeta(){const w=wk(activeWeek);const fri=document.getElementById("weekStart").value;if(fri){const d=new Date(fri+"T00:00");d.setDate(d.getDate()-5);w.start=d.toISOString().slice(0,10);}w.budget=+document.getElementById("weekBudget").value||0;await saveWeek(w);renderWeekTabsGeneric("weektabs",id=>{activeWeek=id;renderPlanner();},null,activeWeek);renderStats();}
 
 function renderBoard(){const w=wk(activeWeek);normalizeBreaks(w);const board=document.getElementById("board");board.innerHTML="";const gutter=document.createElement("div");gutter.className="gutter";let gb=`<div class="gh"></div><div class="gbody">`;for(let h=5;h<=24;h++){const pct=(h*60-DAY_START)/SPAN*100;const hr=h%24;gb+=`<span style="top:${pct}%">${(hr%12)||12}${hr<12?'a':'p'}</span>`;}gb+=`</div><div class="gf"></div>`;gutter.innerHTML=gb;board.appendChild(gutter);
-  let Ncol=1;const layout=[];for(let d=0;d<6;d++){const bl=w.blocks.filter(b=>b.day===d);const L=packColumns(bl);layout[d]=L;Ncol=Math.max(Ncol,L.ncol);}
+  const staffIdx=id=>{const i=staff.findIndex(s=>s.id===id);return i<0?9998:i;};
+  let Ncol=1;const dayIds=[];for(let d=0;d<6;d++){const ids=[...new Set(w.blocks.filter(b=>b.day===d).map(b=>b.sid||''))].sort((a,b)=>(a===''?9999:staffIdx(a))-(b===''?9999:staffIdx(b)));dayIds[d]=ids;Ncol=Math.max(Ncol,ids.length);}
   const colW=Math.max(Ncol*BAR_W,156);
   for(let d=0;d<6;d++){const col=document.createElement("div");col.className="daycol";col.style.flex="0 0 auto";col.style.width=colW+"px";
     const isHol=(w.holidays||[]).includes(d);
     col.innerHTML=`<div class="dayhead">${DAYS[d]} <button class="dayctl" title="Copy day" onclick="copyDay(${d})">⧉</button>${dayClip?`<button class="dayctl" title="Paste day here" onclick="pasteDay(${d})">📋</button>`:""}<button class="dayctl" title="Clear day" onclick="clearDay(${d})">🧹</button><button class="dayctl" title="${isHol?'Remove holiday':'Mark as holiday'}" onclick="toggleHoliday(${d})">${isHol?'✖':'🏖'}</button></div>`;
-    const dbody=document.createElement("div");dbody.className="daybody"+(isHol?" holiday":"");dbody.dataset.day=d;
+    const dbody=document.createElement("div");dbody.className="daybody"+(isHol?" holiday":"");dbody.dataset.day=d;dbody.dataset.ids=JSON.stringify(dayIds[d]);
     if(isHol)dbody.innerHTML=`<div class="dayhol">HOLIDAY</div>`;
-    const {colOf}=layout[d];w.blocks.filter(b=>b.day===d).forEach(b=>dbody.appendChild(makeBlock(b,colOf[b.id],Ncol)));
+    const ids=dayIds[d];const colOf={};ids.forEach((id,i)=>colOf[id]=i);
+    w.blocks.filter(b=>b.day===d).forEach(b=>dbody.appendChild(makeBlock(b,colOf[b.sid||'']||0,Ncol)));
     dbody.addEventListener("pointerdown",onDayPointerDown);col.appendChild(dbody);
     const foot=document.createElement("div");foot.className="dayfoot";foot.textContent=dayHours(w,d).toFixed(1)+"h";col.appendChild(foot);board.appendChild(col);}}
 function makeBlock(b,col,ncol){const a=actById(b.act);const el=document.createElement("div");el.className="vblk";el.style.background=a.color;el.style.left=(col*BAR_W+1)+"px";el.style.width=(BAR_W-3)+"px";el.style.top=((t2m(b.s)-DAY_START)/SPAN*100)+"%";el.style.height=(rawDur(b)*60/SPAN*100)+"%";if(b.sick)el.classList.add("sick");if(b.id===selectedBid)el.classList.add("sel");el.title=`${staffFirst(b.sid)} · ${a.name}: ${fmtT(b.s)}–${fmtT(b.f)}`;el.innerHTML=`<div class="lbl">${b.sick?"🤒 ":""}${a.emoji} ${blockLabel(b)}</div>`+(b.sick?`<div class="sickov"></div>`:"")+breakHtml(b)+`<div class="rzv"></div>`;el.dataset.bid=b.id;el.addEventListener("pointerdown",onBlockPointerDown);el.addEventListener("contextmenu",onBlockContext);const be=el.querySelector(".brk");if(be)be.addEventListener("pointerdown",onBreakPointerDown);return el;}
@@ -359,14 +360,14 @@ function paintLabel(){if(!paint)return"";if(paint.kind==='act'){const a=actById(
 function renderPaintBanner(){let el=document.getElementById("paintBanner");if(!paint){if(el)el.remove();document.body.classList.remove("painting");return;}if(!el){el=document.createElement("div");el.id="paintBanner";el.className="paintbanner";document.body.appendChild(el);}el.innerHTML=`❌ Painting <b>${paintLabel()}</b> — click shifts to apply <button class="btn ghost small" onclick="setPaint(null)">Stop</button>`;document.body.classList.add("painting");}
 async function applyPaint(bid){const w=wk(activeWeek);const b=w.blocks.find(z=>z.id===bid);if(!b)return;if(paint.kind==='act')b.act=paint.id;else b.sid=paint.id;await saveShift(b);renderPlanner();}
 async function onDayPointerDown(e){if(e.button!==0)return;if(e.target.classList.contains("vblk")||e.target.classList.contains("rzv")||e.target.classList.contains("lbl")||e.target.classList.contains("brk")||e.target.classList.contains("rest"))return;const body=e.currentTarget;const day=+body.dataset.day;const rect=body.getBoundingClientRect();let mins=DAY_START+(e.clientY-rect.top)/rect.height*SPAN;mins=Math.round(mins/SNAP)*SNAP;let s=Math.max(DAY_START,Math.min(DAY_END-120,mins));const w=wk(activeWeek);
-  let sid=null,act=(variableActs()[0]||acts[0]).id;
+  const col=Math.floor((e.clientX-rect.left)/BAR_W);const cids=JSON.parse(body.dataset.ids||"[]");const colSid=(col>=0&&col<cids.length)?cids[col]:'';
+  let sid=colSid||null,act=(variableActs()[0]||acts[0]).id;
+  if(sid)act=staffDefaultAct(staffById(sid))||act;
   if(paint&&paint.kind==='staff'){sid=paint.id;act=staffDefaultAct(staffById(paint.id))||act;}
   else if(paint&&paint.kind==='act'){act=paint.id;}
   const nb={week_id:w.id,sid,act,day,s:m2t(s),f:m2t(s+120),label:null,brk:null,rest:null,noBreak:false,noRest:false,sick:false};normalizeBreaks({blocks:[nb]});await addShiftRow(nb);w.blocks.push(nb);renderPlanner();}
 
-function renderJobPanel(){const w=wk(activeWeek);const jb=document.getElementById("jobTable");jb.innerHTML="";let tPlan=0,tRos=0;variableActs().forEach(t=>{const plan=planHours(w,t),ros=actHours(w,t.id),diff=ros-plan;tPlan+=plan;tRos+=ros;const tr=document.createElement("tr");tr.innerHTML=`<td>${ros>=plan-1e-9?'✅':'⚠️'} ${t.emoji} ${t.name}<div class="muted" style="font-size:10.5px">${t.units_per_hour} ${t.unit}/hr</div></td><td class="num"><input type="number" style="width:78px" value="${w.demand[t.id]||0}" onchange="setDemand('${t.id}',this.value)"> <span class="muted" style="font-size:10px">${t.unit}</span></td><td class="num">${plan.toFixed(1)}</td><td class="num">${ros.toFixed(1)}</td><td class="num ${diff<0?'over':''}">${diff>=0?'+':''}${diff.toFixed(1)}</td>`;jb.appendChild(tr);});const sep=document.createElement("tr");sep.className="sep";sep.innerHTML=`<td colspan="5">Fixed roles</td>`;jb.appendChild(sep);fixedActs().forEach(f=>{const plan=planHours(w,f),ros=actHours(w,f.id),diff=ros-plan;tPlan+=plan;tRos+=ros;const tr=document.createElement("tr");tr.innerHTML=`<td>${ros>=plan-1e-9?'✅':'⚠️'} ${f.emoji} ${f.name}</td><td class="num muted">${f.weekly_hours||0}h/wk</td><td class="num">${plan.toFixed(1)}</td><td class="num">${ros.toFixed(1)}</td><td class="num ${diff<0?'over':''}">${diff>=0?'+':''}${diff.toFixed(1)}</td>`;jb.appendChild(tr);});
-  const oa=otherActs();if(oa.length){const sp2=document.createElement("tr");sp2.className="sep";sp2.innerHTML=`<td colspan="5">Other tasks (not totalled)</td>`;jb.appendChild(sp2);oa.forEach(o=>{const ros=actHours(w,o.id);tRos+=ros;const tr=document.createElement("tr");tr.innerHTML=`<td>${o.emoji} ${o.name}</td><td class="num muted">—</td><td class="num muted">—</td><td class="num">${ros.toFixed(1)}</td><td class="num muted">—</td>`;jb.appendChild(tr);});}
-  document.getElementById("jobFoot").innerHTML=`<tr class="totrow"><td>Total</td><td></td><td class="num">${tPlan.toFixed(1)}</td><td class="num">${tRos.toFixed(1)}</td><td class="num">${(tRos-tPlan>=0?'+':'')}${(tRos-tPlan).toFixed(1)}</td></tr>`;}
+function renderJobPanel(){const w=wk(activeWeek);const jb=document.getElementById("jobTable");jb.innerHTML="";const byFam={};w.blocks.forEach(b=>{const a=actById(b.act);const fam=a.family||'admin';byFam[fam]=(byFam[fam]||0)+paidDur(b);});const order=['cafe','kit','prod','ful','admin','other'];let tot=0;order.forEach(fam=>{const h=byFam[fam]||0;if(h<=0)return;tot+=h;const col=(FAMILIES[fam]||FAMILIES.admin)[0];const tr=document.createElement("tr");tr.innerHTML=`<td><span class="chip" style="background:${col}"></span> ${FAM_LABEL[fam]||fam}</td><td class="num">${h.toFixed(1)}</td>`;jb.appendChild(tr);});document.getElementById("jobFoot").innerHTML=`<tr class="totrow"><td>Total</td><td class="num">${tot.toFixed(1)}</td></tr>`;}
 async function setDemand(aid,val){const w=wk(activeWeek);w.demand[aid]=+val||0;await saveDemand(w.id,aid,w.demand[aid]);renderJobPanel();renderStats();}
 function renderEmployeePanel(){const w=wk(activeWeek);const pt=document.getElementById("personTable");pt.innerHTML="";const hide=`<span class="money-hidden">•••</span>`;let totPay=0;staff.filter(s=>s.active!==false||staffHours(w,s.id)>0).forEach(s=>{const h=staffHours(w,s.id);const pay=h*s.rate;totPay+=pay;let cls="";if(s.max_hours!=null&&h>s.max_hours+1e-9)cls="over";else if(s.min_hours!=null&&h<s.min_hours-1e-9)cls="warnunder";const okIcon=cls===""?'✅':'⚠️';const pbon=paint&&paint.kind==='staff'&&paint.id===s.id?'on':'';const tr=document.createElement("tr");tr.innerHTML=`<td>${okIcon} ${s.first_name} <span class="tbadge">${typeBadge(s)}</span> ${actChip(staffDefaultAct(s))}${s.active===false?' <span class="muted" style="font-size:9px">(inactive)</span>':''} <span class="paintbtn ${pbon}" title="Paint this person onto shifts" onclick="setPaint('staff','${s.id}')">❌</span></td><td class="num ${cls}">${h.toFixed(1)}</td><td class="num muted">${s.min_hours!=null?s.min_hours:'—'}</td><td class="num muted">${s.max_hours!=null?s.max_hours:'—'}</td><td class="num">${payRevealed?'$'+s.rate:hide}</td><td class="num">${payRevealed?money(pay):hide}</td>`;pt.appendChild(tr);});document.getElementById("personFoot").innerHTML=`<tr class="totrow"><td>Total</td><td class="num">${rosteredHours(w).toFixed(1)}</td><td></td><td></td><td></td><td class="num">${payRevealed?money(totPay):hide}</td></tr>`;const rb=document.getElementById("revealBtn");if(rb)rb.textContent=payRevealed?"🙈 Hide pay":"👁 Reveal pay (20s)";}
 function revealPay(){payRevealed=!payRevealed;if(payTimer){clearTimeout(payTimer);payTimer=null;}if(payRevealed)payTimer=setTimeout(()=>{payRevealed=false;renderEmployeePanel();},20000);renderEmployeePanel();}
@@ -457,7 +458,7 @@ async function bootPublic(weekParam){
       grid+=`</div></div>`;body=grid;
     }
     root.innerHTML=`<div class="wrap pubwrap">
-      <div class="pubhead"><img src="/assets/revive-logo.png" class="publogo"><h2>Revive — Weekly Roster</h2><div style="margin-top:4px;opacity:.9">Week ending ${fmtDate(weekEnding(w))} · ${w.status}</div></div>
+      <div class="pubhead"><img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="publogo"><h2>Revive — Weekly Roster</h2><div style="margin-top:4px;opacity:.9">Week ending ${fmtDate(weekEnding(w))} · ${w.status}</div></div>
       <div class="weektabs">${wkTabs}</div>
       <div class="card"><div class="row" style="align-items:center;gap:10px"><label style="margin:0">Show</label><select id="pubWho" onchange="__pubWho(this.value)" style="max-width:220px">${nameOpts}</select><button class="btn ghost small" onclick="__pubFav()">★ Make my default</button></div></div>
       ${body}
