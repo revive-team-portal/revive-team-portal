@@ -9,7 +9,7 @@
   var store = {}, stamp = {}, shown = false;
   var SRC = [['shopify', 'Shopify'], ['meta', 'Meta'], ['pos', 'POS'], ['support', 'Support']];
   var tick = { shopify: false, meta: false, pos: false, support: false };
-  var LIVE = ['shopify_today', 'shopify_week', 'meta_today', 'meta_week', 'orders_to_fulfil', 'orders_fulfilled_today', 'outstanding_tickets'];
+  var LIVE = ['shopify_today', 'shopify_week', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'orders_to_fulfil', 'orders_fulfilled_today', 'outstanding_tickets'];
 
   var css = '.rtb-bar{background:#16543f;color:#fff;padding:9px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
     + '.rtb-hidden{display:none!important}'
@@ -56,6 +56,8 @@
     if (store.shopify_today != null) h += box('Shopify today', money0(store.shopify_today), 'shopify_today');
     if (store.shopify_week != null) h += box('Shopify this week', money0(store.shopify_week), 'shopify_week');
     if (store.meta_today != null) h += box('Meta spend today', money0(store.meta_today) + (store.meta_today_pct != null ? ' · ' + store.meta_today_pct + '%' : ''), 'meta_today');
+    if (store.meta_acq_today != null) h += box('Acq today', (Math.round(store.meta_acq_today) || 0).toLocaleString(), 'meta_acq_today');
+    if (store.meta_cpa_today != null) h += box('CPA', money0(store.meta_cpa_today), 'meta_cpa_today');
     if (store.meta_week != null) h += box('Meta spend this week', money0(store.meta_week) + (store.meta_week_pct != null ? ' · ' + store.meta_week_pct + '%' : ''), 'meta_week');
     if (store.orders_to_fulfil != null) h += box('To fulfil', (store.orders_to_fulfil || 0).toLocaleString(), 'orders_to_fulfil');
     if (store.orders_fulfilled_today != null) h += box('Fulfilled today', (store.orders_fulfilled_today || 0).toLocaleString(), 'orders_fulfilled_today');

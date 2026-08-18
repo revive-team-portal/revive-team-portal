@@ -53,6 +53,22 @@ async function syncMeta(start, end) {
   await appsDb("integration?name=eq.Meta", { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_success: new Date().toISOString(), last_error: null, note: 'sync ' + new Date().toISOString() + ' weeks=' + written.length }) }).catch(() => {});
   return { days: days.length, weeks: written.length, sample: wk[weekEndFri(end)] };
 }
+async function metaInsightsRange(since, until) {
+  if (!TOKEN) throw new Error('missing META_ACCESS_TOKEN');
+  const url = GRAPH + '/' + ACCT + '/insights?level=account&fields=spend,actions'
+    + '&time_range=' + encodeURIComponent(JSON.stringify({ since, until }))
+    + '&access_token=' + encodeURIComponent(TOKEN);
+  const res = await fetch(url); const j = await res.json().catch(() => ({}));
+  if (j.error) throw new Error('Meta ' + String(j.error.message || '').slice(0, 160));
+  const row = (j.data && j.data[0]) || {};
+  const spend = Number(row.spend || 0);
+  const acts = row.actions || [];
+  const A = t => { const x = acts.find(a => a.action_type === t); return x ? (Number(x.value) || 0) : 0; };
+  // "Acquisition" = a purchase. omni_purchase matches Ads Manager "Purchases";
+  // fall back to pixel/standard purchase if omni is absent.
+  const acq = A('omni_purchase') || A('purchase') || A('offsite_conversion.fb_pixel_purchase');
+  return { spend, acq };
+}
 async function spendRange(since, until) {
   if (!TOKEN) throw new Error('missing META_ACCESS_TOKEN');
   const url = GRAPH + '/' + ACCT + '/insights?level=account&fields=spend'
@@ -72,4 +88,4 @@ async function metaAccountTz() {
   } catch (e) { _acctTz = 'Etc/GMT+12'; }
   return _acctTz;
 }
-module.exports = { syncMeta, spendRange, metaAccountTz };
+module.exports = { syncMeta, spendRange, metaInsightsRange, metaAccountTz };
