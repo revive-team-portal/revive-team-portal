@@ -54,6 +54,11 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'start and end required as YYYY-MM-DD' };
   }
   const jobId = q.job_id || '72232';
+  if (q.debug) {
+    try { const b = await tkGet('/' + (q.debug === '1' ? 'employees' : q.debug) + '?page=1');
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b).slice(0, 3000) }; }
+    catch (e) { return { statusCode: 200, body: 'ERR ' + String(e.message || e) }; }
+  }
 
   try {
     const names = await employeeNames();
