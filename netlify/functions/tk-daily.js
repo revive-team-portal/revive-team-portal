@@ -18,9 +18,13 @@ async function tkGet(path) {
 }
 
 // TK wraps list payloads as { <key>: { <key>: [...], total_pages, page } }
+// TK is inconsistent: /employees returns { page, employees: [...] } while
+// /time-entries returns { time_entries: { time_entries: [...], total_pages } }.
 function unwrap(body, key) {
-  const box = body && body[key] ? body[key] : body || {};
-  return { rows: box[key] || box.results || [], total: box.total_pages || 1 };
+  const b = body || {};
+  if (Array.isArray(b[key])) return { rows: b[key], total: b.total_pages || 1 };
+  const box = b[key] || {};
+  return { rows: box[key] || box.results || [], total: box.total_pages || b.total_pages || 1 };
 }
 
 async function pageAll(path, key) {
@@ -54,11 +58,6 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'start and end required as YYYY-MM-DD' };
   }
   const jobId = q.job_id || '72232';
-  if (q.debug) {
-    try { const b = await tkGet('/' + (q.debug === '1' ? 'employees' : q.debug) + '?page=1');
-      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b).slice(0, 3000) }; }
-    catch (e) { return { statusCode: 200, body: 'ERR ' + String(e.message || e) }; }
-  }
 
   try {
     const names = await employeeNames();
