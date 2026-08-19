@@ -123,9 +123,10 @@
   .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:60;opacity:0;transition:opacity .2s}
   .toast.show{opacity:.95}
 </style>
+<link rel="stylesheet" href="/chrome.css">
 </head>
 <body>
-<div id="root"><div class="center"><div class="muted">Loading…</div></div></div>
+<div id="root"><div class="rv-load"><div class="rv-load__scrim"></div><div class="rv-load__box"><img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe"><p class="rv-load__text">Loading Rostering</p><div class="rv-load__bar"><i></i></div></div></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -245,11 +246,11 @@ async function signOut(){await sb.auth.signOut();location.href="/";}
 
 function renderShell(){
   document.getElementById("root").innerHTML=`
-  <header class="app"><h1>📅 Rostering</h1><span class="tag">Revive</span><div class="spacer"></div>
+  <header class="app rv-nav"><div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Rostering</span></div><div class="spacer"></div>
     <div class="modewrap"><button id="mPlan" class="active" onclick="setMode('plan')">Planner</button>
     <button id="mSettings" onclick="setMode('settings')">Settings</button>
     <button id="mPublic" onclick="setMode('public')">Public view</button></div>
-    <a class="back" href="/" style="margin-left:14px">← Portal</a>
+    <a class="rv-portal" href="/" style="margin-left:14px">&larr; Main Portal</a>
     <a class="back" href="#" onclick="signOut();return false" style="margin-left:14px">Sign out</a>
   </header>
   <div class="wrap">
@@ -477,7 +478,7 @@ async function bootPublic(weekParam){
       grid+=`</div></div>`;body=grid;
     }
     root.innerHTML=`<div class="wrap pubwrap">
-      <div class="pubhead"><img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_240x.png?v=1626572048" class="publogo"><h2>Revive — Weekly Roster</h2><div style="margin-top:4px;opacity:.9">Week ending ${fmtDate(weekEnding(w))} · ${w.status}</div></div>
+      <div class="pubhead"><img src="/assets/revive-logo.png" class="publogo"><h2>Revive — Weekly Roster</h2><div style="margin-top:4px;opacity:.9">Week ending ${fmtDate(weekEnding(w))} · ${w.status}</div></div>
       <div class="weektabs">${wkTabs}</div>
       <div class="card"><div class="row" style="align-items:center;gap:10px"><label style="margin:0">Show</label><select id="pubWho" onchange="__pubWho(this.value)" style="max-width:220px">${nameOpts}</select><button class="btn ghost small" onclick="__pubFav()">★ Make my default</button></div></div>
       ${body}
