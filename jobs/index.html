@@ -106,6 +106,7 @@
     <div class="jobs-subbar">
       <button @click="view='dashboard'" :class="{ active: view==='dashboard' }">Jobs Dashboard</button>
       <button @click="startNewJob" :class="{ active: view==='edit-job' && !editingJob.id }">Post New Job</button>
+      <button @click="openConnections()" :class="{ active: view==='connections' }">Connections</button>
       <button @click="view='settings'" :class="{ active: view==='settings' }">Settings</button>
       <span class="spacer"></span>
       <button class="signout" @click="logout">Sign Out</button>
@@ -415,6 +416,12 @@
                     Upload doc
                   </button>
                 </div>
+
+                <button @click.stop="addToConnections(app)" :disabled="savingConnection===app.id"
+                  class="w-full mt-1.5 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors border disabled:opacity-50"
+                  :class="app.in_connections ? 'text-gray-400 border-gray-200 bg-gray-50' : 'text-indigo-600 border-indigo-200 hover:bg-indigo-50'">
+                  {{ app.in_connections ? '\u2713 In Connections' : (savingConnection===app.id ? 'Adding\u2026' : '+ Add to Connections') }}
+                </button>
 
                 <button @click.stop="deleteApplication(app)" title="Delete application"
                   class="mt-auto self-end text-gray-300 hover:text-red-500 p-1.5 rounded-lg border border-gray-200 hover:border-red-200 transition-colors">
@@ -907,6 +914,96 @@
 
       </div><!-- end settings -->
 
+      <!-- ===== CONNECTIONS ===== -->
+      <div v-if="view==='connections'" class="p-6">
+        <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <h1 class="text-2xl font-extrabold text-gray-900">Connections</h1>
+            <p class="text-gray-500 text-sm">People worth keeping in mind for future roles. {{ connections.length }} on file.</p>
+          </div>
+          <button @click="startNewConnection"
+            class="bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm">
+            + Add Manually
+          </button>
+        </div>
+
+        <input v-model="connectionSearch" placeholder="Search name, email, role, company or country&#8230;"
+          class="w-full max-w-xl border border-gray-200 rounded-lg px-4 py-2.5 text-sm mb-5 focus:outline-none focus:ring-1 focus:border-brand">
+
+        <div v-if="loadingConnections" class="text-center py-12">
+          <div class="inline-block w-8 h-8 border-4 rounded-full animate-spin" style="border-color:#40d134;border-top-color:transparent;"></div>
+        </div>
+        <div v-else-if="!filteredConnections.length" class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200">
+          <p class="text-gray-500">{{ connections.length ? 'Nobody matches that search.' : 'No connections yet — add someone from an applicant tile, or manually.' }}</p>
+        </div>
+
+        <div v-else class="space-y-3">
+          <div v-for="c in filteredConnections" :key="c.id" class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+
+              <div class="md:col-span-4 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-bold text-gray-900 text-base">{{ c.full_name }}</span>
+                  <span v-if="c.source === 'manual'" class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">Added manually</span>
+                </div>
+                <div class="mt-1 space-y-0.5 text-xs text-gray-500">
+                  <div v-if="c.email" class="truncate">{{ c.email }}</div>
+                  <div v-if="c.phone">{{ c.phone }}</div>
+                  <div v-if="c.location">{{ c.location }}</div>
+                  <div v-if="realValue(c.nationality)">Nationality: {{ c.nationality }}</div>
+                  <div v-if="realValue(c.visa_type)">Visa: {{ c.visa_type }}</div>
+                  <div v-if="realValue(c.countries_worked)">Worked in: {{ c.countries_worked }}</div>
+                </div>
+              </div>
+
+              <div class="md:col-span-5 min-w-0 md:border-l md:border-gray-100 md:pl-4">
+                <p v-if="c.applied_job_title" class="text-xs text-gray-500 mb-1.5">
+                  Applied for <span class="font-semibold text-gray-700">{{ c.applied_job_title }}</span>
+                  <span v-if="c.applied_at"> &middot; {{ formatFullDate(c.applied_at) }}</span>
+                </p>
+                <div v-if="recentJobs(c).length" class="mb-2">
+                  <div v-for="(j, ji) in recentJobs(c)" :key="ji" class="text-xs leading-snug">
+                    <span class="text-gray-700 font-medium">{{ jobLine(j) }}</span>
+                    <span v-if="jobMeta(j)" class="text-gray-400"> &middot; {{ jobMeta(j) }}</span>
+                  </div>
+                </div>
+                <p v-if="c.cv_summary" class="text-xs text-gray-600 leading-relaxed">{{ excerpt(c.cv_summary, 220) }}</p>
+                <textarea :value="c.notes || ''" @input="c.notes = $event.target.value" @blur="saveConnectionNote(c)"
+                  rows="1" placeholder="Notes&#8230;"
+                  class="w-full mt-2 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-1 focus:border-brand resize-none"
+                  @focus="$event.target.rows=3" @blur.capture="$event.target.rows=1"></textarea>
+              </div>
+
+              <div class="md:col-span-3 min-w-0 md:border-l md:border-gray-100 md:pl-4 flex flex-col">
+                <div class="flex items-start gap-4 mb-2">
+                  <div v-if="c.suitability_score" class="text-center">
+                    <div class="text-xs text-gray-400 mb-0.5">Fit</div>
+                    <span class="score-badge" :style="scoreStyle(c.suitability_score)">{{ c.suitability_score }}</span>
+                  </div>
+                  <div v-if="c.ai_score" class="text-center">
+                    <div class="text-xs text-gray-400 mb-0.5">Human</div>
+                    <span class="score-badge" :style="aiScoreStyle(c.ai_score)">{{ c.ai_score }}</span>
+                  </div>
+                </div>
+                <div class="space-y-1.5">
+                  <button v-for="(doc, di) in docsFor(c)" :key="di" @click="openDoc(c, doc)"
+                    class="w-full flex items-center gap-1.5 text-brand hover:text-brand-dark font-semibold bg-brand-pale hover:bg-green-100 px-2.5 py-1.5 rounded-lg transition-colors text-xs">
+                    <span class="truncate">{{ doc.filename }}</span>
+                  </button>
+                  <p v-if="!docsFor(c).length" class="text-xs text-gray-300 italic">No documents</p>
+                </div>
+                <p class="text-xs text-gray-400 mt-2">Added {{ formatFullDate(c.added_at) }}</p>
+                <button @click="deleteConnection(c)" title="Remove from connections"
+                  class="mt-auto self-end text-gray-300 hover:text-red-500 p-1.5 rounded-lg border border-gray-200 hover:border-red-200 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div><!-- end connections -->
+
     </main>
   </div>
 
@@ -1002,6 +1099,54 @@
         <button @click="submitAddApplicant" :disabled="addingApplicant"
           class="px-5 py-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-semibold disabled:opacity-50">
           {{ addingApplicant ? 'Adding…' : 'Add Applicant' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Connection Manually -->
+  <div v-if="showAddConnection" class="modal-overlay" @click.self="showAddConnection=false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
+      <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-900">Add a Connection</h2>
+        <button @click="showAddConnection=false" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">Full Name *</label>
+          <input v-model="connForm.full_name" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-semibold text-gray-600 block mb-1">Email</label>
+            <input v-model="connForm.email" type="email" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+          <div><label class="text-xs font-semibold text-gray-600 block mb-1">Phone</label>
+            <input v-model="connForm.phone" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-semibold text-gray-600 block mb-1">Last Company</label>
+            <input v-model="connForm.last_company" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+          <div><label class="text-xs font-semibold text-gray-600 block mb-1">Last Position</label>
+            <input v-model="connForm.last_position" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand"></div>
+        </div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">Notes</label>
+          <textarea v-model="connForm.notes" rows="3" placeholder="Where you met them, what they do, why they're worth remembering&#8230;"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand resize-none"></textarea></div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">CV / Document</label>
+          <div v-if="connFile" class="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+            <span class="text-sm text-gray-700 truncate flex-1">{{ connFile.name }}</span>
+            <button @click="clearConnFile" class="text-xs text-gray-400 hover:text-red-500 font-semibold shrink-0">Remove</button>
+          </div>
+          <button v-else @click="pickConnFile"
+            class="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 hover:border-brand text-gray-500 hover:text-brand rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors">
+            Choose a file
+          </button>
+          <input type="file" ref="connFileInput" @change="onConnFileChosen" class="hidden" accept=".pdf,.doc,.docx">
+        </div>
+        <p v-if="connError" class="text-red-600 text-xs">{{ connError }}</p>
+      </div>
+      <div class="p-6 border-t border-gray-100 flex justify-end gap-3">
+        <button @click="showAddConnection=false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button @click="submitConnection" :disabled="savingConnection==='manual'"
+          class="px-5 py-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-semibold disabled:opacity-50">
+          {{ savingConnection==='manual' ? 'Saving\u2026' : 'Save Connection' }}
         </button>
       </div>
     </div>
@@ -1103,6 +1248,15 @@ const app = createApp({
     const galleryPhotos = ref([]);
     const analysing = ref({});
     const ticked = ref({});
+    const connections = ref([]);
+    const loadingConnections = ref(false);
+    const connectionSearch = ref('');
+    const showAddConnection = ref(false);
+    const savingConnection = ref('');
+    const connError = ref('');
+    const connFile = ref(null);
+    const connFileInput = ref(null);
+    const connForm = ref({ full_name:'', email:'', phone:'', last_company:'', last_position:'', notes:'' });
     const galleryError = ref('');
     const settings = ref({});
     const jobSlots = ref([]);
@@ -1202,6 +1356,14 @@ const app = createApp({
       const applicantName = first ? first.full_name : '';
       const template = settings.value.email_rejection_subject || ('Re: Your application for ' + jobTitle);
       return template.replace(/\{\{job_title\}\}/g, jobTitle).replace(/\{\{applicant_name\}\}/g, applicantName);
+    });
+
+    const filteredConnections = computed(() => {
+      const q = connectionSearch.value.trim().toLowerCase();
+      if (!q) return connections.value;
+      return connections.value.filter(c => [c.full_name, c.email, c.phone, c.last_company, c.last_position,
+        c.countries_worked, c.nationality, c.applied_job_title, c.notes, c.cv_summary]
+        .some(v => v && String(v).toLowerCase().includes(q)));
     });
 
     // Ticked applicants drive the bulk actions. Selecting is explicit now rather
@@ -1323,6 +1485,7 @@ const app = createApp({
           // Read documents, then score anything not analysed yet — both in the
           // background so the list renders straight away.
           backfillDocTexts(data).then(() => backfillAnalysis(data));
+          markExistingConnections(data);
           applications.value = data;
         }
       } finally {
@@ -2242,6 +2405,143 @@ const app = createApp({
       return t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '\u2026' : t;
     }
 
+    // ============ CONNECTIONS ============
+    async function loadConnections() {
+      loadingConnections.value = true;
+      try {
+        const { data, error } = await sb.from('connections').select('*').order('added_at', { ascending: false });
+        if (error) throw error;
+        connections.value = data || [];
+      } catch (e) {
+        console.warn('Could not load connections', e);
+      } finally {
+        loadingConnections.value = false;
+      }
+    }
+
+    async function openConnections() {
+      view.value = 'connections';
+      await loadConnections();
+    }
+
+    // Snapshot an applicant into the talent pool. Files stay where they are —
+    // the connection record points at the same stored documents.
+    async function addToConnections(app) {
+      if (!app || app.in_connections) return;
+      savingConnection.value = app.id;
+      try {
+        const row = {
+          source_application_id: app.id,
+          full_name: app.full_name,
+          email: app.email || null,
+          phone: app.phone || null,
+          location: app.location || null,
+          nationality: app.nationality || null,
+          visa_type: app.visa_type || null,
+          countries_worked: app.countries_worked || null,
+          last_company: app.last_company || null,
+          last_position: app.last_position || null,
+          recent_jobs: app.recent_jobs || null,
+          cover_letter: app.cover_letter || null,
+          resume_text: app.resume_text || null,
+          documents: docsFor(app),
+          suitability_score: app.suitability_score || null,
+          ai_score: app.ai_score || null,
+          cv_summary: app.cv_summary || null,
+          applied_job_id: selectedJob.value ? selectedJob.value.id : null,
+          applied_job_title: selectedJob.value ? selectedJob.value.title : null,
+          applied_at: app.created_at || null,
+          source: 'application'
+        };
+        const { error } = await sb.from('connections').insert(row);
+        if (error && error.code === '23505') { app.in_connections = true; return; }
+        if (error) throw error;
+        app.in_connections = true;
+      } catch (e) {
+        alert('Could not add to connections: ' + (e.message || e));
+      } finally {
+        savingConnection.value = '';
+      }
+    }
+
+    // Mark applicants already in the pool so the button reads correctly.
+    async function markExistingConnections(list) {
+      const ids = (list || []).map(a => a.id).filter(Boolean);
+      if (!ids.length) return;
+      try {
+        const { data } = await sb.from('connections').select('source_application_id').in('source_application_id', ids);
+        const set = new Set((data || []).map(r => r.source_application_id));
+        list.forEach(a => { a.in_connections = set.has(a.id); });
+      } catch (e) { /* non-critical */ }
+    }
+
+    function startNewConnection() {
+      connForm.value = { full_name:'', email:'', phone:'', last_company:'', last_position:'', notes:'' };
+      connError.value = '';
+      clearConnFile();
+      showAddConnection.value = true;
+    }
+
+    function pickConnFile() { if (connFileInput.value) connFileInput.value.click(); }
+    function onConnFileChosen(e) { connFile.value = e.target.files[0] || null; }
+    function clearConnFile() { connFile.value = null; if (connFileInput.value) connFileInput.value.value = ''; }
+
+    async function submitConnection() {
+      connError.value = '';
+      if (!connForm.value.full_name.trim()) { connError.value = 'A name is required.'; return; }
+      savingConnection.value = 'manual';
+      try {
+        const documents = [];
+        let resumeText = null;
+        if (connFile.value) {
+          const file = connFile.value;
+          const ext = (file.name.split('.').pop() || 'dat').toLowerCase();
+          const path = `connections/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60)}`;
+          const { error: upErr } = await sb.storage.from('jobs-resumes').upload(path, file, { upsert: true });
+          if (upErr) { connError.value = 'Could not upload that file: ' + upErr.message; savingConnection.value=''; return; }
+          documents.push({ path, filename: file.name, size: file.size, kind: 'cv' });
+          resumeText = await extractDocText(await file.arrayBuffer(), file.name) || null;
+        }
+        const { data, error } = await sb.from('connections').insert({
+          full_name: connForm.value.full_name.trim(),
+          email: connForm.value.email || null,
+          phone: connForm.value.phone || null,
+          last_company: connForm.value.last_company || null,
+          last_position: connForm.value.last_position || null,
+          notes: connForm.value.notes || null,
+          documents,
+          resume_text: resumeText,
+          source: 'manual'
+        }).select('*').single();
+        if (error) throw error;
+        connections.value.unshift(data);
+        showAddConnection.value = false;
+        clearConnFile();
+      } catch (e) {
+        connError.value = e.message || String(e);
+      } finally {
+        savingConnection.value = '';
+      }
+    }
+
+    async function saveConnectionNote(c) {
+      try { await sb.from('connections').update({ notes: c.notes || null }).eq('id', c.id); }
+      catch (e) { console.warn('Could not save note', e); }
+    }
+
+    async function deleteConnection(c) {
+      if (!confirm(`Remove ${c.full_name} from connections? Their original application is not affected.`)) return;
+      try {
+        const { error } = await sb.from('connections').delete().eq('id', c.id);
+        if (error) throw error;
+        connections.value = connections.value.filter(x => x.id !== c.id);
+        const app = applications.value.find(a => a.id === c.source_application_id);
+        if (app) app.in_connections = false;
+      } catch (e) {
+        alert('Could not remove: ' + (e.message || e));
+      }
+    }
+
     function statusSelectClass(status) {
       const map = {
         new: 'border-blue-300 text-blue-700',
@@ -2352,6 +2652,10 @@ const app = createApp({
       noteText, settingsForm, newSlotTime, jobSaveError,
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
+      connections, filteredConnections, loadingConnections, connectionSearch,
+      showAddConnection, savingConnection, connError, connForm, connFile, connFileInput,
+      openConnections, addToConnections, startNewConnection, submitConnection,
+      pickConnFile, onConnFileChosen, clearConnFile, saveConnectionNote, deleteConnection,
       login, logout, openJob, editJob, cloneJob, startNewJob, saveJob, deleteJob,
       openApplicant, updateStatus, saveNote, viewResume, loadResumePreview,
       sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection, confirmBulkRejection,
