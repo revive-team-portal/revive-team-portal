@@ -284,12 +284,19 @@
                     <span v-if="app.previous_apply_count > 1" class="text-xs bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded-full">Applied {{ app.previous_apply_count }}x</span>
                     <span v-if="app.rejection_sent" title="Rejection email sent" class="text-xs bg-red-50 text-red-500 border border-red-100 px-1.5 py-0.5 rounded-full">&#9993; Rejected</span>
                   </div>
+                  <!-- Key points pulled from their documents -->
+                  <div v-if="keyPoints(app).length" class="mt-1.5 mb-1.5 space-y-0.5">
+                    <div v-for="(kp, ki) in keyPoints(app)" :key="ki" class="flex gap-1.5 text-xs">
+                      <span class="text-gray-400 shrink-0 w-[68px]">{{ kp.label }}</span>
+                      <span class="text-gray-700 font-medium truncate" :title="kp.value">{{ kp.value }}</span>
+                    </div>
+                  </div>
+                  <p v-else-if="analysing[app.id]" class="mt-1.5 mb-1.5 text-xs text-gray-300 italic">Reading key details&#8230;</p>
+
                   <div class="mt-1 space-y-0.5 text-xs text-gray-500">
                     <div class="truncate">{{ app.email }}</div>
                     <div v-if="app.phone">{{ app.phone }}</div>
                     <div v-if="app.location">{{ app.location }}</div>
-                    <div v-if="app.nationality && app.nationality !== 'Not stated'">&#127760; {{ app.nationality }}</div>
-                    <div v-if="app.previous_employers && app.previous_employers !== 'Not listed'" class="truncate" :title="app.previous_employers">&#128188; {{ app.previous_employers }}</div>
                     <div class="text-gray-400 pt-0.5">
                       {{ timeAgo(app.created_at) }}<span v-if="app.referral_source"> &middot; via {{ formatReferral(app.referral_source) }}</span>
                     </div>
@@ -337,7 +344,7 @@
               <div class="md:col-span-3 min-w-0 md:border-l md:border-gray-100 md:pl-4 flex flex-col">
                 <div class="flex items-start gap-4">
                   <div class="text-center">
-                    <div class="text-xs text-gray-400 mb-0.5">Suit.</div>
+                    <div class="text-xs text-gray-400 mb-0.5">Fit</div>
                     <span v-if="app.suitability_score" class="score-badge" :style="scoreStyle(app.suitability_score)">{{ app.suitability_score }}</span>
                     <span v-else class="text-gray-300 text-xs">&mdash;</span>
                   </div>
@@ -431,7 +438,7 @@
                   <div class="text-4xl font-extrabold mb-1" :style="{ color: scoreColor(selectedApplicant.suitability_score) }">
                     {{ selectedApplicant.suitability_score || '—' }}<span class="text-lg text-gray-400">/10</span>
                   </div>
-                  <div class="text-sm font-semibold text-gray-700">Role Suitability</div>
+                  <div class="text-sm font-semibold text-gray-700">Role Fit</div>
                   <div class="text-xs text-gray-400 mt-1">CV match to job</div>
                 </div>
                 <div class="text-center p-4 rounded-xl bg-gray-50">
@@ -1022,6 +1029,7 @@ const app = createApp({
     const jobs = ref([]);
     const applications = ref([]);
     const galleryPhotos = ref([]);
+    const analysing = ref({});
     const galleryError = ref('');
     const settings = ref({});
     const jobSlots = ref([]);
@@ -1215,8 +1223,9 @@ const app = createApp({
             const { count } = await sb.from('applications').select('id', { count: 'exact' }).eq('email', app.email);
             app.previous_apply_count = count || 1;
           }
-          // Read any documents we haven't read yet, in the background — don't block the list.
-          backfillDocTexts(data);
+          // Read documents, then score anything not analysed yet — both in the
+          // background so the list renders straight away.
+          backfillDocTexts(data).then(() => backfillAnalysis(data));
           applications.value = data;
         }
       } finally {
@@ -1527,6 +1536,70 @@ const app = createApp({
         return unread || (!a.resume_text && a.resume_url);
       }).slice(0, 25);
       for (const app of pending) await ensureDocTexts(app);
+    }
+
+    // Key facts under the name. The form's own visa answer wins over anything
+    // inferred from a CV. Placeholder strings from older records are treated as blank.
+    function realValue(v) {
+      if (!v) return '';
+      const s = String(v).trim();
+      if (/^(not stated|not listed|not specified|unknown|none|n\/?a|null)$/i.test(s)) return '';
+      return s;
+    }
+
+    function keyPoints(app) {
+      if (!app) return [];
+      const out = [];
+      const nat = realValue(app.nationality);
+      if (nat) out.push({ label: 'Nationality', value: nat });
+      const visa = realValue(app.visa_type);
+      if (visa) out.push({ label: 'Visa', value: visa });
+      const co = realValue(app.last_company);
+      if (co) out.push({ label: 'Last job', value: co });
+      const pos = realValue(app.last_position);
+      if (pos) out.push({ label: 'Position', value: pos });
+      return out;
+    }
+
+    // Runs the scoring + key-point extraction for one applicant.
+    async function analyseApplication(app, force) {
+      if (!app || !app.id) return;
+      if (analysing[app.id]) return;
+      if (app.analysed_at && !force) return;
+      analysing[app.id] = true;
+      try {
+        const res = await fetch('https://jobs.revive.co.nz/.netlify/functions/analyse-application', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ application_id: app.id })
+        });
+        const out = await res.json().catch(() => ({}));
+        if (out && out.ok) {
+          Object.assign(app, {
+            suitability_score: out.suitability_score,
+            ai_score: out.ai_score,
+            nationality: out.nationality,
+            last_company: out.last_company,
+            last_position: out.last_position,
+            previous_employers: out.previous_employers,
+            cv_summary: out.cv_summary,
+            ai_analysis_notes: out.ai_analysis_notes,
+            analysed_at: out.analysed_at
+          });
+          if (out.visa_type && !app.visa_type) app.visa_type = out.visa_type;
+        }
+      } catch (e) {
+        console.warn('Could not analyse ' + (app.full_name || app.id), e);
+      } finally {
+        delete analysing[app.id];
+      }
+    }
+
+    // Anything never analysed gets picked up, after its documents have been read.
+    async function backfillAnalysis(list) {
+      const pending = (list || []).filter(a => !a.analysed_at && (a.cover_letter || a.resume_text || a.resume_url ||
+        (Array.isArray(a.documents) && a.documents.length))).slice(0, 15);
+      for (const app of pending) await analyseApplication(app);
     }
 
     // The applicant's own words for the cover letter: what they typed, or failing
@@ -1863,7 +1936,7 @@ const app = createApp({
         clearAddFile();
         addForm.value = { first_name:'', last_name:'', email:'', phone:'', location:'', cover_letter:'', status:'new', referral_source:'other' };
         // Trigger AI scoring
-        fetch('https://jobs.revive.co.nz/.netlify/functions/score-application', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({application_id: data.id}) }).catch(()=>{});
+        analyseApplication(data);
       } catch(e) { addError.value = e.message; }
       addingApplicant.value = false;
     }
@@ -2129,6 +2202,7 @@ const app = createApp({
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights,
+      keyPoints, analysing, analyseApplication,
       coverText, coverIsUploaded, cvText, docsPending,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
       saveInlineNote, openResumeInViewer
