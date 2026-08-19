@@ -9,7 +9,7 @@
   var store = {}, stamp = {}, shown = false;
   var SRC = [['shopify', 'Shopify'], ['meta', 'Meta'], ['pos', 'POS'], ['support', 'Support']];
   var tick = { shopify: false, meta: false, pos: false, support: false };
-  var LIVE = ['shopify_today', 'shopify_week', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'orders_to_fulfil', 'orders_fulfilled_today', 'outstanding_tickets'];
+  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'orders_to_fulfil', 'orders_fulfilled_today', 'outstanding_tickets'];
 
   var css = '.rtb-bar{background:#16543f;color:#fff;padding:9px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
     + '.rtb-hidden{display:none!important}'
@@ -53,8 +53,8 @@
     if (store.sales != null) { h += box('Cafe $ today', money0(store.sales), 'sales'); h += box('Covers today', (Math.round(store.covers) || 0).toLocaleString(), 'covers'); }
     var proj = (nzMin() >= HALF_MIN && store.sales_1245 > 0);
     h += box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : ' ', proj ? 'sales' : null);
-    if (store.shopify_today != null) h += box('Shopify today', money0(store.shopify_today), 'shopify_today');
-    if (store.shopify_week != null) h += box('Shopify this week', money0(store.shopify_week), 'shopify_week');
+    if (store.shopify_today != null) h += box('Shopify today', money0(store.shopify_today) + (store.shopify_today_orders != null ? ' · ' + Number(store.shopify_today_orders).toLocaleString() : ''), 'shopify_today');
+    if (store.shopify_week != null) h += box('Shopify this week', money0(store.shopify_week) + (store.shopify_week_orders != null ? ' · ' + Number(store.shopify_week_orders).toLocaleString() : ''), 'shopify_week');
     if (store.meta_today != null) h += box('Meta spend today', money0(store.meta_today) + (store.meta_today_pct != null ? ' · ' + store.meta_today_pct + '%' : ''), 'meta_today');
     if (store.meta_acq_today != null) h += box('Acq today', (Math.round(store.meta_acq_today) || 0).toLocaleString(), 'meta_acq_today');
     if (store.meta_cpa_today != null) h += box('CPA', money0(store.meta_cpa_today), 'meta_cpa_today');
