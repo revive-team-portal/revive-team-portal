@@ -1691,6 +1691,9 @@ createApp({
       jobFilter, statusFilter, applicantSearch,
       loadingApplicants, savingJob, savingNote, savingSettings, sendingInvites, uploadingPhoto, addingSlot,
       copiedLink, showSlotsModal, showResumeModal,
+      showRejectionPreview, rejectionPreviewApplicants,
+      showAddApplicant, addingApplicant, addError, addForm,
+      fileInputRefs,
       resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
       noteText, settingsForm, newSlotTime, jobSaveError,
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
@@ -1702,7 +1705,9 @@ createApp({
       uploadGalleryPhotos, handleGalleryDrop, deleteGalleryPhoto,
       exportCSV, copyJobLink, addQuestion, removeQuestion, updateQuestion,
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
-      scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass
+      scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
+      deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
+      saveInlineNote, openResumeInViewer
     };
   }
 }).mount('#app');
