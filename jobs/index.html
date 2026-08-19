@@ -45,8 +45,7 @@
   </style>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800">
-<div id="debug-banner" style="background:orange;color:black;padding:8px;text-align:center;font-family:monospace;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999">DEBUG v4 — nested-braces fix deployed</div>
-<div id="app" class="min-h-screen" style="padding-top:32px">
+<div id="app" class="min-h-screen">
 
   <!-- ======== SSO LOADING ======== -->
   <div v-if="ssoChecking" class="min-h-screen flex items-center justify-center" style="background:#f9fafb;">
@@ -61,7 +60,8 @@
     <div class="text-center">
       <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-12 mx-auto mb-6">
       <h1 class="text-xl font-bold text-gray-800 mb-2">Access restricted</h1>
-      <p class="text-gray-500 text-sm">Please open the Jobs admin from the <a href="https://team.revive.co.nz" class="text-brand font-semibold hover:underline">Revive Portal</a>.</p>
+      <p v-if="gateMessage" class="text-gray-500 text-sm max-w-sm">{{ gateMessage }}</p>
+      <p v-else class="text-gray-500 text-sm">Please open the Jobs admin from the <a href="https://team.revive.co.nz" class="text-brand font-semibold hover:underline">Revive Portal</a>.</p>
     </div>
   </div>
 
@@ -346,8 +346,6 @@
             </div>
 
           </div>
-        </div>            </tbody>
-          </table>
         </div>
       </div>
 
@@ -920,14 +918,6 @@
 
 </div><!-- end app -->
 
-<script>
-window.onerror = function(msg, src, line, col, err) {
-  document.body.innerHTML = '<div style="padding:40px;font-family:monospace;background:#fee;border:2px solid red;margin:20px;border-radius:8px"><h2 style="color:red">JS Error (debug)</h2><p><b>' + msg + '</b></p><p>' + src + ':' + line + ':' + col + '</p><pre>' + (err && err.stack ? err.stack : '') + '</pre></div>';
-};
-window.onunhandledrejection = function(e) {
-  document.body.innerHTML = '<div style="padding:40px;font-family:monospace;background:#fee;border:2px solid red;margin:20px;border-radius:8px"><h2 style="color:red">Promise Error (debug)</h2><pre>' + e.reason + '</pre></div>';
-};
-</script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
@@ -939,6 +929,12 @@ const { createClient } = supabase;
 const SUPABASE_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'jobs' } });
+
+// Portal project — same origin as this page, so the staff member's portal login
+// is already in localStorage and can be read directly (same pattern as /production/).
+const PORTAL_URL = 'https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+const PORTAL_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+const portalSb = createClient(PORTAL_URL, PORTAL_ANON);
 const BASE_URL = 'https://jobs.revive.co.nz';
 
 const app = createApp({
@@ -946,6 +942,7 @@ const app = createApp({
     // Auth
     const loggedIn = ref(false);
     const ssoChecking = ref(true); // hide login until SSO attempt completes
+    const gateMessage = ref('');
     const loginEmail = ref('');
     const loginPassword = ref('');
     const loginError = ref('');
@@ -1638,12 +1635,24 @@ const app = createApp({
     }
 
     onMounted(async () => {
-      const pt = new URLSearchParams(window.location.search).get("pt");
-      if (pt) {
+      // The portal opens /jobs/ as a plain relative link with no ?pt= token, so the
+      // portal session is read straight from this origin. ?pt= is still honoured for
+      // any link that carries one.
+      const pt = new URLSearchParams(window.location.search).get('pt');
+      let portalToken = pt;
+      if (!portalToken) {
         try {
-          const res = await fetch("https://team.revive.co.nz/.netlify/functions/portal-validate", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: pt })
+          const { data: { session: p } } = await portalSb.auth.getSession();
+          if (p) portalToken = p.access_token;
+        } catch (e) { console.warn('Portal session unavailable', e); }
+      }
+
+      if (portalToken) {
+        try {
+          const res = await fetch('https://team.revive.co.nz/.netlify/functions/portal-validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + portalToken },
+            body: JSON.stringify({ token: portalToken })
           });
           if (res.ok) {
             const { access_token, refresh_token } = await res.json();
@@ -1651,12 +1660,19 @@ const app = createApp({
             if (!error) {
               ssoChecking.value = false;
               loggedIn.value = true;
-              window.history.replaceState({}, "", "/jobs/");
+              if (pt) window.history.replaceState({}, '', '/jobs/');
               await loadDashboard();
               return;
             }
+            gateMessage.value = 'Could not open the jobs database. Please reload.';
+          } else if (res.status === 403) {
+            gateMessage.value = 'Your portal login does not have access to the Jobs app.';
+          } else if (res.status === 401) {
+            gateMessage.value = 'Your portal session has expired. Please sign in to the portal again.';
+          } else {
+            gateMessage.value = 'Could not open the jobs database. Please reload.';
           }
-        } catch(e) { console.warn("Portal SSO failed", e); }
+        } catch (e) { console.warn('Portal SSO failed', e); }
       }
       ssoChecking.value = false;
       checkSession();
@@ -1700,7 +1716,7 @@ const app = createApp({
     function updateQuestion(i, val) { editingJob.value.questions[i] = val; }
 
     return {
-      loggedIn, ssoChecking, loginEmail, loginPassword, loginError, loggingIn,
+      loggedIn, ssoChecking, gateMessage, loginEmail, loginPassword, loginError, loggingIn,
       view, settingsTab, settingsTabs, emailTemplates,
       jobs, applications, galleryPhotos, settings, jobSlots, referralStats,
       selectedJob, selectedApplicant, editingJob,
@@ -1727,32 +1743,7 @@ const app = createApp({
     };
   }
 });
-app.config.errorHandler = (err, vm, info) => {
-  document.getElementById('debug-banner').innerHTML = 'VUE ERROR: ' + err.message + ' | ' + info;
-  document.getElementById('debug-banner').style.background = 'red';
-  document.getElementById('debug-banner').style.color = 'white';
-  console.error('Vue error:', err, info);
-};
 app.mount('#app');
-
-// Post-mount diagnostic
-setTimeout(function() {
-  var banner = document.getElementById('debug-banner');
-  var appEl = document.getElementById('app');
-  var vueApp = appEl && appEl._vei;
-  var firstChild = appEl && appEl.firstElementChild;
-  var hasVIf = firstChild && firstChild.hasAttribute('v-if');
-  if (hasVIf) {
-    banner.textContent = 'Vue DID NOT mount — v-if attributes still present in DOM';
-    banner.style.background = 'red';
-    banner.style.color = 'white';
-  } else {
-    banner.textContent = 'Vue IS mounted — click here to close debug';
-    banner.style.background = 'green';
-    banner.style.color = 'white';
-    banner.onclick = function() { banner.style.display='none'; };
-  }
-}, 2000);
 </script>
 </body>
 </html>
