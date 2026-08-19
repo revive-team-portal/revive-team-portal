@@ -886,7 +886,7 @@
           <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2">
             <div class="text-xs text-gray-500">
               <span class="font-semibold">Subject: </span>
-              <span>{{ (settings.email_rejection_subject || 'Re: Your application for ' + (selectedJob ? selectedJob.title : '')).replace('{{job_title}}', selectedJob ? selectedJob.title : '').replace('{{applicant_name}}', rejectionPreviewApplicants[0] ? rejectionPreviewApplicants[0].full_name : '') }}</span>
+              <span>{{ rejectionSubjectPreview }}</span>
             </div>
             <hr class="border-gray-200">
             <div class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{{ rejectionEmailPreview }}</div>
@@ -1048,6 +1048,13 @@ const app = createApp({
       const body = settings.value.email_rejection_body || 'Hi {{applicant_name}},\n\nThank you for applying for the {{job_title}} position at Revive Cafe. After careful consideration we will not be proceeding with your application at this time.\n\nWe wish you all the best in your job search.\n\nKind regards,\nRevive Cafe Team';
       const name = rejectionPreviewApplicants.value[0]?.full_name || 'Applicant';
       return body.replace(/\{\{applicant_name\}\}/g, name).replace(/\{\{job_title\}\}/g, selectedJob.value?.title || '');
+    });
+    const rejectionSubjectPreview = computed(() => {
+      const first = rejectionPreviewApplicants.value[0];
+      const jobTitle = selectedJob.value ? selectedJob.value.title : '';
+      const applicantName = first ? first.full_name : '';
+      const template = settings.value.email_rejection_subject || ('Re: Your application for ' + jobTitle);
+      return template.replace(/\{\{job_title\}\}/g, jobTitle).replace(/\{\{applicant_name\}\}/g, applicantName);
     });
 
     const selectedForInterview = computed(() =>
@@ -1644,7 +1651,7 @@ const app = createApp({
             if (!error) {
               ssoChecking.value = false;
               loggedIn.value = true;
-              window.history.replaceState({}, "", "/admin.html");
+              window.history.replaceState({}, "", "/jobs/");
               await loadDashboard();
               return;
             }
@@ -1700,7 +1707,7 @@ const app = createApp({
       jobFilter, statusFilter, applicantSearch,
       loadingApplicants, savingJob, savingNote, savingSettings, sendingInvites, uploadingPhoto, addingSlot,
       copiedLink, showSlotsModal, showResumeModal,
-      showRejectionPreview, rejectionPreviewApplicants,
+      showRejectionPreview, rejectionPreviewApplicants, rejectionEmailPreview, rejectionSubjectPreview,
       showAddApplicant, addingApplicant, addError, addForm,
       fileInputRefs,
       resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
