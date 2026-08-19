@@ -34,12 +34,14 @@ async function metaSpend() {
     const dayDiff = Math.round((Date.parse(acctToday + 'T00:00:00Z') - Date.parse(nzToday + 'T00:00:00Z')) / 86400000);
     const shift = (ymd, n) => { const x = new Date(ymd + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
     const acctWeekStart = shift(nzWeekStart, dayDiff);
-    const [t, w] = await Promise.all([metaInsightsRange(acctToday, acctToday), spendRange(acctWeekStart, acctToday)]);
+    const [t, w] = await Promise.all([metaInsightsRange(acctToday, acctToday), metaInsightsRange(acctWeekStart, acctToday)]);
     const meta_today = Math.round(t.spend * 100) / 100;
-    const acq = Math.round(t.acq || 0);
-    return { meta_today, meta_week: Math.round(w * 100) / 100,
-      meta_acq_today: acq, meta_cpa_today: acq > 0 ? Math.round((meta_today / acq) * 100) / 100 : null };
-  } catch (e) { return { meta_today: null, meta_week: null, meta_acq_today: null, meta_cpa_today: null }; }
+    const meta_week = Math.round(w.spend * 100) / 100;
+    const acqT = Math.round(t.acq || 0), acqW = Math.round(w.acq || 0);
+    return { meta_today, meta_week,
+      meta_acq_today: acqT, meta_cpa_today: acqT > 0 ? Math.round((meta_today / acqT) * 100) / 100 : null,
+      meta_acq_week: acqW, meta_cpa_week: acqW > 0 ? Math.round((meta_week / acqW) * 100) / 100 : null };
+  } catch (e) { return { meta_today: null, meta_week: null, meta_acq_today: null, meta_cpa_today: null, meta_acq_week: null, meta_cpa_week: null }; }
 }
 async function shopifySums() {
   try {
@@ -85,6 +87,6 @@ exports.handler = async (event) => {
       body: JSON.stringify({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at,
         shopify_today: ss.shopify_today, shopify_week: ss.shopify_week, shopify_today_orders: ss.shopify_today_orders, shopify_week_orders: ss.shopify_week_orders,
         orders_to_fulfil: oc.orders_to_fulfil, orders_fulfilled_today: oc.orders_fulfilled_today, outstanding_tickets: tk.outstanding_tickets,
-        meta_today: ms.meta_today, meta_week: ms.meta_week, meta_acq_today: ms.meta_acq_today, meta_cpa_today: ms.meta_cpa_today, meta_today_pct: pct(ms.meta_today, ss.shopify_today), meta_week_pct: pct(ms.meta_week, ss.shopify_week) }) };
+        meta_today: ms.meta_today, meta_week: ms.meta_week, meta_acq_today: ms.meta_acq_today, meta_cpa_today: ms.meta_cpa_today, meta_acq_week: ms.meta_acq_week, meta_cpa_week: ms.meta_cpa_week, meta_today_pct: pct(ms.meta_today, ss.shopify_today), meta_week_pct: pct(ms.meta_week, ss.shopify_week) }) };
   } catch (e) { return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: String(e.message || e) }) }; }
 };
