@@ -107,7 +107,7 @@ async function shopifyOrders(startNz, endNz) {
 
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
-  if (qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  if (!GUARD || qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
   const end = qp.end || NZ.format(new Date());
   const start = qp.start || shift(end, -13);
   try {

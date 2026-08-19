@@ -51,7 +51,7 @@ async function employeeNames() {
 
 exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
-  if (q.k !== GUARD) return { statusCode: 401, body: 'no' };
+  if (!GUARD || q.k !== GUARD) return { statusCode: 401, body: 'no' };
   if (!TK_KEY) return { statusCode: 500, body: 'missing TIMEKEEPER_API_KEY' };
   const start = q.start, end = q.end;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start || '') || !/^\d{4}-\d{2}-\d{2}$/.test(end || '')) {

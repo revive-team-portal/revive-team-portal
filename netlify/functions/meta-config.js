@@ -23,7 +23,7 @@ const money = (v) => v == null ? null : Math.round(Number(v)) / 100;
 
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
-  if (qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  if (!GUARD || qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
   try {
     const [acct, camps, sets] = await Promise.all([
       g(ACCT, 'name,currency,timezone_name,spend_cap,amount_spent,balance,account_status,disable_reason,is_prepay_account,funding_source_details,min_daily_budget'),

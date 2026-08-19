@@ -15,7 +15,7 @@ async function db(path, opts = {}) {
 const json = (o) => ({ statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
 exports.handler = async (event) => {
   const qp = event.queryStringParameters || {};
-  if (qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  if (!GUARD || qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
   if (!APPS_KEY) return { statusCode: 500, body: 'not configured' };
   try {
     if (qp.action === 'next') {

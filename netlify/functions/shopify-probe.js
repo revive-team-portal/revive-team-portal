@@ -14,7 +14,7 @@ const PROBES = {
 
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
-  if (qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  if (!GUARD || qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
   const out = { store: STORE, api_version: API_VER, scopes: null, probes: {} };
   try {
     const s = await gql('{ currentAppInstallation{ accessScopes{ handle } app{ title } } }');
