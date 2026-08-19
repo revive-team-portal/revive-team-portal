@@ -191,7 +191,7 @@
             <button @click="copyJobLink(selectedJob)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
               {{ copiedLink ? '✓ Copied!' : '🔗 Copy Link' }}
             </button>
-            <a :href="selectedJob.code ? 'https://jobs.revive.co.nz/job.html?code=' + selectedJob.code + '&preview=1' : 'https://jobs.revive.co.nz/job.html?id=' + selectedJob.id + '&preview=1'"
+            <a :href="selectedJob.code ? 'https://jobs.revive.co.nz/' + selectedJob.code + '?preview=1' : 'https://jobs.revive.co.nz/job.html?id=' + selectedJob.id + '&preview=1'"
               target="_blank"
               class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors inline-flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -791,7 +791,8 @@
         <div v-if="settingsTab === 'gallery'" class="max-w-3xl">
           <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
             <h3 class="font-bold text-gray-800 mb-2">Hero Photos</h3>
-            <p class="text-xs text-gray-400 mb-4">Upload photos shown on the public jobs page hero section. 6 random ones are displayed. Recommended: landscape orientation, at least 800×600px.</p>
+            <p class="text-xs text-gray-500 mb-1">One shared set of photos, shown at the top of <strong>every</strong> job ad. Up to 6 are displayed, in the order below.</p>
+            <p class="text-xs text-gray-400 mb-4">Landscape works best, at least 800×600px. Keep files under about 500KB so the ad loads quickly.</p>
 
             <!-- Upload -->
             <div class="drag-drop rounded-lg p-6 text-center cursor-pointer mb-4"
@@ -804,6 +805,7 @@
               <p class="text-xs text-gray-400 mt-1">JPEG, PNG, WebP</p>
             </div>
             <div v-if="uploadingPhoto" class="text-center text-sm text-brand font-semibold mb-4">Uploading...</div>
+            <p v-if="galleryError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">{{ galleryError }}</p>
 
             <!-- Photo grid -->
             <div v-if="galleryPhotos.length" class="grid grid-cols-3 gap-3">
@@ -815,7 +817,7 @@
                 </button>
               </div>
             </div>
-            <p v-else class="text-gray-400 text-sm text-center py-4">No photos uploaded yet.</p>
+            <p v-else class="text-gray-400 text-sm text-center py-4">No photos yet — job ads will show no photo strip until you add some.</p>
           </div>
         </div>
 
@@ -1015,6 +1017,7 @@ const app = createApp({
     const jobs = ref([]);
     const applications = ref([]);
     const galleryPhotos = ref([]);
+    const galleryError = ref('');
     const settings = ref({});
     const jobSlots = ref([]);
     const referralStats = ref([]);
@@ -1171,7 +1174,7 @@ const app = createApp({
       }
 
       // Load gallery
-      const { data: photos } = await sb.from('gallery_photos').select('*').order('created_at', { ascending: false });
+      const { data: photos } = await sb.from('gallery_photos').select('*').order('created_at');
       galleryPhotos.value = photos || [];
 
       // Load settings
@@ -1649,50 +1652,50 @@ const app = createApp({
     }
 
     // ============ GALLERY ============
-    async function uploadGalleryPhotos(event) {
-      const files = Array.from(event.target.files);
+    async function saveGalleryFiles(files) {
+      if (!files.length) return;
+      galleryError.value = '';
       uploadingPhoto.value = true;
+      const failed = [];
       try {
         for (const file of files) {
-          const ext = file.name.split('.').pop();
+          const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
           const filename = `${Date.now()}-${Math.random().toString(36).substr(2,9)}.${ext}`;
-          const { error } = await sb.storage.from('jobs-gallery').upload(filename, file);
-          if (!error) {
-            const { data } = sb.storage.from('jobs-gallery').getPublicUrl(filename);
-            await sb.from('gallery_photos').insert({ url: data.publicUrl, filename });
-          }
+          const { error: upErr } = await sb.storage.from('jobs-gallery').upload(filename, file);
+          if (upErr) { failed.push(file.name + ' — ' + upErr.message); continue; }
+          const { data } = sb.storage.from('jobs-gallery').getPublicUrl(filename);
+          const { error: rowErr } = await sb.from('gallery_photos').insert({ url: data.publicUrl, filename });
+          if (rowErr) failed.push(file.name + ' — ' + rowErr.message);
         }
-        const { data: photos } = await sb.from('gallery_photos').select('*').order('created_at', { ascending: false });
+        const { data: photos } = await sb.from('gallery_photos').select('*').order('created_at');
         galleryPhotos.value = photos || [];
+        if (failed.length) galleryError.value = 'Could not add: ' + failed.join('; ');
+      } catch (e) {
+        galleryError.value = 'Upload failed: ' + (e.message || e);
       } finally {
         uploadingPhoto.value = false;
       }
     }
 
+    async function uploadGalleryPhotos(event) {
+      await saveGalleryFiles(Array.from(event.target.files));
+      event.target.value = '';
+    }
+
     async function handleGalleryDrop(event) {
       event.currentTarget.classList.remove('dragover');
-      const files = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-      if (files.length) {
-        uploadingPhoto.value = true;
-        for (const file of files) {
-          const ext = file.name.split('.').pop();
-          const filename = `${Date.now()}-${Math.random().toString(36).substr(2,9)}.${ext}`;
-          const { error } = await sb.storage.from('jobs-gallery').upload(filename, file);
-          if (!error) {
-            const { data } = sb.storage.from('jobs-gallery').getPublicUrl(filename);
-            await sb.from('gallery_photos').insert({ url: data.publicUrl, filename });
-          }
-        }
-        const { data: photos } = await sb.from('gallery_photos').select('*').order('created_at', { ascending: false });
-        galleryPhotos.value = photos || [];
-        uploadingPhoto.value = false;
-      }
+      await saveGalleryFiles(Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/')));
     }
 
     async function deleteGalleryPhoto(photo) {
-      if (!confirm('Delete this photo?')) return;
-      await sb.storage.from('jobs-gallery').remove([photo.filename]);
-      await sb.from('gallery_photos').delete().eq('id', photo.id);
+      if (!confirm('Delete this photo? It will disappear from every job ad.')) return;
+      galleryError.value = '';
+      if (photo.filename) {
+        // Seeded entries point at files that live outside the bucket; ignore a miss.
+        await sb.storage.from('jobs-gallery').remove([photo.filename]).catch(() => {});
+      }
+      const { error } = await sb.from('gallery_photos').delete().eq('id', photo.id);
+      if (error) { galleryError.value = 'Could not delete: ' + error.message; return; }
       galleryPhotos.value = galleryPhotos.value.filter(p => p.id !== photo.id);
     }
 
@@ -2025,7 +2028,7 @@ const app = createApp({
     return {
       loggedIn, ssoChecking, gateMessage, loginEmail, loginPassword, loginError, loggingIn,
       view, settingsTab, settingsTabs, emailTemplates,
-      jobs, applications, galleryPhotos, settings, jobSlots, referralStats,
+      jobs, applications, galleryPhotos, galleryError, settings, jobSlots, referralStats,
       selectedJob, selectedApplicant, editingJob,
       jobFilter, statusFilter, applicantSearch,
       loadingApplicants, savingJob, savingNote, savingSettings, sendingInvites, uploadingPhoto, addingSlot,
