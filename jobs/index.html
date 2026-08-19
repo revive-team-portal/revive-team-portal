@@ -1727,6 +1727,25 @@ app.config.errorHandler = (err, vm, info) => {
   console.error('Vue error:', err, info);
 };
 app.mount('#app');
+
+// Post-mount diagnostic
+setTimeout(function() {
+  var banner = document.getElementById('debug-banner');
+  var appEl = document.getElementById('app');
+  var vueApp = appEl && appEl._vei;
+  var firstChild = appEl && appEl.firstElementChild;
+  var hasVIf = firstChild && firstChild.hasAttribute('v-if');
+  if (hasVIf) {
+    banner.textContent = 'Vue DID NOT mount — v-if attributes still present in DOM';
+    banner.style.background = 'red';
+    banner.style.color = 'white';
+  } else {
+    banner.textContent = 'Vue IS mounted — click here to close debug';
+    banner.style.background = 'green';
+    banner.style.color = 'white';
+    banner.onclick = function() { banner.style.display='none'; };
+  }
+}, 2000);
 </script>
 </body>
 </html>
