@@ -42,10 +42,15 @@
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
     .modal-box { background:white; border-radius:16px; width:100%; max-height:90vh; overflow-y:auto; }
     .resize-none { resize: none; }
+    /* Hide the raw template until Vue mounts, otherwise the uncompiled markup
+       (incl. the "Access restricted" block and {{ }} placeholders) flashes. */
+    [v-cloak]{display:none}
+    #boot{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f9fafb}
   </style>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800">
-<div id="app" class="min-h-screen">
+<div id="boot"><img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" style="height:40px;opacity:.6"></div>
+<div id="app" class="min-h-screen" v-cloak>
 
   <!-- ======== SSO LOADING ======== -->
   <div v-if="ssoChecking" class="min-h-screen flex items-center justify-center" style="background:#f9fafb;">
@@ -1744,6 +1749,8 @@ const app = createApp({
   }
 });
 app.mount('#app');
+const boot = document.getElementById('boot');
+if (boot) boot.remove();
 </script>
 </body>
 </html>
