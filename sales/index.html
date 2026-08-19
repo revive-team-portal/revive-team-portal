@@ -1382,8 +1382,8 @@
 
 
       // ===== email =====
-      function mergeStore(str, st, fb){ if(!str) return ''; let nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); if(!nm && fb) nm=fb; const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(firstname|first_name|contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,''); return out; }
-      function merge(str){ return mergeStore(str, cur.value); }
+      function mergeStore(str, st, fb){ if(!str) return ''; let nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); if(!nm) nm=fb||'there'; const store=(st.store_name||'').trim()||'there'; let out=str; out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); out=out.replace(/\{\{\s*(firstname|first_name|contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,''); return out; }
+      function merge(str){ return mergeStore(str, cur.value, 'there'); }
       function storeEmails(s){ const es=[s.contact_email,s.contact2_email,s.contact3_email,s.contact4_email,s.contact5_email,s.contact6_email,s.store_email]; return [...new Set(es.map(e=>(e||'').trim().toLowerCase()).filter(e=>e.includes('@')))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
       function finalBody(){ return email.body; }

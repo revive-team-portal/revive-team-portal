@@ -850,10 +850,10 @@ createApp({
       saving.value=true;
       try{
         const values={};
-        ENTRY_INPUTS.forEach(code=>{ const raw=entryVals[code]; values[code]= (raw===''||raw==null)?null:Number(raw); });
+        ENTRY_INPUTS.forEach(code=>{ const raw=entryVals[code]; if(raw===''||raw==null){ values[code]=null; } else { const n=Number(String(raw).replace(/[^0-9.\-]/g,'')); values[code]=isNaN(n)?null:n; } });
         const notes={};
         ['days_note','holiday','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ notes[k]= entryNotes[k]===''?null:entryNotes[k]; });
-        if(entryNotes.trading_days!==''&&entryNotes.trading_days!=null) notes.trading_days=Number(entryNotes.trading_days);
+        if(entryNotes.trading_days!==''&&entryNotes.trading_days!=null){ const _td=Number(String(entryNotes.trading_days).replace(/[^0-9.\-]/g,'')); notes.trading_days=isNaN(_td)?null:_td; }
         await callData({action:'save_week',period_end:entryWeek.value,values,notes});
         await refresh();
         flash('Week saved'); entryMsg.value='Saved.';

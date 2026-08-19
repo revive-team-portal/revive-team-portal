@@ -354,7 +354,7 @@ async function enterApp(){
       ]);
       const _ids=new Set((_acc||[]).map(a=>a.app_id));
       const _mine=(_apps||[]).filter(a=>_ids.has(a.id));
-      if(_mine.length===1 && _mine[0].url && _mine[0].status==='live'){ window.location.replace(_mine[0].url); return; }
+      if(_mine.length===1 && _mine[0].url && _mine[0].status==='live'){ const u=_mine[0].url; if(u.startsWith('http')){ const trusted=(u.indexOf('.revive.co.nz/')>-1||u.indexOf('//revive.co.nz/')>-1); const { data:{ session:_s } } = await sb.auth.getSession(); window.location.replace((trusted&&_s)? u+(u.includes('?')?'&':'?')+'pt='+_s.access_token : u); } else { window.location.replace(u); } return; }
     }
   }catch(_e){ /* fall through to dashboard */ }
   await loadDashboard();
@@ -444,7 +444,7 @@ function renderTiles(apps){
     t.addEventListener('click', async ()=>{
       if(t.dataset.status!=='live'){ toast('This app is being wired into the portal — coming soon.'); return; }
       const url=t.dataset.url;
-      if(url){ if(url.startsWith('http')){ const { data:{ session } } = await sb.auth.getSession(); const dest = session ? url+(url.includes('?')?'&':'?')+'pt='+session.access_token : url; window.open(dest,'_blank'); } else window.location.href=url; } else toast('No link set for this app yet.');
+      if(url){ if(url.startsWith('http')){ const trusted=(url.indexOf('.revive.co.nz/')>-1||url.indexOf('//revive.co.nz/')>-1); const { data:{ session } } = await sb.auth.getSession(); const dest = (trusted && session) ? url+(url.includes('?')?'&':'?')+'pt='+session.access_token : url; window.open(dest,'_blank','noopener'); } else window.location.href=url; } else toast('No link set for this app yet.');
     });
   });
 }

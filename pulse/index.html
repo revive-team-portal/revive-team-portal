@@ -150,11 +150,12 @@ let surveys=[], current=null, charts=[];
   }catch(e){ $('gate').innerHTML='<div class="rv-load__scrim"></div><div class="rv-load__box"><img class="rv-load__logo" src="/assets/revive-logo.png"><p class="rv-load__text">Could not open Pulse. Please reload.</p></div>'; return; }
   $('who').textContent=p.user.email||'';
   $('gate').classList.add('hidden'); $('appui').classList.remove('hidden');
-  await loadSurveys();
+  try{ await loadSurveys(); }catch(e){ $('appui').classList.add('hidden'); $('gate').classList.remove('hidden'); $('gate').innerHTML='<div class="rv-load__scrim"></div><div class="rv-load__box"><img class="rv-load__logo" src="/assets/revive-logo.png"><p class="rv-load__text">Couldn\'t load surveys. Please reload.</p></div>'; }
 })();
 
 async function loadSurveys(){
-  const { data } = await sb.from('surveys').select('*').order('created_at',{ascending:false});
+  const { data, error } = await sb.from('surveys').select('*').order('created_at',{ascending:false});
+  if(error) throw error;
   surveys=data||[];
   // response counts + last response date
   const counts={};
