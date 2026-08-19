@@ -255,7 +255,7 @@
           </div>
           <div v-for="ri in viewUnassignedIngredients" :key="'u'+ri.id"
             class="flex items-center px-4 py-2.5 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition gap-2">
-            <span class="flex-1 min-w-0 text-xl font-semibold text-stone-800 truncate">{{ ri.ingredient?.name }}</span>
+            <span class="flex-1 min-w-0 truncate"><span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span><span v-if="ri.prep_method" class="ml-2 text-sm italic text-stone-400">{{ ri.prep_method }}</span></span>
             <span class="w-28 shrink-0 text-right text-xl font-bold text-stone-400">{{ ri.volumetric_note||'' }}</span>
             <span class="w-28 shrink-0 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
             <div class="w-24 shrink-0 text-right">
@@ -289,7 +289,7 @@
               <div class="flex-1 min-w-0">
                 <div v-for="ri in viewIngredientsForStep(step.id)" :key="ri.id"
                   class="flex items-center px-4 py-2.5 border-b border-stone-100 last:border-0 hover:bg-amber-50/40 transition gap-2">
-                  <span class="flex-1 min-w-0 text-xl font-semibold text-stone-800 truncate">{{ ri.ingredient?.name }}</span>
+                  <span class="flex-1 min-w-0 truncate"><span class="text-xl font-semibold text-stone-800">{{ ri.ingredient?.name }}</span><span v-if="ri.prep_method" class="ml-2 text-sm italic text-stone-400">{{ ri.prep_method }}</span></span>
                   <span class="w-28 shrink-0 text-right text-xl font-bold text-stone-400">{{ ri.volumetric_note||'' }}</span>
                   <span class="w-28 shrink-0 text-right text-xl font-bold text-stone-700">{{ (ri.weight_g/1000).toFixed(3) }} kg</span>
                   <div class="w-24 shrink-0 text-right">
@@ -625,6 +625,8 @@
                 class="w-16 border border-amber-200 bg-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="g">
               <input v-model="ri.volumetric_note" type="text"
                 class="w-24 border border-amber-200 bg-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. 2 cups">
+              <input v-model="ri.prep_method" type="text"
+                class="w-28 border border-amber-200 bg-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 italic" placeholder="e.g. finely chopped">
               <button @click="convertVolumetricToGrams(ri)" :disabled="ri._convLoading||!ri.volumetric_note"
                 title="Convert volumetric to grams using AI"
                 class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1.5 rounded-lg transition disabled:opacity-40 whitespace-nowrap">
@@ -656,6 +658,8 @@
             class="w-24 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="grams">
           <input v-model="ri.volumetric_note" type="text"
             class="w-28 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 2 cups">
+          <input v-model="ri.prep_method" type="text"
+            class="w-36 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 italic" placeholder="e.g. finely chopped">
           <button @click="convertVolumetricToGrams(ri)" :disabled="ri._convLoading||!ri.volumetric_note"
             title="Convert volumetric to grams using AI"
             class="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg transition disabled:opacity-40">
@@ -1530,7 +1534,7 @@ Method:
       }
       function blankIngForm(){return{id:null,name:'',brand:'',cost_per_kg:null,price_is_estimate:false,ingredient_type:'ambient',state:'raw',raw_ingredient_id:null,cook_ratio:null,main_supplier:'',last_price_update:null,upload_notes:'',energy_kj:null,protein_g:null,fat_g:null,saturated_fat_g:null,carbohydrate_g:null,sugars_g:null,dietary_fibre_g:null,sodium_mg:null};}
       function blankEditForm(){return{id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,nip_serve_g:45,finished_weight_g:null,status:'active',notes:'',parent_recipe_id:null,steps:[],allIngredients:[]};}
-      function newIngRow(stepTempId=null){return{tempId:uid(),id:null,ingredient_id:'',weight_g:null,volumetric_note:'',step_tempId:stepTempId,_convLoading:false,_importName:''};}
+      function newIngRow(stepTempId=null){return{tempId:uid(),id:null,ingredient_id:'',weight_g:null,volumetric_note:'',prep_method:'',step_tempId:stepTempId,_convLoading:false,_importName:''};}
 
       // ---- AUTH (single sign-on via the portal) ----
       async function login(){ window.location.href='/'; }
@@ -1568,14 +1572,14 @@ Method:
       function startImport(){importText.value='';importImageData.value=null;importError.value='';currentView.value='import';}
       function startEditRecipe(recipe){
         const steps=(recipe.recipe_steps||[]).sort((a,b)=>a.step_order-b.step_order).map(s=>({...s,tempId:s.id||uid()}));
-        const allIngredients=(recipe._rawIngredients||viewIngredients.value).map(ri=>({...newIngRow(),id:ri.id,ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',step_tempId:ri.step_id?(steps.find(s=>s.id===ri.step_id)?.tempId||null):null}));
+        const allIngredients=(recipe._rawIngredients||viewIngredients.value).map(ri=>({...newIngRow(),id:ri.id,ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',prep_method:ri.prep_method||'',step_tempId:ri.step_id?(steps.find(s=>s.id===ri.step_id)?.tempId||null):null}));
         editForm.value={id:recipe.id,name:recipe.name,category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,finished_weight_g:recipe.finished_weight_g||null,status:recipe.status||'active',notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,steps,allIngredients};
         saveError.value='';currentView.value='edit';
       }
       function startNewVersion(recipe){
         const steps=viewSteps.value.map(s=>({...s,id:null,tempId:uid()}));
         const stepOldToNew={};viewSteps.value.forEach((s,i)=>{stepOldToNew[s.id]=steps[i].tempId;});
-        const allIngredients=viewIngredients.value.map(ri=>({...newIngRow(),ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',step_tempId:ri.step_id?(stepOldToNew[ri.step_id]||null):null}));
+        const allIngredients=viewIngredients.value.map(ri=>({...newIngRow(),ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',prep_method:ri.prep_method||'',step_tempId:ri.step_id?(stepOldToNew[ri.step_id]||null):null}));
         editForm.value={id:null,name:recipe.name,category:recipe.category||'',version:(recipe.version||1)+1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,notes:recipe.notes||'',parent_recipe_id:recipe.id,steps,allIngredients};
         saveError.value='';currentView.value='edit';
       }
@@ -1630,7 +1634,7 @@ Method:
           }
           const valid=editForm.value.allIngredients.filter(ri=>ri.ingredient_id&&Number(ri.weight_g)>0);
           if(valid.length>0){
-            const ip=valid.map(ri=>({recipe_id:recipeId,ingredient_id:ri.ingredient_id,step_id:ri.step_tempId?(stepIdMap[ri.step_tempId]||null):null,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||null}));
+            const ip=valid.map(ri=>({recipe_id:recipeId,ingredient_id:ri.ingredient_id,step_id:ri.step_tempId?(stepIdMap[ri.step_tempId]||null):null,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||null,prep_method:ri.prep_method||null}));
             const{error:ie}=await sb.from('recipe_ingredients').insert(ip);if(ie)throw ie;
           }
           await loadRecipes();goToList();
@@ -1695,7 +1699,7 @@ body{font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;backg
 /* Ingredient rows */
 .ir{display:flex;align-items:baseline;padding:2mm 3.5mm;border-top:1px solid #eee;}
 .ir:first-child{border-top:none;}
-.in{flex:1;font-size:10.5pt;font-weight:700;color:#1c1917;}
+.in{flex:1;font-size:10.5pt;font-weight:700;color:#1c1917;}.ip{font-size:8.5pt;font-weight:400;font-style:italic;color:#777;margin-left:2mm;}
 .iv{font-size:9.5pt;font-weight:600;color:#555;text-align:right;margin-left:2mm;white-space:nowrap;}
 .iw{font-size:10.5pt;font-weight:800;color:#1c1917;text-align:right;margin-left:3mm;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:19mm;}
 /* Note/instruction steps */
@@ -1712,7 +1716,7 @@ body{font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;backg
           const{recipe,steps,ingredients,metrics}=item;
           const m=metrics||{totalG:0,finishedG:0,serveG:300,serves:0,totalCost:0,costPerServe:0};
           const descTxt=[recipe.description,recipe.notes].filter(Boolean).join(' — ');
-          const ingRow=ri=>`<div class="ir"><span class="in">${esc(ri.ingredient?.name||'')}</span><span class="iv">${esc(ri.volumetric_note||'')}</span><span class="iw">${(Number(ri.weight_g||0)/1000).toFixed(3)}&nbsp;kg</span></div>`;
+          const ingRow=ri=>`<div class="ir"><span class="in">${esc(ri.ingredient?.name||'')}${ri.prep_method?`<span class="ip">${esc(ri.prep_method)}</span>`:''}</span><span class="iv">${esc(ri.volumetric_note||'')}</span><span class="iw">${(Number(ri.weight_g||0)/1000).toFixed(3)}&nbsp;kg</span></div>`;
           const fmt=(n,d=3)=>n>=1000?(n/1000).toFixed(d)+' kg':n.toFixed(0)+'g';
           let h=`<div class="rpc">
 <div class="r-name">${esc(recipe.name)}</div>
