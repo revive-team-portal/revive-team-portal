@@ -300,10 +300,18 @@
               <!-- ========== MIDDLE: summary excerpt + notes ========== -->
               <div class="md:col-span-6 min-w-0 md:border-l md:border-gray-100 md:pl-4">
                 <!-- Applicant's own words, verbatim — no AI summary or commentary. -->
-                <blockquote v-if="app.cover_letter" class="cursor-pointer border-l-2 border-gray-200 pl-2.5" @click="openApplicant(app)">
-                  <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">&ldquo;{{ excerpt(app.cover_letter, 340) }}&rdquo;</p>
-                </blockquote>
-                <p v-else class="text-xs text-gray-300 italic">No cover letter provided.</p>
+                <div v-if="app.cover_letter || app.resume_text" class="cursor-pointer space-y-2" @click="openApplicant(app)">
+                  <blockquote v-if="app.cover_letter" class="border-l-2 border-gray-200 pl-2.5">
+                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">Cover letter</p>
+                    <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">&ldquo;{{ excerpt(app.cover_letter, 300) }}&rdquo;</p>
+                  </blockquote>
+                  <blockquote v-if="app.resume_text" class="border-l-2 border-brand-light pl-2.5">
+                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">From CV</p>
+                    <p class="text-xs text-gray-600 leading-relaxed">&ldquo;{{ excerpt(cvQuote(app.resume_text), 260) }}&rdquo;</p>
+                  </blockquote>
+                </div>
+                <p v-else-if="app.resume_url" class="text-xs text-gray-300 italic">Reading CV&#8230;</p>
+                <p v-else class="text-xs text-gray-300 italic">No cover letter or CV provided.</p>
 
                 <div class="mt-3">
                   <span class="text-xs text-gray-400">Notes</span>
@@ -1180,6 +1188,8 @@ const app = createApp({
             const { count } = await sb.from('applications').select('id', { count: 'exact' }).eq('email', app.email);
             app.previous_apply_count = count || 1;
           }
+          // Read any CVs we haven't read yet, in the background — don't block the list.
+          backfillResumeText(data);
           applications.value = data;
         }
       } finally {
@@ -1334,6 +1344,146 @@ const app = createApp({
         const result = await mammoth.convertToHtml({ arrayBuffer });
         resumeModalContent.value = result.value;
       }
+    }
+
+    // ============ CV TEXT EXTRACTION ============
+    // Pulls the real text out of an uploaded CV so the applicant's own words can be
+    // quoted on the tile. Nothing here is AI-generated — .docx via mammoth,
+    // .pdf via pdf.js, both already-verbatim extractions.
+    let pdfjsPromise = null;
+    function loadPdfJs() {
+      if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+      if (!pdfjsPromise) {
+        pdfjsPromise = new Promise((resolve, reject) => {
+          const sc = document.createElement('script');
+          sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          sc.onload = () => {
+            if (window.pdfjsLib) {
+              window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+              resolve(window.pdfjsLib);
+            } else reject(new Error('pdf.js failed to load'));
+          };
+          sc.onerror = () => reject(new Error('pdf.js failed to load'));
+          document.head.appendChild(sc);
+        });
+      }
+      return pdfjsPromise;
+    }
+
+    function tidyText(t) {
+      return String(t || '')
+        .replace(/\r/g, '')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+        .slice(0, 20000);
+    }
+
+    // Returns verbatim text from a CV file, or '' if the format can't be read.
+    async function extractDocText(arrayBuffer, filename) {
+      const ext = (filename || '').split('.').pop().toLowerCase();
+      try {
+        if (ext === 'docx') {
+          const r = await mammoth.extractRawText({ arrayBuffer });
+          return tidyText(r.value);
+        }
+        if (ext === 'pdf') {
+          const pdfjs = await loadPdfJs();
+          const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+          const pages = [];
+          const limit = Math.min(pdf.numPages, 8);
+          for (let i = 1; i <= limit; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            // pdf.js hands back positioned fragments, not lines. Rebuild lines from
+            // hasEOL, then infer paragraph breaks from bigger vertical gaps — without
+            // that structure a CV is one long blob starting with the contact header.
+            const rows = [];
+            let buf = '';
+            for (const it of content.items) {
+              if (typeof it.str === 'string') buf += it.str;
+              if (it.hasEOL) {
+                rows.push({ text: buf.trim(), y: it.transform ? it.transform[5] : null });
+                buf = '';
+              }
+            }
+            if (buf.trim()) rows.push({ text: buf.trim(), y: null });
+
+            const gaps = [];
+            for (let r = 1; r < rows.length; r++) {
+              if (rows[r].y != null && rows[r - 1].y != null) {
+                const g = rows[r - 1].y - rows[r].y;
+                if (g > 0) gaps.push(g);
+              }
+            }
+            const normalGap = gaps.length ? Math.min.apply(null, gaps) : 0;
+            const paraGap = normalGap ? normalGap * 1.5 : Infinity;
+
+            const lines = [];
+            for (let r = 0; r < rows.length; r++) {
+              if (r > 0 && rows[r].y != null && rows[r - 1].y != null &&
+                  (rows[r - 1].y - rows[r].y) > paraGap) lines.push('');
+              lines.push(rows[r].text);
+            }
+            pages.push(lines.join('\n'));
+          }
+          return tidyText(pages.join('\n\n'));
+        }
+        if (ext === 'txt') return tidyText(new TextDecoder().decode(arrayBuffer));
+      } catch (e) {
+        console.warn('CV text extraction failed for ' + filename, e);
+      }
+      return '';
+    }
+
+    // Extracts and saves resume_text for one applicant if it isn't stored yet.
+    async function ensureResumeText(app) {
+      if (!app.resume_url || app.resume_text) return;
+      try {
+        const { data } = await sb.storage.from('jobs-resumes').createSignedUrl(app.resume_url, 3600);
+        if (!data?.signedUrl) return;
+        const resp = await fetch(data.signedUrl);
+        const buf = await resp.arrayBuffer();
+        const text = await extractDocText(buf, app.resume_filename || app.resume_url);
+        if (!text) return;
+        await sb.from('applications').update({ resume_text: text }).eq('id', app.id);
+        app.resume_text = text;
+      } catch (e) {
+        console.warn('Could not read CV for ' + (app.full_name || app.id), e);
+      }
+    }
+
+    // Backfills anything uploaded before this existed, or via the public form.
+    async function backfillResumeText(list) {
+      const pending = (list || []).filter(a => a.resume_url && !a.resume_text).slice(0, 25);
+      for (const app of pending) await ensureResumeText(app);
+    }
+
+    // Picks a quotable passage: skips the contact-detail header and section headings
+    // most CVs open with, and starts at the first substantial line. Every word returned
+    // is the applicant's own — this chooses where to start, it does not rewrite anything.
+    function cvQuote(text) {
+      if (!text) return '';
+      const lines = String(text).split('\n').map(l => l.replace(/\s+/g, ' ').trim());
+      const isContact = l => /@|https?:\/\/|www\.|linkedin/i.test(l) || /\d[\d\s()+-]{6,}/.test(l);
+      const isHeading = l => l.length > 0 && l.length < 40 && l === l.toUpperCase() && /[A-Z]/.test(l);
+      const isNoise = l => !l || isContact(l) || isHeading(l) || l.length < 40;
+
+      let i = lines.findIndex(l => !isNoise(l));
+      if (i === -1) {
+        const fallback = lines.filter(l => l && !isContact(l)).join(' ').trim();
+        return fallback || String(text).replace(/\s+/g, ' ').trim();
+      }
+      const out = [];
+      for (; i < lines.length; i++) {
+        const l = lines[i];
+        if (!l) { if (out.length) break; else continue; }
+        if (isHeading(l) || isContact(l)) break;
+        out.push(l);
+        if (out.join(' ').length >= 260) break;
+      }
+      return out.join(' ').trim();
     }
 
     async function loadResumePreview(app) {
@@ -1554,9 +1704,11 @@ const app = createApp({
       const path = `${app.job_id}/${app.id}_${Date.now()}.${ext}`;
       const { error } = await sb.storage.from('jobs-resumes').upload(path, file, { upsert: true });
       if (!error) {
-        await sb.from('applications').update({ resume_url: path, resume_filename: file.name }).eq('id', app.id);
+        const text = await extractDocText(await file.arrayBuffer(), file.name);
+        await sb.from('applications').update({ resume_url: path, resume_filename: file.name, resume_text: text || null }).eq('id', app.id);
         app.resume_url = path;
         app.resume_filename = file.name;
+        app.resume_text = text || null;
       }
       event.target.value = '';
     }
@@ -1592,9 +1744,11 @@ const app = createApp({
           if (upErr) {
             addError.value = 'Applicant added, but the document upload failed. Add it from their tile.';
           } else {
-            await sb.from('applications').update({ resume_url: path, resume_filename: file.name }).eq('id', data.id);
+            const text = await extractDocText(await file.arrayBuffer(), file.name);
+            await sb.from('applications').update({ resume_url: path, resume_filename: file.name, resume_text: text || null }).eq('id', data.id);
             data.resume_url = path;
             data.resume_filename = file.name;
+            data.resume_text = text || null;
           }
         }
 
@@ -1843,7 +1997,7 @@ const app = createApp({
       exportCSV, copyJobLink, addQuestion, removeQuestion, updateQuestion,
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
-      statusList, statusPillStyle, excerpt,
+      statusList, statusPillStyle, excerpt, cvQuote,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
       saveInlineNote, openResumeInViewer
     };
