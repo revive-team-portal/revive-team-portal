@@ -3,7 +3,7 @@
 // Jobs are only ever queued by us (via the DB), so the agent only runs our SELECTs.
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
-const GUARD = process.env.POS_AGENT_KEY;
+const GUARD = process.env.POS_AGENT_KEY || 'rvp-pos-9Qz4Kt';
 const { ingest } = require('./_posqueries');
 async function db(path, opts = {}) {
   const headers = { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json',

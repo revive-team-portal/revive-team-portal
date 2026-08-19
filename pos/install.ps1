@@ -4,7 +4,7 @@
 $dir = "C:\ScorecardAgent"
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 Invoke-WebRequest "https://team.revive.co.nz/pos/agent.ps1" -OutFile "$dir\agent.ps1" -UseBasicParsing
-$a = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$dir\agent.ps1`" -Token YOUR_POS_TOKEN"
+$a = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$dir\agent.ps1`" -Token rvp-pos-9Qz4Kt"
 $t = New-ScheduledTaskTrigger -AtLogOn
 $s = New-ScheduledTaskSettingsSet -RestartInterval (New-TimeSpan -Minutes 2) -RestartCount 999 -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName "ScorecardPosAgent" -Action $a -Trigger $t -Settings $s -RunLevel Highest -Force | Out-Null

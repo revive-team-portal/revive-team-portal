@@ -45,7 +45,7 @@ small{color:#78716c}
 <h2 style="margin-top:0">Make the agent permanent (run once)</h2>
 <p style="margin-top:0">Open <b>Windows PowerShell as Administrator</b> (Start → type powershell → right-click → Run as administrator), click Copy below, paste in (right-click pastes), press Enter.</p>
 <pre id="q5">$p = "$env:USERPROFILE\Downloads\agent.ps1"
-$a = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$p`" -Token YOUR_POS_TOKEN"
+$a = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$p`" -Token rvp-pos-9Qz4Kt"
 $t = New-ScheduledTaskTrigger -AtLogOn
 $s = New-ScheduledTaskSettingsSet -RestartInterval (New-TimeSpan -Minutes 2) -RestartCount 999 -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName "ScorecardPosAgent" -Action $a -Trigger $t -Settings $s -RunLevel Highest -Force
