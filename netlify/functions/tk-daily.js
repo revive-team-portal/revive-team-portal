@@ -70,6 +70,19 @@ exports.handler = async (event) => {
     for (const [s, e] of windows) {
       entries = entries.concat(await pageAll(`/time-entries?start_date=${s}&end_date=${e}&job_id=${jobId}`, 'time_entries'));
     }
+    if (q.raw) {
+      const seenR = new Set(); const list = [];
+      for (const en of entries) {
+        if (seenR.has(en.id)) continue; seenR.add(en.id);
+        list.push({ id: en.id, employee_id: en.employee_id, start_time: en.start_time, end_time: en.end_time,
+          utc_date: String(en.start_time).slice(0, 10), nz_date: nzDate(en.start_time),
+          nz_start: new Intl.DateTimeFormat('en-GB', { timeZone: 'Pacific/Auckland', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(en.start_time)),
+          hours: en.duration_in_hours_raw,
+          span_hours: (Date.parse(en.end_time) - Date.parse(en.start_time)) / 3600000 });
+      }
+      list.sort((a, b) => a.start_time < b.start_time ? -1 : 1);
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ count: list.length, entries: list }) };
+    }
     const seen = new Set();
     const days = {};
     for (const en of entries) {
