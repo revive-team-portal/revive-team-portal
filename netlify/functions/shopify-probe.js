@@ -1,7 +1,7 @@
-// TEMPORARY diagnostic. ?k=rvp-tk-7Kq3 — lists the granted Shopify access scopes and
+// TEMPORARY diagnostic. ?k=<PORTAL_RUN_KEY> — lists the granted Shopify access scopes and
 // probes which order-attribution fields the current app can actually read.
 const { gql, STORE, API_VER } = require('./_shopify');
-const GUARD = 'rvp-tk-7Kq3';
+const GUARD = process.env.PORTAL_RUN_KEY;
 
 const PROBES = {
   landing_referrer: 'landingPageUrl referrerUrl',

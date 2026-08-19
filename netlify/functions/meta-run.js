@@ -1,6 +1,6 @@
 // Guarded manual Meta backfill/sync. ?k=..&start=YYYY-MM-DD&end=YYYY-MM-DD
 const { syncMeta } = require('./_metasync');
-const GUARD = 'rvp-tk-7Kq3';
+const GUARD = process.env.PORTAL_RUN_KEY;
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
   if (qp.k !== GUARD) return { statusCode: 403, body: 'nope' };

@@ -341,7 +341,7 @@
   createApp({
     setup(){
       const ready=ref(false), gateError=ref(''), toast=ref('');
-      const isSupervisor=ref(false);
+      const isSupervisor=ref(false); const staff=ref([]);
       const myId=ref(null), myName=ref(''), signedInAs=ref(''), debugUid=ref('');
       const areas=ref([]);
       const settings=reactive({});

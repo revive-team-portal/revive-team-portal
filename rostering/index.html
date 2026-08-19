@@ -448,17 +448,18 @@ function renderPublicInApp(){const pm=document.getElementById("publicMode");cons
 function drawPublic(weekId,onTab){renderWeekTabsGeneric("pubWeektabs",onTab,isLive,weekId);const w=wk(weekId);normalizeBreaks(w);document.getElementById("pubWeekLabel").textContent="Week ending "+fmtDate(weekEnding(w))+" · Sun–Fri · "+w.status;renderLegend("pubLegend");const pb=document.getElementById("pubBoard");pb.innerHTML="";const head=document.createElement("div");head.className="brow head";head.innerHTML=`<div class="bcell name"><span class="nm">Staff</span></div>`+DAYS.map(d=>`<div class="bcell hd">${d}</div>`).join("")+`<div class="bcell hd">Total</div>`;pb.appendChild(head);staff.forEach(s=>{if(staffHours(w,s.id)===0)return;const row=document.createElement("div");row.className="brow";row.innerHTML=`<div class="bcell name"><span class="nm">${s.first_name}</span></div>`;for(let d=0;d<6;d++){const bl=w.blocks.filter(b=>b.sid===s.id&&b.day===d).sort((a,b)=>t2m(a.s)-t2m(b.s));const cell=document.createElement("div");cell.className="bcell pubcell";cell.innerHTML=bl.map(b=>{const a=actById(b.act);return `<div class="pubblk" style="background:${a.color}">${a.emoji} ${fmtT(b.s)}–${fmtT(b.f)}${b.brk?' 🍽️':''}<br>${b.label||a.name.split(" ")[0]}</div>`;}).join("")||`<span class="muted" style="font-size:11px">—</span>`;row.appendChild(cell);}const tot=document.createElement("div");tot.className="bcell tot";tot.textContent=staffHours(w,s.id).toFixed(1)+"h";row.appendChild(tot);pb.appendChild(row);});}
 
 // ================= standalone public page (?view=public) =================
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 async function bootPublic(weekParam){
   const [ac,pv]=await Promise.all([sb.from("roster_activities").select("*").order("sort_order"),sb.from("roster_public_schedule").select("*")]);
-  acts=(ac.data||[]).map(a=>({...a}));familyColor();
+  acts=(ac.data||[]).map(a=>({...a,name:esc(a.name),emoji:esc(a.emoji),color:esc(a.color)}));familyColor();
   const rows=pv.data||[];
-  const byWeek={};rows.forEach(r=>{(byWeek[r.week_id]=byWeek[r.week_id]||{id:r.week_id,start:r.start_date,status:r.status,blocks:[],staff:{}}).blocks.push({sid:r.staff_id,day:r.day,s:m2t(r.start_min),f:m2t(r.end_min),act_name:r.activity_name,emoji:r.emoji,label:r.custom_label,meal:r.meal_at!=null});byWeek[r.week_id].staff[r.staff_id]=r.first_name;});
+  const byWeek={};rows.forEach(r=>{(byWeek[r.week_id]=byWeek[r.week_id]||{id:r.week_id,start:r.start_date,status:esc(r.status),blocks:[],staff:{}}).blocks.push({sid:r.staff_id,day:r.day,s:m2t(r.start_min),f:m2t(r.end_min),act_name:esc(r.activity_name),emoji:esc(r.emoji),label:esc(r.custom_label),meal:r.meal_at!=null});byWeek[r.week_id].staff[r.staff_id]=esc(r.first_name);});
   const wks=Object.values(byWeek).sort((a,b)=>a.start<b.start?-1:1);
   const root=document.getElementById("root");
   if(!wks.length){root.innerHTML=`<div class="wrap"><div class="pubhead"><h2>Revive — Weekly Roster</h2></div><div class="card"><p class="muted">No roster published yet.</p></div></div>`;return;}
   const params=new URLSearchParams(location.search);
   let cur=weekParam&&byWeek[weekParam]?weekParam:wks[wks.length-1].id;
-  const namesById={};wks.forEach(w=>w.blocks.forEach(()=>{}));rows.forEach(r=>{namesById[r.staff_id]=r.first_name;});
+  const namesById={};wks.forEach(w=>w.blocks.forEach(()=>{}));rows.forEach(r=>{namesById[r.staff_id]=esc(r.first_name);});
   const staffIds=Object.keys(namesById).sort((a,b)=>namesById[a]<namesById[b]?-1:1);
   let who=params.get('who')||params.get('utm_content')||localStorage.getItem('roster_me')||'';
   if(who&&!namesById[who])who='';

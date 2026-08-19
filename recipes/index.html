@@ -1407,7 +1407,7 @@ Method:
       const loginEmail = ref(''); const loginPassword = ref(''); const authLoading = ref(false); const authError = ref(''); const gateError = ref('');
       const currentView = ref('list');
       const recipes = ref([]); const ingredients = ref([]); const loadingRecipes = ref(false);
-      const currentRecipe = ref(null); const viewSteps = ref([]); const viewIngredients = ref([]);
+      const currentRecipe = ref(null); const viewSteps = ref([]); const viewIngredients = ref([]); const expandedIngId = ref(null);
       const searchQuery = ref(''); const selectedCategory = ref(''); const ingSearchQuery = ref('');
       const editForm = ref({ id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,notes:'',parent_recipe_id:null,steps:[],allIngredients:[] });
       const savingRecipe = ref(false); const saveError = ref('');
@@ -1640,7 +1640,7 @@ Method:
       function startNewRecipe(){editForm.value=blankEditForm();saveError.value='';currentView.value='edit';}
       function startImport(){importText.value='';importImageData.value=null;importError.value='';currentView.value='import';}
       function startEditRecipe(recipe){
-        const steps=(recipe.recipe_steps||[]).sort((a,b)=>a.step_order-b.step_order).map(s=>({...s,tempId:s.id||uid()}));
+        const steps=viewSteps.value.map(s=>({...s,tempId:s.id||uid()}));
         const allIngredients=(recipe._rawIngredients||viewIngredients.value).map(ri=>({...newIngRow(),id:ri.id,ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',prep_method:ri.prep_method||'',step_tempId:ri.step_id?(steps.find(s=>s.id===ri.step_id)?.tempId||null):null}));
         editForm.value={id:recipe.id,name:recipe.name,category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,finished_weight_g:recipe.finished_weight_g||null,status:recipe.status||'active',notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,steps,allIngredients};
         saveError.value='';currentView.value='edit';

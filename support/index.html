@@ -88,7 +88,7 @@ const SETUP = [
   {k:'Ticket persistence + triage', done:true, note:'Emails → tickets; order vs non-order split'},
 ];
 
-function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function chips(arr,cls){return arr.map(s=>'<span class="inline-block '+cls+' rounded-full px-2.5 py-1 text-xs mr-1.5 mb-1.5">'+esc(s)+'</span>').join('');}
 function card(title,inner){return '<div class="bg-white border border-stone-200 rounded-xl p-4 mb-4"><h3 class="font-semibold text-stone-800 mb-2">'+esc(title)+'</h3>'+inner+'</div>';}
 function pending(msg){return '<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2 mb-3">⏳ '+esc(msg)+'</div>';}

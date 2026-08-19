@@ -6,7 +6,7 @@
 const { gql } = require('./_shopify');
 const { metaAccountTz } = require('./_metasync');
 
-const GUARD = 'rvp-tk-7Kq3';
+const GUARD = process.env.PORTAL_RUN_KEY;
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const TOKEN = process.env.META_ACCESS_TOKEN;
 const ACCT = process.env.META_AD_ACCOUNT || 'act_242089740673955';

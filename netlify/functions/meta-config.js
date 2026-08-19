@@ -1,7 +1,7 @@
-// Read-only Meta budget/pacing config dump. ?k=rvp-tk-7Kq3
+// Read-only Meta budget/pacing config dump. ?k=<PORTAL_RUN_KEY>
 // Shows account spend cap, campaign + ad set budgets, bid strategy, pacing and
 // dayparting schedules — the settings that govern how much Meta can spend in a day.
-const GUARD = 'rvp-tk-7Kq3';
+const GUARD = process.env.PORTAL_RUN_KEY;
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const TOKEN = process.env.META_ACCESS_TOKEN;
 const ACCT = process.env.META_AD_ACCOUNT || 'act_242089740673955';
