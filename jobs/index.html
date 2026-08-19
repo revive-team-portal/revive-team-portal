@@ -322,6 +322,14 @@
                       <span class="text-gray-700 font-medium truncate" :title="kp.value">{{ kp.value }}</span>
                     </div>
                   </div>
+                  <div v-if="recentJobs(app).length" class="mt-1.5 mb-1.5">
+                    <div class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">Recent roles</div>
+                    <div v-for="(j, ji) in recentJobs(app)" :key="ji" class="text-xs leading-snug mb-0.5">
+                      <div class="text-gray-700 font-medium truncate" :title="jobLine(j)">{{ jobLine(j) }}</div>
+                      <div v-if="jobMeta(j)" class="text-gray-400">{{ jobMeta(j) }}</div>
+                    </div>
+                  </div>
+
                   <p v-else-if="analysing[app.id]" class="mt-1.5 mb-1.5 text-xs text-gray-300 italic">Reading key details&#8230;</p>
 
                   <div class="mt-1 space-y-0.5 text-xs text-gray-500">
@@ -490,6 +498,18 @@
               </div>
               <div v-if="selectedApplicant.ai_analysis_notes" class="mt-3 text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
                 {{ selectedApplicant.ai_analysis_notes }}
+              </div>
+            </div>
+
+            <!-- Work history from the CV -->
+            <div v-if="recentJobs(selectedApplicant).length || realValue(selectedApplicant.countries_worked)" class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Work History <span class="text-gray-400 font-normal normal-case text-xs">(from CV)</span></h3>
+              <p v-if="realValue(selectedApplicant.countries_worked)" class="text-sm text-gray-600 mb-3">
+                <span class="text-gray-400">Worked in:</span> {{ selectedApplicant.countries_worked }}
+              </p>
+              <div v-for="(j, ji) in recentJobs(selectedApplicant)" :key="ji" class="mb-2">
+                <p class="text-sm text-gray-800 font-medium">{{ jobLine(j) }}</p>
+                <p v-if="jobMeta(j)" class="text-xs text-gray-400">{{ jobMeta(j) }}</p>
               </div>
             </div>
 
@@ -1652,11 +1672,34 @@ const app = createApp({
       if (nat) out.push({ label: 'Nationality', value: nat });
       const visa = realValue(app.visa_type);
       if (visa) out.push({ label: 'Visa', value: visa });
-      const co = realValue(app.last_company);
-      if (co) out.push({ label: 'Last job', value: co });
-      const pos = realValue(app.last_position);
-      if (pos) out.push({ label: 'Position', value: pos });
+      const countries = realValue(app.countries_worked);
+      if (countries) out.push({ label: 'Worked in', value: countries });
       return out;
+    }
+
+    // Recent roles, most recent first. Falls back to the single last_company /
+    // last_position pair on records analysed before recent_jobs existed.
+    function recentJobs(app) {
+      if (!app) return [];
+      const list = Array.isArray(app.recent_jobs) ? app.recent_jobs : [];
+      const cleaned = list.map(j => ({
+        position: realValue(j && j.position),
+        company: realValue(j && j.company),
+        dates: realValue(j && j.dates),
+        country: realValue(j && j.country)
+      })).filter(j => j.company || j.position);
+      if (cleaned.length) return cleaned;
+      const co = realValue(app.last_company), pos = realValue(app.last_position);
+      return (co || pos) ? [{ position: pos, company: co, dates: '', country: '' }] : [];
+    }
+
+    function jobLine(j) {
+      const head = [j.position, j.company].filter(Boolean).join(' \u2014 ');
+      return head || j.company || j.position || '';
+    }
+
+    function jobMeta(j) {
+      return [j.dates, j.country].filter(Boolean).join(' \u00b7 ');
     }
 
     // Runs the scoring + key-point extraction for one applicant.
@@ -2318,8 +2361,8 @@ const app = createApp({
       exportCSV, copyJobLink, addQuestion, removeQuestion, updateQuestion,
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
-      statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights,
-      keyPoints, analysing, analyseApplication, applicationAnswers, shortQuestion,
+      statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
+      keyPoints, recentJobs, jobLine, jobMeta, analysing, analyseApplication, applicationAnswers, shortQuestion,
       coverText, coverIsUploaded, cvText, docsPending,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
       saveInlineNote, openResumeInViewer
