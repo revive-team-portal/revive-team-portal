@@ -270,7 +270,7 @@
                   <option value="shortlist_a">Shortlist A</option>
                   <option value="shortlist_b">Shortlist B</option>
                   <option value="interview">Interview</option>
-                  <option value="hired">Hired &#10003;</option>
+                  <option value="hired">Hired</option>
                   <option value="not_hired">Not Hired</option>
                 </select>
 
@@ -403,7 +403,7 @@
                   <option value="shortlist_a">Shortlist A</option>
                   <option value="shortlist_b">Shortlist B</option>
                   <option value="interview">Interview</option>
-                  <option value="hired">Hired ✓</option>
+                  <option value="hired">Hired</option>
                   <option value="not_hired">Not Hired</option>
                 </select>
               </div>
@@ -862,6 +862,19 @@
           <select v-model="addForm.referral_source" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand">
             <option value="other">Other / Not stated</option><option value="seek">Seek</option><option value="facebook">Facebook</option><option value="friend">Friend/Word of mouth</option>
           </select></div>
+        <div><label class="text-xs font-semibold text-gray-600 block mb-1">CV / Document</label>
+          <div v-if="addFile" class="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+            <span class="text-sm text-gray-700 truncate flex-1">{{ addFile.name }}</span>
+            <button @click="clearAddFile" class="text-xs text-gray-400 hover:text-red-500 font-semibold shrink-0">Remove</button>
+          </div>
+          <button v-else @click="pickAddFile"
+            class="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 hover:border-brand text-gray-500 hover:text-brand rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            Choose a file
+          </button>
+          <input type="file" ref="addFileInput" @change="onAddFileChosen" class="hidden" accept=".pdf,.doc,.docx">
+          <p class="text-xs text-gray-400 mt-1">PDF or Word. Optional &mdash; you can also add one later from the applicant tile.</p>
+        </div>
         <p v-if="addError" class="text-red-600 text-xs">{{ addError }}</p>
       </div>
       <div class="p-6 border-t border-gray-100 flex justify-end gap-3">
@@ -1006,6 +1019,8 @@ const app = createApp({
     const addingApplicant = ref(false);
     const addError = ref('');
     const addForm = ref({ first_name:'', last_name:'', email:'', phone:'', location:'', cover_letter:'', status:'new', referral_source:'other' });
+    const addFile = ref(null);          // file chosen in the Add Applicant modal
+    const addFileInput = ref(null);
     const fileInputRefs = {};
     const resumeModalContent = ref('');
     const resumeModalType = ref('');
@@ -1527,6 +1542,10 @@ const app = createApp({
       event.target.value = '';
     }
 
+    function pickAddFile() { if (addFileInput.value) addFileInput.value.click(); }
+    function onAddFileChosen(event) { addFile.value = event.target.files[0] || null; }
+    function clearAddFile() { addFile.value = null; if (addFileInput.value) addFileInput.value.value = ''; }
+
     async function submitAddApplicant() {
       addError.value = '';
       if (!addForm.value.first_name || !addForm.value.email) { addError.value = 'First name and email are required.'; return; }
@@ -1543,9 +1562,27 @@ const app = createApp({
           referral_source: addForm.value.referral_source
         }).select('*').single();
         if (error) throw error;
+
+        // Attach the chosen document, if any. Same bucket and path shape as the
+        // per-tile upload so both routes land in one place.
+        if (addFile.value) {
+          const file = addFile.value;
+          const ext = file.name.split('.').pop();
+          const path = `${data.job_id}/${data.id}_${Date.now()}.${ext}`;
+          const { error: upErr } = await sb.storage.from('jobs-resumes').upload(path, file, { upsert: true });
+          if (upErr) {
+            addError.value = 'Applicant added, but the document upload failed. Add it from their tile.';
+          } else {
+            await sb.from('applications').update({ resume_url: path, resume_filename: file.name }).eq('id', data.id);
+            data.resume_url = path;
+            data.resume_filename = file.name;
+          }
+        }
+
         data.previous_apply_count = 1;
         applications.value.unshift(data);
-        showAddApplicant.value = false;
+        if (!addError.value) showAddApplicant.value = false;
+        clearAddFile();
         addForm.value = { first_name:'', last_name:'', email:'', phone:'', location:'', cover_letter:'', status:'new', referral_source:'other' };
         // Trigger AI scoring
         fetch('https://jobs.revive.co.nz/.netlify/functions/score-application', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({application_id: data.id}) }).catch(()=>{});
@@ -1650,7 +1687,7 @@ const app = createApp({
       { key:'shortlist_a', label:'Shortlist A' },
       { key:'shortlist_b', label:'Shortlist B' },
       { key:'interview', label:'Interview' },
-      { key:'hired', label:'Hired \u2713' },
+      { key:'hired', label:'Hired' },
       { key:'not_suitable', label:'Not Suitable' },
       { key:'not_hired', label:'Not Hired' }
     ];
@@ -1773,6 +1810,7 @@ const app = createApp({
       copiedLink, showSlotsModal, showResumeModal,
       showRejectionPreview, rejectionPreviewApplicants, rejectionEmailPreview, rejectionSubjectPreview,
       showAddApplicant, addingApplicant, addError, addForm,
+      addFile, addFileInput, pickAddFile, onAddFileChosen, clearAddFile,
       fileInputRefs,
       resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
       noteText, settingsForm, newSlotTime, jobSaveError,
