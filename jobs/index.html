@@ -6,6 +6,7 @@
   <title>Admin Portal — Revive Cafe Jobs</title>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <link rel="stylesheet" href="/chrome.css">
   <style>
     /* Quill overrides */
     .ql-container { font-family: 'Open Sans', sans-serif; font-size: 14px; border-radius: 0 0 8px 8px; border-color: #d1d5db !important; min-height: 280px; }
@@ -26,9 +27,27 @@
     }
   </script>
   <style>
-    .sidebar-link { transition: all 0.15s; }
-    .sidebar-link:hover { background: rgba(64,209,52,0.1); color: #40d134; }
-    .sidebar-link.active { background: rgba(64,209,52,0.15); color: #40d134; border-right: 3px solid #40d134; }
+    /* Secondary bar — this app's own navigation, sitting under the shared rv-nav.
+       Scoped to /jobs/ so nothing here can affect other portal apps. */
+    .jobs-subbar {
+      background: #fff; border-bottom: 1px solid #e5e7eb;
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 18px; height: 48px; box-sizing: border-box;
+      overflow-x: auto; white-space: nowrap;
+    }
+    .jobs-subbar button {
+      font-size: 13px; font-weight: 600; line-height: 1;
+      padding: 7px 13px; border-radius: 8px; cursor: pointer;
+      background: #fff; color: #4b5563; border: 1px solid #d1d5db;
+      transition: background .15s, color .15s, border-color .15s;
+      flex: none;
+    }
+    .jobs-subbar button:hover { background: #f3f4f6; color: #111827; }
+    .jobs-subbar button.active { background: #40d134; color: #fff; border-color: #40d134; }
+    .jobs-subbar .spacer { flex: 1 1 auto; }
+    .jobs-subbar .signout { border-color: transparent; color: #9ca3af; font-weight: 500; }
+    .jobs-subbar .signout:hover { color: #dc2626; background: #fef2f2; }
+    @media (max-width: 640px) { .jobs-subbar { padding: 0 12px; height: 44px; } }
     .score-badge { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; font-weight:700; font-size:13px; }
     .prose-sm h1,.prose-sm h2,.prose-sm h3 { font-weight:700; color:#111; margin-top:1em; margin-bottom:0.5em; }
     .prose-sm h2 { font-size:1.1rem; }
@@ -71,35 +90,29 @@
   </div>
 
   <!-- ======== MAIN APP ======== -->
-  <div v-else class="flex h-screen overflow-hidden">
+  <div v-else class="min-h-screen flex flex-col">
 
-    <!-- Sidebar -->
-    <aside class="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-      <div class="p-4 border-b border-gray-100">
-        <img src="https://www.revive.co.nz/cdn/shop/files/01-060_Revive_Cafe_Logo_40x.png" alt="Revive Cafe" class="h-8 mb-1">
-        <p class="text-xs text-gray-400 font-medium">Admin Portal</p>
+    <nav class="rv-nav">
+      <div class="rv-left">
+        <img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+        <span class="rv-appname">Jobs</span>
       </div>
-      <nav class="flex-1 py-4 space-y-1 px-2">
-        <button @click="view='dashboard'" class="sidebar-link w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" :class="{ active: view==='dashboard' }">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-          Jobs Dashboard
-        </button>
-        <button @click="startNewJob" class="sidebar-link w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" :class="{ active: view==='edit-job' && !editingJob.id }">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Post New Job
-        </button>
-        <button @click="view='settings'" class="sidebar-link w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" :class="{ active: view==='settings' }">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          Settings
-        </button>
-      </nav>
-      <div class="p-3 border-t border-gray-100">
-        <button @click="logout" class="w-full text-left text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">Sign Out</button>
+      <div class="rv-right">
+        <a href="/" class="rv-portal">&larr; Main Portal</a>
       </div>
-    </aside>
+    </nav>
+
+    <!-- Secondary bar: this app's navigation -->
+    <div class="jobs-subbar">
+      <button @click="view='dashboard'" :class="{ active: view==='dashboard' }">Jobs Dashboard</button>
+      <button @click="startNewJob" :class="{ active: view==='edit-job' && !editingJob.id }">Post New Job</button>
+      <button @click="view='settings'" :class="{ active: view==='settings' }">Settings</button>
+      <span class="spacer"></span>
+      <button class="signout" @click="logout">Sign Out</button>
+    </div>
 
     <!-- Main content -->
-    <main class="flex-1 overflow-y-auto">
+    <main class="flex-1">
 
       <!-- ===== DASHBOARD ===== -->
       <div v-if="view==='dashboard'" class="p-6">
