@@ -300,17 +300,20 @@
               <!-- ========== MIDDLE: summary excerpt + notes ========== -->
               <div class="md:col-span-6 min-w-0 md:border-l md:border-gray-100 md:pl-4">
                 <!-- Applicant's own words, verbatim — no AI summary or commentary. -->
-                <div v-if="app.cover_letter || app.resume_text" class="cursor-pointer space-y-2" @click="openApplicant(app)">
-                  <blockquote v-if="app.cover_letter" class="border-l-2 border-gray-200 pl-2.5">
-                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">Cover letter</p>
-                    <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">&ldquo;{{ excerpt(app.cover_letter, 300) }}&rdquo;</p>
+                <div v-if="coverText(app) || cvText(app)" class="cursor-pointer space-y-2" @click="openApplicant(app)">
+                  <blockquote v-if="coverText(app)" class="border-l-2 border-gray-200 pl-2.5">
+                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">
+                      Cover letter<span v-if="coverIsUploaded(app)" class="normal-case tracking-normal font-normal"> (uploaded)</span>
+                    </p>
+                    <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">&ldquo;{{ excerpt(coverText(app), 300) }}&rdquo;</p>
                   </blockquote>
-                  <blockquote v-if="app.resume_text" class="border-l-2 border-brand-light pl-2.5">
+                  <blockquote v-if="cvText(app)" class="border-l-2 border-brand-light pl-2.5">
                     <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">From CV</p>
-                    <p class="text-xs text-gray-600 leading-relaxed">&ldquo;{{ excerpt(cvQuote(app.resume_text), 260) }}&rdquo;</p>
+                    <p class="text-xs text-gray-600 leading-relaxed">&ldquo;{{ excerpt(cvQuote(cvText(app)), 260) }}&rdquo;</p>
                   </blockquote>
                 </div>
-                <p v-else-if="app.resume_url" class="text-xs text-gray-300 italic">Reading CV&#8230;</p>
+                <p v-else-if="docsPending(app)" class="text-xs text-gray-300 italic">Reading documents&#8230;</p>
+                <p v-else-if="docsFor(app).length" class="text-xs text-gray-300 italic">No readable text in the attached files.</p>
                 <p v-else class="text-xs text-gray-300 italic">No cover letter or CV provided.</p>
 
                 <div class="mt-3">
@@ -471,8 +474,10 @@
 
             <!-- Cover Letter -->
             <div class="bg-white rounded-xl border border-gray-200 p-5">
-              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Cover Letter</h3>
-              <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ selectedApplicant.cover_letter || 'No cover letter provided.' }}</p>
+              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">
+                Cover Letter<span v-if="coverIsUploaded(selectedApplicant)" class="text-gray-400 font-normal normal-case tracking-normal text-xs"> (from uploaded file)</span>
+              </h3>
+              <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ coverText(selectedApplicant) || 'No cover letter provided.' }}</p>
             </div>
 
             <!-- Resume -->
@@ -1210,8 +1215,8 @@ const app = createApp({
             const { count } = await sb.from('applications').select('id', { count: 'exact' }).eq('email', app.email);
             app.previous_apply_count = count || 1;
           }
-          // Read any CVs we haven't read yet, in the background — don't block the list.
-          backfillResumeText(data);
+          // Read any documents we haven't read yet, in the background — don't block the list.
+          backfillDocTexts(data);
           applications.value = data;
         }
       } finally {
@@ -1459,27 +1464,101 @@ const app = createApp({
       return '';
     }
 
-    // Extracts and saves resume_text for one applicant if it isn't stored yet.
-    async function ensureResumeText(app) {
-      if (!app.resume_url || app.resume_text) return;
+    const READABLE = ['pdf', 'docx', 'txt'];
+    function isReadable(name) {
+      return READABLE.includes((name || '').split('.').pop().toLowerCase());
+    }
+
+    async function readStoredFile(path, filename) {
+      const { data } = await sb.storage.from('jobs-resumes').createSignedUrl(path, 3600);
+      if (!data?.signedUrl) return '';
+      const resp = await fetch(data.signedUrl);
+      const buf = await resp.arrayBuffer();
+      return await extractDocText(buf, filename || path);
+    }
+
+    // Reads every attached document once and caches the text on the record, so the
+    // tile can quote an uploaded cover letter as well as a CV. Images are skipped.
+    async function ensureDocTexts(app) {
+      if (!app) return;
+      let changed = false;
+
+      const docs = Array.isArray(app.documents) ? app.documents : [];
+      for (const doc of docs) {
+        if (!doc || !doc.path || doc.text || doc.text === '' && doc.read) continue;
+        if (!isReadable(doc.filename || doc.path)) continue;
+        try {
+          const text = await readStoredFile(doc.path, doc.filename);
+          doc.text = text || '';
+          doc.read = true;
+          changed = true;
+        } catch (e) {
+          console.warn('Could not read ' + (doc.filename || doc.path), e);
+        }
+      }
+
+      // Legacy records only have resume_url and no documents array.
+      let resumeText = app.resume_text;
+      if (!resumeText) {
+        const cvDoc = docs.find(d => d && d.kind === 'cv' && d.text) || docs.find(d => d && d.text);
+        if (cvDoc) resumeText = cvDoc.text;
+        else if (app.resume_url && isReadable(app.resume_filename || app.resume_url)) {
+          try { resumeText = await readStoredFile(app.resume_url, app.resume_filename); } catch (e) {}
+        }
+      }
+
+      const patch = {};
+      if (changed) patch.documents = docs;
+      if (resumeText && resumeText !== app.resume_text) patch.resume_text = resumeText;
+      if (!Object.keys(patch).length) return;
+
       try {
-        const { data } = await sb.storage.from('jobs-resumes').createSignedUrl(app.resume_url, 3600);
-        if (!data?.signedUrl) return;
-        const resp = await fetch(data.signedUrl);
-        const buf = await resp.arrayBuffer();
-        const text = await extractDocText(buf, app.resume_filename || app.resume_url);
-        if (!text) return;
-        await sb.from('applications').update({ resume_text: text }).eq('id', app.id);
-        app.resume_text = text;
+        await sb.from('applications').update(patch).eq('id', app.id);
+        if (patch.resume_text) app.resume_text = patch.resume_text;
       } catch (e) {
-        console.warn('Could not read CV for ' + (app.full_name || app.id), e);
+        console.warn('Could not save extracted document text', e);
       }
     }
 
-    // Backfills anything uploaded before this existed, or via the public form.
-    async function backfillResumeText(list) {
-      const pending = (list || []).filter(a => a.resume_url && !a.resume_text).slice(0, 25);
-      for (const app of pending) await ensureResumeText(app);
+    async function backfillDocTexts(list) {
+      const pending = (list || []).filter(a => {
+        const docs = Array.isArray(a.documents) ? a.documents : [];
+        const unread = docs.some(d => d && d.path && !d.read && isReadable(d.filename || d.path));
+        return unread || (!a.resume_text && a.resume_url);
+      }).slice(0, 25);
+      for (const app of pending) await ensureDocTexts(app);
+    }
+
+    // The applicant's own words for the cover letter: what they typed, or failing
+    // that, an uploaded cover-letter document.
+    function coverText(app) {
+      if (!app) return '';
+      if (app.cover_letter && app.cover_letter.trim()) return app.cover_letter.trim();
+      const docs = Array.isArray(app.documents) ? app.documents : [];
+      const doc = docs.find(d => d && d.kind === 'cover_letter' && d.text && d.text.trim());
+      return doc ? cvQuote(doc.text) : '';
+    }
+
+    function coverIsUploaded(app) {
+      return !!(app && !(app.cover_letter || '').trim() && coverText(app));
+    }
+
+    // CV text, from the cached column or whichever document holds it.
+    function cvText(app) {
+      if (!app) return '';
+      if (app.resume_text && app.resume_text.trim()) return app.resume_text;
+      const docs = Array.isArray(app.documents) ? app.documents : [];
+      const doc = docs.find(d => d && d.kind === 'cv' && d.text && d.text.trim())
+               || docs.find(d => d && d.kind !== 'cover_letter' && d.text && d.text.trim());
+      return doc ? doc.text : '';
+    }
+
+    // True while there is a readable document whose text hasn't been pulled yet.
+    function docsPending(app) {
+      if (!app) return false;
+      const docs = Array.isArray(app.documents) ? app.documents : [];
+      if (docs.some(d => d && d.path && !d.read && isReadable(d.filename || d.path))) return true;
+      return !!(app.resume_url && !app.resume_text && !docs.length);
     }
 
     // Picks a quotable passage: skips the contact-detail header and section headings
@@ -2050,6 +2129,7 @@ const app = createApp({
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights,
+      coverText, coverIsUploaded, cvText, docsPending,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
       saveInlineNote, openResumeInViewer
     };
