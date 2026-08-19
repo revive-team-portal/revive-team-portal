@@ -1543,6 +1543,8 @@ const app = createApp({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'interview_invite',
+            jobId: selectedJob.value.id,
+            employerEmail: selectedJob.value.employer_email,
             applicantName: app.full_name,
             applicantEmail: app.email,
             jobTitle: selectedJob.value.title,
@@ -1580,6 +1582,8 @@ const app = createApp({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'bulk_rejection',
+            jobId: selectedJob.value.id,
+            employerEmail: selectedJob.value.employer_email,
             applicants: toReject,
             jobTitle: selectedJob.value.title
           })
