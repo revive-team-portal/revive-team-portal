@@ -45,7 +45,8 @@
   </style>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800">
-<div id="app" class="min-h-screen">
+<div id="debug-banner" style="background:orange;color:black;padding:8px;text-align:center;font-family:monospace;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999">DEBUG v3 — if you see this, new code is loading</div>
+<div id="app" class="min-h-screen" style="padding-top:32px">
 
   <!-- ======== SSO LOADING ======== -->
   <div v-if="ssoChecking" class="min-h-screen flex items-center justify-center" style="background:#f9fafb;">
@@ -940,7 +941,7 @@ const SUPABASE_KEY = 'sb_publishable_UQWjPFJDl7uUZkIMUWJQXA_LvLSKAVl';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'jobs' } });
 const BASE_URL = 'https://jobs.revive.co.nz';
 
-createApp({
+const app = createApp({
   setup() {
     // Auth
     const loggedIn = ref(false);
@@ -1718,7 +1719,14 @@ createApp({
       saveInlineNote, openResumeInViewer
     };
   }
-}).mount('#app');
+});
+app.config.errorHandler = (err, vm, info) => {
+  document.getElementById('debug-banner').innerHTML = 'VUE ERROR: ' + err.message + ' | ' + info;
+  document.getElementById('debug-banner').style.background = 'red';
+  document.getElementById('debug-banner').style.color = 'white';
+  console.error('Vue error:', err, info);
+};
+app.mount('#app');
 </script>
 </body>
 </html>
