@@ -919,6 +919,14 @@
 
 </div><!-- end app -->
 
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  document.body.innerHTML = '<div style="padding:40px;font-family:monospace;background:#fee;border:2px solid red;margin:20px;border-radius:8px"><h2 style="color:red">JS Error (debug)</h2><p><b>' + msg + '</b></p><p>' + src + ':' + line + ':' + col + '</p><pre>' + (err && err.stack ? err.stack : '') + '</pre></div>';
+};
+window.onunhandledrejection = function(e) {
+  document.body.innerHTML = '<div style="padding:40px;font-family:monospace;background:#fee;border:2px solid red;margin:20px;border-radius:8px"><h2 style="color:red">Promise Error (debug)</h2><pre>' + e.reason + '</pre></div>';
+};
+</script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
