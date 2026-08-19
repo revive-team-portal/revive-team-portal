@@ -272,13 +272,32 @@
         </div>
         <label class="block"><span class="lbl">Customer info</span><div class="flex items-center gap-2 rounded-lg px-2 py-1.5" :class="(cur.info||'').trim() ? 'bg-yellow-100 border border-yellow-300 note-flash' : ''"><span class="text-base" title="Customer info">📝</span><input v-model="cur.info" class="inp flex-1" :class="(cur.info||'').trim()?'bg-yellow-50':''" placeholder="Notes about this customer…"></div></label>
         <div class="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center">
             <span class="text-base" title="Contact 1">👤</span>
-            <input v-model="cur.contact_first" placeholder="First" class="inp"><input v-model="cur.contact_last" placeholder="Last" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp">
+            <input v-model="cur.contact_first" placeholder="First" class="inp"><input v-model="cur.contact_last" placeholder="Last" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp"><input v-model="cur.contact_position" placeholder="Position" class="inp">
           </div>
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 2">
             <span class="text-base" title="Contact 2">👤</span>
-            <input v-model="cur.contact2_first" placeholder="First" class="inp"><input v-model="cur.contact2_last" placeholder="Last" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp">
+            <input v-model="cur.contact2_first" placeholder="First" class="inp"><input v-model="cur.contact2_last" placeholder="Last" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp"><input v-model="cur.contact2_position" placeholder="Position" class="inp">
+          </div>
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 3">
+            <span class="text-base" title="Contact 3">👤</span>
+            <input v-model="cur.contact3_first" placeholder="First" class="inp"><input v-model="cur.contact3_last" placeholder="Last" class="inp"><input v-model="cur.contact3_email" placeholder="Email" class="inp"><input v-model="cur.contact3_phone" placeholder="Phone" class="inp"><input v-model="cur.contact3_position" placeholder="Position" class="inp">
+          </div>
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 4">
+            <span class="text-base" title="Contact 4">👤</span>
+            <input v-model="cur.contact4_first" placeholder="First" class="inp"><input v-model="cur.contact4_last" placeholder="Last" class="inp"><input v-model="cur.contact4_email" placeholder="Email" class="inp"><input v-model="cur.contact4_phone" placeholder="Phone" class="inp"><input v-model="cur.contact4_position" placeholder="Position" class="inp">
+          </div>
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 5">
+            <span class="text-base" title="Contact 5">👤</span>
+            <input v-model="cur.contact5_first" placeholder="First" class="inp"><input v-model="cur.contact5_last" placeholder="Last" class="inp"><input v-model="cur.contact5_email" placeholder="Email" class="inp"><input v-model="cur.contact5_phone" placeholder="Phone" class="inp"><input v-model="cur.contact5_position" placeholder="Position" class="inp">
+          </div>
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 6">
+            <span class="text-base" title="Contact 6">👤</span>
+            <input v-model="cur.contact6_first" placeholder="First" class="inp"><input v-model="cur.contact6_last" placeholder="Last" class="inp"><input v-model="cur.contact6_email" placeholder="Email" class="inp"><input v-model="cur.contact6_phone" placeholder="Phone" class="inp"><input v-model="cur.contact6_position" placeholder="Position" class="inp">
+          </div>
+          <div v-if="visibleContacts < 6" class="pl-8">
+            <button type="button" @click="visibleContacts = Math.min(6, visibleContacts + 1)" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1">+ Add contact</button>
           </div>
           <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
             <span class="text-base" title="Store / site">🏢</span>
@@ -1040,6 +1059,11 @@
 
       // ---- detail drawer ----
       const cur=ref(null), tab=ref('details'), saving=ref(false);
+      // How many of the six contact rows to show. Grows to fit whatever the store already has.
+      const visibleContacts=ref(2);
+      function filledContacts(s){ let n=0; for(let i=1;i<=6;i++){ const p = i===1?'contact':('contact'+i);
+          if(((s[p+'_first']||'')+(s[p+'_last']||'')+(s[p+'_email']||'')+(s[p+'_phone']||'')+(s[p+'_position']||'')).trim()) n=i; }
+        return n; }
       const actForm=reactive({type:'note',result:'',date:todayStr()});
       const pinForm=reactive({result:'',date:todayStr()});
       const email=reactive({to:'',subject:'',body:'',ps:'',quote:'',threadId:''});
@@ -1181,7 +1205,7 @@
       const filteredStores=computed(()=>{
         let list=stores.value.slice();
         const q=search.value.trim().toLowerCase();
-        if(q) list=list.filter(s=>[s.store_name,s.contact_name,s.contact_email,s.area,s.store_type].some(v=>(v||'').toLowerCase().includes(q)));
+        if(q) list=list.filter(s=>[s.store_name,s.contact_name,s.contact2_name,s.contact3_name,s.contact4_name,s.contact5_name,s.contact6_name,s.contact_email,s.contact2_email,s.contact3_email,s.contact4_email,s.contact5_email,s.contact6_email,s.area,s.store_type].some(v=>(v||'').toLowerCase().includes(q)));
         if(areaFilter.value) list=list.filter(s=>s.area===areaFilter.value);
         if(activeStatuses.value.length) list=list.filter(s=>activeStatuses.value.includes(s.status));
         if(activeTypes.value.length) list=list.filter(s=>activeTypes.value.includes(s.store_type||''));
@@ -1287,11 +1311,11 @@
       }
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,info:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',website:'',status:'lead',no_reason:''}; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,info:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',contact_position:'',contact2_position:'',contact3_first:'',contact3_last:'',contact3_name:'',contact3_email:'',contact3_phone:'',contact3_position:'',contact4_first:'',contact4_last:'',contact4_name:'',contact4_email:'',contact4_phone:'',contact4_position:'',contact5_first:'',contact5_last:'',contact5_name:'',contact5_email:'',contact5_phone:'',contact5_position:'',contact6_first:'',contact6_last:'',contact6_name:'',contact6_email:'',contact6_phone:'',contact6_position:'',store_email:'',website:'',status:'lead',no_reason:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
-      function openNewStore(){ cur.value=blankStore(); resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
+      function openNewStore(){ cur.value=blankStore(); visibleContacts.value=2; resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
       function openStoreById(id){ const st=stores.value.find(x=>x.id===id); if(st){ showAnalytics.value=false; openStore(st); } }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); blankCompose(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); visibleContacts.value=Math.max(2, filledContacts(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); blankCompose(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; }
@@ -1301,6 +1325,8 @@
         saving.value=true;
         cur.value.contact_name=((cur.value.contact_first||'')+' '+(cur.value.contact_last||'')).trim();
         cur.value.contact2_name=((cur.value.contact2_first||'')+' '+(cur.value.contact2_last||'')).trim();
+        for(let i=3;i<=6;i++){ const p='contact'+i;
+          cur.value[p+'_name']=(((cur.value[p+'_first']||'')+' '+(cur.value[p+'_last']||'')).trim())||null; }
         const isNew=!cur.value.id;
         const payload={...cur.value, updated_at:new Date().toISOString()};
         if(isNew){ payload.created_by=me.value; delete payload.id; }
@@ -1358,7 +1384,7 @@
       // ===== email =====
       function mergeStore(str, st, fb){ if(!str) return ''; let nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); if(!nm && fb) nm=fb; const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(firstname|first_name|contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,''); return out; }
       function merge(str){ return mergeStore(str, cur.value); }
-      function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim().toLowerCase()).filter(e=>e.includes('@')))]; }
+      function storeEmails(s){ const es=[s.contact_email,s.contact2_email,s.contact3_email,s.contact4_email,s.contact5_email,s.contact6_email,s.store_email]; return [...new Set(es.map(e=>(e||'').trim().toLowerCase()).filter(e=>e.includes('@')))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
       function finalBody(){ return email.body; }
       const _decEl=(typeof document!=='undefined')?document.createElement('textarea'):null;
@@ -1383,7 +1409,7 @@
           const byEmail={}; const domCount={}, domStore={};
           for(const st of stores.value){
             const doms=new Set();
-            [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ const v=(e||'').trim().toLowerCase(); const at=v.indexOf('@'); if(at>0){ byEmail[v]=st.id; const dom=v.slice(at+1); if(dom && !GENERIC_EMAIL_DOMAINS.has(dom)) doms.add(dom); } });
+            [st.contact_email,st.contact2_email,st.contact3_email,st.contact4_email,st.contact5_email,st.contact6_email,st.store_email].forEach(e=>{ const v=(e||'').trim().toLowerCase(); const at=v.indexOf('@'); if(at>0){ byEmail[v]=st.id; const dom=v.slice(at+1); if(dom && !GENERIC_EMAIL_DOMAINS.has(dom)) doms.add(dom); } });
             doms.forEach(dom=>{ domCount[dom]=(domCount[dom]||0)+1; domStore[dom]=st.id; });
           }
           // Domain fallback: only for a non-generic domain owned by exactly ONE store (never a catch-all).
@@ -1622,7 +1648,7 @@
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,
         recentNotes,eventCount,daysSinceEvent,daysEventLabel,daysSince,psList,
-        cur,tab,saving,actForm,pinForm,email,selectedTemplate,aiIntent,aiBusy,
+        cur,tab,saving,actForm,pinForm,email,selectedTemplate,aiIntent,aiBusy,visibleContacts,
         curActivities,noteSortDesc,updateNoteDate,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,reply,decodeHtml,
