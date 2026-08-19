@@ -319,6 +319,13 @@
                     <p class="text-xs text-gray-600 leading-relaxed">&ldquo;{{ excerpt(cvQuote(cvText(app)), 260) }}&rdquo;</p>
                   </blockquote>
                 </div>
+                <div v-if="applicationAnswers(app).length" class="mt-2 pt-2 border-t border-gray-100 space-y-1 cursor-pointer" @click="openApplicant(app)">
+                  <div v-for="(qa, qi) in applicationAnswers(app)" :key="qi" class="text-xs">
+                    <span class="text-gray-400">{{ shortQuestion(qa.question) }}:</span>
+                    <span class="text-gray-700 ml-1" :class="{ 'text-gray-300 italic': !qa.answer }">{{ qa.answer || 'no answer' }}</span>
+                  </div>
+                </div>
+
                 <p v-else-if="docsPending(app)" class="text-xs text-gray-300 italic">Reading documents&#8230;</p>
                 <p v-else-if="docsFor(app).length" class="text-xs text-gray-300 italic">No readable text in the attached files.</p>
                 <p v-else class="text-xs text-gray-300 italic">No cover letter or CV provided.</p>
@@ -513,6 +520,19 @@
                 <div><span class="text-blue-600 font-semibold">Country:</span> {{ selectedApplicant.visa_country }}</div>
                 <div><span class="text-blue-600 font-semibold">Expiry:</span> {{ selectedApplicant.visa_expiry }}</div>
                 <div><span class="text-blue-600 font-semibold">Conditions:</span> {{ selectedApplicant.visa_conditions || 'None' }}</div>
+              </div>
+            </div>
+
+            <!-- Answers to the questions set on the job ad -->
+            <div v-if="applicationAnswers(selectedApplicant).length" class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Application Questions</h3>
+              <div class="space-y-4">
+                <div v-for="(qa, qi) in applicationAnswers(selectedApplicant)" :key="qi">
+                  <p class="font-semibold text-gray-700 text-sm">{{ qa.question }}</p>
+                  <p class="text-sm mt-1 whitespace-pre-line" :class="qa.answer ? 'text-gray-600' : 'text-gray-300 italic'">
+                    {{ qa.answer || 'No answer given' }}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1538,6 +1558,27 @@ const app = createApp({
       for (const app of pending) await ensureDocTexts(app);
     }
 
+    // Answers to the questions set on the job ad. Stored as { question: answer },
+    // so follow the job's question order and fall back to whatever keys exist
+    // (older applications may have been answered before the questions changed).
+    function applicationAnswers(app) {
+      if (!app || !app.answers || typeof app.answers !== 'object') return [];
+      const stored = app.answers;
+      const keys = Object.keys(stored);
+      if (!keys.length) return [];
+      const ordered = (selectedJob.value && Array.isArray(selectedJob.value.questions))
+        ? selectedJob.value.questions.filter(q => Object.prototype.hasOwnProperty.call(stored, q))
+        : [];
+      const rest = keys.filter(k => !ordered.includes(k));
+      return ordered.concat(rest).map(q => ({ question: q, answer: (stored[q] || '').toString().trim() }));
+    }
+
+    // Questions are full sentences; the tile only has room for a hint of one.
+    function shortQuestion(q) {
+      const t = String(q || '').replace(/\s+/g, ' ').trim().replace(/\?$/, '');
+      return t.length > 34 ? t.slice(0, 34).replace(/\s+\S*$/, '') + '\u2026' : t;
+    }
+
     // Key facts under the name. The form's own visa answer wins over anything
     // inferred from a CV. Placeholder strings from older records are treated as blank.
     function realValue(v) {
@@ -2202,7 +2243,7 @@ const app = createApp({
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights,
-      keyPoints, analysing, analyseApplication,
+      keyPoints, analysing, analyseApplication, applicationAnswers, shortQuestion,
       coverText, coverIsUploaded, cvText, docsPending,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
       saveInlineNote, openResumeInViewer
