@@ -1033,21 +1033,20 @@
               </div>
             </div>
             <div>
-              <label class="text-xs font-semibold text-gray-600 block mb-1">Where</label>
+              <label class="text-xs font-semibold text-gray-600 block mb-1">Interview format <span class="text-gray-400 font-normal">(applies to every slot on this job)</span></label>
               <select v-model="interviewDefaults.locationType"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand">
                 <option value="in_person">In Person</option>
-                <option value="video">Video Call</option>
-                <option value="phone">Phone Call</option>
+                <option value="video">Zoom / Meet Video Call</option>
               </select>
             </div>
-            <div>
+            <div v-if="interviewDefaults.locationType === 'in_person'">
               <label class="text-xs font-semibold text-gray-600 block mb-1">Address shown to candidates</label>
               <input v-model="interviewDefaults.locationDetail" placeholder="24 Wyndham St, Auckland CBD"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand">
             </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600 block mb-1">Zoom / Meet link <span class="text-gray-400 font-normal">(video calls)</span></label>
+            <div v-else>
+              <label class="text-xs font-semibold text-gray-600 block mb-1">Zoom / Meet link</label>
               <input v-model="interviewDefaults.meetingLink" placeholder="https://zoom.us/j/&hellip;"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand">
             </div>
@@ -1070,22 +1069,13 @@
               <input v-model="newSlotTime" type="datetime-local"
                 class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand">
             </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-600 block mb-1">Where</label>
-              <select v-model="newSlotLocation"
-                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:border-brand">
-                <option value="in_person">In Person</option>
-                <option value="video">Video Call</option>
-                <option value="phone">Phone Call</option>
-              </select>
-            </div>
             <button @click="addSlot" :disabled="!newSlotTime || addingSlot"
               class="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-bold">
               {{ addingSlot ? 'Adding\u2026' : 'Add slot' }}
             </button>
           </div>
           <p class="text-xs text-gray-500 mt-2">
-            After you add one, the next time is pre-filled {{ interviewDefaults.gap }} minutes later &mdash; just keep clicking Add slot.
+            All slots are {{ jobFormatLabel }}. The next time is pre-filled {{ interviewDefaults.gap }} minutes later &mdash; just keep clicking Add slot.
           </p>
         </div>
 
@@ -1107,8 +1097,8 @@
                       <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-semibold text-gray-800 text-sm">{{ formatSlotTimeOnly(slot.slot_time) }}</span>
                         <span class="text-xs px-1.5 py-0.5 rounded-full"
-                          :class="slot.location_type === 'video' ? 'bg-indigo-50 text-indigo-600' : slot.location_type === 'phone' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'">
-                          {{ locationLabel(slot.location_type) }}
+                          :class="interviewDefaults.locationType === 'video' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-600'">
+                          {{ jobFormatLabel }}
                         </span>
                         <span v-if="slot.is_booked" style="color:#40d134" class="text-xs font-bold">&#10003; Booked</span>
                       </div>
@@ -2244,12 +2234,11 @@ const app = createApp({
       return out;
     });
 
-    function locationLabel(type) {
-      if (type === 'video') return 'Video Call';
-      if (type === 'phone') return 'Phone Call';
-      const detail = (selectedJob.value && selectedJob.value.interview_location_detail) || '24 Wyndham St';
-      return 'In Person — ' + detail;
-    }
+    // One format for the whole job, as agreed — every slot inherits it.
+    const jobFormatLabel = computed(() => {
+      if (interviewDefaults.value.locationType === 'video') return 'Zoom / Meet Video Call';
+      return 'In Person — ' + (interviewDefaults.value.locationDetail || '24 Wyndham St');
+    });
 
     function formatSlotTimeOnly(t) {
       return new Date(t).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -2317,6 +2306,11 @@ const app = createApp({
         const { error } = await sb.from('jobs').update(patch).eq('id', selectedJob.value.id);
         if (error) throw error;
         Object.assign(selectedJob.value, patch);
+        // Keep existing slots consistent with the job-level format.
+        await sb.from('interview_slots')
+          .update({ location_type: patch.interview_location_type })
+          .eq('job_id', selectedJob.value.id);
+        await loadSlots();
         defaultsSaved.value = true;
         setTimeout(() => { defaultsSaved.value = false; }, 2500);
       } catch (e) {
@@ -2333,7 +2327,7 @@ const app = createApp({
         const { error } = await sb.from('interview_slots').insert({
           job_id: selectedJob.value.id,
           slot_time: new Date(newSlotTime.value).toISOString(),
-          location_type: newSlotLocation.value,
+          location_type: interviewDefaults.value.locationType,
           duration_minutes: interviewDefaults.value.gap || 30
         });
         if (error) throw error;
@@ -2909,7 +2903,7 @@ const app = createApp({
       loadingApplicants, savingJob, savingNote, savingSettings, sendingInvites, uploadingPhoto, addingSlot,
       copiedLink, showSlotsModal, showResumeModal,
       newSlotLocation, interviewDefaults, savingDefaults, defaultsSaved,
-      bookedSlotCount, slotsByDay, locationLabel, formatSlotTimeOnly,
+      bookedSlotCount, slotsByDay, jobFormatLabel, formatSlotTimeOnly,
       slotApplicant, openApplicantFromSlot, saveInterviewDefaults,
       showRejectionPreview, rejectionPreviewApplicants, rejectionEmailPreview, rejectionSubjectPreview,
       showAddApplicant, addingApplicant, addError, addForm,
