@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Revive — Checklist Manager</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  [v-cloak]{display:none}
+  .tap{-webkit-tap-highlight-color:transparent;user-select:none}
+  @media print{ .noprint{display:none!important} body{background:#fff} .printbox{box-shadow:none!important;border:0!important} }
+</style>
+<link rel="stylesheet" href="/chrome.css">
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+<script src="/today-bar.js" defer></script>
+<script>
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+
+<div id="app" v-cloak>
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
+    </div>
+  </div>
+
+  <div v-else class="min-h-screen max-w-5xl mx-auto pb-16">
+    <nav class="rv-nav noprint">
+      <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Checklist · Manager</span></div>
+      <div class="flex items-center gap-2">
+        <a href="/checklist/admin.html" class="rv-btn">Admin</a>
+        <a href="/checklist/" class="rv-btn">Kiosk</a>
+        <a href="/" class="rv-portal">&larr; Portal</a>
+      </div>
+    </nav>
+
+    <div class="bg-white border-b border-stone-200 px-2 py-2 flex gap-1.5 overflow-x-auto sticky top-[52px] z-30 noprint">
+      <button v-for="t in tabs" :key="t.id" @click="tab=t.id" class="tap whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded-lg border"
+        :class="tab===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300'">{{ t.label }}</button>
+    </div>
+
+    <main class="px-3 py-4">
+
+      <!-- ============ TODAY ============ -->
+      <section v-if="tab==='today'">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+          <div class="bg-white border border-stone-200 rounded-xl p-3"><p class="text-[11px] text-stone-500">Today complete</p><p class="text-2xl font-bold" :class="todayPct>=90?'text-green-700':'text-amber-600'">{{ todayPct }}%</p></div>
+          <div class="bg-white border border-stone-200 rounded-xl p-3"><p class="text-[11px] text-stone-500">Open issues</p><p class="text-2xl font-bold" :class="openCount?'text-red-600':'text-stone-700'">{{ openCount }}</p></div>
+          <div class="bg-white border border-stone-200 rounded-xl p-3"><p class="text-[11px] text-stone-500">Temps out of range (30d)</p><p class="text-2xl font-bold" :class="failCount?'text-red-600':'text-stone-700'">{{ failCount }}</p></div>
+          <div class="bg-white border border-stone-200 rounded-xl p-3"><p class="text-[11px] text-stone-500">Waste this week</p><p class="text-2xl font-bold text-stone-700">${{ weekWaste.toFixed(0) }}</p></div>
+        </div>
+
+        <p v-if="todayPct===100" class="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2 mb-4">
+          100% is worth a look, not a celebration — consistently perfect scores are the classic signature of box-ticking. ~95% is what honest looks like.
+        </p>
+
+        <h2 class="text-sm font-semibold text-stone-500 mb-2">TODAY BY BLOCK</h2>
+        <div class="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100 mb-5">
+          <div v-for="r in todayBlocks" :key="r.id" class="px-4 py-3 flex items-center gap-3">
+            <div class="flex-1 min-w-0"><p class="font-medium text-stone-800">{{ r.name }}</p><p class="text-xs text-stone-500">{{ r.who || 'not assigned' }}</p></div>
+            <div class="w-28 bg-stone-100 rounded-full h-2 overflow-hidden"><div class="h-2" :class="r.pct===100?'bg-green-600':'bg-amber-500'" :style="{width:r.pct+'%'}"></div></div>
+            <span class="text-sm tabular-nums w-14 text-right text-stone-600">{{ r.done }}/{{ r.total }}</span>
+          </div>
+        </div>
+
+        <h2 class="text-sm font-semibold text-stone-500 mb-2">HANDOVERS</h2>
+        <div class="space-y-2">
+          <div v-for="h in handovers.slice(0,5)" :key="h.id" class="bg-white border border-stone-200 rounded-xl px-4 py-3">
+            <p class="text-xs text-stone-500">{{ shortDate(h.day) }} · {{ h.staff_name }}</p>
+            <p class="text-sm text-stone-800 whitespace-pre-wrap">{{ h.note }}</p>
+          </div>
+          <p v-if="!handovers.length" class="text-sm text-stone-400">No handover notes yet.</p>
+        </div>
+      </section>
+
+      <!-- ============ ISSUES ============ -->
+      <section v-if="tab==='issues'">
+        <h2 class="text-sm font-semibold text-stone-500 mb-2">OPEN — clear these daily</h2>
+        <div class="space-y-2 mb-6">
+          <div v-for="i in openItems" :key="i.kind+i.id" class="bg-white border border-red-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+              <img v-if="i.url" :src="i.url" class="w-20 h-20 object-cover rounded-lg shrink-0">
+              <div class="flex-1 min-w-0">
+                <p class="text-[11px] text-stone-500">{{ shortDate(i.day) }} · {{ i.staff_name || 'unknown' }} · {{ i.kind==='flag'?'Flag':'Corrective action' }}</p>
+                <p class="font-medium text-stone-800">{{ i.problem }}</p>
+                <p v-if="i.action" class="text-sm text-stone-600 mt-0.5">Action: {{ i.action }}<span v-if="i.detail"> — {{ i.detail }}</span></p>
+              </div>
+              <button @click="resolve(i)" class="tap bg-green-700 text-white text-sm rounded-lg px-3 py-2 shrink-0">Resolve</button>
+            </div>
+          </div>
+          <p v-if="!openItems.length" class="text-sm text-stone-400">Nothing open. Good.</p>
+        </div>
+        <h2 class="text-sm font-semibold text-stone-500 mb-2">RECENTLY CLOSED</h2>
+        <div class="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
+          <div v-for="i in closedItems.slice(0,15)" :key="i.kind+i.id" class="px-4 py-2.5">
+            <p class="text-[11px] text-stone-500">{{ shortDate(i.day) }} · {{ i.staff_name }}</p>
+            <p class="text-sm text-stone-700">{{ i.problem }}<span v-if="i.action" class="text-stone-500"> — {{ i.action }}</span></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TEMPS ============ -->
+      <section v-if="tab==='temps'">
+        <p class="text-xs text-stone-500 mb-3">Last 30 days. A unit drifting upward shows here long before it fails.</p>
+        <div class="space-y-3">
+          <div v-for="u in tempUnits" :key="u.code" class="bg-white border rounded-xl p-3" :class="u.fails ? 'border-red-300' : 'border-stone-200'">
+            <div class="flex items-baseline justify-between mb-1">
+              <p class="font-semibold text-stone-800 text-sm">{{ u.name }}</p>
+              <p class="text-xs" :class="u.fails ? 'text-red-600 font-semibold' : 'text-stone-500'">
+                latest {{ u.latest }}° · avg {{ u.avg }}°<span v-if="u.fails"> · {{ u.fails }} out of range</span>
+              </p>
+            </div>
+            <svg :viewBox="'0 0 300 60'" class="w-full h-14">
+              <polyline :points="u.points" fill="none" stroke="#15803d" stroke-width="1.5"/>
+              <circle v-for="(p,idx) in u.dots" :key="idx" :cx="p.x" :cy="p.y" r="2" :fill="p.ok ? '#15803d' : '#dc2626'"/>
+            </svg>
+          </div>
+          <p v-if="!tempUnits.length" class="text-sm text-stone-400">No readings yet.</p>
+        </div>
+      </section>
+
+      <!-- ============ CABINET ============ -->
+      <section v-if="tab==='cabinet'">
+        <p class="text-xs text-stone-500 mb-3">Cabinet and pest photos, newest first.</p>
+        <div v-for="g in photoDays" :key="g.day" class="mb-4">
+          <p class="text-xs font-semibold text-stone-500 mb-1">{{ shortDate(g.day) }}</p>
+          <div class="flex gap-2 overflow-x-auto pb-1">
+            <a v-for="p in g.items" :key="p.id" :href="p.url" target="_blank" class="shrink-0">
+              <img :src="p.url" class="w-32 h-32 object-cover rounded-lg border border-stone-200">
+              <p class="text-[10px] text-stone-500 mt-0.5">{{ hm(p.created_at) }} · {{ p.kind }}</p>
+            </a>
+          </div>
+        </div>
+        <p v-if="!photoDays.length" class="text-sm text-stone-400">No photos yet.</p>
+      </section>
+
+      <!-- ============ WASTE ============ -->
+      <section v-if="tab==='waste'">
+        <p class="text-xs text-stone-500 mb-3">Costed from what the team enters. Change the cost per litre in Admin.</p>
+        <div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
+          <div class="grid grid-cols-[1fr_80px_80px] px-3 py-2 bg-stone-50 text-[11px] font-semibold text-stone-500"><span>Item</span><span class="text-right">Qty wasted</span><span class="text-right">Cost</span></div>
+          <div v-for="w in wasteSummary" :key="w.name" class="grid grid-cols-[1fr_80px_80px] px-3 py-2 border-t border-stone-100 text-sm">
+            <span class="text-stone-700">{{ w.name }}</span><span class="text-right tabular-nums">{{ w.qty }}</span><span class="text-right tabular-nums">${{ w.cost.toFixed(2) }}</span>
+          </div>
+          <div class="grid grid-cols-[1fr_80px_80px] px-3 py-3 border-t-2 border-stone-200 bg-stone-50 text-sm font-bold">
+            <span>Total ({{ from }} → {{ day }})</span><span></span><span class="text-right">${{ wasteAll.toFixed(2) }}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ EXPORT ============ -->
+      <section v-if="tab==='export'">
+        <div class="noprint bg-white border border-stone-200 rounded-xl p-4 mb-4">
+          <p class="text-sm text-stone-600 mb-3">Food Control Plan record for your verifier: temperatures, cleaning sign-offs and corrective actions. Print, then choose <b>Save as PDF</b>.</p>
+          <div class="flex flex-wrap gap-2 items-end">
+            <label class="text-sm">From<input type="date" v-model="from" class="mt-1 block border border-stone-300 rounded-lg px-2 py-1.5"></label>
+            <label class="text-sm">To<input type="date" v-model="day" class="mt-1 block border border-stone-300 rounded-lg px-2 py-1.5"></label>
+            <button @click="load" class="bg-stone-800 text-white rounded-lg px-4 py-2 text-sm">Reload</button>
+            <button @click="print()" class="bg-green-700 text-white rounded-lg px-4 py-2 text-sm font-semibold">Print / Save as PDF</button>
+          </div>
+        </div>
+
+        <div class="printbox bg-white border border-stone-200 rounded-xl p-5">
+          <h1 class="text-xl font-bold">Revive Cafe — Food Control Plan record</h1>
+          <p class="text-sm text-stone-600 mb-4">{{ shortDate(from) }} to {{ shortDate(day) }} · generated {{ shortDate(day) }}</p>
+
+          <h2 class="font-semibold text-sm mt-4 mb-1">Temperature records</h2>
+          <table class="w-full text-xs border-collapse">
+            <thead><tr class="bg-stone-100"><th class="text-left p-1 border border-stone-200">Date</th><th class="text-left p-1 border border-stone-200">Unit / item</th><th class="text-left p-1 border border-stone-200">Reading</th><th class="text-left p-1 border border-stone-200">In range</th><th class="text-left p-1 border border-stone-200">Signed</th></tr></thead>
+            <tbody><tr v-for="t in temps" :key="t.id"><td class="p-1 border border-stone-200">{{ t.day }}</td><td class="p-1 border border-stone-200">{{ t.unit_name }}</td><td class="p-1 border border-stone-200">{{ t.reading }}°C</td><td class="p-1 border border-stone-200" :class="t.passed?'':'text-red-600 font-semibold'">{{ t.passed?'Yes':'NO' }}</td><td class="p-1 border border-stone-200">{{ t.staff_name }}</td></tr></tbody>
+          </table>
+
+          <h2 class="font-semibold text-sm mt-5 mb-1">Corrective actions</h2>
+          <table class="w-full text-xs border-collapse">
+            <thead><tr class="bg-stone-100"><th class="text-left p-1 border border-stone-200">Date</th><th class="text-left p-1 border border-stone-200">Problem</th><th class="text-left p-1 border border-stone-200">Action taken</th><th class="text-left p-1 border border-stone-200">By</th><th class="text-left p-1 border border-stone-200">Closed</th></tr></thead>
+            <tbody>
+              <tr v-for="c in correctives" :key="c.id"><td class="p-1 border border-stone-200">{{ c.day }}</td><td class="p-1 border border-stone-200">{{ c.problem }}</td><td class="p-1 border border-stone-200">{{ c.action }}<span v-if="c.detail"> — {{ c.detail }}</span></td><td class="p-1 border border-stone-200">{{ c.staff_name }}</td><td class="p-1 border border-stone-200">{{ c.resolved ? 'Yes' : 'Open' }}</td></tr>
+              <tr v-if="!correctives.length"><td colspan="5" class="p-2 text-stone-500 border border-stone-200">No corrective actions in this period.</td></tr>
+            </tbody>
+          </table>
+
+          <h2 class="font-semibold text-sm mt-5 mb-1">Cleaning &amp; daily checks — completion by day</h2>
+          <table class="w-full text-xs border-collapse">
+            <thead><tr class="bg-stone-100"><th class="text-left p-1 border border-stone-200">Date</th><th class="text-left p-1 border border-stone-200">Checks completed</th><th class="text-left p-1 border border-stone-200">Signed by</th></tr></thead>
+            <tbody><tr v-for="d in byDay" :key="d.day"><td class="p-1 border border-stone-200">{{ d.day }}</td><td class="p-1 border border-stone-200">{{ d.n }}</td><td class="p-1 border border-stone-200">{{ d.who }}</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const portal = supabase.createClient(PORTAL_URL, PORTAL_ANON);
+
+createApp({
+  setup(){
+    const ready=ref(false), gateError=ref(''), tab=ref('today');
+    const tabs=[{id:'today',label:'Today'},{id:'issues',label:'Issues'},{id:'temps',label:'Temps'},{id:'cabinet',label:'Cabinet'},{id:'waste',label:'Waste'},{id:'export',label:'Export'}];
+    const day=ref(''), from=ref('');
+    const routines=ref([]), tasks=ref([]), completions=ref([]), temps=ref([]), flags=ref([]), correctives=ref([]);
+    const waste=ref([]), wasteItems=ref([]), photos=ref([]), handovers=ref([]);
+
+    function nzToday(){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
+    function shortDate(d){ return d ? new Date(d+'T12:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}) : ''; }
+    function hm(iso){ return new Intl.DateTimeFormat('en-NZ',{timeZone:'Pacific/Auckland',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(iso)); }
+    async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
+    async function call(p){ const r=await fetch('/.netlify/functions/checklist',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},body:JSON.stringify(p)}); const j=await r.json().catch(()=>({error:'bad response'})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j; }
+
+    const todayComps=computed(()=> completions.value.filter(c=>c.day===day.value));
+    const todayBlocks=computed(()=>{
+      const wd=new Date(day.value+'T12:00:00').getDay();
+      return routines.value.filter(r=> r.schedule==='daily' || (r.schedule==='weekday'&&wd>=1&&wd<=5) || (r.schedule==='friday'&&wd===5)).map(r=>{
+        const ts=tasks.value.filter(t=>t.routine_id===r.id);
+        const done=todayComps.value.filter(c=>c.routine_id===r.id).length;
+        const who=[...new Set(todayComps.value.filter(c=>c.routine_id===r.id).map(c=>c.staff_name).filter(Boolean))].join(', ');
+        return { id:r.id, name:r.name, total:ts.length, done:Math.min(done,ts.length), pct: ts.length?Math.round(Math.min(done,ts.length)/ts.length*100):0, who };
+      });
+    });
+    const todayPct=computed(()=>{ const t=todayBlocks.value.reduce((s,b)=>s+b.total,0), d=todayBlocks.value.reduce((s,b)=>s+b.done,0); return t?Math.round(d/t*100):0; });
+    const openItems=computed(()=>[
+      ...correctives.value.filter(c=>!c.resolved).map(c=>({kind:'ca',id:c.id,day:c.day,problem:c.problem,action:c.action,detail:c.detail,staff_name:c.staff_name,url:c.photo_path?photoUrl(c.photo_path):null})),
+      ...flags.value.filter(f=>!f.resolved).map(f=>({kind:'flag',id:f.id,day:f.day,problem:f.message,action:null,detail:null,staff_name:f.staff_name,url:f.photo_path?photoUrl(f.photo_path):null})),
+    ].sort((a,b)=>b.day.localeCompare(a.day)));
+    const closedItems=computed(()=>[
+      ...correctives.value.filter(c=>c.resolved).map(c=>({kind:'ca',id:c.id,day:c.day,problem:c.problem,action:c.action,staff_name:c.staff_name})),
+      ...flags.value.filter(f=>f.resolved).map(f=>({kind:'flag',id:f.id,day:f.day,problem:f.message,action:null,staff_name:f.staff_name})),
+    ].sort((a,b)=>b.day.localeCompare(a.day)));
+    const openCount=computed(()=>openItems.value.length);
+    const failCount=computed(()=>temps.value.filter(t=>t.passed===false).length);
+    function photoUrl(p){ return 'https://xcwrawjdfajlmbkdwlbm.supabase.co/storage/v1/object/public/checklist-photos/'+p; }
+
+    const tempUnits=computed(()=>{
+      const by={};
+      temps.value.forEach(t=>{ (by[t.unit_code]=by[t.unit_code]||{name:t.unit_name,rows:[]}).rows.push(t); });
+      return Object.entries(by).map(([code,v])=>{
+        const rows=v.rows.filter(r=>r.reading!==null);
+        const vals=rows.map(r=>Number(r.reading));
+        const min=Math.min(...vals), max=Math.max(...vals), span=(max-min)||1;
+        const dots=rows.map((r,i)=>({x: rows.length>1 ? (i/(rows.length-1))*296+2 : 150, y: 54-((Number(r.reading)-min)/span)*48, ok: r.passed!==false }));
+        return { code, name:v.name, latest: vals.length?vals[vals.length-1]:'—', avg: vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):'—',
+          fails: rows.filter(r=>r.passed===false).length, dots, points: dots.map(d=>d.x.toFixed(1)+','+d.y.toFixed(1)).join(' ') };
+      }).sort((a,b)=>b.fails-a.fails || a.name.localeCompare(b.name));
+    });
+
+    const photoDays=computed(()=>{ const by={}; photos.value.forEach(p=>{ (by[p.day]=by[p.day]||[]).push(p); }); return Object.keys(by).sort().reverse().map(d=>({day:d,items:by[d]})); });
+    const wasteSummary=computed(()=>{ const by={}; waste.value.forEach(w=>{ const k=w.item_name||'Other'; by[k]=by[k]||{name:k,qty:0,cost:0}; by[k].qty+=Number(w.waste_qty)||0; by[k].cost+=Number(w.cost)||0; }); return Object.values(by).sort((a,b)=>b.cost-a.cost); });
+    const wasteAll=computed(()=> wasteSummary.value.reduce((s,w)=>s+w.cost,0));
+    const weekWaste=computed(()=>{ const cut=new Date(new Date(day.value+'T12:00:00').getTime()-6*864e5).toISOString().slice(0,10); return waste.value.filter(w=>w.day>=cut).reduce((s,w)=>s+(Number(w.cost)||0),0); });
+    const byDay=computed(()=>{ const by={}; completions.value.forEach(c=>{ by[c.day]=by[c.day]||{day:c.day,n:0,who:new Set()}; by[c.day].n++; if(c.staff_name) by[c.day].who.add(c.staff_name); });
+      return Object.values(by).sort((a,b)=>b.day.localeCompare(a.day)).map(d=>({day:d.day,n:d.n,who:[...d.who].join(', ')})); });
+
+    async function resolve(i){ await call({action:'resolve',kind:i.kind==='flag'?'flag':'ca',id:i.id,by:'Manager'}); await load(); }
+
+    async function load(){
+      const d=await call({action:'dashboard',day:day.value,from:from.value});
+      routines.value=d.routines; tasks.value=d.tasks; completions.value=d.completions; temps.value=d.temps;
+      flags.value=d.flags; correctives.value=d.correctives; waste.value=d.waste; wasteItems.value=d.wasteItems;
+      photos.value=d.photos; handovers.value=d.handovers;
+    }
+
+    onMounted(async ()=>{
+      const { data:{ session } }=await portal.auth.getSession();
+      if(!session){ location.href='/?next=/checklist/manager.html'; return; }
+      day.value=nzToday();
+      from.value=new Date(Date.now()-29*864e5).toISOString().slice(0,10);
+      try { await load(); ready.value=true; } catch(e){ gateError.value=String(e.message||e); ready.value=true; }
+    });
+
+    return { ready,gateError,tab,tabs,day,from,temps,correctives,handovers,
+      todayBlocks,todayPct,openItems,closedItems,openCount,failCount,tempUnits,photoDays,wasteSummary,wasteAll,weekWaste,byDay,
+      shortDate,hm,resolve,load,print:()=>window.print() };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

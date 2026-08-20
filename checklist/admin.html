@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Revive — Checklist Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>[v-cloak]{display:none}.tap{-webkit-tap-highlight-color:transparent;user-select:none}</style>
+<link rel="stylesheet" href="/chrome.css">
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+<script src="/today-bar.js" defer></script>
+<script>
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+
+<div id="app" v-cloak>
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading Admin</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
+    </div>
+  </div>
+
+  <div v-else class="min-h-screen max-w-4xl mx-auto pb-16">
+    <nav class="rv-nav">
+      <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Checklist · Admin</span></div>
+      <div class="flex items-center gap-2">
+        <a href="/checklist/manager.html" class="rv-btn">Manager</a>
+        <a href="/checklist/" class="rv-btn">Kiosk</a>
+        <a href="/" class="rv-portal">&larr; Portal</a>
+      </div>
+    </nav>
+
+    <div class="bg-white border-b border-stone-200 px-2 py-2 flex gap-1.5 overflow-x-auto sticky top-[52px] z-30">
+      <button v-for="t in tabs" :key="t.id" @click="tab=t.id" class="tap whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded-lg border"
+        :class="tab===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300'">{{ t.label }}</button>
+    </div>
+
+    <main class="px-3 py-4">
+      <!-- ============ TASKS ============ -->
+      <section v-if="tab==='tasks'">
+        <p class="text-xs text-stone-500 mb-3">Keep every routine at 9 items or fewer. Delete something whenever you add something — that is what stopped the paper sheet working.</p>
+        <div v-for="r in routines" :key="r.id" class="mb-5">
+          <div class="flex items-baseline justify-between mb-1">
+            <h2 class="font-semibold text-stone-800">{{ r.name }} <span class="text-xs font-normal text-stone-500">{{ r.window_start ? r.window_start.slice(0,5)+'–'+r.window_end.slice(0,5) : '' }} · {{ r.schedule }}</span></h2>
+            <span class="text-xs font-semibold" :class="tasksOf(r).length>9 ? 'text-red-600' : 'text-stone-400'">{{ tasksOf(r).length }} / 9</span>
+          </div>
+          <div class="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
+            <div v-for="t in tasksOf(r)" :key="t.id" class="px-3 py-2 flex items-center gap-2">
+              <span class="text-xs w-6 text-stone-400 tabular-nums">{{ t.sort }}</span>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-stone-800 truncate">{{ t.title }}</p>
+                <p class="text-[11px] text-stone-400">{{ t.type }}<span v-if="t.unit_code"> · {{ t.unit_code }}</span><span v-if="t.killer" class="text-amber-700 font-semibold"> · must check</span></p>
+              </div>
+              <button @click="edit(t,r)" class="tap text-xs border border-stone-300 rounded-lg px-2 py-1">Edit</button>
+              <button @click="remove('tasks',t)" class="tap text-xs text-red-600 border border-red-200 rounded-lg px-2 py-1">Remove</button>
+            </div>
+            <button @click="edit({routine_id:r.id,type:'tick',killer:false,sort:(tasksOf(r).length+1)},r)" class="tap w-full text-left px-3 py-2.5 text-sm text-green-700 font-medium">+ Add task</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ STAFF ============ -->
+      <section v-if="tab==='staff'">
+        <p class="text-xs text-stone-500 mb-3">These are the names that appear on the kiosk. Add your whole FOH team including casuals.</p>
+        <div class="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
+          <div v-for="s in staff" :key="s.id" class="px-3 py-2 flex items-center gap-2">
+            <input v-model="s.name" class="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm">
+            <select v-model="s.role" class="border border-stone-200 rounded-lg px-2 py-1.5 text-sm bg-white"><option value="team">Team</option><option value="manager">Manager</option></select>
+            <button @click="saveRow('staff',s)" class="tap text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">Save</button>
+            <button @click="remove('staff',s)" class="tap text-xs text-red-600 border border-red-200 rounded-lg px-2 py-1.5">Remove</button>
+          </div>
+          <div class="px-3 py-2 flex items-center gap-2">
+            <input v-model="newStaff" placeholder="New name" class="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm">
+            <button @click="addStaff" class="tap text-xs bg-stone-800 text-white rounded-lg px-3 py-1.5">Add</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ UNITS ============ -->
+      <section v-if="tab==='units'">
+        <p class="text-xs text-stone-500 mb-3">Fridges, freezers and hot-hold items, with the range that counts as a pass. Remove any Woople freezer you do not have.</p>
+        <div class="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
+          <div v-for="u in units" :key="u.id" class="px-3 py-2 flex items-center gap-2 flex-wrap">
+            <input v-model="u.name" class="flex-1 min-w-[140px] border border-stone-200 rounded-lg px-2 py-1.5 text-sm">
+            <span class="text-[11px] text-stone-400 w-16">{{ u.kind }}</span>
+            <input v-model="u.min_value" type="number" step="0.1" placeholder="min" class="w-20 border border-stone-200 rounded-lg px-2 py-1.5 text-sm text-center">
+            <input v-model="u.max_value" type="number" step="0.1" placeholder="max" class="w-20 border border-stone-200 rounded-lg px-2 py-1.5 text-sm text-center">
+            <button @click="saveRow('units',u)" class="tap text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">Save</button>
+            <button @click="remove('units',u)" class="tap text-xs text-red-600 border border-red-200 rounded-lg px-2 py-1.5">Remove</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ WASTE ============ -->
+      <section v-if="tab==='waste'">
+        <p class="text-xs text-stone-500 mb-3">Cost per unit drives the waste report. Set these to your real costs.</p>
+        <div class="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
+          <div v-for="w in wasteItems" :key="w.id" class="px-3 py-2 flex items-center gap-2">
+            <input v-model="w.name" class="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm">
+            <input v-model="w.unit" class="w-16 border border-stone-200 rounded-lg px-2 py-1.5 text-sm text-center">
+            <span class="text-sm text-stone-400">$</span>
+            <input v-model="w.cost_per_unit" type="number" step="0.05" class="w-20 border border-stone-200 rounded-lg px-2 py-1.5 text-sm text-center">
+            <button @click="saveRow('waste_items',w)" class="tap text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">Save</button>
+            <button @click="remove('waste_items',w)" class="tap text-xs text-red-600 border border-red-200 rounded-lg px-2 py-1.5">Remove</button>
+          </div>
+          <div class="px-3 py-2 flex items-center gap-2">
+            <input v-model="newWaste" placeholder="New item" class="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm">
+            <button @click="addWaste" class="tap text-xs bg-stone-800 text-white rounded-lg px-3 py-1.5">Add</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <p v-if="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow z-50">{{ toast }}</p>
+  </div>
+
+  <!-- TASK EDITOR -->
+  <div v-if="ed" class="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-3" @click.self="ed=null">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 max-h-[88vh] overflow-y-auto">
+      <h2 class="font-bold text-stone-800 mb-3">{{ ed.id ? 'Edit task' : 'Add task' }} — {{ edRoutine.name }}</h2>
+      <label class="text-sm block mb-2">Title<input v-model="ed.title" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-2"></label>
+      <label class="text-sm block mb-2">Detail behind the ⓘ (optional)<textarea v-model="ed.detail" rows="3" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-2 text-sm"></textarea></label>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="text-sm block mb-2">Type<select v-model="ed.type" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-2 bg-white">
+          <option value="tick">Tick</option><option value="number">Number</option><option value="photo">Photo</option><option value="temps">Temperatures</option><option value="waste">Waste log</option><option value="handover">Handover</option>
+        </select></label>
+        <label class="text-sm block mb-2">Order<input v-model.number="ed.sort" type="number" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-2"></label>
+      </div>
+      <label v-if="ed.type==='temps'" class="text-sm block mb-2">Which units<select v-model="ed.unit_code" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-2 bg-white">
+        <option v-for="k in unitKinds" :key="k" :value="k">{{ k }}</option>
+      </select></label>
+      <label class="flex items-center gap-2 text-sm mb-4"><input type="checkbox" v-model="ed.killer" class="w-4 h-4"> Must be checked individually (killer item)</label>
+      <div class="flex gap-2">
+        <button @click="ed=null" class="flex-1 border border-stone-300 rounded-xl py-2.5 text-sm">Cancel</button>
+        <button @click="saveTask" class="flex-[2] bg-green-700 text-white rounded-xl py-2.5 text-sm font-semibold">Save task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const portal = supabase.createClient(PORTAL_URL, PORTAL_ANON);
+
+createApp({
+  setup(){
+    const ready=ref(false), gateError=ref(''), toast=ref(''), tab=ref('tasks');
+    const tabs=[{id:'tasks',label:'Tasks'},{id:'staff',label:'Staff'},{id:'units',label:'Fridges & temps'},{id:'waste',label:'Waste items'}];
+    const routines=ref([]), tasks=ref([]), units=ref([]), wasteItems=ref([]), staff=ref([]);
+    const ed=ref(null), edRoutine=ref({}), newStaff=ref(''), newWaste=ref('');
+
+    async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
+    async function call(p){ const r=await fetch('/.netlify/functions/checklist',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},body:JSON.stringify(p)}); const j=await r.json().catch(()=>({error:'bad response'})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j; }
+    function flash(t){ toast.value=t; setTimeout(()=>toast.value='',2400); }
+
+    const unitKinds=computed(()=>[...new Set(units.value.map(u=>u.kind))]);
+    function tasksOf(r){ return tasks.value.filter(t=>t.routine_id===r.id && t.active!==false).sort((a,b)=>a.sort-b.sort); }
+    function edit(t,r){ ed.value={...t}; edRoutine.value=r; }
+
+    async function load(){
+      const d=await call({action:'admin_load'});
+      routines.value=d.routines.filter(r=>r.active!==false); tasks.value=d.tasks;
+      units.value=d.units.filter(u=>u.active!==false); wasteItems.value=d.wasteItems.filter(w=>w.active!==false);
+      staff.value=d.staff.filter(s=>s.active!==false);
+    }
+    async function saveTask(){
+      const row={...ed.value};
+      if(row.min_value==='') row.min_value=null; if(row.max_value==='') row.max_value=null;
+      const res=await call({action:'save_row',table:'tasks',row});
+      ed.value=null; await load(); flash('Saved.');
+    }
+    async function saveRow(table,row){
+      const clean={...row};
+      if(clean.min_value==='') clean.min_value=null; if(clean.max_value==='') clean.max_value=null;
+      await call({action:'save_row',table,row:clean}); flash('Saved.');
+    }
+    async function remove(table,row){ if(!confirm('Remove this?')) return; await call({action:'delete_row',table,id:row.id}); await load(); flash('Removed.'); }
+    async function addStaff(){ if(!newStaff.value) return; await call({action:'save_row',table:'staff',row:{name:newStaff.value,role:'team',sort:100}}); newStaff.value=''; await load(); }
+    async function addWaste(){ if(!newWaste.value) return; await call({action:'save_row',table:'waste_items',row:{name:newWaste.value,unit:'L',cost_per_unit:2,sort:100}}); newWaste.value=''; await load(); }
+
+    onMounted(async ()=>{
+      const { data:{ session } }=await portal.auth.getSession();
+      if(!session){ location.href='/?next=/checklist/admin.html'; return; }
+      try { await load(); ready.value=true; } catch(e){ gateError.value=String(e.message||e); ready.value=true; }
+    });
+
+    return { ready,gateError,toast,tab,tabs,routines,tasks,units,wasteItems,staff,ed,edRoutine,newStaff,newWaste,unitKinds,
+      tasksOf,edit,saveTask,saveRow,remove,addStaff,addWaste };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

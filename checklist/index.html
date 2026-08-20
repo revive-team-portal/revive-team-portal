@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Checklist">
+<meta name="theme-color" content="#15803d">
+<link rel="apple-touch-icon" href="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png">
+<title>Revive — Checklist</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  [v-cloak]{display:none}
+  html{-webkit-text-size-adjust:100%}
+  .tap{-webkit-tap-highlight-color:transparent;user-select:none}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
+</style>
+<link rel="stylesheet" href="/chrome.css">
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+<script src="/today-bar.js" defer></script>
+<script>
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+<div class="hidden bg-emerald-600 bg-emerald-700 bg-amber-500 bg-amber-100 text-amber-800 bg-red-600 bg-red-100 text-red-700 bg-sky-100 text-sky-800 bg-stone-200 ring-emerald-500 border-emerald-600 bg-green-50 border-green-600 text-green-800"></div>
+
+<div id="app" v-cloak>
+  <!-- GATE -->
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading Checklist</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
+    </div>
+  </div>
+
+  <div v-else class="min-h-screen flex flex-col max-w-3xl mx-auto pb-28">
+    <nav class="rv-nav">
+      <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Checklist</span></div>
+      <div class="flex items-center gap-2">
+        <span v-if="!online" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Offline — {{ queue.length }} queued</span>
+        <a v-if="isManager" href="/checklist/manager.html" class="rv-btn">Manager</a>
+        <a href="/" class="rv-portal">&larr; Portal</a>
+      </div>
+    </nav>
+
+    <!-- WHO'S ON -->
+    <div class="bg-white border-b border-stone-200 px-3 py-2 flex items-center gap-2 sticky top-[52px] z-30">
+      <span class="text-xs text-stone-500 shrink-0">Signing as</span>
+      <button @click="pickStaff=true" class="tap flex items-center gap-2 rounded-full border px-3 py-1.5" :class="me ? 'border-green-600 bg-green-50 text-green-800' : 'border-amber-400 bg-amber-50 text-amber-800'">
+        <span class="font-semibold text-sm">{{ me ? me.name : 'Tap your name' }}</span>
+      </button>
+      <div class="ml-auto text-xs text-stone-500">{{ dayLabel }}</div>
+    </div>
+
+    <main class="flex-1 w-full px-3 py-4">
+
+      <!-- ================= TODAY ================= -->
+      <section v-if="screen==='today'">
+        <div v-if="handoverPrev && handoverPrev.note" class="bg-sky-50 border border-sky-200 rounded-2xl p-4 mb-4">
+          <p class="text-xs font-semibold text-sky-800 mb-1">Handover from {{ shortDate(handoverPrev.day) }}</p>
+          <p class="text-sm text-sky-900 whitespace-pre-wrap">{{ handoverPrev.note }}</p>
+        </div>
+
+        <div v-if="openIssues.length" class="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4">
+          <p class="text-xs font-semibold text-red-800 mb-2">Still open</p>
+          <p v-for="i in openIssues.slice(0,4)" :key="i.key" class="text-sm text-red-900">• {{ i.text }}</p>
+        </div>
+
+        <div v-if="currentBlock" class="mb-4">
+          <p class="text-xs font-semibold text-stone-500 mb-2 tracking-wide">DUE NOW</p>
+          <button @click="openBlock(currentBlock)" class="tap w-full text-left bg-green-700 text-white rounded-2xl p-5 shadow">
+            <p class="text-2xl font-bold">{{ currentBlock.name }}</p>
+            <p class="text-sm opacity-90 mt-1">{{ windowLabel(currentBlock) }} · {{ doneCount(currentBlock) }} of {{ currentBlock.tasks.length }} done</p>
+          </button>
+        </div>
+
+        <div v-else class="bg-white border border-stone-200 rounded-2xl p-6 text-center mb-4">
+          <p class="text-lg font-semibold text-stone-700">Nothing due right now</p>
+          <p v-if="nextBlock" class="text-sm text-stone-500 mt-1">Next: <b>{{ nextBlock.name }}</b> at {{ hhmm(nextBlock.window_start) }}</p>
+          <p v-else class="text-sm text-stone-500 mt-1">All blocks done for today.</p>
+        </div>
+
+        <p class="text-xs font-semibold text-stone-500 mb-2 tracking-wide">TODAY</p>
+        <div class="space-y-2">
+          <button v-for="r in routines" :key="r.id" @click="openBlock(r)" class="tap w-full text-left bg-white border rounded-xl px-4 py-3 flex items-center gap-3"
+            :class="blockState(r)==='done' ? 'border-green-300' : (blockState(r)==='overdue' ? 'border-red-300' : 'border-stone-200')">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+              :class="blockState(r)==='done' ? 'bg-green-100 text-green-700' : (blockState(r)==='overdue' ? 'bg-red-100 text-red-700' : 'bg-stone-100 text-stone-500')">
+              <span v-if="blockState(r)==='done'">✓</span><span v-else>{{ r.tasks.length - doneCount(r) }}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-stone-800 truncate">{{ r.name }}</p>
+              <p class="text-xs text-stone-500">{{ windowLabel(r) }} · {{ doneCount(r) }}/{{ r.tasks.length }}<span v-if="assignedName(r)"> · {{ assignedName(r) }}</span></p>
+            </div>
+            <span class="text-stone-300 text-xl">›</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ================= BLOCK ================= -->
+      <section v-if="screen==='block' && block">
+        <button @click="screen='today'" class="tap text-sm text-stone-500 mb-3">&larr; Today</button>
+        <div class="flex items-baseline gap-2 mb-1">
+          <h1 class="text-2xl font-bold text-stone-800">{{ block.name }}</h1>
+          <span class="text-sm text-stone-500">{{ windowLabel(block) }}</span>
+        </div>
+        <p class="text-xs text-stone-500 mb-4">{{ doneCount(block) }} of {{ block.tasks.length }} done<span v-if="block.mode==='read-do'"> · work through in order</span></p>
+
+        <div class="space-y-2">
+          <div v-for="t in block.tasks" :key="t.id" class="bg-white border rounded-xl overflow-hidden"
+            :class="isDone(t) ? 'border-green-300' : (t.killer ? 'border-amber-300' : 'border-stone-200')">
+            <div class="flex items-stretch">
+              <button @click="tapTask(t)" class="tap flex-1 text-left px-4 py-4 flex items-center gap-3 min-h-[64px]">
+                <span class="w-7 h-7 rounded-md border-2 shrink-0 flex items-center justify-center text-sm font-bold"
+                  :class="isDone(t) ? 'bg-green-600 border-green-600 text-white' : 'border-stone-300 text-transparent'">✓</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block font-medium text-stone-800 leading-snug">{{ t.title }}</span>
+                  <span class="block text-xs mt-0.5" :class="t.killer ? 'text-amber-700 font-semibold' : 'text-stone-400'">
+                    <template v-if="t.killer">Must be checked</template>
+                    <template v-else-if="t.type==='temps'">{{ tempsProgress(t) }}</template>
+                    <template v-else-if="t.type==='photo'">Takes a photo</template>
+                    <template v-else-if="t.type==='waste'">Opens the waste log</template>
+                    <template v-else-if="t.type==='handover'">Note for tomorrow</template>
+                    <template v-else-if="doneBy(t)">{{ doneBy(t) }} · {{ doneAt(t) }}</template>
+                  </span>
+                  <span v-if="t.type==='temps' && isDone(t)" class="block text-xs text-green-700 mt-0.5">{{ tempsSummary(t) }}</span>
+                </span>
+              </button>
+              <button v-if="t.detail" @click="info=t" class="tap px-4 border-l border-stone-100 text-stone-400 text-lg">ⓘ</button>
+            </div>
+          </div>
+        </div>
+
+        <button v-if="bulkPending.length" @click="confirmBlock" class="tap mt-5 w-full bg-green-700 text-white rounded-2xl py-4 font-semibold text-lg shadow">
+          Confirm block ({{ bulkPending.length }})
+        </button>
+        <p v-if="killerPending.length" class="text-xs text-amber-700 mt-2 text-center">{{ killerPending.length }} must-check item(s) still need doing individually.</p>
+      </section>
+
+      <!-- ================= WASTE ================= -->
+      <section v-if="screen==='waste'">
+        <button @click="backFromPanel" class="tap text-sm text-stone-500 mb-3">&larr; Back</button>
+        <h1 class="text-2xl font-bold text-stone-800 mb-1">Waste log</h1>
+        <p class="text-xs text-stone-500 mb-4">Left = what is left at the end of the day. Waste = anything thrown out. The app does the money.</p>
+        <div class="bg-white border border-stone-200 rounded-xl overflow-hidden">
+          <div class="grid grid-cols-[1fr_78px_78px_64px] gap-2 px-3 py-2 bg-stone-50 text-[11px] font-semibold text-stone-500">
+            <span>Item</span><span class="text-center">Left</span><span class="text-center">Waste</span><span class="text-right">Cost</span>
+          </div>
+          <div v-for="w in wasteRows" :key="w.item_id" class="grid grid-cols-[1fr_78px_78px_64px] gap-2 px-3 py-2 items-center border-t border-stone-100">
+            <span class="text-sm text-stone-700">{{ w.item_name }} <span class="text-stone-400 text-xs">({{ w.unit }})</span></span>
+            <input v-model="w.left_qty" type="number" inputmode="decimal" step="0.5" class="w-full border border-stone-300 rounded-lg px-2 py-2 text-center">
+            <input v-model="w.waste_qty" type="number" inputmode="decimal" step="0.5" class="w-full border border-stone-300 rounded-lg px-2 py-2 text-center">
+            <span class="text-sm text-right text-stone-600">${{ rowCost(w).toFixed(2) }}</span>
+          </div>
+          <div class="grid grid-cols-[1fr_78px_78px_64px] gap-2 px-3 py-3 border-t-2 border-stone-200 bg-stone-50">
+            <span class="text-sm font-semibold">Total waste</span><span></span><span></span>
+            <span class="text-sm font-bold text-right">${{ wasteTotal.toFixed(2) }}</span>
+          </div>
+        </div>
+        <button @click="saveWaste" class="tap mt-4 w-full bg-green-700 text-white rounded-2xl py-4 font-semibold">Save waste log</button>
+      </section>
+
+      <!-- ================= HANDOVER ================= -->
+      <section v-if="screen==='handover'">
+        <button @click="backFromPanel" class="tap text-sm text-stone-500 mb-3">&larr; Back</button>
+        <h1 class="text-2xl font-bold text-stone-800 mb-1">Handover</h1>
+        <p class="text-xs text-stone-500 mb-4">Anything tomorrow's opener needs to know. Shown to them first thing.</p>
+        <textarea v-model="handoverNote" rows="6" class="w-full border border-stone-300 rounded-xl px-3 py-3 text-base" placeholder="e.g. Rice cooker 2 tripping the switch — sparky booked Thursday."></textarea>
+        <button @click="saveHandover" class="tap mt-3 w-full bg-green-700 text-white rounded-2xl py-4 font-semibold">Save handover</button>
+      </section>
+    </main>
+
+    <!-- FLAG BUTTON -->
+    <button @click="openFlag" class="tap fixed bottom-5 right-4 z-40 bg-red-600 text-white rounded-full px-5 py-4 shadow-lg font-semibold text-sm">⚑ Something's not right</button>
+
+    <p v-if="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow z-50">{{ toast }}</p>
+  </div>
+
+  <!-- ============ STAFF PICKER ============ -->
+  <div v-if="pickStaff" class="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-3" @click.self="pickStaff=false">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-4">
+      <h2 class="font-bold text-stone-800 mb-3">Who's signing?</h2>
+      <div class="grid grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto">
+        <button v-for="s in staff" :key="s.id" @click="setMe(s)" class="tap border rounded-xl py-4 font-semibold"
+          :class="me && me.id===s.id ? 'border-green-600 bg-green-50 text-green-800' : 'border-stone-300 text-stone-700'">{{ s.name }}</button>
+      </div>
+      <p class="text-[11px] text-stone-400 mt-3">Names are managed in Admin.</p>
+    </div>
+  </div>
+
+  <!-- ============ INFO ============ -->
+  <div v-if="info" class="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-3" @click.self="info=null">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5">
+      <h2 class="font-bold text-stone-800 mb-2">{{ info.title }}</h2>
+      <p class="text-sm text-stone-600 whitespace-pre-wrap">{{ info.detail }}</p>
+      <button @click="info=null" class="mt-4 w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm">Close</button>
+    </div>
+  </div>
+
+  <!-- ============ TEMPS FLOW ============ -->
+  <div v-if="temps.open" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-3">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5">
+      <div class="flex items-center justify-between mb-1">
+        <p class="text-xs text-stone-500">{{ temps.i + 1 }} of {{ temps.units.length }}</p>
+        <button @click="temps.open=false" class="text-stone-400 text-xl leading-none">×</button>
+      </div>
+      <h2 class="text-2xl font-bold text-stone-800">{{ temps.unit.name }}</h2>
+      <p class="text-xs text-stone-500 mb-3">{{ rangeLabel(temps.unit) }}</p>
+      <input v-model="temps.value" type="number" inputmode="decimal" step="0.1" autofocus
+        class="w-full border-2 rounded-xl px-4 py-5 text-center text-4xl font-bold"
+        :class="temps.value==='' ? 'border-stone-300' : (inRange(temps.unit, temps.value) ? 'border-green-500 text-green-700' : 'border-red-500 text-red-600')"
+        placeholder="—">
+      <p v-if="temps.value!=='' && !inRange(temps.unit, temps.value)" class="text-sm text-red-600 mt-2 font-semibold">Out of range — you'll be asked what you did.</p>
+      <div class="flex gap-2 mt-4">
+        <button v-if="temps.i>0" @click="prevTemp" class="tap flex-1 border border-stone-300 rounded-xl py-3">Back</button>
+        <button @click="nextTemp" :disabled="temps.value===''" class="tap flex-[2] bg-green-700 disabled:bg-stone-300 text-white rounded-xl py-3 font-semibold">
+          {{ temps.i === temps.units.length - 1 ? 'Finish' : 'Next' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CORRECTIVE ACTION ============ -->
+  <div v-if="ca.open" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-3">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5">
+      <h2 class="font-bold text-red-700 mb-1">What did you do?</h2>
+      <p class="text-sm text-stone-600 mb-3">{{ ca.problem }}</p>
+      <div class="space-y-2">
+        <button v-for="o in caOptions" :key="o" @click="ca.action=o" class="tap w-full text-left border rounded-xl px-4 py-3 text-sm"
+          :class="ca.action===o ? 'border-green-600 bg-green-50 text-green-800 font-semibold' : 'border-stone-300 text-stone-700'">{{ o }}</button>
+      </div>
+      <textarea v-model="ca.detail" rows="2" class="mt-3 w-full border border-stone-300 rounded-xl px-3 py-2 text-sm" placeholder="Anything else (optional)"></textarea>
+      <div class="flex gap-2 mt-3">
+        <button @click="addCaPhoto" class="tap flex-1 border border-stone-300 rounded-xl py-3 text-sm">{{ ca.photo ? 'Photo added ✓' : '📷 Add photo' }}</button>
+        <button @click="saveCa" :disabled="!ca.action" class="tap flex-[2] bg-green-700 disabled:bg-stone-300 text-white rounded-xl py-3 font-semibold">Record it</button>
+      </div>
+      <p class="text-[11px] text-stone-400 mt-2">This goes to the Operations Manager and into your Food Control Plan diary.</p>
+    </div>
+  </div>
+
+  <!-- ============ FLAG ============ -->
+  <div v-if="flag.open" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-3" @click.self="flag.open=false">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5">
+      <div class="flex items-center justify-between mb-2"><h2 class="font-bold text-stone-800">Something's not right</h2><button @click="flag.open=false" class="text-stone-400 text-xl">×</button></div>
+      <textarea v-model="flag.message" rows="3" class="w-full border border-stone-300 rounded-xl px-3 py-2 text-base" placeholder="What's wrong?"></textarea>
+      <div class="flex gap-2 mt-3">
+        <button @click="addFlagPhoto" class="tap flex-1 border border-stone-300 rounded-xl py-3 text-sm">{{ flag.photo ? 'Photo added ✓' : '📷 Add photo' }}</button>
+        <button @click="saveFlag" :disabled="!flag.message" class="tap flex-[2] bg-red-600 disabled:bg-stone-300 text-white rounded-xl py-3 font-semibold">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <input ref="camIn" type="file" accept="image/*" capture="environment" class="hidden" @change="onFile">
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+const portal = supabase.createClient(PORTAL_URL, PORTAL_ANON);
+
+createApp({
+  setup(){
+    const ready=ref(false), gateError=ref(''), toast=ref(''), online=ref(navigator.onLine);
+    const screen=ref('today'), block=ref(null), info=ref(null), pickStaff=ref(false);
+    const isManager=ref(false), staff=ref([]), units=ref([]), wasteItems=ref([]);
+    const routines=ref([]), completions=ref([]), assignments=ref([]), tempRows=ref([]);
+    const handoverPrev=ref(null), handoverNote=ref(''), wasteRows=ref([]);
+    const flagsOpen=ref([]), correctiveOpen=ref([]);
+    const day=ref(''), me=ref(null), queue=ref([]), returnTo=ref('today');
+    const camIn=ref(null); let camCb=null;
+
+    const temps=reactive({open:false,task:null,units:[],i:0,value:'',entered:[],unit:{}});
+    const ca=reactive({open:false,problem:'',action:'',detail:'',photo:null,source:'',after:null});
+    const flag=reactive({open:false,message:'',photo:null});
+    const caOptions=['Moved stock to another unit','Adjusted the thermostat','Reheated and rechecked','Discarded the food','Called the technician','Told the Operations Manager','Other'];
+
+    function nzToday(){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
+    function nzMinutes(){ const p=new Intl.DateTimeFormat('en-NZ',{timeZone:'Pacific/Auckland',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()); const h=+p.find(x=>x.type==='hour').value, m=+p.find(x=>x.type==='minute').value; return h*60+m; }
+    function toMin(t){ if(!t) return null; const [h,m]=t.split(':'); return (+h)*60+(+m); }
+    function hhmm(t){ if(!t) return ''; const [h,m]=t.split(':'); const H=+h; const ap=H>=12?'pm':'am'; const h12=H%12===0?12:H%12; return h12+(m==='00'?'':':'+m)+ap; }
+    function shortDate(d){ return new Date(d+'T12:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}); }
+    const dayLabel=computed(()=> day.value ? shortDate(day.value) : '');
+    function windowLabel(r){ return r.window_start ? hhmm(r.window_start)+' – '+hhmm(r.window_end) : 'Any time'; }
+    function flash(t){ toast.value=t; setTimeout(()=>toast.value='',2600); }
+
+    async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
+    async function call(payload){
+      const r=await fetch('/.netlify/functions/checklist',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},body:JSON.stringify({day:day.value,...payload})});
+      const j=await r.json().catch(()=>({error:'bad response'}));
+      if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+      return j;
+    }
+    // Queue writes when offline; retry when the connection returns.
+    function loadQueue(){ try{ queue.value=JSON.parse(localStorage.getItem('cl_queue')||'[]'); }catch{ queue.value=[]; } }
+    function saveQueue(){ localStorage.setItem('cl_queue', JSON.stringify(queue.value)); }
+    async function send(payload){
+      if(!navigator.onLine){ queue.value.push(payload); saveQueue(); online.value=false; return {queued:true}; }
+      try { return await call(payload); }
+      catch(e){ if(String(e.message).includes('Failed to fetch')){ queue.value.push(payload); saveQueue(); online.value=false; return {queued:true}; } throw e; }
+    }
+    async function drain(){
+      online.value=navigator.onLine;
+      if(!navigator.onLine || !queue.value.length) return;
+      const items=[...queue.value];
+      for(const it of items){ try{ await call(it); queue.value.shift(); saveQueue(); }catch{ return; } }
+      if(!queue.value.length) flash('Queued items synced.');
+    }
+
+    // ---------- derived ----------
+    const compByTask=computed(()=>{ const m={}; completions.value.forEach(c=>m[c.task_id]=c); return m; });
+    function isDone(t){
+      if(t.type==='temps'){ const need=unitsFor(t); const got=tempRows.value.filter(r=>r.slot===slotOf(t)&&need.some(u=>u.code===r.unit_code)); return need.length>0 && got.length>=need.length; }
+      return !!compByTask.value[t.id];
+    }
+    function doneBy(t){ const c=compByTask.value[t.id]; return c&&c.staff_name?c.staff_name:''; }
+    function doneAt(t){ const c=compByTask.value[t.id]; return c? new Intl.DateTimeFormat('en-NZ',{timeZone:'Pacific/Auckland',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(c.created_at)) : ''; }
+    function doneCount(r){ return r.tasks.filter(isDone).length; }
+    function unitsFor(t){ return units.value.filter(u=>u.kind===t.unit_code); }
+    function slotOf(t){ return t.id; }
+    function tempsProgress(t){ const need=unitsFor(t); const got=tempRows.value.filter(r=>r.slot===slotOf(t)).length; return got+' of '+need.length+' recorded'; }
+    function tempsSummary(t){ return tempRows.value.filter(r=>r.slot===slotOf(t)).map(r=>r.reading+'°').join('  '); }
+    function assignedName(r){ const a=assignments.value.find(x=>x.routine_id===r.id); if(!a||!a.staff_id) return ''; const s=staff.value.find(s=>s.id===a.staff_id); return s?s.name:''; }
+    function blockState(r){
+      if(r.tasks.length && doneCount(r)===r.tasks.length) return 'done';
+      const end=toMin(r.window_end); if(end!==null && nzMinutes()>end) return 'overdue';
+      return 'todo';
+    }
+    const currentBlock=computed(()=>{
+      const n=nzMinutes();
+      return routines.value.find(r=>{ const s=toMin(r.window_start), e=toMin(r.window_end); return s!==null && n>=s && n<=e && blockState(r)!=='done'; })
+        || routines.value.find(r=> blockState(r)==='overdue') || null;
+    });
+    const nextBlock=computed(()=>{ const n=nzMinutes(); return routines.value.filter(r=>toMin(r.window_start)>n && blockState(r)!=='done').sort((a,b)=>toMin(a.window_start)-toMin(b.window_start))[0]||null; });
+    const openIssues=computed(()=>[
+      ...correctiveOpen.value.map(c=>({key:'c'+c.id,text:c.problem+' — '+(c.action||'no action recorded')})),
+      ...flagsOpen.value.map(f=>({key:'f'+f.id,text:f.message})),
+    ]);
+    const bulkPending=computed(()=> block.value ? block.value.tasks.filter(t=>!isDone(t)&&!t.killer&&t.type==='tick') : []);
+    const killerPending=computed(()=> block.value ? block.value.tasks.filter(t=>!isDone(t)&&t.killer) : []);
+    const wasteTotal=computed(()=> wasteRows.value.reduce((s,w)=>s+rowCost(w),0));
+    function rowCost(w){ return (Number(w.waste_qty)||0) * (Number(w.cost_per_unit)||0); }
+    function rangeLabel(u){ if(u.min_value!==null&&u.max_value!==null) return 'Between '+u.min_value+'° and '+u.max_value+'°'; if(u.min_value!==null) return 'Above '+u.min_value+'°'; if(u.max_value!==null) return u.max_value<0 ? u.max_value+'° or below' : 'Below '+u.max_value+'°'; return ''; }
+    function inRange(u,v){ const n=Number(v); if(u.min_value!==null&&n<Number(u.min_value)) return false; if(u.max_value!==null&&n>Number(u.max_value)) return false; return true; }
+
+    // ---------- actions ----------
+    function setMe(s){ me.value=s; localStorage.setItem('cl_me', s.id); pickStaff.value=false; }
+    function needMe(){ if(!me.value){ pickStaff.value=true; return false; } return true; }
+    function openBlock(r){ block.value=r; screen.value='block'; if(me.value) send({action:'assign',routine_id:r.id,staff_id:me.value.id}).catch(()=>{}); }
+    function backFromPanel(){ screen.value=returnTo.value; }
+
+    async function tapTask(t){
+      if(!needMe()) return;
+      if(t.type==='temps'){ return startTemps(t); }
+      if(t.type==='photo'){ return shoot(async img=>{ await commit(t,{photo:img,photo_kind:/pest/i.test(t.title)?'pest':'cabinet'}); flash('Photo saved.'); }); }
+      if(t.type==='waste'){ returnTo.value='block'; screen.value='waste'; return; }
+      if(t.type==='handover'){ returnTo.value='block'; screen.value='handover'; return; }
+      if(isDone(t)){ completions.value=completions.value.filter(c=>c.task_id!==t.id); await send({action:'uncomplete',task_id:t.id}); return; }
+      await commit(t,{});
+    }
+    async function commit(t,extra){
+      const res=await send({action:'complete',task_id:t.id,routine_id:t.routine_id,staff_name:me.value?me.value.name:null,device:navigator.userAgent.includes('iPad')?'iPad':'phone',...extra});
+      const row=res.completion||{task_id:t.id,staff_name:me.value?me.value.name:null,created_at:new Date().toISOString()};
+      completions.value=[...completions.value.filter(c=>c.task_id!==t.id),row];
+    }
+    async function confirmBlock(){
+      if(!needMe()) return;
+      const items=bulkPending.value.map(t=>({task_id:t.id}));
+      const res=await send({action:'complete_many',routine_id:block.value.id,items,staff_name:me.value.name,device:'iPad'});
+      const now=new Date().toISOString();
+      const added=items.map(i=>({task_id:i.task_id,staff_name:me.value.name,created_at:now}));
+      completions.value=[...completions.value.filter(c=>!items.some(i=>i.task_id===c.task_id)),...(res.completions||added)];
+      flash('Block confirmed.');
+    }
+
+    // temps flow
+    function startTemps(t){
+      const us=unitsFor(t); if(!us.length){ flash('No units set up for this check.'); return; }
+      temps.task=t; temps.units=us; temps.i=0; temps.entered=[]; temps.value=''; temps.unit=us[0]; temps.open=true;
+    }
+    function nextTemp(){
+      temps.entered[temps.i]=temps.value;
+      const u=temps.unit, v=temps.value;
+      if(!inRange(u,v)){
+        temps.open=false;
+        ca.problem=u.name+' read '+v+'° ('+rangeLabel(u).toLowerCase()+')';
+        ca.source='temp:'+u.code; ca.action=''; ca.detail=''; ca.photo=null;
+        ca.after=()=>{ temps.open=true; advanceTemp(); };
+        ca.open=true; return;
+      }
+      advanceTemp();
+    }
+    function prevTemp(){ if(temps.i>0){ temps.i--; temps.unit=temps.units[temps.i]; temps.value=temps.entered[temps.i] ?? ''; } }
+    function advanceTemp(){
+      if(temps.i < temps.units.length-1){ temps.i++; temps.unit=temps.units[temps.i]; temps.value=temps.entered[temps.i] ?? ''; return; }
+      finishTemps();
+    }
+    async function finishTemps(){
+      const t=temps.task, slot=slotOf(t);
+      const readings=temps.units.map((u,i)=>({unit_code:u.code,unit_name:u.name,reading:temps.entered[i],passed:inRange(u,temps.entered[i])}));
+      temps.open=false;
+      tempRows.value=[...tempRows.value.filter(r=>r.slot!==slot),...readings.map(r=>({...r,slot,day:day.value}))];
+      await send({action:'save_temps',slot,readings,staff_name:me.value?me.value.name:null});
+      await commit(t,{});
+      flash('Temperatures recorded.');
+    }
+
+    // corrective + flag
+    function addCaPhoto(){ shoot(img=>{ ca.photo=img; }); }
+    async function saveCa(){
+      const payload={action:'corrective',problem:ca.problem,action_taken:ca.action,detail:ca.detail,photo:ca.photo,source:ca.source,staff_name:me.value?me.value.name:null};
+      ca.open=false;
+      const res=await send(payload);
+      if(res.corrective) correctiveOpen.value=[res.corrective,...correctiveOpen.value];
+      flash('Recorded — the Operations Manager has been notified.');
+      if(ca.after){ const f=ca.after; ca.after=null; f(); }
+    }
+    function openFlag(){ if(!needMe()) return; flag.message=''; flag.photo=null; flag.open=true; }
+    function addFlagPhoto(){ shoot(img=>{ flag.photo=img; }); }
+    async function saveFlag(){
+      const payload={action:'flag',message:flag.message,photo:flag.photo,staff_name:me.value?me.value.name:null};
+      flag.open=false;
+      const res=await send(payload);
+      if(res.flag) flagsOpen.value=[res.flag,...flagsOpen.value];
+      flash('Sent to the Operations Manager.');
+    }
+
+    // waste + handover
+    async function saveWaste(){
+      const rows=wasteRows.value.filter(w=>Number(w.left_qty)||Number(w.waste_qty)).map(w=>({item_id:w.item_id,item_name:w.item_name,left_qty:Number(w.left_qty)||0,waste_qty:Number(w.waste_qty)||0,cost:rowCost(w)}));
+      await send({action:'save_waste',rows,staff_name:me.value?me.value.name:null});
+      const t=(routines.value.flatMap(r=>r.tasks)).find(x=>x.type==='waste');
+      if(t) await commit(t,{});
+      flash('Waste saved — $'+wasteTotal.value.toFixed(2)+' today.');
+      screen.value=returnTo.value;
+    }
+    async function saveHandover(){
+      await send({action:'save_handover',note:handoverNote.value,staff_name:me.value?me.value.name:null});
+      const t=(routines.value.flatMap(r=>r.tasks)).find(x=>x.type==='handover');
+      if(t) await commit(t,{});
+      flash('Handover saved.');
+      screen.value=returnTo.value;
+    }
+
+    // camera — file input opens the camera directly on iOS; compressed client-side.
+    function shoot(cb){ camCb=cb; camIn.value.value=''; camIn.value.click(); }
+    function onFile(e){
+      const f=e.target.files[0]; if(!f) return;
+      const img=new Image(), rd=new FileReader();
+      rd.onload=()=>{ img.onload=()=>{ const max=1200, sc=Math.min(1,max/Math.max(img.width,img.height));
+        const c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        const data=c.toDataURL('image/jpeg',0.7); if(camCb) camCb(data); camCb=null;
+      }; img.src=rd.result; };
+      rd.readAsDataURL(f);
+    }
+
+    // ---------- boot ----------
+    async function boot(){
+      const { data:{ session } }=await portal.auth.getSession();
+      if(!session){ location.href='/?next=/checklist/'; return; }
+      day.value=nzToday();
+      try {
+        const d=await call({action:'bootstrap'});
+        isManager.value=d.isManager; staff.value=d.staff; units.value=d.units; wasteItems.value=d.wasteItems;
+        routines.value=d.routines; completions.value=d.completions; assignments.value=d.assignments;
+        tempRows.value=d.temps||[]; flagsOpen.value=d.flagsOpen||[]; correctiveOpen.value=d.correctiveOpen||[];
+        handoverPrev.value=d.handoverPrev; handoverNote.value=d.handoverToday?d.handoverToday.note||'':'';
+        const existing={}; (d.waste||[]).forEach(w=>existing[w.item_id]=w);
+        wasteRows.value=d.wasteItems.map(i=>({item_id:i.id,item_name:i.name,unit:i.unit,cost_per_unit:i.cost_per_unit,
+          left_qty:existing[i.id]?existing[i.id].left_qty:'',waste_qty:existing[i.id]?existing[i.id].waste_qty:''}));
+        const savedMe=localStorage.getItem('cl_me'); if(savedMe) me.value=d.staff.find(s=>s.id===savedMe)||null;
+        ready.value=true;
+      } catch(e){ gateError.value=String(e.message||e); ready.value=true; }
+    }
+
+    onMounted(()=>{
+      loadQueue(); boot();
+      window.addEventListener('online',()=>{ online.value=true; drain(); });
+      window.addEventListener('offline',()=>{ online.value=false; });
+      setInterval(drain, 20000);
+      setInterval(()=>{ if(screen.value==='today') routines.value=[...routines.value]; }, 60000);
+    });
+
+    return { ready,gateError,toast,online,queue,screen,block,info,pickStaff,isManager,staff,units,routines,completions,
+      handoverPrev,handoverNote,wasteRows,wasteTotal,flagsOpen,correctiveOpen,day,dayLabel,me,camIn,
+      temps,ca,flag,caOptions,openIssues,currentBlock,nextBlock,bulkPending,killerPending,
+      setMe,openBlock,tapTask,confirmBlock,nextTemp,prevTemp,saveCa,addCaPhoto,openFlag,addFlagPhoto,saveFlag,
+      saveWaste,saveHandover,onFile,backFromPanel,
+      isDone,doneBy,doneAt,doneCount,blockState,windowLabel,hhmm,shortDate,assignedName,tempsProgress,tempsSummary,
+      rangeLabel,inRange,rowCost };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
