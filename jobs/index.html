@@ -205,11 +205,11 @@
             <button @click="copyJobLink(selectedJob)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
               {{ copiedLink ? '✓ Copied!' : '🔗 Copy Link' }}
             </button>
-            <a :href="selectedJob.code ? 'https://jobs.revive.co.nz/' + selectedJob.code + '?preview=1' : 'https://jobs.revive.co.nz/job.html?id=' + selectedJob.id + '&preview=1'"
-              target="_blank"
+            <a :href="jobViewUrl(selectedJob)" target="_blank" rel="noopener"
+              :title="selectedJob.status === 'active' ? 'Opens the public ad exactly as applicants see it' : 'This job is not published, so it can only be opened in preview'"
               class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors inline-flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-              View Live Job
+              {{ selectedJob.status === 'active' ? 'View Live Job' : 'Preview (not published)' }}
             </a>
             <button @click="editJob(selectedJob)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
               ✏️ Edit Job
@@ -2277,6 +2277,16 @@ const app = createApp({
       const a = document.createElement('a'); a.href = url; a.download = `${selectedJob.value.title}-applicants.csv`; a.click();
     }
 
+    // ?preview=1 lets the ad page bypass its status='active' filter. An active job
+    // doesn't need it, and shipping it on a shareable link risks a closed or draft
+    // job being viewable if that URL gets passed on. Only add it when it's needed.
+    function jobViewUrl(job) {
+      if (!job) return BASE_URL;
+      const base = job.code ? `${BASE_URL}/${job.code}` : `${BASE_URL}/job.html?id=${job.id}`;
+      if (job.status === 'active') return base;
+      return base + (base.includes('?') ? '&' : '?') + 'preview=1';
+    }
+
     function copyJobLink(job) {
       const link = job.code ? `${BASE_URL}/${job.code}` : `${BASE_URL}/job.html?id=${job.id}`;
       navigator.clipboard.writeText(link);
@@ -2662,7 +2672,7 @@ const app = createApp({
       openInterviewSlots, addSlot, deleteSlot, getSlotTime,
       saveSettings, saveAllEmailTemplates,
       uploadGalleryPhotos, handleGalleryDrop, deleteGalleryPhoto,
-      exportCSV, copyJobLink, addQuestion, removeQuestion, updateQuestion,
+      exportCSV, copyJobLink, jobViewUrl, addQuestion, removeQuestion, updateQuestion,
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
