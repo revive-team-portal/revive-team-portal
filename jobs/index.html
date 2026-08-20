@@ -598,10 +598,15 @@
             <!-- Extended form answers -->
             <div v-if="selectedApplicant.extended_form_completed" class="bg-white rounded-xl border border-gray-200 p-5">
               <h3 class="font-bold text-gray-800 mb-3 text-sm uppercase tracking-wider">Interview Form Answers</h3>
+              <p v-if="interviewAnswerCount === 0" class="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+                This form was submitted with every question left blank.
+              </p>
               <div v-if="parsedInterviewNotes" class="space-y-4">
-                <div v-for="(item, key) in parsedInterviewNotes" :key="key">
+                <div v-for="item in parsedInterviewNotes" :key="item.key">
                   <p class="font-semibold text-gray-700 text-sm">{{ item.question }}</p>
-                  <p class="text-gray-600 text-sm mt-1">{{ item.answer || 'No answer provided' }}</p>
+                  <p class="text-sm mt-1" :class="item.answer ? 'text-gray-600' : 'text-gray-300 italic'">
+                    {{ item.answer || 'No answer provided' }}
+                  </p>
                 </div>
               </div>
               <div class="mt-3 text-xs text-green-700 bg-green-50 rounded px-3 py-1.5 inline-block font-semibold">
@@ -1483,10 +1488,32 @@ const app = createApp({
       applications.value.filter(a => a.status === 'not_suitable' && !a.rejection_sent)
     );
 
+    // Older submissions stored only {q1:{answer}} with no question text, so fall
+    // back to the question list in Settings, matched by position.
+    const interviewAnswerCount = computed(() => {
+      const list = parsedInterviewNotes.value;
+      return Array.isArray(list) ? list.filter(i => i.answer).length : 0;
+    });
+
     const parsedInterviewNotes = computed(() => {
       if (!selectedApplicant.value?.interview_notes) return null;
-      try { return JSON.parse(selectedApplicant.value.interview_notes); }
+      let raw;
+      try { raw = JSON.parse(selectedApplicant.value.interview_notes); }
       catch { return null; }
+      if (!raw || typeof raw !== 'object') return null;
+
+      const fallback = (settings.value.interview_form_questions || '')
+        .split('\n').map(q => q.trim()).filter(Boolean);
+
+      return Object.keys(raw).map(key => {
+        const item = raw[key] || {};
+        const idx = parseInt(String(key).replace(/\D/g, ''), 10) - 1;
+        return {
+          key,
+          question: item.question || fallback[idx] || `Question ${idx + 1}`,
+          answer: (item.answer || '').toString().trim()
+        };
+      });
     });
 
     // ============ AUTH ============
@@ -2911,7 +2938,7 @@ const app = createApp({
       fileInputRefs,
       resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
       noteText, settingsForm, newSlotTime, jobSaveError,
-      filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
+      filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes, interviewAnswerCount,
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
       showInvitePreview, inviteErrors, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
       openInvitePreview, confirmSendInvites,
