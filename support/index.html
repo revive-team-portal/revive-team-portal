@@ -104,6 +104,7 @@ function panelHTML(id){
       + '<div id="fulfilReport" class="mb-4">'+(window.FULFIL_HTML||'<div class="text-stone-400 text-xs">Loading fulfilment report…</div>')+'</div>'
       + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+'<button onclick="setFilter(\'escalate\')" class="text-xs px-2.5 py-1 rounded-full border '+(f==='escalate'?'bg-red-600 text-white border-red-600':'bg-white text-red-600 border-red-300 hover:bg-red-50')+'">🚑 Escalate<span id="escCount">'+(window.ESC_COUNT?(' '+window.ESC_COUNT):'')+'</span></button>'+btn('done','✓ Done')+'</div>'
       + '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs text-stone-400">Sort:</span>'+sbtn('date','Date')+sbtn('stars','★ Stars')+sbtn('order','Order #')+'<span id="syncMsg" class="text-xs text-stone-500 ml-2"></span></div>'
+      + '<div id="bulkBar" class="mb-2"></div>'
       + '<div id="ticketList"><div class="text-stone-400 text-sm">Loading…</div></div>';
   }
   if(id==='reports'){
@@ -253,7 +254,7 @@ async function loadTickets(){
   if(!r.ok){ el.innerHTML='<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load tickets.')+'</div>'; return; }
   const ts=sortTickets(r.data.tickets||[]);
   if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">Nothing here — '+(f==='open'?'inbox is clear 🎉':'no tickets in this filter.')+'</div>'; window.LAST_TICKETS=ts; return; }
-  el.innerHTML=ts.map(ticketRow).join(''); window.LAST_TICKETS=ts; queueCourier(ts,false); refreshEscalateCount();
+  el.innerHTML=ts.map(ticketRow).join(''); window.LAST_TICKETS=ts; queueCourier(ts,false); refreshEscalateCount(); renderBulkBar();
 }
 function setFilter(k){ window.FILTER=k; const panel=document.getElementById('panel'); if(panel) panel.innerHTML=panelHTML('dashboard'); loadTickets(); }
 function lastEvents(t){
@@ -275,6 +276,7 @@ function ticketRow(t){
   const evs=lastEvents(t); const evHtml = evs.length?'<div class="mt-1" title="last 3 events">'+evs.map(e=>e.icon).join(' ')+'</div>':'';
   const tm=TYPE_META[t.ticket_type||'enquiry']||TYPE_META.enquiry;
   return '<div onclick="openTicket(\''+t.id+'\')" class="flex gap-3 py-2 px-1 border-b border-stone-100 last:border-0 hover:bg-stone-50 cursor-pointer">'
+    +'<input type="checkbox" onclick="event.stopPropagation();toggleSelect(\''+t.id+'\',this.checked)" '+((window.SELECTED&&window.SELECTED.has(t.id))?'checked':'')+' class="mt-1 shrink-0 accent-teal-600">'
     +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate"><span class="mr-1" title="'+(t.ticket_type||'')+'">'+tm.i+'</span>'+esc(c.name||c.email||'(unknown)')+ratingHtml(c.orders_count)+(t.source==='manual'?' <span class="text-[10px] text-stone-400">(manual)</span>':'')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
     +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div>'
     +(t.snippet?'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div>':'')+'</div>'
@@ -518,7 +520,7 @@ async function loadPerishKw(){
   window.PERISH_KW = kw.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
 }
 async function checkSpam(btn){ const msg=document.getElementById('spamMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Checking spam…'; const r=await apiPost('support-spam-check',{}); if(btn) btn.disabled=false; if(!r.ok){ if(msg) msg.textContent=(r.data&&r.data.error)||'Failed'; return; } if(msg) msg.textContent='Checked '+(r.data.checked||0)+', rescued '+(r.data.rescued||0)+'.'; }
-async function purgeAutoreplies(btn){ const msg=document.getElementById('arMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Purging…'; const r=await apiPost('support-autoreply-purge',{}); if(btn) btn.disabled=false; if(!r.ok){ if(msg) msg.textContent=(r.data&&r.data.error)||'Failed'; return; } if(msg) msg.textContent='Scanned '+(r.data.scanned||0)+', deleted '+(r.data.trashed||0)+' auto-replies.'; }
+async function purgeAutoreplies(btn){ const msg=document.getElementById('arMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Purging…'; const r=await apiPost('support-autoreply-purge',{}); if(btn) btn.disabled=false; if(!r.ok){ if(msg) msg.textContent=(r.data&&r.data.error)||'Failed'; return; } if(msg) msg.textContent='Scanned '+(r.data.scanned||0)+' · '+(r.data.candidates||0)+' auto-replies · deleted '+(r.data.trashed||0)+'.'; loadTickets(); }
 async function loadCodes(){
   const r=await apiPost('support-codes',{});
   if(!r.ok) return; window.NZCODES={}; (r.data.codes||[]).forEach(c=>window.NZCODES[(c.code||'').toUpperCase()]={meaning:c.meaning,perishable:c.perishable,rural:c.rural});
@@ -737,6 +739,10 @@ async function loadAnalytics(){
   window.ANALYTICS_HTML='<div class="flex items-center gap-2 flex-wrap">'+boxes+ctrls.replace('ml-auto','ml-auto')+'<span class="text-[11px] text-stone-400 w-full sm:w-auto">'+esc((d.period&&d.period.label)||'')+' · '+((d.period&&d.period.days)||0)+'d</span></div>';
   el.innerHTML=window.ANALYTICS_HTML;
 }
+function toggleSelect(id,ch){ if(!window.SELECTED) window.SELECTED=new Set(); if(ch) window.SELECTED.add(id); else window.SELECTED.delete(id); renderBulkBar(); }
+function renderBulkBar(){ const el=document.getElementById('bulkBar'); if(!el) return; const n=window.SELECTED?window.SELECTED.size:0; el.innerHTML = n ? '<div class="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 flex-wrap"><span class="text-xs text-teal-800 font-medium">'+n+' selected</span><button onclick="fileSelected(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1 rounded-lg">✓ File / mark done (no count)</button><button onclick="clearSel()" class="text-xs border border-stone-300 px-3 py-1 rounded-lg hover:bg-white">Clear</button></div>' : ''; }
+function clearSel(){ window.SELECTED=new Set(); renderBulkBar(); loadTickets(); }
+async function fileSelected(btn){ const ids=[...(window.SELECTED||[])]; if(!ids.length) return; if(!confirm('File '+ids.length+' ticket(s) as done? They will be archived out of the inbox and will NOT count toward daily ticket totals.')) return; if(btn) btn.disabled=true; const r=await apiPost('support-bulk-resolve',{ids}); if(btn) btn.disabled=false; if(!r.ok){ alert((r.data&&r.data.error)||'Failed'); return; } window.SELECTED=new Set(); window.ANALYTICS_HTML=null; window.TRACKING_HTML=null; renderBulkBar(); loadTickets(); loadAnalytics(); loadTracking(); }
 function show(id){
   document.querySelectorAll('#sideNav a').forEach(a=>{
     a.className = a.dataset.id===id

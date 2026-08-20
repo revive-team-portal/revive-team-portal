@@ -12,8 +12,8 @@ exports.handler = async (event) => {
   if (!a.ok) return json(a.status || 403, { error: a.error });
   if (!hasKey()) return json(500, { error: 'Not configured.' });
   try {
-    const tickets = await rest('tickets?select=created_at,resolved_at&limit=20000');
-    const T=(tickets||[]).map(t=>({ c: t.created_at?+new Date(t.created_at):null, r: t.resolved_at?+new Date(t.resolved_at):null }));
+    const tickets = await rest('tickets?select=created_at,resolved_at,excluded&limit=20000');
+    const T=(tickets||[]).map(t=>({ c: t.created_at?+new Date(t.created_at):null, r: t.resolved_at?+new Date(t.resolved_at):null, x: !!t.excluded }));
     const now=new Date(); const nowMs=now.getTime(); const tn=nzParts(now); const todayMid=nzMidnight(tn.y,tn.m,tn.d);
     const days=[];
     for(let i=13;i>=0;i--){
@@ -22,8 +22,8 @@ exports.handler = async (event) => {
       const asOf = fivePM<=nowMs ? fivePM : nowMs;
       let received=0, resolved=0, unresolved=0;
       for(const t of T){
-        if(t.c!=null && t.c>=dayStart && t.c<dayEnd) received++;
-        if(t.r!=null && t.r>=dayStart && t.r<dayEnd) resolved++;
+        if(!t.x && t.c!=null && t.c>=dayStart && t.c<dayEnd) received++;
+        if(!t.x && t.r!=null && t.r>=dayStart && t.r<dayEnd) resolved++;
         if(t.c!=null && t.c<=asOf && (t.r==null || t.r>asOf)) unresolved++;
       }
       days.push({ label: pp.dow+' '+ord(pp.d), received, resolved, unresolved, isToday: i===0 });

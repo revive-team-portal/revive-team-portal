@@ -70,8 +70,8 @@ exports.handler = async (event) => {
 
   try {
     const [inPeriod, resolvedRows, outstandingRows, resendRows] = await Promise.all([
-      rest('tickets?created_at=gte.'+S+'&created_at=lte.'+E+'&select=id,messages(direction,sent_at)&limit=3000'),
-      rest('tickets?resolved_at=gte.'+S+'&resolved_at=lte.'+E+'&select=id&limit=3000'),
+      rest('tickets?created_at=gte.'+S+'&created_at=lte.'+E+'&excluded=is.false&select=id,messages(direction,sent_at)&limit=3000'),
+      rest('tickets?resolved_at=gte.'+S+'&resolved_at=lte.'+E+'&excluded=is.false&select=id&limit=3000'),
       rest('tickets?status=neq.Resolved&select=id&limit=3000'),
       rest('claims?created_at=gte.'+S+'&created_at=lte.'+E+'&select=id&limit=3000'),
     ]);
