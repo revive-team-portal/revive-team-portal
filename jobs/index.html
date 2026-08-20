@@ -338,8 +338,10 @@
                     <div v-if="app.phone">{{ app.phone }}</div>
                     <div v-if="app.location">{{ app.location }}</div>
                     <div class="text-gray-400 pt-0.5">
-                      {{ timeAgo(app.created_at) }}<span v-if="app.referral_source"> &middot; via {{ formatReferral(app.referral_source) }}</span>
+                      Received {{ formatReceived(app.created_at) }}
+                      <span v-if="daysAgo(app.created_at) > 0" class="text-gray-300">({{ timeAgo(app.created_at) }})</span>
                     </div>
+                    <div v-if="app.referral_source" class="text-gray-400">via {{ formatReferral(app.referral_source) }}</div>
                   </div>
                 </div>
               </div>
@@ -670,7 +672,7 @@
 
             <!-- Applied at -->
             <div class="bg-white rounded-xl border border-gray-200 p-5 text-xs text-gray-500">
-              <p>Applied: {{ formatFullDate(selectedApplicant.created_at) }}</p>
+              <p>Received: {{ formatReceived(selectedApplicant.created_at) }}</p>
               <p v-if="selectedApplicant.rejection_sent" class="mt-1 text-red-500">Rejection email sent {{ formatFullDate(selectedApplicant.rejection_sent_at) }}</p>
             </div>
           </div>
@@ -2621,7 +2623,22 @@ const app = createApp({
 
     function formatFullDate(dateStr) {
       if (!dateStr) return '—';
-      return new Date(dateStr).toLocaleString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return new Date(dateStr).toLocaleString('en-NZ', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true,
+        timeZone: 'Pacific/Auckland'
+      });
+    }
+
+    // Exact moment an application arrived. Always NZ time, never relative —
+    // "today" is useless once you are looking back at a record.
+    function formatReceived(dateStr) {
+      if (!dateStr) return '—';
+      return new Date(dateStr).toLocaleString('en-NZ', {
+        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true,
+        timeZone: 'Pacific/Auckland'
+      });
     }
 
     function formatSlotFull(dateStr) {
@@ -2953,7 +2970,7 @@ const app = createApp({
       saveSettings, saveAllEmailTemplates,
       uploadGalleryPhotos, handleGalleryDrop, deleteGalleryPhoto,
       exportCSV, copyJobLink, jobViewUrl, addQuestion, removeQuestion, updateQuestion,
-      formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatSlotFull,
+      formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatReceived, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
       keyPoints, recentJobs, jobLine, jobMeta, analysing, analyseApplication, applicationAnswers, shortQuestion,
