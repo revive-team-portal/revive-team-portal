@@ -7,9 +7,9 @@
   if (window.__reviveTodayBar) return; window.__reviveTodayBar = true;
   var STALE = 20 * 60000, HALF_MIN = 770; // projection cut = 12:50
   var store = {}, stamp = {}, shown = false;
-  var SRC = [['shopify', 'Shopify'], ['meta', 'Meta'], ['pos', 'POS'], ['support', 'Support']];
+  var SRC = [['shopify', 'Shopify'], ['meta', 'Meta'], ['pos', 'POS'], ['support', 'Support'], ['jobs', 'Jobs']];
   var tick = { shopify: false, meta: false, pos: false, support: false };
-  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'meta_acq_week', 'meta_cpa_week', 'orders_to_fulfil', 'orders_fulfilled_today', 'outstanding_tickets'];
+  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'meta_acq_week', 'meta_cpa_week', 'orders_to_fulfil', 'orders_fulfilled_today', 'outstanding_tickets', 'new_job_apps'];
 
   var css = '.rtb-bar{background:#16543f;color:#fff;padding:9px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
     + '.rtb-hidden{display:none!important}'
@@ -60,6 +60,7 @@
     if (store.orders_to_fulfil != null) h += box('To fulfil', (store.orders_to_fulfil || 0).toLocaleString(), 'orders_to_fulfil');
     if (store.orders_fulfilled_today != null) h += box('Fulfilled today', (store.orders_fulfilled_today || 0).toLocaleString(), 'orders_fulfilled_today');
     if (store.outstanding_tickets != null) h += box('Tickets', (store.outstanding_tickets || 0).toLocaleString(), 'outstanding_tickets');
+    if (store.new_job_apps != null) h += box('New job apps', (store.new_job_apps || 0).toLocaleString(), 'new_job_apps');
     if (!h) return;
     h += '<span class="rtb-tstamp">as at ' + hm(now) + '</span><a class="rtb-rf" title="Refresh">↻</a>';
     bar.innerHTML = h; bar.classList.remove('rtb-hidden'); shown = true;
