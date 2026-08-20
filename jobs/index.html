@@ -2041,6 +2041,7 @@ const app = createApp({
 
     // ============ INTERVIEW INVITES ============
     const showInvitePreview = ref(false);
+    const inviteErrors = ref([]);
 
     const invitesAlreadySent = computed(() => tickedApplicants.value.filter(a => a.interview_invite_sent).length);
     const invitesMissingEmail = computed(() => tickedApplicants.value.filter(a => !a.email).length);
@@ -2087,6 +2088,7 @@ const app = createApp({
       if (!list.length) return;
 
       sendingInvites.value = true;
+      inviteErrors.value = [];
       const failed = [];
       try {
         for (const app of list) {
@@ -2100,15 +2102,21 @@ const app = createApp({
         }
       } finally {
         sendingInvites.value = false;
-        if (failed.length) alert('Could not send to: ' + failed.join(', '));
-        else clearTicks();
+        if (inviteErrors.value.length) alert('Interview invites:\n\n' + inviteErrors.value.join('\n'));
+        if (!failed.length) clearTicks();
       }
     }
 
     async function sendSingleInterviewInvite(app) {
+      // Without a token the link in the email cannot work, so refuse rather than
+      // send a broken invitation.
+      if (!app.interview_token) {
+        inviteErrors.value.push(`${app.full_name}: no interview link on this record`);
+        return false;
+      }
       const interviewLink = `${BASE_URL}/interview.html?token=${app.interview_token}`;
       try {
-        await fetch('https://jobs.revive.co.nz/.netlify/functions/send-email', {
+        const res = await fetch('https://jobs.revive.co.nz/.netlify/functions/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2127,14 +2135,29 @@ const app = createApp({
             companyBenefits: settings.value.company_benefits
           })
         });
-        await sb.from('applications').update({
+
+        // The send is only successful if the function says so — previously any
+        // response at all was treated as sent.
+        let out = {};
+        try { out = await res.json(); } catch (e) {}
+        if (!res.ok || !out.success) {
+          inviteErrors.value.push(`${app.full_name}: ${out.error || 'email service returned ' + res.status}`);
+          return false;
+        }
+
+        const { error } = await sb.from('applications').update({
           interview_invite_sent: true,
           interview_invite_sent_at: new Date().toISOString()
         }).eq('id', app.id);
+        if (error) {
+          // The email did go out, so say so rather than implying it failed.
+          inviteErrors.value.push(`${app.full_name}: email sent, but could not be recorded (${error.message})`);
+        }
         app.interview_invite_sent = true;
         return true;
       } catch (err) {
         console.error('Failed to send invite for', app.email, err);
+        inviteErrors.value.push(`${app.full_name}: ${err.message || 'could not reach the email service'}`);
         return false;
       }
     }
@@ -2758,7 +2781,7 @@ const app = createApp({
       noteText, settingsForm, newSlotTime, jobSaveError,
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
-      showInvitePreview, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
+      showInvitePreview, inviteErrors, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
       openInvitePreview, confirmSendInvites,
       connections, filteredConnections, loadingConnections, connectionSearch,
       showAddConnection, savingConnection, connError, connForm, connFile, connFileInput,
