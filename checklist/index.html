@@ -15,7 +15,8 @@
 <style>
   [v-cloak]{display:none}
   html{-webkit-text-size-adjust:100%}
-  .tap{-webkit-tap-highlight-color:transparent;user-select:none}
+  .tap{-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
+  .press:active{background:#f5f5f4}
   ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
 </style>
 <link rel="stylesheet" href="/chrome.css">
@@ -89,14 +90,14 @@
 
         <p class="text-xs font-semibold text-stone-500 mb-2 tracking-wide">TODAY</p>
         <div class="space-y-2">
-          <button v-for="r in routines" :key="r.id" @click="openBlock(r)" class="tap w-full text-left bg-white border rounded-xl px-4 py-3 flex items-center gap-3"
+          <button v-for="r in routines" :key="r.id" @click="openBlock(r)" class="tap press w-full text-left bg-white border rounded-xl px-4 py-4 flex items-center gap-3 min-h-[72px]"
             :class="blockState(r)==='done' ? 'border-green-300' : (blockState(r)==='overdue' ? 'border-red-300' : 'border-stone-200')">
-            <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+            <div class="w-11 h-11 rounded-full flex items-center justify-center text-base font-bold shrink-0"
               :class="blockState(r)==='done' ? 'bg-green-100 text-green-700' : (blockState(r)==='overdue' ? 'bg-red-100 text-red-700' : 'bg-stone-100 text-stone-500')">
               <span v-if="blockState(r)==='done'">✓</span><span v-else>{{ r.tasks.length - doneCount(r) }}</span>
             </div>
             <div class="min-w-0 flex-1">
-              <p class="font-semibold text-stone-800 truncate">{{ r.name }}</p>
+              <p class="font-semibold text-stone-800 truncate text-lg">{{ r.name }}</p>
               <p class="text-xs text-stone-500">{{ windowLabel(r) }} · {{ doneCount(r) }}/{{ r.tasks.length }}<span v-if="assignedName(r)"> · {{ assignedName(r) }}</span></p>
             </div>
             <span class="text-stone-300 text-xl">›</span>
@@ -117,11 +118,11 @@
           <div v-for="t in block.tasks" :key="t.id" class="bg-white border rounded-xl overflow-hidden"
             :class="isDone(t) ? 'border-green-300' : (t.killer ? 'border-amber-300' : 'border-stone-200')">
             <div class="flex items-stretch">
-              <button @click="tapTask(t)" class="tap flex-1 text-left px-4 py-4 flex items-center gap-3 min-h-[64px]">
-                <span class="w-7 h-7 rounded-md border-2 shrink-0 flex items-center justify-center text-sm font-bold"
+              <button @click="tapTask(t)" class="tap press flex-1 text-left px-4 py-5 flex items-center gap-4 min-h-[84px]">
+                <span class="w-12 h-12 rounded-xl border-2 shrink-0 flex items-center justify-center text-2xl font-bold transition-none"
                   :class="isDone(t) ? 'bg-green-600 border-green-600 text-white' : 'border-stone-300 text-transparent'">✓</span>
                 <span class="min-w-0 flex-1">
-                  <span class="block font-medium text-stone-800 leading-snug">{{ t.title }}</span>
+                  <span class="block font-medium text-stone-800 leading-snug text-lg">{{ t.title }}</span>
                   <span class="block text-xs mt-0.5" :class="t.killer ? 'text-amber-700 font-semibold' : 'text-stone-400'">
                     <template v-if="t.killer">Must be checked</template>
                     <template v-else-if="t.type==='temps'">{{ tempsProgress(t) }}</template>
@@ -133,12 +134,12 @@
                   <span v-if="t.type==='temps' && isDone(t)" class="block text-xs text-green-700 mt-0.5">{{ tempsSummary(t) }}</span>
                 </span>
               </button>
-              <button v-if="t.detail" @click="info=t" class="tap px-4 border-l border-stone-100 text-stone-400 text-lg">ⓘ</button>
+              <button v-if="t.detail" @click="info=t" class="tap px-5 border-l border-stone-100 text-stone-400 text-xl">ⓘ</button>
             </div>
           </div>
         </div>
 
-        <button v-if="bulkPending.length" @click="confirmBlock" class="tap mt-5 w-full bg-green-700 text-white rounded-2xl py-4 font-semibold text-lg shadow">
+        <button v-if="bulkPending.length" @click="confirmBlock" class="tap press mt-5 w-full bg-green-700 text-white rounded-2xl py-5 font-semibold text-xl shadow">
           Confirm block ({{ bulkPending.length }})
         </button>
         <p v-if="killerPending.length" class="text-xs text-amber-700 mt-2 text-center">{{ killerPending.length }} must-check item(s) still need doing individually.</p>
@@ -289,7 +290,14 @@ createApp({
     function windowLabel(r){ return r.window_start ? hhmm(r.window_start)+' – '+hhmm(r.window_end) : 'Any time'; }
     function flash(t){ toast.value=t; setTimeout(()=>toast.value='',2600); }
 
-    async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
+    let tokCache='', tokExp=0;
+    async function token(){
+      const now=Date.now();
+      if(tokCache && now < tokExp) return tokCache;
+      const { data:{ session } }=await portal.auth.getSession();
+      tokCache = session ? session.access_token : ''; tokExp = now + 60000;
+      return tokCache;
+    }
     async function call(payload){
       const r=await fetch('/.netlify/functions/checklist',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},body:JSON.stringify({day:day.value,...payload})});
       const j=await r.json().catch(()=>({error:'bad response'}));
@@ -351,31 +359,40 @@ createApp({
     // ---------- actions ----------
     function setMe(s){ me.value=s; localStorage.setItem('cl_me', s.id); pickStaff.value=false; }
     function needMe(){ if(!me.value){ pickStaff.value=true; return false; } return true; }
-    function openBlock(r){ block.value=r; screen.value='block'; if(me.value) send({action:'assign',routine_id:r.id,staff_id:me.value.id}).catch(()=>{}); }
+    function openBlock(r){ block.value=r; screen.value='block'; if(me.value) setTimeout(()=>send({action:'assign',routine_id:r.id,staff_id:me.value.id}).catch(()=>{}),0); }
     function backFromPanel(){ screen.value=returnTo.value; }
 
     async function tapTask(t){
       if(!needMe()) return;
       if(t.type==='temps'){ return startTemps(t); }
-      if(t.type==='photo'){ return shoot(async img=>{ await commit(t,{photo:img,photo_kind:/pest/i.test(t.title)?'pest':'cabinet'}); flash('Photo saved.'); }); }
+      if(t.type==='photo'){ return shoot(img=>{ commit(t,{photo:img,photo_kind:/pest/i.test(t.title)?'pest':'cabinet'}); flash('Photo saved.'); }); }
       if(t.type==='waste'){ returnTo.value='block'; screen.value='waste'; return; }
       if(t.type==='handover'){ returnTo.value='block'; screen.value='handover'; return; }
-      if(isDone(t)){ completions.value=completions.value.filter(c=>c.task_id!==t.id); await send({action:'uncomplete',task_id:t.id}); return; }
-      await commit(t,{});
+      if(isDone(t)){
+        const prev=compByTask.value[t.id];
+        completions.value=completions.value.filter(c=>c.task_id!==t.id);
+        send({action:'uncomplete',task_id:t.id}).catch(()=>{ if(prev) completions.value=[...completions.value,prev]; flash('Could not undo that — tap again.'); });
+        return;
+      }
+      commit(t,{});
     }
-    async function commit(t,extra){
-      const res=await send({action:'complete',task_id:t.id,routine_id:t.routine_id,staff_name:me.value?me.value.name:null,device:navigator.userAgent.includes('iPad')?'iPad':'phone',...extra});
-      const row=res.completion||{task_id:t.id,staff_name:me.value?me.value.name:null,created_at:new Date().toISOString()};
-      completions.value=[...completions.value.filter(c=>c.task_id!==t.id),row];
+    // Optimistic: the tick lands instantly, the write happens behind it.
+    function commit(t,extra){
+      const optimistic={task_id:t.id,routine_id:t.routine_id,staff_name:me.value?me.value.name:null,created_at:new Date().toISOString()};
+      completions.value=[...completions.value.filter(c=>c.task_id!==t.id),optimistic];
+      return send({action:'complete',task_id:t.id,routine_id:t.routine_id,staff_name:me.value?me.value.name:null,device:navigator.userAgent.includes('iPad')?'iPad':'phone',...extra})
+        .then(res=>{ if(res && res.completion) completions.value=[...completions.value.filter(c=>c.task_id!==t.id),res.completion]; return res; })
+        .catch(()=>{ completions.value=completions.value.filter(c=>c.task_id!==t.id); flash('Could not save that — tap again.'); });
     }
-    async function confirmBlock(){
+    function confirmBlock(){
       if(!needMe()) return;
-      const items=bulkPending.value.map(t=>({task_id:t.id}));
-      const res=await send({action:'complete_many',routine_id:block.value.id,items,staff_name:me.value.name,device:'iPad'});
+      const items=bulkPending.value.map(t=>({task_id:t.id, routine_id:t.routine_id}));
       const now=new Date().toISOString();
-      const added=items.map(i=>({task_id:i.task_id,staff_name:me.value.name,created_at:now}));
-      completions.value=[...completions.value.filter(c=>!items.some(i=>i.task_id===c.task_id)),...(res.completions||added)];
+      const added=items.map(i=>({task_id:i.task_id,routine_id:i.routine_id,staff_name:me.value.name,created_at:now}));
+      completions.value=[...completions.value.filter(c=>!items.some(i=>i.task_id===c.task_id)),...added];
       flash('Block confirmed.');
+      send({action:'complete_many',routine_id:block.value.id,items:items.map(i=>({task_id:i.task_id})),staff_name:me.value.name,device:'iPad'})
+        .catch(()=>{ completions.value=completions.value.filter(c=>!items.some(i=>i.task_id===c.task_id)); flash('Could not confirm — try again.'); });
     }
 
     // temps flow
@@ -405,8 +422,8 @@ createApp({
       const readings=temps.units.map((u,i)=>({unit_code:u.code,unit_name:u.name,reading:temps.entered[i],passed:inRange(u,temps.entered[i])}));
       temps.open=false;
       tempRows.value=[...tempRows.value.filter(r=>r.slot!==slot),...readings.map(r=>({...r,slot,day:day.value}))];
-      await send({action:'save_temps',slot,readings,staff_name:me.value?me.value.name:null});
-      await commit(t,{});
+      send({action:'save_temps',slot,readings,staff_name:me.value?me.value.name:null}).catch(()=>flash('Could not save temps — check the connection.'));
+      commit(t,{});
       flash('Temperatures recorded.');
     }
 
@@ -415,8 +432,8 @@ createApp({
     async function saveCa(){
       const payload={action:'corrective',problem:ca.problem,action_taken:ca.action,detail:ca.detail,photo:ca.photo,source:ca.source,staff_name:me.value?me.value.name:null};
       ca.open=false;
-      const res=await send(payload);
-      if(res.corrective) correctiveOpen.value=[res.corrective,...correctiveOpen.value];
+      correctiveOpen.value=[{id:'tmp'+Date.now(),day:day.value,problem:payload.problem,action:payload.action_taken,staff_name:payload.staff_name},...correctiveOpen.value];
+      send(payload).catch(()=>flash('Could not record that — please tell the Operations Manager.'));
       flash('Recorded — the Operations Manager has been notified.');
       if(ca.after){ const f=ca.after; ca.after=null; f(); }
     }
@@ -425,24 +442,24 @@ createApp({
     async function saveFlag(){
       const payload={action:'flag',message:flag.message,photo:flag.photo,staff_name:me.value?me.value.name:null};
       flag.open=false;
-      const res=await send(payload);
-      if(res.flag) flagsOpen.value=[res.flag,...flagsOpen.value];
+      flagsOpen.value=[{id:'tmp'+Date.now(),day:day.value,message:payload.message,staff_name:payload.staff_name},...flagsOpen.value];
+      send(payload).catch(()=>flash('Could not send that — please try again.'));
       flash('Sent to the Operations Manager.');
     }
 
     // waste + handover
     async function saveWaste(){
       const rows=wasteRows.value.filter(w=>Number(w.left_qty)||Number(w.waste_qty)).map(w=>({item_id:w.item_id,item_name:w.item_name,left_qty:Number(w.left_qty)||0,waste_qty:Number(w.waste_qty)||0,cost:rowCost(w)}));
-      await send({action:'save_waste',rows,staff_name:me.value?me.value.name:null});
+      send({action:'save_waste',rows,staff_name:me.value?me.value.name:null}).catch(()=>flash('Could not save the waste log.'));
       const t=(routines.value.flatMap(r=>r.tasks)).find(x=>x.type==='waste');
-      if(t) await commit(t,{});
+      if(t) commit(t,{});
       flash('Waste saved — $'+wasteTotal.value.toFixed(2)+' today.');
       screen.value=returnTo.value;
     }
     async function saveHandover(){
-      await send({action:'save_handover',note:handoverNote.value,staff_name:me.value?me.value.name:null});
+      send({action:'save_handover',note:handoverNote.value,staff_name:me.value?me.value.name:null}).catch(()=>flash('Could not save the handover.'));
       const t=(routines.value.flatMap(r=>r.tasks)).find(x=>x.type==='handover');
-      if(t) await commit(t,{});
+      if(t) commit(t,{});
       flash('Handover saved.');
       screen.value=returnTo.value;
     }
