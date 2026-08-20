@@ -3,6 +3,7 @@
 const { getAccessToken } = require('./_gmail');
 const { rest, upsert } = require('./_appsdb');
 const { gql } = require('./_shopify');
+const { runAutoReplyPurge } = require('./_autoreply');
 
 const MAILBOX = 'cafe@revive.co.nz';
 const ORDER_RE = /\b(?:WEB\d{3,}|#\s?\d{3,}|order\s+#?\d{3,})\b/i;
@@ -88,6 +89,7 @@ async function runInboxSync(opts){
   const at=await getAccessToken('cafe');
   if(!at.ok) return { ok:false, error:at.error, connected:false };
   const token=at.access_token;
+  let purged=0; try{ const pr=await runAutoReplyPurge(token); purged=pr.trashed||0; }catch(e){}
   const q=opts.q||'in:inbox -category:promotions -category:social';
   const maxThreads=Math.min(Number(opts.max)||18,30);
 
@@ -120,7 +122,7 @@ async function runInboxSync(opts){
       resolved=toResolve.length;
     }
   }
-  return { ok:true, threads:newest.length, order, nonOrder, messages, resolved, reconciled:complete };
+  return { ok:true, threads:newest.length, order, nonOrder, messages, resolved, reconciled:complete, purged };
 }
 
 module.exports = { runInboxSync };
