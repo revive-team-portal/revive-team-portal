@@ -425,6 +425,11 @@
                   </button>
                 </div>
 
+                <button @click.stop="analyseApplication(app, true)" :disabled="analysing[app.id]"
+                  class="w-full mt-1.5 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors border border-gray-200 text-gray-500 hover:text-brand hover:border-brand disabled:opacity-50">
+                  {{ analysing[app.id] ? 'Analysing\u2026' : '\u21bb Re-analyse' }}
+                </button>
+
                 <button @click.stop="addToConnections(app)" :disabled="savingConnection===app.id"
                   class="w-full mt-1.5 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors border disabled:opacity-50"
                   :class="app.in_connections ? 'text-gray-400 border-gray-200 bg-gray-50' : 'text-indigo-600 border-indigo-200 hover:bg-indigo-50'">
@@ -1605,7 +1610,12 @@ const app = createApp({
           }
           // Read documents, then score anything not analysed yet — both in the
           // background so the list renders straight away.
-          backfillDocTexts(data).then(() => backfillAnalysis(data));
+          backfillDocTexts(data).then(freshlyRead => {
+            // Force a re-score for anyone whose CV has only just become readable.
+            const stale = data.filter(a => analysisPredatesDocuments(a));
+            const toRedo = Array.from(new Set(freshlyRead.concat(stale)));
+            return reanalyse(toRedo).then(() => backfillAnalysis(data));
+          });
           markExistingConnections(data);
           applications.value = data;
         }
@@ -1900,13 +1910,15 @@ const app = createApp({
       const patch = {};
       if (changed) patch.documents = docs;
       if (resumeText && resumeText !== app.resume_text) patch.resume_text = resumeText;
-      if (!Object.keys(patch).length) return;
+      if (!Object.keys(patch).length) return false;
 
       try {
         await sb.from('applications').update(patch).eq('id', app.id);
         if (patch.resume_text) app.resume_text = patch.resume_text;
+        return true;
       } catch (e) {
         console.warn('Could not save extracted document text', e);
+        return false;
       }
     }
 
@@ -1916,7 +1928,26 @@ const app = createApp({
         const unread = docs.some(d => d && d.path && !d.read && isReadable(d.filename || d.path));
         return unread || (!a.resume_text && a.resume_url);
       }).slice(0, 25);
-      for (const app of pending) await ensureDocTexts(app);
+      const freshlyRead = [];
+      for (const app of pending) {
+        const gotText = await ensureDocTexts(app);
+        if (gotText) freshlyRead.push(app);
+      }
+      return freshlyRead;
+    }
+
+    // Analysis runs seconds after an application arrives, which is before the
+    // browser has read any CV. Anything analysed before its documents became
+    // readable has to be scored again, or the CV is never actually used.
+    function analysisPredatesDocuments(app) {
+      if (!app || !app.analysed_at) return false;
+      const hasText = (app.resume_text && app.resume_text.trim()) ||
+        (Array.isArray(app.documents) && app.documents.some(d => d && d.text && d.text.trim()));
+      if (!hasText) return false;
+      // Extraction always happens well after the submit-time analysis.
+      const analysed = new Date(app.analysed_at).getTime();
+      const created = new Date(app.created_at).getTime();
+      return (analysed - created) < 120000; // analysed within 2 min of applying
     }
 
     // Answers to the questions set on the job ad. Stored as { question: answer },
@@ -2021,6 +2052,12 @@ const app = createApp({
     }
 
     // Anything never analysed gets picked up, after its documents have been read.
+    async function reanalyse(list) {
+      for (const app of (list || []).slice(0, 15)) {
+        await analyseApplication(app, true);
+      }
+    }
+
     async function backfillAnalysis(list) {
       const pending = (list || []).filter(a => !a.analysed_at && (a.cover_letter || a.resume_text || a.resume_url ||
         (Array.isArray(a.documents) && a.documents.length))).slice(0, 15);
