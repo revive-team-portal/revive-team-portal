@@ -240,7 +240,7 @@
               class="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 focus:outline-none focus:ring-2 focus:border-transparent">
             <button @click="showAddApplicant=true" class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">+ Add</button>
             <button @click="exportCSV" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">⬇ CSV</button>
-            <button v-if="tickedApplicants.length" @click="sendInterviewInvites"
+            <button v-if="tickedApplicants.length" @click="openInvitePreview()"
               class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
               <span v-if="sendingInvites" class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               Send {{ tickedApplicants.length }} Interview Invite{{ tickedApplicants.length !== 1 ? 's' : '' }}
@@ -1099,6 +1099,64 @@
         <button @click="submitAddApplicant" :disabled="addingApplicant"
           class="px-5 py-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-semibold disabled:opacity-50">
           {{ addingApplicant ? 'Adding…' : 'Add Applicant' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interview Invite Preview -->
+  <div v-if="showInvitePreview" class="modal-overlay" @click.self="showInvitePreview=false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="p-6 border-b border-gray-100 flex items-center justify-between shrink-0">
+        <div>
+          <h2 class="text-lg font-bold text-gray-900">Send interview invitation</h2>
+          <p class="text-sm text-gray-500">{{ tickedApplicants.length }} recipient{{ tickedApplicants.length !== 1 ? 's' : '' }}</p>
+        </div>
+        <button @click="showInvitePreview=false" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-5">
+        <div>
+          <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Going to</h3>
+          <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-44 overflow-y-auto">
+            <div v-for="a in tickedApplicants" :key="a.id" class="flex items-center justify-between px-3 py-2">
+              <div class="min-w-0">
+                <span class="text-sm font-semibold text-gray-800">{{ a.full_name }}</span>
+                <span class="text-xs text-gray-500 ml-2 truncate">{{ a.email }}</span>
+              </div>
+              <span v-if="a.interview_invite_sent" class="text-xs text-amber-600 font-semibold shrink-0 ml-2">already invited</span>
+            </div>
+          </div>
+          <p v-if="invitesAlreadySent" class="text-xs text-amber-600 mt-2">
+            {{ invitesAlreadySent }} of these already received an invitation and will be sent it again.
+          </p>
+          <p v-if="invitesMissingEmail" class="text-xs text-red-600 mt-1">
+            {{ invitesMissingEmail }} have no email address and will be skipped.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Email being sent <span class="normal-case font-normal text-gray-400">— previewing {{ invitePreviewName }}</span>
+          </h3>
+          <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <div class="bg-gray-50 px-3 py-2 border-b border-gray-200 text-xs text-gray-600 space-y-0.5">
+              <div><span class="text-gray-400">Subject:</span> <span class="font-semibold text-gray-800">{{ invitePreview.subject }}</span></div>
+              <div><span class="text-gray-400">Reply-To:</span> {{ selectedJob.employer_email || 'jobs@revivealicious.com' }}</div>
+            </div>
+            <pre class="p-4 text-xs text-gray-700 whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">{{ invitePreview.body }}</pre>
+          </div>
+          <p class="text-xs text-gray-400 mt-1.5">
+            Each person gets their own name and interview link. Edit this wording in Settings &rarr; Email Templates.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-6 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+        <button @click="showInvitePreview=false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button @click="confirmSendInvites" :disabled="sendingInvites"
+          class="px-5 py-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-semibold disabled:opacity-50">
+          {{ sendingInvites ? 'Sending\u2026' : 'Send ' + tickedApplicants.length + ' invitation' + (tickedApplicants.length !== 1 ? 's' : '') }}
         </button>
       </div>
     </div>
@@ -1982,13 +2040,51 @@ const app = createApp({
     }
 
     // ============ INTERVIEW INVITES ============
+    const showInvitePreview = ref(false);
+
+    const invitesAlreadySent = computed(() => tickedApplicants.value.filter(a => a.interview_invite_sent).length);
+    const invitesMissingEmail = computed(() => tickedApplicants.value.filter(a => !a.email).length);
+    const invitePreviewName = computed(() => {
+      const first = tickedApplicants.value[0];
+      return first ? first.full_name : '';
+    });
+
+    // Renders the stored template with the first recipient's details so what is
+    // shown is the actual email, not a description of it.
+    const invitePreview = computed(() => {
+      const a = tickedApplicants.value[0] || {};
+      const job = selectedJob.value || {};
+      const vals = {
+        applicant_name: a.full_name || '',
+        applicant_email: a.email || '',
+        job_title: job.title || '',
+        job_type: formatType(job.type),
+        job_description_summary: (job.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400),
+        interview_link: `https://jobs.revive.co.nz/interview.html?token=${a.interview_token || '<their-unique-link>'}`,
+        company_history: settings.value.company_history || '',
+        company_benefits: settings.value.company_benefits || '',
+        employer_name: job.employer_name || 'The Revive Cafe Team'
+      };
+      const fill = (t) => String(t || '').replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (m, k) => vals[k] !== undefined ? vals[k] : '');
+      return {
+        subject: fill(settings.value.email_interview_subject || 'Interview Invitation — {{job_title}} at Revive Cafe'),
+        body: fill(settings.value.email_interview_body || '(No template saved — Settings → Email Templates)')
+      };
+    });
+
+    function openInvitePreview() {
+      if (!tickedApplicants.value.length) return;
+      showInvitePreview.value = true;
+    }
+
+    async function confirmSendInvites() {
+      showInvitePreview.value = false;
+      await sendInterviewInvites();
+    }
+
     async function sendInterviewInvites() {
-      const list = tickedApplicants.value;
+      const list = tickedApplicants.value.filter(a => a.email);
       if (!list.length) return;
-      const already = list.filter(a => a.interview_invite_sent).length;
-      const msg = `Send an interview invitation to ${list.length} applicant${list.length !== 1 ? 's' : ''}?` +
-        (already ? `\n\n${already} of them already received one and will be sent it again.` : '');
-      if (!confirm(msg)) return;
 
       sendingInvites.value = true;
       const failed = [];
@@ -2662,6 +2758,8 @@ const app = createApp({
       noteText, settingsForm, newSlotTime, jobSaveError,
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes,
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
+      showInvitePreview, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
+      openInvitePreview, confirmSendInvites,
       connections, filteredConnections, loadingConnections, connectionSearch,
       showAddConnection, savingConnection, connError, connForm, connFile, connFileInput,
       openConnections, addToConnections, startNewConnection, submitConnection,
