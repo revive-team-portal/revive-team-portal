@@ -346,19 +346,19 @@
                 </div>
               </div>
 
-              <!-- ========== MIDDLE: summary excerpt + notes ========== -->
+              <!-- ========== MIDDLE: cover letter + CV highlights ========== -->
               <div class="md:col-span-6 min-w-0 md:border-l md:border-gray-100 md:pl-4">
                 <!-- Applicant's own words, verbatim — no AI summary or commentary. -->
-                <div v-if="coverText(app) || cvText(app)" class="cursor-pointer space-y-2" @click="openApplicant(app)">
+                <div v-if="coverText(app) || cvHighlight(app)" class="cursor-pointer space-y-2" @click="openApplicant(app)">
                   <blockquote v-if="coverText(app)" class="border-l-2 border-gray-200 pl-2.5">
                     <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">
                       Cover letter<span v-if="coverIsUploaded(app)" class="normal-case tracking-normal font-normal"> (uploaded)</span>
                     </p>
-                    <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">&ldquo;{{ excerpt(coverText(app), 300) }}&rdquo;</p>
+                    <p class="text-xs text-gray-700 leading-relaxed">&ldquo;{{ excerpt(oneLine(coverText(app)), 320) }}&rdquo;</p>
                   </blockquote>
-                  <blockquote v-if="cvText(app)" class="border-l-2 border-brand-light pl-2.5">
-                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">From CV</p>
-                    <p class="text-xs text-gray-600 leading-relaxed">&ldquo;{{ excerpt(cvQuote(cvText(app)), 260) }}&rdquo;</p>
+                  <blockquote v-if="cvHighlight(app)" class="border-l-2 border-brand-light pl-2.5">
+                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">CV highlights</p>
+                    <p class="text-xs text-gray-600 leading-relaxed">&ldquo;{{ excerpt(cvHighlight(app), 340) }}&rdquo;</p>
                   </blockquote>
                 </div>
                 <div v-if="applicationAnswers(app).length" class="mt-2 pt-2 border-t border-gray-100 space-y-1 cursor-pointer" @click="openApplicant(app)">
@@ -372,7 +372,28 @@
                 <p v-else-if="docsFor(app).length" class="text-xs text-gray-300 italic">No readable text in the attached files.</p>
                 <p v-else class="text-xs text-gray-300 italic">No cover letter or CV provided.</p>
 
-                <div class="mt-3">
+              </div>
+
+              <!-- ========== RIGHT: scores + appointment + notes + documents ========== -->
+              <div class="md:col-span-3 min-w-0 md:border-l md:border-gray-100 md:pl-4 flex flex-col">
+                <div class="flex items-start gap-4">
+                  <div class="text-center shrink-0">
+                    <div class="text-xs text-gray-400 mb-0.5">Fit</div>
+                    <span v-if="app.suitability_score" class="score-badge" :style="scoreStyle(app.suitability_score)">{{ app.suitability_score }}</span>
+                    <span v-else class="text-gray-300 text-xs">&mdash;</span>
+                  </div>
+                  <div class="text-center shrink-0">
+                    <div class="text-xs text-gray-400 mb-0.5">Human</div>
+                    <span v-if="app.ai_score" class="score-badge" :style="aiScoreStyle(app.ai_score)">{{ app.ai_score }}</span>
+                    <span v-else class="text-gray-300 text-xs">&mdash;</span>
+                  </div>
+                  <div v-if="appointmentTime(app)" class="min-w-0">
+                    <div class="text-xs text-gray-400 mb-0.5">Appointment</div>
+                    <div class="text-xs font-bold leading-snug" style="color:#40d134">{{ appointmentTime(app) }}</div>
+                  </div>
+                </div>
+
+                <div class="mt-2.5">
                   <span class="text-xs text-gray-400">Notes</span>
                   <textarea
                     :value="app.interview_notes_employer || ''"
@@ -387,26 +408,11 @@
                     @blur.capture="$event.target.rows=1"
                   ></textarea>
                 </div>
-              </div>
-
-              <!-- ========== RIGHT: scores + documents ========== -->
-              <div class="md:col-span-3 min-w-0 md:border-l md:border-gray-100 md:pl-4 flex flex-col">
-                <div class="flex items-start gap-4">
-                  <div class="text-center">
-                    <div class="text-xs text-gray-400 mb-0.5">Fit</div>
-                    <span v-if="app.suitability_score" class="score-badge" :style="scoreStyle(app.suitability_score)">{{ app.suitability_score }}</span>
-                    <span v-else class="text-gray-300 text-xs">&mdash;</span>
-                  </div>
-                  <div class="text-center">
-                    <div class="text-xs text-gray-400 mb-0.5">Human</div>
-                    <span v-if="app.ai_score" class="score-badge" :style="aiScoreStyle(app.ai_score)">{{ app.ai_score }}</span>
-                    <span v-else class="text-gray-300 text-xs">&mdash;</span>
-                  </div>
-                </div>
 
                 <div class="mt-3 space-y-1.5">
                   <button v-for="(doc, di) in docsFor(app)" :key="di" @click.stop="openDoc(app, doc)"
-                    class="w-full flex items-center gap-1.5 text-brand hover:text-brand-dark font-semibold bg-brand-pale hover:bg-green-100 px-2.5 py-1.5 rounded-lg transition-colors text-xs">
+                    class="w-full flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-lg transition-colors text-xs"
+                    :class="isApplicationForm(doc) ? 'text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200' : 'text-brand hover:text-brand-dark bg-brand-pale hover:bg-green-100'">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span class="truncate">{{ doc.filename }}</span>
                   </button>
@@ -1584,6 +1590,7 @@ const app = createApp({
       view.value = 'job-detail';
       loadApplicants(job.id);
       loadReferralStats(job.id);
+      loadSlots();
     }
 
     async function loadApplicants(jobId) {
@@ -1949,8 +1956,8 @@ const app = createApp({
       if (nat) out.push({ label: 'Nationality', value: nat });
       const visa = realValue(app.visa_type);
       if (visa) out.push({ label: 'Visa', value: visa });
-      const countries = realValue(app.countries_worked);
-      if (countries) out.push({ label: 'Worked in', value: countries });
+      const countries = countryList(app);
+      if (countries.length) out.push({ label: 'Countries', value: countries.join(', ') });
       return out;
     }
 
@@ -2040,7 +2047,7 @@ const app = createApp({
       if (app.resume_text && app.resume_text.trim()) return app.resume_text;
       const docs = Array.isArray(app.documents) ? app.documents : [];
       const doc = docs.find(d => d && d.kind === 'cv' && d.text && d.text.trim())
-               || docs.find(d => d && d.kind !== 'cover_letter' && d.text && d.text.trim());
+               || docs.find(d => d && d.kind !== 'cover_letter' && !isApplicationForm(d) && d.text && d.text.trim());
       return doc ? doc.text : '';
     }
 
@@ -2055,8 +2062,9 @@ const app = createApp({
     // Picks a quotable passage: skips the contact-detail header and section headings
     // most CVs open with, and starts at the first substantial line. Every word returned
     // is the applicant's own — this chooses where to start, it does not rewrite anything.
-    function cvQuote(text) {
+    function cvQuote(text, limit) {
       if (!text) return '';
+      const cap = limit || 260;
       const lines = String(text).split('\n').map(l => l.replace(/\s+/g, ' ').trim());
       const isContact = l => /@|https?:\/\/|www\.|linkedin/i.test(l) || /\d[\d\s()+-]{6,}/.test(l);
       const isHeading = l => l.length > 0 && l.length < 40 && l === l.toUpperCase() && /[A-Z]/.test(l);
@@ -2073,9 +2081,221 @@ const app = createApp({
         if (!l) { if (out.length) break; else continue; }
         if (isHeading(l) || isContact(l)) break;
         out.push(l);
-        if (out.join(' ').length >= 260) break;
+        if (out.join(' ').length >= cap) break;
       }
       return out.join(' ').trim();
+    }
+
+    // ---- Countries named anywhere in the application or CV ----------------
+    // The AI fills countries_worked, but Jeremy wants every country the papers
+    // mention, not only the ones they were employed in. Matching is
+    // case-SENSITIVE on purpose: a CV that mentions "chilli" or "turkey" as
+    // food should not be read as Chile or Turkey.
+    const COUNTRY_ALIASES = {
+      'New Zealand': ['New Zealand', 'NZ', 'N.Z.', 'Aotearoa'],
+      'Australia': ['Australia', 'Aussie'],
+      'United Kingdom': ['United Kingdom', 'UK', 'U.K.', 'England', 'Scotland', 'Wales', 'Northern Ireland', 'Britain', 'Great Britain'],
+      'Ireland': ['Ireland'],
+      'United States': ['United States', 'USA', 'U.S.A.', 'America'],
+      'Canada': ['Canada'],
+      'India': ['India'],
+      'Nepal': ['Nepal'],
+      'Sri Lanka': ['Sri Lanka'],
+      'Pakistan': ['Pakistan'],
+      'Bangladesh': ['Bangladesh'],
+      'China': ['China'],
+      'Hong Kong': ['Hong Kong'],
+      'Taiwan': ['Taiwan'],
+      'Japan': ['Japan'],
+      'South Korea': ['South Korea', 'Korea'],
+      'Philippines': ['Philippines'],
+      'Vietnam': ['Vietnam', 'Viet Nam'],
+      'Thailand': ['Thailand'],
+      'Malaysia': ['Malaysia'],
+      'Singapore': ['Singapore'],
+      'Indonesia': ['Indonesia', 'Bali'],
+      'Cambodia': ['Cambodia'],
+      'Myanmar': ['Myanmar', 'Burma'],
+      'Fiji': ['Fiji'],
+      'Samoa': ['Samoa'],
+      'Tonga': ['Tonga'],
+      'Papua New Guinea': ['Papua New Guinea'],
+      'South Africa': ['South Africa'],
+      'Zimbabwe': ['Zimbabwe'],
+      'Kenya': ['Kenya'],
+      'Nigeria': ['Nigeria'],
+      'Ghana': ['Ghana'],
+      'Egypt': ['Egypt'],
+      'Morocco': ['Morocco'],
+      'Mauritius': ['Mauritius'],
+      'United Arab Emirates': ['United Arab Emirates', 'UAE', 'Dubai', 'Abu Dhabi'],
+      'Qatar': ['Qatar', 'Doha'],
+      'Saudi Arabia': ['Saudi Arabia'],
+      'Oman': ['Oman'],
+      'Kuwait': ['Kuwait'],
+      'Bahrain': ['Bahrain'],
+      'Israel': ['Israel'],
+      'Turkey': ['Turkey', 'Turkiye', 'T\u00fcrkiye'],
+      'Iran': ['Iran'],
+      'Iraq': ['Iraq'],
+      'Lebanon': ['Lebanon'],
+      'Jordan': ['Jordan'],
+      'Afghanistan': ['Afghanistan'],
+      'Russia': ['Russia'],
+      'Ukraine': ['Ukraine'],
+      'Poland': ['Poland'],
+      'Czech Republic': ['Czech Republic', 'Czechia'],
+      'Slovakia': ['Slovakia'],
+      'Hungary': ['Hungary'],
+      'Romania': ['Romania'],
+      'Bulgaria': ['Bulgaria'],
+      'Greece': ['Greece'],
+      'Italy': ['Italy'],
+      'Spain': ['Spain'],
+      'Portugal': ['Portugal'],
+      'France': ['France'],
+      'Germany': ['Germany'],
+      'Austria': ['Austria'],
+      'Switzerland': ['Switzerland'],
+      'Netherlands': ['Netherlands', 'Holland'],
+      'Belgium': ['Belgium'],
+      'Denmark': ['Denmark'],
+      'Sweden': ['Sweden'],
+      'Norway': ['Norway'],
+      'Finland': ['Finland'],
+      'Iceland': ['Iceland'],
+      'Croatia': ['Croatia'],
+      'Serbia': ['Serbia'],
+      'Brazil': ['Brazil'],
+      'Argentina': ['Argentina'],
+      'Chile': ['Chile'],
+      'Peru': ['Peru'],
+      'Colombia': ['Colombia'],
+      'Venezuela': ['Venezuela'],
+      'Uruguay': ['Uruguay'],
+      'Ecuador': ['Ecuador'],
+      'Bolivia': ['Bolivia'],
+      'Mexico': ['Mexico'],
+      'Cuba': ['Cuba'],
+      'Jamaica': ['Jamaica'],
+      'Costa Rica': ['Costa Rica'],
+      'Panama': ['Panama'],
+      'Guatemala': ['Guatemala'],
+      'Kazakhstan': ['Kazakhstan'],
+      'Uzbekistan': ['Uzbekistan'],
+      'Mongolia': ['Mongolia'],
+      'Maldives': ['Maldives'],
+      'Bhutan': ['Bhutan'],
+      'Timor-Leste': ['Timor-Leste', 'East Timor']
+    };
+
+    const COUNTRY_MATCHERS = Object.keys(COUNTRY_ALIASES).map(canon => ({
+      canon,
+      res: COUNTRY_ALIASES[canon].map(a =>
+        new RegExp('(^|[^A-Za-z])' + a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^A-Za-z]|$)'))
+    }));
+
+    function canonCountry(name) {
+      const s = String(name || '').trim();
+      if (!s) return '';
+      const hit = COUNTRY_MATCHERS.find(m => m.res.some(r => r.test(' ' + s + ' ')));
+      return hit ? hit.canon : s;
+    }
+
+    const countryCache = new Map();
+
+    function countryList(app) {
+      if (!app) return [];
+      const stated = realValue(app.countries_worked);
+      const text = ((coverText(app) || '') + '\n' + (cvText(app) || ''));
+      const key = stated + '|' + text.length;
+      const hit = countryCache.get(app.id);
+      if (hit && hit.key === key) return hit.list;
+
+      const out = [];
+      const add = v => {
+        const c = canonCountry(v);
+        if (c && !out.some(o => o.toLowerCase() === c.toLowerCase())) out.push(c);
+      };
+      stated.split(/[,;/&]|\band\b/i).map(x => x.trim()).filter(Boolean).forEach(add);
+      recentJobs(app).forEach(j => add(j.country));
+      if (text.trim()) {
+        const hay = ' ' + text.replace(/\s+/g, ' ') + ' ';
+        COUNTRY_MATCHERS.forEach(m => { if (m.res.some(r => r.test(hay))) add(m.canon); });
+      }
+      countryCache.set(app.id, { key, list: out });
+      return out;
+    }
+
+    // Space is tight on the tile, so quotes are collapsed onto one flowing line.
+    function oneLine(text) {
+      return String(text || '').replace(/\s+/g, ' ').trim();
+    }
+
+    // Every substantial line of a CV, headings and contact details stripped, in
+    // the applicant's own words. cvQuote stops at the first heading; this keeps going.
+    function cvBody(text) {
+      const lines = String(text || '').split('\n').map(l => l.replace(/\s+/g, ' ').trim());
+      const isContact = l => /@|https?:\/\/|www\.|linkedin/i.test(l) || /\d[\d\s()+-]{6,}/.test(l);
+      const isHeading = l => l.length > 0 && l.length < 40 && l === l.toUpperCase() && /[A-Z]/.test(l);
+      const out = [];
+      for (const l of lines) {
+        if (!l || l.length < 40 || isContact(l) || isHeading(l)) continue;
+        out.push(l);
+        if (out.join(' ').length >= 1500) break;
+      }
+      return out.join(' ').trim();
+    }
+
+    const cvHighlightCache = new Map();
+
+    // CV highlights for the middle column: their own words, with anything already
+    // shown on the left (countries, nationality, visa, recent roles) dropped so the
+    // two columns don't say the same thing twice.
+    function cvHighlight(app) {
+      if (!app) return '';
+      const raw = cvText(app);
+      if (!raw) return '';
+      const key = raw.length + '|' + countryList(app).join(',') + '|' + recentJobs(app).length;
+      const hit = cvHighlightCache.get(app.id);
+      if (hit && hit.key === key) return hit.text;
+
+      const known = [];
+      const push = v => { const t = realValue(v); if (t && t.length > 2) known.push(t.toLowerCase()); };
+      push(app.nationality); push(app.visa_type);
+      countryList(app).forEach(push);
+      recentJobs(app).forEach(j => { push(j.company); push(j.position); push(j.dates); push(j.country); });
+
+      const body = cvBody(raw);
+      const parts = body.split(/(?<=[.!?])\s+|\s*[\u2022|\u00b7]\s*/).map(x => x.trim()).filter(Boolean);
+      const out = [];
+      for (const part of parts) {
+        const low = part.toLowerCase();
+        const hits = known.filter(k => low.indexOf(k) !== -1);
+        const covered = hits.reduce((n, k) => n + k.length, 0);
+        // A short fragment that is mostly a known fact is just the left column again.
+        if (hits.length && (part.length < 90 || covered / part.length > 0.35)) continue;
+        out.push(part);
+        if (out.join(' ').length >= 380) break;
+      }
+      const text = out.join(' ').trim() || body;
+      cvHighlightCache.set(app.id, { key, text });
+      return text;
+    }
+
+    // The signed in-person application form, shown in blue so it stands out
+    // from the applicant's own CV and cover letter.
+    function isApplicationForm(doc) {
+      if (!doc) return false;
+      if (doc.kind === 'application_form') return true;
+      return /application\s*form/i.test(doc.filename || doc.path || '');
+    }
+
+    // Booked interview time for the tile, blank when they have no slot.
+    function appointmentTime(app) {
+      if (!app || !app.interview_slot_id) return '';
+      const slot = jobSlots.value.find(sl => sl.id === app.interview_slot_id);
+      return slot ? formatSlotFull(slot.slot_time) : '';
     }
 
     async function loadResumePreview(app) {
@@ -2642,7 +2862,7 @@ const app = createApp({
     }
 
     function formatSlotFull(dateStr) {
-      return new Date(dateStr).toLocaleString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+      return new Date(dateStr).toLocaleString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Pacific/Auckland' });
     }
 
     function scoreColor(score) {
@@ -2974,7 +3194,8 @@ const app = createApp({
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
       keyPoints, recentJobs, jobLine, jobMeta, analysing, analyseApplication, applicationAnswers, shortQuestion,
-      coverText, coverIsUploaded, cvText, docsPending,
+      coverText, coverIsUploaded, cvText, docsPending, cvHighlight, oneLine,
+      countryList, isApplicationForm, appointmentTime,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
       saveInlineNote, openResumeInViewer
     };
