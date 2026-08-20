@@ -258,6 +258,34 @@
     </div>
   </div>
 
+  <!-- ============ CAMERA ============ -->
+  <div v-if="cam.open" class="fixed inset-0 bg-black z-[60] flex flex-col">
+    <div class="flex items-center justify-between px-4 py-3 text-white shrink-0">
+      <button @click="closeCam" class="tap text-sm opacity-80">Cancel</button>
+      <p class="text-sm font-semibold">{{ cam.label }}</p>
+      <button v-if="cam.canFlip && !cam.shot" @click="flipCam" class="tap text-sm opacity-80">Flip</button><span v-else class="w-10"></span>
+    </div>
+
+    <div class="flex-1 relative overflow-hidden">
+      <video v-show="!cam.shot" ref="camVid" autoplay playsinline muted class="absolute inset-0 w-full h-full object-contain bg-black"></video>
+      <img v-if="cam.shot" :src="cam.shot" class="absolute inset-0 w-full h-full object-contain bg-black">
+      <div v-if="cam.starting && !cam.shot" class="absolute inset-0 flex items-center justify-center text-white/70 text-sm">Opening camera…</div>
+      <div v-if="cam.error" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+        <p class="text-white text-sm mb-4">The camera could not be opened. You can pick a photo instead.</p>
+        <button @click="fallbackPick" class="bg-white text-stone-900 rounded-xl px-5 py-3 text-sm font-semibold">Choose a photo</button>
+      </div>
+    </div>
+
+    <div class="shrink-0 px-6 py-6 flex items-center justify-center gap-6">
+      <template v-if="cam.shot">
+        <button @click="retake" class="tap flex-1 border-2 border-white/70 text-white rounded-2xl py-4 font-semibold">Retake</button>
+        <button @click="useShot" class="tap flex-[2] bg-green-600 text-white rounded-2xl py-4 font-semibold text-lg">Use photo</button>
+      </template>
+      <button v-else-if="!cam.error" @click="snap" :disabled="cam.starting" class="tap w-20 h-20 rounded-full bg-white ring-4 ring-white/40 disabled:opacity-40"></button>
+    </div>
+    <canvas ref="camCnv" class="hidden"></canvas>
+  </div>
+
   <input ref="camIn" type="file" accept="image/*" capture="environment" class="hidden" @change="onFile">
 </div>
 
@@ -274,7 +302,8 @@ createApp({
     const handoverPrev=ref(null), handoverNote=ref(''), wasteRows=ref([]);
     const flagsOpen=ref([]), correctiveOpen=ref([]);
     const day=ref(''), me=ref(null), queue=ref([]), returnTo=ref('today');
-    const camIn=ref(null); let camCb=null;
+    const camIn=ref(null), camVid=ref(null), camCnv=ref(null); let camCb=null, camStream=null;
+    const cam=reactive({open:false,shot:null,error:false,starting:false,label:'',facing:'environment',canFlip:false});
 
     const temps=reactive({open:false,task:null,units:[],i:0,value:'',entered:[],unit:{}});
     const ca=reactive({open:false,problem:'',action:'',detail:'',photo:null,source:'',after:null});
@@ -365,7 +394,7 @@ createApp({
     async function tapTask(t){
       if(!needMe()) return;
       if(t.type==='temps'){ return startTemps(t); }
-      if(t.type==='photo'){ return shoot(img=>{ commit(t,{photo:img,photo_kind:/pest/i.test(t.title)?'pest':'cabinet'}); flash('Photo saved.'); }); }
+      if(t.type==='photo'){ return shoot(img=>{ commit(t,{photo:img,photo_kind:/pest/i.test(t.title)?'pest':'cabinet'}); flash('Photo saved.'); }, t.title); }
       if(t.type==='waste'){ returnTo.value='block'; screen.value='waste'; return; }
       if(t.type==='handover'){ returnTo.value='block'; screen.value='handover'; return; }
       if(isDone(t)){
@@ -428,7 +457,7 @@ createApp({
     }
 
     // corrective + flag
-    function addCaPhoto(){ shoot(img=>{ ca.photo=img; }); }
+    function addCaPhoto(){ shoot(img=>{ ca.photo=img; }, 'Photo of the problem'); }
     async function saveCa(){
       const payload={action:'corrective',problem:ca.problem,action_taken:ca.action,detail:ca.detail,photo:ca.photo,source:ca.source,staff_name:me.value?me.value.name:null};
       ca.open=false;
@@ -438,7 +467,7 @@ createApp({
       if(ca.after){ const f=ca.after; ca.after=null; f(); }
     }
     function openFlag(){ if(!needMe()) return; flag.message=''; flag.photo=null; flag.open=true; }
-    function addFlagPhoto(){ shoot(img=>{ flag.photo=img; }); }
+    function addFlagPhoto(){ shoot(img=>{ flag.photo=img; }, "What's not right"); }
     async function saveFlag(){
       const payload={action:'flag',message:flag.message,photo:flag.photo,staff_name:me.value?me.value.name:null};
       flag.open=false;
@@ -464,15 +493,44 @@ createApp({
       screen.value=returnTo.value;
     }
 
-    // camera — file input opens the camera directly on iOS; compressed client-side.
-    function shoot(cb){ camCb=cb; camIn.value.value=''; camIn.value.click(); }
+    // camera — opens a live in-app camera (rear lens) rather than a file picker.
+    function shoot(cb,label){
+      camCb=cb; cam.label=label||'Take a photo'; cam.shot=null; cam.error=false; cam.starting=true; cam.open=true;
+      Vue.nextTick(()=>startCam());
+    }
+    async function startCam(){
+      stopStream();
+      try{
+        camStream = await navigator.mediaDevices.getUserMedia({
+          video:{ facingMode:{ ideal: cam.facing }, width:{ ideal:1920 }, height:{ ideal:1440 } }, audio:false
+        });
+        if(camVid.value){ camVid.value.srcObject=camStream; await camVid.value.play().catch(()=>{}); }
+        cam.starting=false;
+        try{ cam.canFlip = (await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput').length>1; }catch{ cam.canFlip=false; }
+      }catch(e){ cam.starting=false; cam.error=true; }
+    }
+    function flipCam(){ cam.facing = cam.facing==='environment' ? 'user' : 'environment'; cam.starting=true; startCam(); }
+    function stopStream(){ if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; } }
+    function snap(){
+      const v=camVid.value, c=camCnv.value;
+      if(!v || !v.videoWidth){ cam.error=true; return; }
+      const max=1200, sc=Math.min(1, max/Math.max(v.videoWidth, v.videoHeight));
+      c.width=Math.round(v.videoWidth*sc); c.height=Math.round(v.videoHeight*sc);
+      c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+      cam.shot=c.toDataURL('image/jpeg',0.72);
+      stopStream();
+    }
+    function retake(){ cam.shot=null; cam.starting=true; startCam(); }
+    function useShot(){ const shot=cam.shot; cam.open=false; cam.shot=null; stopStream(); if(camCb){ const cb=camCb; camCb=null; cb(shot); } }
+    function closeCam(){ cam.open=false; cam.shot=null; camCb=null; stopStream(); }
+    function fallbackPick(){ camIn.value.value=''; camIn.value.click(); }
     function onFile(e){
       const f=e.target.files[0]; if(!f) return;
       const img=new Image(), rd=new FileReader();
       rd.onload=()=>{ img.onload=()=>{ const max=1200, sc=Math.min(1,max/Math.max(img.width,img.height));
         const c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
         c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-        const data=c.toDataURL('image/jpeg',0.7); if(camCb) camCb(data); camCb=null;
+        const data=c.toDataURL('image/jpeg',0.7); cam.open=false; cam.shot=null; if(camCb){ const cb=camCb; camCb=null; cb(data); }
       }; img.src=rd.result; };
       rd.readAsDataURL(f);
     }
@@ -505,7 +563,8 @@ createApp({
     });
 
     return { ready,gateError,toast,online,queue,screen,block,info,pickStaff,isManager,staff,units,routines,completions,
-      handoverPrev,handoverNote,wasteRows,wasteTotal,flagsOpen,correctiveOpen,day,dayLabel,me,camIn,
+      handoverPrev,handoverNote,wasteRows,wasteTotal,flagsOpen,correctiveOpen,day,dayLabel,me,camIn,camVid,camCnv,cam,
+      snap,retake,useShot,closeCam,flipCam,fallbackPick,
       temps,ca,flag,caOptions,openIssues,currentBlock,nextBlock,bulkPending,killerPending,
       setMe,openBlock,tapTask,confirmBlock,nextTemp,prevTemp,saveCa,addCaPhoto,openFlag,addFlagPhoto,saveFlag,
       saveWaste,saveHandover,onFile,backFromPanel,
