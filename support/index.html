@@ -276,7 +276,7 @@ function ticketRow(t){
   const evs=lastEvents(t); const evHtml = evs.length?'<div class="mt-1" title="last 3 events">'+evs.map(e=>e.icon).join(' ')+'</div>':'';
   const tm=TYPE_META[t.ticket_type||'enquiry']||TYPE_META.enquiry;
   return '<div onclick="openTicket(\''+t.id+'\')" class="flex gap-3 py-2 px-1 border-b border-stone-100 last:border-0 hover:bg-stone-50 cursor-pointer">'
-    +'<input type="checkbox" onclick="event.stopPropagation();toggleSelect(\''+t.id+'\',this.checked)" '+((window.SELECTED&&window.SELECTED.has(t.id))?'checked':'')+' class="mt-1 shrink-0 accent-teal-600">'
+    +'<input type="checkbox" onclick="event.stopPropagation();toggleSelect(\''+t.id+'\',this.checked)" '+((window.SELECTED&&window.SELECTED.has(t.id))?'checked':'')+' class="shrink-0 accent-teal-600 cursor-pointer" style="width:26px;height:26px;margin-top:2px">'
     +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate"><span class="mr-1" title="'+(t.ticket_type||'')+'">'+tm.i+'</span>'+esc(c.name||c.email||'(unknown)')+ratingHtml(c.orders_count)+(t.source==='manual'?' <span class="text-[10px] text-stone-400">(manual)</span>':'')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
     +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div>'
     +(t.snippet?'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div>':'')+'</div>'
