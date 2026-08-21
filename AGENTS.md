@@ -53,3 +53,35 @@ Static HTML apps + Netlify Functions, deployed from `main` (push auto‑deploys 
 ## 8. Before you call a change "done"
 
 `node --check` passed · helper requires exist · deployed to `main` · **verified live** (served string + function status) · no secret added · DB text escaped · dates are NZ · looks right on mobile. Report URL + commit hash.
+
+## Adding a new app schema (READ THIS — it has broken production twice)
+
+`pgrst.db_schemas` is a SINGLE setting shared by every app. `ALTER ROLE ... SET`
+REPLACES it. Retyping the list from memory, or copying it from an older
+migration, silently unexposes every schema you left out — the tables still
+exist, but the whole API returns `PGRST106 Invalid schema` and those apps go
+dark.
+
+This has happened twice:
+- Adding `scoreboard` dropped `jobs` — the Jobs app died.
+- Adding `checklist` dropped `jobs`, `tasks` and `timeclock` (20 Aug 2026).
+  The job vanished from the admin, the public ad 404'd, and the "New job apps"
+  segment disappeared from the green today bar.
+
+ALWAYS read the live value first and append to it:
+
+```sql
+-- 1. read what is actually set right now
+select rolconfig from pg_roles where rolname = 'authenticator';
+
+-- 2. copy that exact list, add yours to the END, change nothing else
+alter role authenticator set pgrst.db_schemas =
+  'public, graphql_public, recipes, sales, support, production, pulse, scoreboard, jobs, tasks, timeclock, checklist, <yours>';
+
+notify pgrst, 'reload config';
+
+-- 3. verify every app's schema still answers before you finish
+```
+
+Never copy this list out of a migration file — migrations are snapshots and go
+stale the moment the next app is added.
