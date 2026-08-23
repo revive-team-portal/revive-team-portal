@@ -349,17 +349,17 @@
               <!-- ========== MIDDLE: cover letter + CV highlights ========== -->
               <div class="md:col-span-6 min-w-0 md:border-l md:border-gray-100 md:pl-4">
                 <!-- Applicant's own words, verbatim — no AI summary or commentary. -->
-                <div v-if="coverText(app) || cvHighlight(app)" class="cursor-pointer space-y-2" @click="openApplicant(app)">
+                <div v-if="coverText(app) || cvBlurb(app)" class="cursor-pointer space-y-2" @click="openApplicant(app)">
                   <blockquote v-if="coverText(app)" class="border-l-2 border-gray-200 pl-2.5">
                     <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">
                       Cover letter<span v-if="coverIsUploaded(app)" class="normal-case tracking-normal font-normal"> (uploaded)</span>
                     </p>
                     <p class="text-xs text-gray-700 leading-relaxed">&ldquo;{{ excerpt(oneLine(coverText(app)), 320) }}&rdquo;</p>
                   </blockquote>
-                  <blockquote v-if="cvHighlight(app)" class="border-l-2 border-brand-light pl-2.5">
-                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">CV highlights</p>
-                    <p class="text-xs text-gray-600 leading-relaxed">&ldquo;{{ excerpt(cvHighlight(app), 340) }}&rdquo;</p>
-                  </blockquote>
+                  <div v-if="cvBlurb(app)" class="border-l-2 border-brand-light pl-2.5">
+                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">CV summary</p>
+                    <p class="text-xs text-gray-600 leading-relaxed">{{ cvBlurb(app) }}</p>
+                  </div>
                 </div>
                 <div v-if="applicationAnswers(app).length" class="mt-2 pt-2 border-t border-gray-100 space-y-1 cursor-pointer" @click="openApplicant(app)">
                   <div v-for="(qa, qi) in applicationAnswers(app)" :key="qi" class="text-xs">
@@ -368,6 +368,7 @@
                   </div>
                 </div>
 
+                <p v-else-if="analysing[app.id]" class="text-xs text-gray-300 italic">Reading the CV&#8230;</p>
                 <p v-else-if="docsPending(app)" class="text-xs text-gray-300 italic">Reading documents&#8230;</p>
                 <p v-else-if="docsFor(app).length" class="text-xs text-gray-300 italic">No readable text in the attached files.</p>
                 <p v-else class="text-xs text-gray-300 italic">No cover letter or CV provided.</p>
@@ -2075,6 +2076,16 @@ const app = createApp({
       for (const app of pending) await analyseApplication(app);
     }
 
+    // What we show for the CV: the analysis summary if we have one (it reads the
+    // PDF directly, so it works even when text extraction fails), otherwise the
+    // verbatim highlight.
+    function cvBlurb(app) {
+      if (!app) return '';
+      const summary = realValue(app.cv_summary);
+      if (summary) return summary;
+      return typeof cvHighlight === 'function' ? (cvHighlight(app) || '') : '';
+    }
+
     // The applicant's own words for the cover letter: what they typed, or failing
     // that, an uploaded cover-letter document.
     function coverText(app) {
@@ -3271,7 +3282,7 @@ const app = createApp({
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
       keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews, analysing, analyseApplication, applicationAnswers, shortQuestion,
-      coverText, coverIsUploaded, cvText, docsPending, cvHighlight, oneLine,
+      coverText, coverIsUploaded, cvText, cvBlurb, docsPending, cvHighlight, oneLine,
       countryList, isApplicationForm, appointmentTime,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
       saveInlineNote, openResumeInViewer
