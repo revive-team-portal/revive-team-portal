@@ -261,12 +261,19 @@
                 :checked="allTicked" @change="toggleAllTicks">
               Select all
             </label>
+            <label class="flex items-center gap-1.5 text-xs font-semibold cursor-pointer mr-1"
+              :class="showDeleted ? 'text-red-600' : 'text-gray-500'">
+              <input type="checkbox" class="w-4 h-4 rounded cursor-pointer" style="accent-color:#dc2626"
+                v-model="showDeleted">
+              Show deleted
+              <span v-if="deletedCount" class="opacity-60">({{ deletedCount }})</span>
+            </label>
             <button @click="statusFilter=[]"
               :class="statusFilter.length===0 ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'"
               class="border border-gray-200 rounded-full px-3 py-1 text-xs font-semibold transition-colors">
               All <span class="opacity-60">{{ applications.length }}</span>
             </button>
-            <button v-for="s in statusList" :key="s.key"
+            <button v-for="s in statusList" :key="s.key" v-show="s.key !== 'deleted' || showDeleted"
               @click="statusFilter.includes(s.key) ? statusFilter.splice(statusFilter.indexOf(s.key),1) : statusFilter.push(s.key)"
               :style="statusPillStyle(s.key)"
               class="border rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80">
@@ -307,6 +314,7 @@
                   <option value="interview">Interview</option>
                   <option value="hired">Hired</option>
                   <option value="not_hired">Not Hired</option>
+                  <option value="deleted" disabled>Deleted</option>
                 </select>
 
                 <div class="cursor-pointer" @click="openApplicant(app)">
@@ -437,9 +445,13 @@
                   {{ app.in_connections ? '\u2713 In Connections' : (savingConnection===app.id ? 'Adding\u2026' : '+ Add to Connections') }}
                 </button>
 
-                <button @click.stop="deleteApplication(app)" title="Delete application"
+                <button v-if="app.status !== 'deleted'" @click.stop="deleteApplication(app)" title="Move to Deleted — nothing is erased"
                   class="mt-auto self-end text-gray-300 hover:text-red-500 p-1.5 rounded-lg border border-gray-200 hover:border-red-200 transition-colors">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+                <button v-else @click.stop="restoreApplication(app)" title="Restore this application"
+                  class="mt-auto self-end text-xs font-semibold text-gray-500 hover:text-brand px-2 py-1.5 rounded-lg border border-gray-200 hover:border-brand transition-colors">
+                  Restore
                 </button>
                 <input type="file" :ref="el => { if(el) fileInputRefs[app.id]=el }" @change="handleDocUpload($event, app)" class="hidden" accept=".pdf,.doc,.docx">
               </div>
@@ -501,6 +513,7 @@
                   <option value="interview">Interview</option>
                   <option value="hired">Hired</option>
                   <option value="not_hired">Not Hired</option>
+                  <option value="deleted" disabled>Deleted</option>
                 </select>
               </div>
             </div>
@@ -1358,6 +1371,7 @@ const app = createApp({
     const docPreviews = ref([]);
     const loadingPreviews = ref(false);
     const ticked = ref({});
+    const showDeleted = ref(false);
     const connections = ref([]);
     const loadingConnections = ref(false);
     const connectionSearch = ref('');
@@ -1446,6 +1460,8 @@ const app = createApp({
 
     const filteredApplicants = computed(() => {
       let list = [...applications.value];
+      // Deleted applications stay out of every view unless explicitly asked for.
+      if (!showDeleted.value) list = list.filter(a => a.status !== 'deleted');
       if (statusFilter.value.length) list = list.filter(a => statusFilter.value.includes(a.status));
       if (applicantSearch.value) {
         const q = applicantSearch.value.toLowerCase();
@@ -2529,6 +2545,8 @@ const app = createApp({
     }
 
     // ============ INTERVIEWS ============
+    const deletedCount = computed(() => applications.value.filter(a => a.status === 'deleted').length);
+
     const bookedSlotCount = computed(() => jobSlots.value.filter(s => s.is_booked).length);
 
     // Group by day so a long list stays readable.
@@ -2730,10 +2748,26 @@ const app = createApp({
     }
 
     // ============ DELETE / UPLOAD / ADD MANUAL ============
+    // Applications are never destroyed — they move to a Deleted status and are
+    // hidden unless "Show deleted" is ticked. Nothing is lost, and it can be undone.
     async function deleteApplication(app) {
-      if (!confirm(`Delete application from ${app.full_name}? This cannot be undone.`)) return;
-      await sb.from('applications').delete().eq('id', app.id);
-      applications.value = applications.value.filter(a => a.id !== app.id);
+      if (!confirm(`Move ${app.full_name} to Deleted?\n\nThey will be hidden from the list. Nothing is erased — tick "Show deleted" to see or restore them.`)) return;
+      const previous = app.status;
+      const { error } = await sb.from('applications')
+        .update({ status: 'deleted', status_before_delete: previous }).eq('id', app.id);
+      if (error) { alert('Could not move to Deleted: ' + error.message); return; }
+      app.status_before_delete = previous;
+      app.status = 'deleted';
+      delete ticked.value[app.id];
+    }
+
+    async function restoreApplication(app) {
+      const back = app.status_before_delete || 'new';
+      const { error } = await sb.from('applications')
+        .update({ status: back, status_before_delete: null }).eq('id', app.id);
+      if (error) { alert('Could not restore: ' + error.message); return; }
+      app.status = back;
+      app.status_before_delete = null;
     }
 
     async function deleteJob(job) {
@@ -2988,7 +3022,8 @@ const app = createApp({
       interview:   { dark:'#a16207', mid:'#fde047', pale:'#fefce8' },
       hired:       { dark:'#15803d', mid:'#4ade80', pale:'#f0fdf4' },
       not_suitable:{ dark:'#b91c1c', mid:'#fca5a5', pale:'#fef2f2' },
-      not_hired:   { dark:'#6b7280', mid:'#d1d5db', pale:'#f9fafb' }
+      not_hired:   { dark:'#6b7280', mid:'#d1d5db', pale:'#f9fafb' },
+      deleted:     { dark:'#7f1d1d', mid:'#fca5a5', pale:'#fef2f2' }
     };
 
     const statusList = [
@@ -2998,7 +3033,8 @@ const app = createApp({
       { key:'interview', label:'Interview' },
       { key:'hired', label:'Hired' },
       { key:'not_suitable', label:'Not Suitable' },
-      { key:'not_hired', label:'Not Hired' }
+      { key:'not_hired', label:'Not Hired' },
+      { key:'deleted', label:'Deleted' }
     ];
 
     function statusPillStyle(key) {
@@ -3160,7 +3196,8 @@ const app = createApp({
         shortlist_b: 'border-indigo-300 text-indigo-700',
         interview: 'border-yellow-300 text-yellow-700',
         hired: 'border-green-400 text-green-700',
-        not_hired: 'border-gray-300 text-gray-500'
+        not_hired: 'border-gray-300 text-gray-500',
+        deleted: 'border-red-400 text-red-800'
       };
       return map[status] || '';
     }
@@ -3265,6 +3302,7 @@ const app = createApp({
       noteText, settingsForm, newSlotTime, jobSaveError,
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes, interviewAnswerCount,
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
+      showDeleted, deletedCount, restoreApplication,
       showInvitePreview, inviteErrors, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
       openInvitePreview, confirmSendInvites,
       connections, filteredConnections, loadingConnections, connectionSearch,
