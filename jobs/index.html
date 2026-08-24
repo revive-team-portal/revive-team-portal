@@ -2770,11 +2770,24 @@ const app = createApp({
       app.status_before_delete = null;
     }
 
+    // Closing a job must never destroy the people who applied to it. Their
+    // applications are archived to Deleted and stay recoverable.
     async function deleteJob(job) {
       const title = job.title || 'this job';
-      if (!confirm(`Delete "${title}"? This will also delete all applications for this job. This cannot be undone.`)) return;
-      await sb.from('applications').delete().eq('job_id', job.id);
-      await sb.from('jobs').delete().eq('id', job.id);
+      const { count } = await sb.from('applications')
+        .select('id', { count: 'exact', head: true }).eq('job_id', job.id);
+      const n = count || 0;
+      const msg = `Delete "${title}"?` + (n
+        ? `\n\n${n} application${n !== 1 ? 's' : ''} will be moved to Deleted rather than erased. Add anyone worth keeping to Connections first.`
+        : '');
+      if (!confirm(msg)) return;
+
+      const { error: archErr } = await sb.from('applications')
+        .update({ status: 'deleted' }).eq('job_id', job.id).neq('status', 'deleted');
+      if (archErr) { alert('Could not archive the applications: ' + archErr.message); return; }
+
+      const { error } = await sb.from('jobs').delete().eq('id', job.id);
+      if (error) { alert('Could not delete the job: ' + error.message); return; }
       jobs.value = jobs.value.filter(j => j.id !== job.id);
       if (view.value === 'job-edit' || view.value === 'applicants') {
         view.value = 'dashboard';
