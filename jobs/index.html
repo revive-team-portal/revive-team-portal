@@ -698,8 +698,9 @@
               <textarea v-model="noteText" rows="5" placeholder="Add notes about this applicant..."
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
               <button @click="saveNote" :disabled="savingNote"
-                class="mt-2 w-full bg-gray-800 hover:bg-gray-900 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold transition-colors">
-                {{ savingNote ? 'Saving...' : 'Save Notes' }}
+                class="mt-2 w-full disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold transition-colors"
+                :class="noteSaved ? 'bg-brand' : 'bg-gray-800 hover:bg-gray-900'">
+                {{ savingNote ? 'Saving...' : (noteSaved ? '\u2713 Saved' : 'Save Notes') }}
               </button>
             </div>
 
@@ -1400,6 +1401,7 @@ const app = createApp({
     const loadingApplicants = ref(false);
     const savingJob = ref(false);
     const savingNote = ref(false);
+    const noteSaved = ref(false);
     const savingSettings = ref(false);
     const sendingInvites = ref(false);
     const uploadingPhoto = ref(false);
@@ -1749,11 +1751,23 @@ const app = createApp({
       await sb.from('applications').update({ status: app.status }).eq('id', app.id);
     }
 
+    // Notes go in interview_notes_employer. interview_notes is the applicant's
+    // own interview-form answers (JSON) and must never be written to from here.
     async function saveNote() {
       savingNote.value = true;
+      noteSaved.value = false;
       try {
-        await sb.from('applications').update({ interview_notes: noteText.value }).eq('id', selectedApplicant.value.id);
-        selectedApplicant.value.interview_notes = noteText.value;
+        const text = noteText.value || null;
+        const { error } = await sb.from('applications')
+          .update({ interview_notes_employer: text }).eq('id', selectedApplicant.value.id);
+        if (error) throw error;
+        selectedApplicant.value.interview_notes_employer = text;
+        const row = applications.value.find(a => a.id === selectedApplicant.value.id);
+        if (row) row.interview_notes_employer = text;
+        noteSaved.value = true;
+        setTimeout(() => { noteSaved.value = false; }, 2500);
+      } catch (e) {
+        alert('Could not save the note: ' + (e.message || e));
       } finally {
         savingNote.value = false;
       }
@@ -1773,7 +1787,13 @@ const app = createApp({
     }
 
     async function saveInlineNote(app) {
-      await sb.from('applications').update({ interview_notes_employer: app.interview_notes_employer || null }).eq('id', app.id);
+      const { error } = await sb.from('applications')
+        .update({ interview_notes_employer: app.interview_notes_employer || null }).eq('id', app.id);
+      if (error) alert('Could not save the note: ' + error.message);
+      else if (selectedApplicant.value && selectedApplicant.value.id === app.id) {
+        selectedApplicant.value.interview_notes_employer = app.interview_notes_employer;
+        noteText.value = app.interview_notes_employer || '';
+      }
     }
 
     async function viewResume(app) {
@@ -3323,7 +3343,7 @@ const app = createApp({
       openConnections, addToConnections, startNewConnection, submitConnection,
       pickConnFile, onConnFileChosen, clearConnFile, saveConnectionNote, deleteConnection,
       login, logout, openJob, editJob, cloneJob, startNewJob, saveJob, deleteJob,
-      openApplicant, updateStatus, saveNote, viewResume, loadResumePreview,
+      openApplicant, updateStatus, saveNote, noteSaved, viewResume, loadResumePreview,
       sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection, confirmBulkRejection,
       openInterviewSlots, addSlot, deleteSlot, getSlotTime,
       saveSettings, saveAllEmailTemplates,
