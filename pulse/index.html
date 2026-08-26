@@ -35,6 +35,16 @@
   .sitem{border:1px solid var(--line);border-radius:11px;padding:11px 12px;cursor:pointer;background:#fff}
   .sitem:hover{border-color:var(--green-l)}
   .sitem.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+  /* mobile: menu moves to the top */
+  @media(max-width:760px){
+    .wrap{flex-direction:column;min-height:0}
+    aside{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:42vh;padding:12px 14px}
+    main{padding:16px 14px}
+    header h1{font-size:15px}
+    .two{grid-template-columns:1fr}
+    table{font-size:12px}
+    .rowstat .lbl{width:130px}
+  }
   .sitem h4{margin:0 0 3px;font-size:14.5px}
   .sitem .meta{font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
   .badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;font-weight:600}
@@ -88,22 +98,16 @@
   .link-box{display:flex;gap:8px;align-items:center;background:#f7f4ec;border-radius:9px;padding:9px 11px;font-size:13.5px}
   .link-box code{flex:1;word-break:break-all}
 </style>
-<link rel="stylesheet" href="/chrome.css">
 </head>
 <body>
-<div id="gate" class="rv-load">
-  <div class="rv-load__scrim"></div>
-  <div class="rv-load__box">
-    <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
-    <p class="rv-load__text">Opening Pulse</p>
-    <div class="rv-load__bar"><i></i></div>
-  </div>
-</div>
+<div id="gate" class="center">Opening Pulse…</div>
 
 <div id="appui" class="hidden">
-<header class="rv-nav">
-  <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Pulse</span></div>
-  <div class="rv-right"><span class="rv-who" id="who"></span><a class="rv-portal" href="/">&larr; Main Portal</a></div>
+<header>
+  <div class="mark">📊</div>
+  <h1>Pulse</h1>
+  <a class="back" href="/">← Portal</a>
+  <span class="who" id="who"></span>
 </header>
 <div class="wrap">
   <aside>
@@ -147,15 +151,14 @@ let surveys=[], current=null, charts=[];
     if(!r.ok) throw new Error('gate');
     const s=await r.json();
     await sb.auth.setSession({access_token:s.access_token,refresh_token:s.refresh_token});
-  }catch(e){ $('gate').innerHTML='<div class="rv-load__scrim"></div><div class="rv-load__box"><img class="rv-load__logo" src="/assets/revive-logo.png"><p class="rv-load__text">Could not open Pulse. Please reload.</p></div>'; return; }
+  }catch(e){ $('gate').innerHTML='Could not open Pulse. Please reload.'; return; }
   $('who').textContent=p.user.email||'';
   $('gate').classList.add('hidden'); $('appui').classList.remove('hidden');
-  try{ await loadSurveys(); }catch(e){ $('appui').classList.add('hidden'); $('gate').classList.remove('hidden'); $('gate').innerHTML='<div class="rv-load__scrim"></div><div class="rv-load__box"><img class="rv-load__logo" src="/assets/revive-logo.png"><p class="rv-load__text">Couldn\'t load surveys. Please reload.</p></div>'; }
+  await loadSurveys();
 })();
 
 async function loadSurveys(){
-  const { data, error } = await sb.from('surveys').select('*').order('created_at',{ascending:false});
-  if(error) throw error;
+  const { data } = await sb.from('surveys').select('*').order('created_at',{ascending:false});
   surveys=data||[];
   // response counts + last response date
   const counts={};
