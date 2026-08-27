@@ -11,8 +11,8 @@ const Q = `query($q:String!,$after:String){ orders(first:100, query:$q, after:$a
     customer{ numberOfOrders }
     lineItems(first:50){ nodes{ product{ productType } } }
     customerJourneySummary{ daysToConversion momentsCount{ count }
-      firstVisit{ source sourceType utmParameters{ source medium campaign } }
-      lastVisit{ source sourceType utmParameters{ source medium campaign } } } } } }`;
+      firstVisit{ source sourceType landingPage referrerUrl utmParameters{ source medium campaign } }
+      lastVisit{ source sourceType landingPage referrerUrl utmParameters{ source medium campaign } } } } } }`;
 
 const key = (v) => {
   if (!v) return 'unknown';
@@ -39,6 +39,7 @@ exports.handler = async (event) => {
 
   const agg = {};
   let meals = 0, mealsNew = 0, total = 0, journeyMissing = 0;
+  const clickIds = { gclid: 0, gbraid: 0, wbraid: 0, fbclid: 0, srsltid: 0, utm_google_cpc: 0, none: 0 };
   for (const o of orders) {
     if (o.test) continue;
     total++;
@@ -54,11 +55,17 @@ exports.handler = async (event) => {
       r.orders++; r.revenue += Number(o.currentTotalPriceSet.shopMoney.amount) || 0;
       if (isMeal) { r.meals++; if (isNew) r.meals_new++; }
     };
+    const urls = [j && j.firstVisit && j.firstVisit.landingPage, j && j.lastVisit && j.lastVisit.landingPage].filter(Boolean).join(' ');
+    let hit = false;
+    for (const id of ['gclid', 'gbraid', 'wbraid', 'fbclid', 'srsltid']) if (urls.indexOf(id + '=') >= 0) { clickIds[id]++; hit = true; }
+    const um = (j && j.lastVisit && j.lastVisit.utmParameters) || {};
+    if ((um.source || '').toLowerCase() === 'google' && ['cpc', 'ppc', 'paid'].indexOf((um.medium || '').toLowerCase()) >= 0) { clickIds.utm_google_cpc++; hit = true; }
+    if (!hit) clickIds.none++;
     bump('last_touch', last); bump('first_touch', first);
   }
   const srt = (m) => Object.entries(m).sort((a, b) => b[1].orders - a[1].orders)
     .map(([k, v]) => ({ src: k, ...v, revenue: Math.round(v.revenue) }));
   return { statusCode: 200, headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ range: [start, end], total_orders: total, meals_orders: meals, meals_new_customers: mealsNew,
-      journey_missing: journeyMissing, last_touch: srt(agg.last_touch || {}), first_touch: srt(agg.first_touch || {}) }, null, 1) };
+      journey_missing: journeyMissing, click_ids: clickIds, last_touch: srt(agg.last_touch || {}), first_touch: srt(agg.first_touch || {}) }, null, 1) };
 };
