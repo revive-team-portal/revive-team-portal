@@ -242,8 +242,14 @@ async function renderResults(){
     <div class="stat"><div class="k">Questions</div><div class="v">${questions.filter(q=>q.type!=='info').length}</div></div>
     <div class="stat"><div class="k">Last response</div><div class="v" style="font-size:15px">${total?new Date(responses[0].submitted_at).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'—'}</div></div>
   </div>`;
-  html+=`<div style="margin:0 0 16px"><button class="btn primary" id="survaibtn" onclick="surveySummary()">✨ AI strategic summary</button><div id="survai"></div></div>`;
+  html+=`<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 6px">
+    <button class="btn primary" id="survaibtn" onclick="surveySummary()">✨ AI strategic summary</button>
+    <button class="btn" id="pdfbtn" onclick="exportPdf()">⬇ Export PDF</button>
+    <label class="muted" style="font-size:12.5px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="pdf_ai" checked> AI summary at top</label>
+    <label class="muted" style="font-size:12.5px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="pdf_resp"> Include all open-ended responses</label>
+  </div><div id="survai" style="margin-bottom:14px"></div>`;
   const byQ={}; answers.forEach(a=>{(byQ[a.question_id]=byQ[a.question_id]||[]).push(a);});
+  const textQs=[]; window._themes=window._themes||{};
   questions.forEach((q,qi)=>{
     if(q.type==='info'||q.type==='image') return;
     const as=byQ[q.id]||[];
@@ -259,11 +265,14 @@ async function renderResults(){
       const avg=nums.length?(nums.reduce((x,y)=>x+y,0)/nums.length).toFixed(2):'—';
       const dist={}; nums.forEach(n=>dist[n]=(dist[n]||0)+1);
       html+=`<p class="muted">Average: <strong>${avg}</strong></p>`+Object.keys(dist).sort((a,b)=>a-b).map(k=>`<div class="rowstat"><div class="lbl">${k}</div><div class="bar"><span style="width:${dist[k]/Math.max(...Object.values(dist))*100}%"></span></div><div class="val">${dist[k]}</div></div>`).join('');
+    } else if(q.type==='long_text'||q.type==='short_text'){
+      const txt=as.map(a=>a.value).filter(Boolean);
+      textQs.push({qid:q.id,label:q.label,texts:txt});
+      html+=`<div id="th_${q.id}">${txt.length?'<div class="muted">Summarising themes…</div>':'<div class="muted">No text answers.</div>'}</div>`;
+      if(txt.length) html+=`<div style="margin-top:8px"><a class="muted" style="font-size:12px;cursor:pointer" onclick="toggleResp('${q.id}')" id="resptoggle_${q.id}">▸ show all ${txt.length} responses</a><div id="resp_${q.id}" class="txtlist" style="display:none;margin-top:8px">${txt.map(t=>`<div>${esc(t)}</div>`).join('')}</div></div>`;
     } else {
       const txt=as.map(a=>a.value).filter(Boolean);
-      window._aitxt[q.id]={label:q.label,texts:txt};
-      if(txt.length) html+=`<div style="margin-bottom:8px"><button class="btn small" id="aibtn_${q.id}" onclick="aiSummary('${q.id}')">✨ AI summary</button></div><div id="ai_${q.id}"></div>`;
-      html+=`<div class="txtlist">${txt.slice(0,60).map(t=>`<div>${esc(t)}</div>`).join('')||'<div class="muted">No text answers.</div>'}</div>`+(txt.length>60?`<p class="muted">Showing 60 of ${txt.length}.</p>`:'');
+      html+=`<div class="txtlist">${txt.slice(0,50).map(t=>`<div>${esc(t)}</div>`).join('')||'<div class="muted">No answers.</div>'}</div>`;
     }
     html+='</div>';
   });
@@ -288,30 +297,110 @@ async function renderResults(){
   });
   window._survDigest={title:current.title, n:total, digest:dg.join('\n')};
   body.innerHTML=html;
+  textQs.forEach(t=>{ if(t.texts.length) genThemes(t.qid,t.label,t.texts); });
+}
+async function bearer(){ const { data:{ session:p } } = await portal.auth.getSession(); return 'Bearer '+(p?p.access_token:''); }
+function mdToHtml(md){
+  let h=esc(md||'');
+  h=h.replace(/^\s*#{1,3}\s*(.+)$/gm,'<div style="font-size:15px;font-weight:700;margin:14px 0 6px;color:var(--green-d)">$1</div>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h=h.replace(/^\s*[-*]\s+(.+)$/gm,'<li>$1</li>');
+  h=h.replace(/(<li>[\s\S]*?<\/li>)/g,'<ul style="margin:4px 0 8px 18px;padding:0">$1</ul>').replace(/<\/ul>\s*<ul[^>]*>/g,'');
+  h=h.replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
+  return h;
 }
 async function surveySummary(){
   const btn=$('survaibtn'), out=$('survai');
   btn.disabled=true; btn.textContent='Analysing survey…';
   try{
-    const { data:{ session:p } } = await portal.auth.getSession();
-    const r=await fetch('/.netlify/functions/pulse-ai',{method:'POST',headers:{'content-type':'application/json','Authorization':'Bearer '+(p?p.access_token:'')},body:JSON.stringify(window._survDigest)});
+    const r=await fetch('/.netlify/functions/pulse-ai',{method:'POST',headers:{'content-type':'application/json','Authorization':await bearer()},body:JSON.stringify(window._survDigest)});
     const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed');
-    out.innerHTML=`<div style="background:#eef5f0;border:1px solid #cfe6d8;border-radius:12px;padding:14px 16px;margin-top:10px;font-size:14px;white-space:pre-wrap">${esc(d.text)}</div>`;
+    window._survText=d.text;
+    out.innerHTML=`<div style="background:#eef5f0;border:1px solid #cfe6d8;border-radius:12px;padding:16px 18px;font-size:14px;line-height:1.55">${mdToHtml(d.text)}</div>`;
     btn.textContent='✨ Re-run strategic summary'; btn.disabled=false;
-  }catch(e){ out.innerHTML=`<div class="muted" style="margin-top:8px">Strategic summary failed: ${esc(String(e.message||e))}</div>`; btn.textContent='✨ AI strategic summary'; btn.disabled=false; }
+  }catch(e){ out.innerHTML=`<div class="muted">Strategic summary failed: ${esc(String(e.message||e))}</div>`; btn.textContent='✨ AI strategic summary'; btn.disabled=false; }
 }
-async function aiSummary(qid){
-  const item=window._aitxt[qid]; if(!item) return;
-  const btn=$('aibtn_'+qid), out=$('ai_'+qid);
-  btn.disabled=true; btn.textContent='Analysing…';
+const SENT={positive:'#4a9d5b',negative:'#c0483b',mixed:'#b7791f',neutral:'#9aa2a0'};
+function themesHtml(d){
+  if(!d) return '<div class="muted">No themes.</div>';
+  const themes=(d.themes||[]).filter(t=>t&&t.label);
+  if(!themes.length) return `<div class="muted">${esc(d.summary||d.raw||'No clear themes.')}</div>`;
+  const max=Math.max(1,...themes.map(t=>Number(t.count)||0));
+  let h=d.summary?`<p class="muted" style="margin:2px 0 10px">${esc(d.summary)}</p>`:'';
+  h+='<div style="font-size:11.5px;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:6px">KEY THEMES</div>';
+  h+=themes.map(t=>{const c=Number(t.count)||0;return `<div class="rowstat"><div class="lbl">${esc(t.label)}</div><div class="bar"><span style="width:${c/max*100}%;background:${SENT[t.sentiment]||'var(--green-l)'}"></span></div><div class="val">${c}</div></div>`+(t.quote?`<div class="muted" style="font-size:12px;margin:-3px 0 9px 2px">“${esc(t.quote)}”</div>`:'');}).join('');
+  return h;
+}
+async function genThemes(qid,label,texts){
+  if(window._themes[qid]){ if($('th_'+qid)) $('th_'+qid).innerHTML=themesHtml(window._themes[qid]); return; }
   try{
-    const { data:{ session:p } } = await portal.auth.getSession();
-    const r=await fetch('/.netlify/functions/pulse-ai',{method:'POST',headers:{'content-type':'application/json','Authorization':'Bearer '+(p?p.access_token:'')},body:JSON.stringify({question:item.label,answers:item.texts})});
-    const d=await r.json();
-    if(!r.ok) throw new Error(d.error||'failed');
-    out.innerHTML=`<div style="background:#f0f6f2;border:1px solid #cfe6d8;border-radius:10px;padding:12px 14px;margin:6px 0 10px;font-size:13.5px;white-space:pre-wrap">${esc(d.text)}</div>`;
-    btn.textContent='✨ Re-run AI summary'; btn.disabled=false;
-  }catch(e){ out.innerHTML=`<div class="muted" style="margin:6px 0">AI summary failed: ${esc(String(e.message||e))}</div>`; btn.textContent='✨ AI summary'; btn.disabled=false; }
+    const r=await fetch('/.netlify/functions/pulse-ai',{method:'POST',headers:{'content-type':'application/json','Authorization':await bearer()},body:JSON.stringify({question:label,answers:texts})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error||'failed');
+    window._themes[qid]=d; if($('th_'+qid)) $('th_'+qid).innerHTML=themesHtml(d);
+  }catch(e){ if($('th_'+qid)) $('th_'+qid).innerHTML=`<div class="muted">Theme summary unavailable: ${esc(String(e.message||e))}</div>`; }
+}
+function toggleResp(qid){ const el=$('resp_'+qid), t=$('resptoggle_'+qid); if(!el)return; const open=el.style.display!=='none'; el.style.display=open?'none':'flex'; if(t) t.textContent=(open?'▸ show all ':'▾ hide ')+el.children.length+' responses'; }
+async function exportPdf(){
+  const btn=$('pdfbtn'); btn.disabled=true; btn.textContent='Preparing…';
+  const withAI=$('pdf_ai').checked, withResp=$('pdf_resp').checked;
+  try{
+    const {questions,options,responses,answers}=await loadFull();
+    const byQ={}; answers.forEach(a=>{(byQ[a.question_id]=byQ[a.question_id]||[]).push(a);});
+    let summaryText=window._survText;
+    if(withAI && !summaryText){ const r=await fetch('/.netlify/functions/pulse-ai',{method:'POST',headers:{'content-type':'application/json','Authorization':await bearer()},body:JSON.stringify(window._survDigest)}); const d=await r.json(); if(r.ok) summaryText=window._survText=d.text; }
+    const textList=questions.filter(q=>q.type==='long_text'||q.type==='short_text');
+    await Promise.all(textList.map(async q=>{ if(window._themes[q.id])return; const texts=(byQ[q.id]||[]).map(a=>a.value).filter(Boolean); if(!texts.length){window._themes[q.id]={themes:[]};return;} try{const r=await fetch('/.netlify/functions/pulse-ai',{method:'POST',headers:{'content-type':'application/json','Authorization':await bearer()},body:JSON.stringify({question:q.label,answers:texts})}); const d=await r.json(); window._themes[q.id]=r.ok?d:{themes:[]};}catch(e){window._themes[q.id]={themes:[]};} }));
+    const rep=buildReport({questions,options,byQ,responses,summaryText,withAI,withResp});
+    const w=window.open('','_blank'); if(!w){ alert('Please allow pop-ups to export the PDF.'); btn.disabled=false; btn.textContent='⬇ Export PDF'; return; }
+    w.document.write(rep); w.document.close(); setTimeout(()=>{ try{w.focus();w.print();}catch(e){} }, 500);
+    btn.disabled=false; btn.textContent='⬇ Export PDF';
+  }catch(e){ alert('Export failed: '+(e.message||e)); btn.disabled=false; btn.textContent='⬇ Export PDF'; }
+}
+function pbars(rows){ const max=Math.max(1,...rows.map(r=>r.count)); return rows.map(r=>`<div class="r"><div class="l">${esc(String(r.label))}</div><div class="b"><span style="width:${r.count/max*100}%"></span></div><div class="v">${r.count}${r.pct!=null?' ('+r.pct+'%)':''}</div></div>`).join(''); }
+function buildReport({questions,options,byQ,responses,summaryText,withAI,withResp}){
+  const total=responses.length, date=new Date().toLocaleDateString('en-NZ',{day:'numeric',month:'long',year:'numeric'});
+  let bd='';
+  if(withAI && summaryText) bd+=`<div class="ai"><h2>AI summary</h2>${mdToHtml(summaryText)}</div>`;
+  questions.forEach((q,qi)=>{
+    if(q.type==='info'||q.type==='image') return;
+    const as=byQ[q.id]||[];
+    bd+=`<div class="q"><h3>${qi}. ${esc(q.label)} <span class="n">${as.length} answered</span></h3>`;
+    if(CHOICE.has(q.type)||q.type==='yes_no'){
+      const opts=q.type==='yes_no'?[{label:'Yes'},{label:'No'}]:options.filter(o=>o.question_id===q.id);
+      const tally={}; opts.forEach(o=>tally[o.label]=0); as.forEach(a=>{(a.value_options||(a.value?[a.value]:[])).forEach(v=>{tally[v]=(tally[v]||0)+1;});});
+      bd+=pbars(Object.entries(tally).map(([l,c])=>({label:l,count:c,pct:as.length?Math.round(c/as.length*100):0})));
+    } else if(q.type==='rating'||q.type==='number'){
+      const nums=as.map(a=>Number(a.value_number)).filter(n=>!isNaN(n)); const avg=nums.length?(nums.reduce((x,y)=>x+y,0)/nums.length).toFixed(2):'—';
+      const dist={}; nums.forEach(n=>dist[n]=(dist[n]||0)+1);
+      bd+=`<p class="avg">Average: <strong>${avg}</strong></p>`+pbars(Object.keys(dist).sort((a,b)=>a-b).map(k=>({label:k,count:dist[k]})));
+    } else if(q.type==='long_text'||q.type==='short_text'){
+      const d=window._themes[q.id]; const themes=((d&&d.themes)||[]).filter(t=>t&&t.label);
+      if(d&&d.summary) bd+=`<p class="sum">${esc(d.summary)}</p>`;
+      if(themes.length){ const max=Math.max(1,...themes.map(t=>Number(t.count)||0));
+        bd+='<div class="th-h">Key themes</div>'+themes.map(t=>{const c=Number(t.count)||0;return `<div class="r"><div class="l">${esc(t.label)}</div><div class="b"><span style="width:${c/max*100}%"></span></div><div class="v">${c}</div></div>`+(t.quote?`<div class="quote">“${esc(t.quote)}”</div>`:'');}).join('');
+      } else bd+='<p class="sum">No text answers.</p>';
+      if(withResp){ const txt=as.map(a=>a.value).filter(Boolean); if(txt.length) bd+='<div class="th-h">All responses ('+txt.length+')</div>'+txt.map(t=>`<div class="ri">${esc(t)}</div>`).join(''); }
+    } else { const txt=as.map(a=>a.value).filter(Boolean); bd+=txt.slice(0,80).map(t=>`<div class="ri">${esc(t)}</div>`).join(''); }
+    bd+='</div>';
+  });
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(current.title)} — Pulse report</title><style>
+    *{box-sizing:border-box} body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#243029;margin:0}
+    .page{max-width:820px;margin:0 auto;padding:36px 40px}
+    .hd{border-bottom:3px solid #1f6f54;padding-bottom:14px;margin-bottom:22px}
+    .hd .brand{color:#1f6f54;font-weight:700;letter-spacing:.08em;font-size:12px}
+    .hd h1{margin:6px 0 4px;font-size:24px} .hd .meta{color:#6b7b72;font-size:13px}
+    .ai{background:#eef5f0;border:1px solid #cfe6d8;border-radius:12px;padding:16px 20px;margin-bottom:24px;font-size:13.5px;line-height:1.55}
+    .ai h2{margin:0 0 8px;font-size:16px;color:#16543f}
+    .q{margin-bottom:20px;page-break-inside:avoid} .q h3{font-size:15px;margin:0 0 10px} .q .n{color:#6b7b72;font-weight:400;font-size:12px}
+    .r{display:flex;align-items:center;gap:10px;margin:4px 0;font-size:13px} .r .l{width:44%} .r .b{flex:1;height:14px;background:#eef0ec;border-radius:5px;overflow:hidden} .r .b span{display:block;height:100%;background:#2f8a6a} .r .v{width:82px;text-align:right;color:#6b7b72}
+    .avg{color:#6b7b72;font-size:13px;margin:0 0 6px} .sum{font-size:13px;color:#3a463f;margin:0 0 8px}
+    .th-h{font-size:11px;letter-spacing:.05em;color:#6b7b72;font-weight:700;margin:10px 0 6px}
+    .quote{color:#6b7b72;font-size:12px;margin:-2px 0 8px 2px} .ri{background:#f7f6f1;border-radius:7px;padding:6px 9px;font-size:12px;margin:4px 0}
+    @media print{.page{padding:16px 20px}}
+  </style></head><body><div class="page">
+    <div class="hd"><div class="brand">REVIVE · PULSE</div><h1>${esc(current.title)}</h1><div class="meta">${total} responses · generated ${date}</div></div>
+    ${bd}
+  </div></body></html>`;
 }
 
 // ---------- RESPONSES ----------
