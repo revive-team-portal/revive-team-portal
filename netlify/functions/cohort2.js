@@ -1,21 +1,23 @@
 // TEMPORARY cohort LTV audit. ?k=<guard>&start=YYYY-MM-DD&end=YYYY-MM-DD
 const { gql } = require('./_shopify');
 const GUARD = '96ea0c608768a18f95b9e0e36be9d724';
-const QC = `query($q:String!,$after:String){ customers(first:250, query:$q, after:$after, sortKey:CREATED_AT){
+const QC = `query($after:String){ customers(first:250, after:$after, sortKey:CREATED_AT, reverse:true){
   pageInfo{ hasNextPage endCursor }
   nodes{ id createdAt numberOfOrders amountSpent{ amount } } } }`;
 
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
   if (qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
-  const q = 'created_at:>=' + qp.start + ' AND created_at:<' + qp.end;
-  const rows = []; let after = null; let pages = 0;
+  const STOP = qp.start || '2025-06-01';
+  const rows = []; let after = null; let pages = 0; let done = false;
   try {
     for (let i = 0; i < 25; i++) {
-      const d = await gql(QC, { q, after }); pages++;
-      d.customers.nodes.forEach(c => rows.push({
-        created: c.createdAt, n: Number(c.numberOfOrders) || 0, spent: Number(c.amountSpent.amount) || 0 }));
-      if (!d.customers.pageInfo.hasNextPage) break; after = d.customers.pageInfo.endCursor;
+      const d = await gql(QC, { after }); pages++;
+      for (const c of d.customers.nodes) {
+        if (c.createdAt < STOP) { done = true; break; }
+        rows.push({ m: c.createdAt.slice(0, 7), n: Number(c.numberOfOrders) || 0, spent: Number(c.amountSpent.amount) || 0 });
+      }
+      if (done || !d.customers.pageInfo.hasNextPage) break; after = d.customers.pageInfo.endCursor;
     }
   } catch (e) { return { statusCode: 200, body: JSON.stringify({ error: String(e.message || e) }) }; }
   const buyers = rows.filter(r => r.n > 0);
@@ -28,7 +30,11 @@ exports.handler = async (event) => {
       avg_orders: +(orders / n).toFixed(2), avg_lifetime_spend: +(spend / n).toFixed(2),
       median_ish_dist: dist, total_spend: Math.round(spend) };
   };
+  const months = {};
+  for (const r of buyers) (months[r.m] || (months[r.m] = [])).push(r);
+  const out = {};
+  Object.keys(months).sort().forEach(m => { out[m] = calc(months[m]); });
   return { statusCode: 200, headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cohort: [qp.start, qp.end], pages, records: rows.length,
-      sample_created: rows.slice(0, 2).map(r => r.created), buyers: calc(buyers) }, null, 1) };
+    body: JSON.stringify({ since: STOP, pages, records_scanned: rows.length,
+      all_buyers_since: calc(buyers), by_month: out }, null, 1) };
 };
