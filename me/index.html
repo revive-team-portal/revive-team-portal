@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Revive">
+  <meta name="theme-color" content="#16543f">
+  <link rel="apple-touch-icon" href="/assets/revive-logo.png">
+  <title>Revive — My Page</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    [v-cloak]{display:none}
+    html{-webkit-text-size-adjust:100%}
+    .tap{-webkit-tap-highlight-color:transparent;user-select:none}
+    .pinbox{width:100%;aspect-ratio:1/1.15;font-size:26px;text-align:center;border-radius:10px;border:2px solid #d6d3d1;background:#fff;font-variant-numeric:tabular-nums}
+    .pinbox:focus{outline:none;border-color:#16543f;box-shadow:0 0 0 3px rgba(22,84,63,.15)}
+  </style>
+  <link rel="stylesheet" href="/chrome.css">
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+
+<div id="app" v-cloak>
+
+  <!-- ============ LOADING ============ -->
+  <div v-if="booting" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p class="rv-load__text">Loading your page</p>
+      <div class="rv-load__bar"><i></i></div>
+    </div>
+  </div>
+
+  <!-- ============ SIGN IN ============ -->
+  <div v-else-if="!token" class="min-h-screen flex items-center justify-center p-5">
+    <div class="w-full max-w-sm">
+      <img src="/assets/revive-logo.png" alt="Revive" class="w-16 h-16 mx-auto mb-6 opacity-90">
+
+      <div v-if="!code" class="bg-white rounded-2xl shadow p-6 text-center">
+        <p class="text-lg font-semibold mb-2">You need your own link</p>
+        <p class="text-sm text-stone-600">Check your email for a link that looks like <b class="whitespace-nowrap">team.revive.co.nz/me/123456</b>. If you cannot find it, ask a manager to send it again.</p>
+      </div>
+
+      <div v-else-if="lookupError" class="bg-white rounded-2xl shadow p-6 text-center">
+        <p class="text-lg font-semibold mb-2">That link did not work</p>
+        <p class="text-sm text-stone-600 mb-4">{{ lookupError }}</p>
+        <button @click="lookup()" class="tap text-sm font-semibold text-green-800 underline">Try again</button>
+      </div>
+
+      <div v-else class="bg-white rounded-2xl shadow p-6">
+        <p class="text-2xl font-bold mb-1">Welcome, {{ personName }}</p>
+        <p class="text-sm text-stone-600 mb-5">{{ needsSetup ? 'Choose a 4-digit PIN. You will use it each time you sign in.' : 'Enter your PIN' }}</p>
+
+        <div class="grid grid-cols-4 gap-2.5 mb-4">
+          <input v-for="(d,i) in 4" :key="i" :ref="el => pinRefs[i] = el"
+                 class="pinbox" inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password"
+                 autocomplete="off" :value="pin[i] || ''"
+                 @input="onPin(i, $event)" @keydown="onPinKey(i, $event)">
+        </div>
+
+        <div v-if="needsSetup" class="mb-4">
+          <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Type it again</p>
+          <div class="grid grid-cols-4 gap-2.5">
+            <input v-for="(d,i) in 4" :key="'c'+i" :ref="el => pin2Refs[i] = el"
+                   class="pinbox" inputmode="numeric" pattern="[0-9]*" maxlength="1" type="password"
+                   autocomplete="off" :value="pin2[i] || ''"
+                   @input="onPin2(i, $event)" @keydown="onPin2Key(i, $event)">
+          </div>
+        </div>
+
+        <label class="flex items-start gap-2.5 mb-4 tap cursor-pointer">
+          <input type="checkbox" v-model="remember" class="mt-1 w-5 h-5 accent-green-800">
+          <span class="text-sm text-stone-700 leading-snug">This is my phone — stay signed in<br>
+            <span class="text-xs text-stone-500">Leave this off on the iPad or a shared computer.</span></span>
+        </label>
+
+        <p v-if="signInError" class="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-3">{{ signInError }}</p>
+
+        <button @click="doSignIn" :disabled="busy || !pinReady"
+                class="tap w-full bg-green-800 text-white rounded-xl py-4 text-base font-bold disabled:opacity-40 active:scale-95 transition">
+          {{ busy ? 'Just a moment…' : (needsSetup ? 'Set my PIN' : 'Sign in') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SIGNED IN ============ -->
+  <div v-else class="min-h-screen flex flex-col">
+    <div class="rv-nav">
+      <div class="rv-left">
+        <img class="rv-logo" src="/assets/revive-logo.png" alt="Revive">
+        <span class="rv-appname">{{ me.name }}</span>
+      </div>
+      <div class="rv-right">
+        <button v-if="screen!=='home'" @click="goHome" class="rv-btn">Back</button>
+        <button @click="signOut" class="rv-btn">Sign out</button>
+      </div>
+    </div>
+
+    <div class="flex-1 max-w-2xl w-full mx-auto p-4 pb-24">
+
+      <!-- ---------- HOME ---------- -->
+      <div v-if="screen==='home'">
+        <div v-if="loading" class="text-center text-stone-500 py-10 text-sm">Loading…</div>
+        <template v-else>
+          <div v-if="outstanding" class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4 mb-4">
+            <p class="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-1">To do</p>
+            <p class="text-2xl font-bold">{{ outstanding }} training{{ outstanding===1?'':'s' }} waiting</p>
+          </div>
+          <div v-else class="bg-green-50 border border-green-200 rounded-2xl p-4 mb-4">
+            <p class="font-semibold text-green-900">You are up to date. Nice work.</p>
+          </div>
+
+          <div v-for="it in items" :key="it.id"
+               @click="openDoc(it.id)"
+               class="tap bg-white rounded-2xl shadow-sm border border-stone-200 p-4 mb-3 flex items-start gap-3 active:scale-[.99] transition cursor-pointer">
+            <span class="mt-0.5 text-[11px] font-mono font-bold px-2 py-1 rounded"
+                  :class="badgeClass(it.state)">{{ badgeText(it.state) }}</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold leading-snug">{{ docRef(it) }} — {{ it.title }}</p>
+              <p v-if="it.summary" class="text-sm text-stone-500 mt-0.5 leading-snug">{{ it.summary }}</p>
+              <p v-if="it.state==='done'" class="text-xs text-stone-400 mt-1">Done {{ shortDate(it.done_at) }} · {{ methodLabel(it.method) }}</p>
+              <p v-if="it.state==='restudy'" class="text-xs text-amber-700 mt-1">Updated since you did it — have another read</p>
+            </div>
+          </div>
+
+          <div class="mt-8">
+            <p class="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-2">Look something up</p>
+            <input v-model="q" @input="runSearch" placeholder="Search all procedures…"
+                   class="w-full rounded-xl border border-stone-300 px-4 py-3 text-base focus:outline-none focus:border-green-800">
+            <div v-for="d in results" :key="d.id" @click="openDoc(d.id)"
+                 class="tap bg-white rounded-xl border border-stone-200 px-4 py-3 mt-2 cursor-pointer active:scale-[.99] transition">
+              <p class="font-medium text-sm">{{ docRef(d) }} — {{ d.title }}</p>
+            </div>
+            <p v-if="q && !results.length && !searching" class="text-sm text-stone-500 mt-3">Nothing found for "{{ q }}".</p>
+          </div>
+        </template>
+      </div>
+
+      <!-- ---------- READ A DOCUMENT ---------- -->
+      <div v-else-if="screen==='doc'">
+        <div v-if="loading" class="text-center text-stone-500 py-10 text-sm">Loading…</div>
+        <template v-else-if="doc">
+          <p class="text-xs font-mono text-green-800 font-bold">{{ docRef(doc.doc) }} · v{{ doc.version.version }}</p>
+          <h1 class="text-2xl font-bold leading-tight mt-1 mb-1">{{ doc.doc.title }}</h1>
+          <p v-if="doc.doc.summary" class="text-stone-600 mb-4">{{ doc.doc.summary }}</p>
+
+          <a v-if="doc.version.file_path" :href="fileUrl(doc.version.file_path)" target="_blank" rel="noopener"
+             class="tap inline-block text-sm font-semibold text-green-800 underline mb-4">Open the printed version</a>
+
+          <div v-for="(s,i) in doc.steps" :key="s.id" class="bg-white rounded-2xl shadow-sm border border-stone-200 p-4 mb-3">
+            <p class="text-[11px] font-mono text-stone-400 mb-1">STEP {{ i+1 }}</p>
+            <p class="font-semibold text-lg leading-snug">{{ s.step }}</p>
+            <p v-if="s.key_point" class="mt-2 text-green-900 bg-green-50 rounded-lg px-3 py-2 font-medium">{{ s.key_point }}</p>
+            <img v-if="s.photo_path" :src="photoUrl(s.photo_path)" alt="" class="mt-3 rounded-lg w-full max-w-full">
+            <p v-if="s.why" class="mt-2 text-sm text-stone-600 leading-snug"><span class="font-semibold text-stone-500">Why:</span> {{ s.why }}</p>
+          </div>
+
+          <div v-if="doc.attachments.length" class="bg-white rounded-2xl border border-stone-200 p-4 mb-3">
+            <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Also useful</p>
+            <a v-for="a in doc.attachments" :key="a.id" :href="a.url || fileUrl(a.path)" target="_blank" rel="noopener"
+               class="block text-sm text-green-800 underline mb-1">{{ a.label }}</a>
+          </div>
+
+          <div class="mt-5 space-y-3">
+            <button v-if="doc.question_count && doc.doc.assess_mode!=='practical'" @click="startQuiz"
+                    class="tap w-full bg-green-800 text-white rounded-xl py-4 font-bold active:scale-95 transition">
+              {{ doc.up_to_date ? 'Practise the questions again' : 'Answer the questions' }}
+            </button>
+            <button v-else-if="doc.doc.assess_mode==='ack'" @click="ack" :disabled="busy"
+                    class="tap w-full bg-green-800 text-white rounded-xl py-4 font-bold disabled:opacity-40 active:scale-95 transition">
+              I have read this
+            </button>
+            <p v-else-if="doc.doc.assess_mode==='practical'" class="text-sm text-stone-600 bg-stone-200 rounded-xl px-4 py-3">
+              A supervisor signs this one off after watching you do it.
+            </p>
+
+            <div v-if="doc.up_to_date" class="text-sm text-green-800 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              You are up to date on this one.
+            </div>
+
+            <button @click="fbOpen = !fbOpen" class="tap text-sm text-stone-500 underline">This does not match what we actually do</button>
+            <div v-if="fbOpen" class="bg-white rounded-xl border border-stone-200 p-3">
+              <textarea v-model="fbText" rows="3" placeholder="What is different?"
+                        class="w-full text-sm border border-stone-300 rounded-lg px-3 py-2 focus:outline-none focus:border-green-800"></textarea>
+              <button @click="sendFeedback" :disabled="busy" class="tap mt-2 bg-stone-800 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40">Send to the manager</button>
+              <p v-if="fbDone" class="text-sm text-green-800 mt-2">Thanks — that has gone through.</p>
+            </div>
+          </div>
+        </template>
+        <p v-else class="text-sm text-red-700">{{ error || 'That document is not available.' }}</p>
+      </div>
+
+      <!-- ---------- QUIZ ---------- -->
+      <div v-else-if="screen==='quiz'">
+        <p class="text-xs font-mono text-green-800 font-bold mb-1">{{ docRef(doc.doc) }}</p>
+        <p class="text-sm text-stone-500 mb-4">Question {{ qIndex+1 }} of {{ questions.length }}</p>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-5">
+          <p class="text-lg font-semibold leading-snug mb-4">{{ current.prompt }}</p>
+          <button v-for="o in current.options" :key="o.id" @click="pick(o.id)"
+                  class="tap w-full text-left border-2 rounded-xl px-4 py-3 mb-2.5 transition active:scale-[.99]"
+                  :class="picked[current.id]===o.id ? 'border-green-800 bg-green-50' : 'border-stone-200 bg-white'">
+            {{ o.text }}
+          </button>
+        </div>
+
+        <div class="flex gap-3 mt-4">
+          <button v-if="qIndex>0" @click="qIndex--" class="tap flex-1 border-2 border-stone-300 rounded-xl py-3.5 font-semibold">Back</button>
+          <button v-if="qIndex < questions.length-1" @click="qIndex++" :disabled="!picked[current.id]"
+                  class="tap flex-[2] bg-green-800 text-white rounded-xl py-3.5 font-bold disabled:opacity-30">Next</button>
+          <button v-else @click="submitQuiz" :disabled="busy || !allAnswered"
+                  class="tap flex-[2] bg-green-800 text-white rounded-xl py-3.5 font-bold disabled:opacity-30">
+            {{ busy ? 'Marking…' : 'Finish' }}
+          </button>
+        </div>
+        <p class="text-xs text-stone-400 mt-4 text-center">Getting one wrong is fine — you can go again straight away.</p>
+      </div>
+
+      <!-- ---------- RESULT ---------- -->
+      <div v-else-if="screen==='result'">
+        <div class="rounded-2xl p-6 mb-4 text-center" :class="result.passed ? 'bg-green-800 text-white' : 'bg-white border-2 border-amber-400'">
+          <p class="text-4xl font-black">{{ result.pct }}%</p>
+          <p class="mt-1 font-semibold">{{ result.score }} of {{ result.total }} right</p>
+          <p class="mt-2 text-sm" :class="result.passed ? 'text-green-100' : 'text-stone-600'">
+            <template v-if="result.passed && result.completed">Passed — that is recorded against your name.</template>
+            <template v-else-if="result.awaiting_signoff">Passed the questions. A supervisor still needs to watch you do it.</template>
+            <template v-else>You need {{ result.pass_pct }}% to pass. Have a read and go again.</template>
+          </p>
+        </div>
+
+        <div v-for="(r,i) in result.results" :key="r.question_id"
+             class="bg-white rounded-2xl border p-4 mb-3" :class="r.correct ? 'border-stone-200' : 'border-amber-300'">
+          <p class="text-[11px] font-mono mb-1" :class="r.correct ? 'text-green-700' : 'text-amber-700'">
+            {{ r.correct ? 'CORRECT' : 'NOT QUITE' }}
+          </p>
+          <p class="font-semibold leading-snug mb-1">{{ r.prompt }}</p>
+          <p v-if="r.explain" class="text-sm text-stone-600 leading-snug">{{ r.explain }}</p>
+        </div>
+
+        <div class="flex gap-3 mt-4">
+          <button @click="startQuiz" class="tap flex-1 border-2 border-stone-300 rounded-xl py-3.5 font-semibold">Go again</button>
+          <button @click="goHome" class="tap flex-1 bg-green-800 text-white rounded-xl py-3.5 font-bold">Done</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+const SUPA = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
+const AUTH_FN = '/.netlify/functions/staff-auth';
+const DATA_FN = '/.netlify/functions/me-data';
+const TOKEN_KEY = 'rv_me_token';
+const IDLE_MS = 3 * 60 * 1000;
+
+createApp({
+  setup() {
+    const booting = ref(true), busy = ref(false), loading = ref(false);
+    const code = ref(''), personName = ref(''), needsSetup = ref(false);
+    const lookupError = ref(''), signInError = ref(''), error = ref('');
+    const pin = ref([]), pin2 = ref([]), pinRefs = ref([]), pin2Refs = ref([]);
+    const remember = ref(false);
+    const token = ref(''), me = ref({});
+    const screen = ref('home');
+    const items = ref([]), outstanding = ref(0);
+    const q = ref(''), results = ref([]), searching = ref(false);
+    const doc = ref(null);
+    const questions = ref([]), picked = ref({}), qIndex = ref(0), result = ref(null);
+    const fbOpen = ref(false), fbText = ref(''), fbDone = ref(false);
+    let idleTimer = null, searchTimer = null;
+
+    const pinReady = computed(() => {
+      const a = pin.value.filter(Boolean).length === 4;
+      return needsSetup.value ? (a && pin2.value.filter(Boolean).length === 4) : a;
+    });
+    const current = computed(() => questions.value[qIndex.value] || { options: [] });
+    const allAnswered = computed(() => questions.value.length > 0 && questions.value.every(x => picked.value[x.id]));
+
+    // ---- helpers ----
+    const docRef = (d) => (d.kind === 'opl' ? 'OPL' : d.kind === 'notice' ? 'NOTICE' : 'SOP') + d.number;
+    const fileUrl = (p) => SUPA + '/storage/v1/object/public/training-docs/' + p;
+    const photoUrl = (p) => SUPA + '/storage/v1/object/public/training-photos/' + p;
+    const shortDate = (s) => s ? new Date(s).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' }) : '';
+    const methodLabel = (m) => ({ quiz: 'questions', in_person: 'in person', practical: 'signed off', manual: 'recorded by manager', ack: 'read' }[m] || m);
+    const badgeText = (s) => ({ todo: 'TO DO', restudy: 'UPDATED', done: 'DONE' }[s] || s);
+    const badgeClass = (s) => ({ todo: 'bg-red-100 text-red-700', restudy: 'bg-amber-100 text-amber-800', done: 'bg-green-100 text-green-800' }[s] || 'bg-stone-200');
+
+    async function api(fn, body, useToken) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (useToken !== false && token.value) headers['X-Staff-Token'] = token.value;
+      const res = await fetch(fn, { method: 'POST', headers, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && useToken !== false) { hardSignOut(); throw new Error(data.error || 'Please sign in again.'); }
+      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+      return data;
+    }
+
+    // ---- PIN inputs ----
+    function digits(arr, refs, i, ev, next) {
+      const v = (ev.target.value || '').replace(/\D/g, '').slice(-1);
+      const copy = arr.value.slice(); copy[i] = v; arr.value = copy;
+      ev.target.value = v;
+      if (v && i < 3 && refs.value[i + 1]) refs.value[i + 1].focus();
+      else if (v && i === 3 && next && next.value[0]) next.value[0].focus();
+    }
+    const onPin = (i, ev) => digits(pin, pinRefs, i, ev, needsSetup.value ? pin2Refs : null);
+    const onPin2 = (i, ev) => digits(pin2, pin2Refs, i, ev, null);
+    function backspace(arr, refs, i, ev) {
+      if (ev.key !== 'Backspace') return;
+      if (!arr.value[i] && i > 0 && refs.value[i - 1]) { refs.value[i - 1].focus(); }
+      const copy = arr.value.slice(); copy[i] = ''; arr.value = copy;
+    }
+    const onPinKey = (i, ev) => backspace(pin, pinRefs, i, ev);
+    const onPin2Key = (i, ev) => backspace(pin2, pin2Refs, i, ev);
+
+    // ---- auth ----
+    async function lookup() {
+      lookupError.value = '';
+      try {
+        const r = await api(AUTH_FN, { action: 'lookup', code: code.value }, false);
+        personName.value = r.name;
+        needsSetup.value = r.needsSetup;
+        setTimeout(() => pinRefs.value[0] && pinRefs.value[0].focus(), 120);
+      } catch (e) { lookupError.value = e.message; }
+    }
+
+    async function doSignIn() {
+      signInError.value = '';
+      const p = pin.value.join('');
+      if (needsSetup.value && p !== pin2.value.join('')) { signInError.value = 'Those two PINs are not the same.'; return; }
+      busy.value = true;
+      try {
+        const action = needsSetup.value ? 'set_pin' : 'verify';
+        const r = await api(AUTH_FN, { action, code: code.value, pin: p, remember: remember.value }, false);
+        token.value = r.token;
+        me.value = r.staff;
+        try { localStorage.setItem(TOKEN_KEY, r.token); } catch (e) {}
+        pin.value = []; pin2.value = [];
+        await loadHome();
+        armIdle();
+      } catch (e) {
+        signInError.value = e.message;
+        pin.value = []; pin2.value = [];
+        pinRefs.value.forEach(el => { if (el) el.value = ''; });
+        pin2Refs.value.forEach(el => { if (el) el.value = ''; });
+        if (pinRefs.value[0]) pinRefs.value[0].focus();
+      } finally { busy.value = false; }
+    }
+
+    function hardSignOut() {
+      token.value = ''; me.value = {}; screen.value = 'home';
+      try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+      if (code.value && !personName.value) lookup();
+    }
+
+    async function signOut() {
+      try { await api(AUTH_FN, { action: 'signout' }); } catch (e) {}
+      hardSignOut();
+    }
+
+    // Shared devices sign themselves out; a remembered phone does not.
+    function armIdle() {
+      if (remember.value) return;
+      const reset = () => {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => { if (token.value) signOut(); }, IDLE_MS);
+      };
+      ['click', 'touchstart', 'keydown', 'scroll'].forEach(e => window.addEventListener(e, reset, { passive: true }));
+      reset();
+    }
+
+    // ---- data ----
+    async function loadHome() {
+      loading.value = true; screen.value = 'home';
+      try {
+        const r = await api(DATA_FN, { action: 'home' });
+        items.value = r.items; outstanding.value = r.outstanding; me.value = r.staff;
+      } catch (e) { error.value = e.message; } finally { loading.value = false; }
+    }
+    const goHome = () => { doc.value = null; result.value = null; loadHome(); };
+
+    function runSearch() {
+      clearTimeout(searchTimer);
+      searching.value = true;
+      searchTimer = setTimeout(async () => {
+        if (!q.value.trim()) { results.value = []; searching.value = false; return; }
+        try { results.value = (await api(DATA_FN, { action: 'search', q: q.value })).docs; }
+        catch (e) { results.value = []; } finally { searching.value = false; }
+      }, 250);
+    }
+
+    async function openDoc(id) {
+      screen.value = 'doc'; loading.value = true; doc.value = null; error.value = '';
+      fbOpen.value = false; fbText.value = ''; fbDone.value = false;
+      try {
+        const r = await api(DATA_FN, { action: 'doc', doc_id: id });
+        if (r.error) { error.value = r.error; } else { doc.value = r; }
+      } catch (e) { error.value = e.message; } finally { loading.value = false; }
+    }
+
+    async function startQuiz() {
+      busy.value = true;
+      try {
+        const r = await api(DATA_FN, { action: 'quiz', doc_id: doc.value.doc.id });
+        if (r.error) { error.value = r.error; screen.value = 'doc'; return; }
+        questions.value = r.questions; picked.value = {}; qIndex.value = 0;
+        result.value = null; screen.value = 'quiz';
+      } catch (e) { error.value = e.message; } finally { busy.value = false; }
+    }
+
+    const pick = (optId) => { picked.value = { ...picked.value, [current.value.id]: optId }; };
+
+    async function submitQuiz() {
+      busy.value = true;
+      try {
+        const answers = questions.value.map(x => ({ question_id: x.id, option_id: picked.value[x.id] }));
+        result.value = await api(DATA_FN, { action: 'submit', doc_id: doc.value.doc.id, answers });
+        screen.value = 'result';
+        window.scrollTo(0, 0);
+      } catch (e) { error.value = e.message; } finally { busy.value = false; }
+    }
+
+    async function ack() {
+      busy.value = true;
+      try { await api(DATA_FN, { action: 'ack', doc_id: doc.value.doc.id }); goHome(); }
+      catch (e) { error.value = e.message; } finally { busy.value = false; }
+    }
+
+    async function sendFeedback() {
+      busy.value = true;
+      try { await api(DATA_FN, { action: 'feedback', doc_id: doc.value.doc.id, body: fbText.value }); fbDone.value = true; fbText.value = ''; }
+      catch (e) { error.value = e.message; } finally { busy.value = false; }
+    }
+
+    onMounted(async () => {
+      const m = location.pathname.match(/\/me\/(\d{6})/);
+      if (m) code.value = m[1];
+      let saved = '';
+      try { saved = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
+      if (saved) {
+        token.value = saved;
+        try {
+          const r = await api(AUTH_FN, { action: 'ping' });
+          me.value = r.staff;
+          remember.value = true;
+          await loadHome();
+        } catch (e) { token.value = ''; }
+      }
+      if (!token.value && code.value) await lookup();
+      booting.value = false;
+    });
+    onUnmounted(() => clearTimeout(idleTimer));
+
+    return {
+      booting, busy, loading, code, personName, needsSetup, lookupError, signInError, error,
+      pin, pin2, pinRefs, pin2Refs, remember, pinReady, token, me, screen,
+      items, outstanding, q, results, searching, doc, questions, picked, qIndex, result, current, allAnswered,
+      fbOpen, fbText, fbDone,
+      onPin, onPin2, onPinKey, onPin2Key, lookup, doSignIn, signOut, goHome, runSearch,
+      openDoc, startQuiz, pick, submitQuiz, ack, sendFeedback,
+      docRef, fileUrl, photoUrl, shortDate, methodLabel, badgeText, badgeClass,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

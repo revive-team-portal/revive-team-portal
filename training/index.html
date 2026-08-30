@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#16543f">
+  <link rel="apple-touch-icon" href="/assets/revive-logo.png">
+  <title>Revive — Training</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    [v-cloak]{display:none}
+    .tap{-webkit-tap-highlight-color:transparent;user-select:none}
+    .cell{width:34px;height:26px;border-radius:5px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+    @media print{
+      body{background:#fff}
+      .noprint{display:none!important}
+      .printsheet{display:block!important;padding:0}
+      @page{size:A4 portrait;margin:14mm}
+    }
+    .printsheet{display:none}
+  </style>
+  <link rel="stylesheet" href="/chrome.css">
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+<script>
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+<div class="hidden bg-emerald-600 bg-amber-100 text-amber-800 bg-red-100 text-red-700 bg-green-100 text-green-800 bg-stone-200 text-stone-400"></div>
+
+<div id="app" v-cloak>
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <p v-if="!gateError" class="rv-load__text">Loading Training</p>
+      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
+      <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
+        <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
+        <a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a>
+      </div>
+    </div>
+  </div>
+
+  <template v-else>
+  <div class="rv-nav noprint">
+    <div class="rv-left">
+      <img class="rv-logo" src="/assets/revive-logo.png" alt="Revive">
+      <span class="rv-appname">Training</span>
+    </div>
+    <div class="rv-right"><a href="/" class="rv-portal">&larr; Main Portal</a></div>
+  </div>
+
+  <div class="noprint bg-white border-b border-stone-200 sticky top-14 z-40">
+    <div class="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto">
+      <button v-for="t in tabs" :key="t.id" @click="tab=t.id"
+              class="tap whitespace-nowrap text-sm font-semibold px-4 py-3 border-b-2 transition"
+              :class="tab===t.id ? 'border-green-800 text-green-900' : 'border-transparent text-stone-500'">
+        {{ t.label }}<span v-if="t.id==='feedback' && openFeedback" class="ml-1.5 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{{ openFeedback }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="noprint max-w-6xl mx-auto p-4 pb-24">
+    <p v-if="err" class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">{{ err }}</p>
+    <p v-if="toast" class="bg-green-50 border border-green-200 text-green-800 text-sm rounded-lg px-4 py-3 mb-4">{{ toast }}</p>
+
+    <!-- ============ LIBRARY ============ -->
+    <div v-if="tab==='library'">
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button @click="newDoc('sop')" class="tap bg-green-800 text-white rounded-lg px-4 py-2.5 text-sm font-semibold">+ New SOP</button>
+        <button @click="newDoc('opl')" class="tap bg-stone-800 text-white rounded-lg px-4 py-2.5 text-sm font-semibold">+ One Point Lesson</button>
+        <button @click="newDoc('notice')" class="tap border-2 border-stone-300 rounded-lg px-4 py-2.5 text-sm font-semibold">+ Notice (read only)</button>
+        <label class="ml-auto flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" v-model="showArchived" class="w-4 h-4 accent-green-800"> Show archived</label>
+      </div>
+
+      <div v-if="!visibleDocs.length" class="bg-white rounded-xl border border-stone-200 p-8 text-center text-stone-500 text-sm">
+        Nothing here yet. Start with <b>+ New SOP</b> — you can upload the laminated one from the wall.
+      </div>
+
+      <div class="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div v-for="d in visibleDocs" :key="d.id" @click="openEditor(d.id)"
+             class="tap border-b border-stone-100 last:border-0 px-4 py-3 flex items-center gap-3 hover:bg-stone-50 cursor-pointer">
+          <span class="font-mono text-xs font-bold text-green-800 w-20 shrink-0">{{ ref_(d) }}</span>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-sm truncate">{{ d.title }}</p>
+            <p class="text-xs text-stone-500">{{ d.summary || '—' }}</p>
+          </div>
+          <span class="text-[10px] font-bold px-2 py-1 rounded shrink-0"
+                :class="d.current_version_id ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'">
+            {{ d.current_version_id ? 'LIVE v'+liveV(d) : 'DRAFT' }}
+          </span>
+          <span v-if="d.archived" class="text-[10px] font-bold px-2 py-1 rounded bg-stone-200 text-stone-500">ARCHIVED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ EDITOR ============ -->
+    <div v-else-if="tab==='editor'">
+      <button @click="tab='library'" class="tap text-sm text-stone-500 mb-3">&larr; All documents</button>
+      <div v-if="!ed.doc" class="text-stone-500 text-sm">Loading…</div>
+      <template v-else>
+        <div class="flex items-baseline gap-3 mb-1 flex-wrap">
+          <span class="font-mono text-sm font-bold text-green-800">{{ ref_(ed.doc) }}</span>
+          <h1 class="text-xl font-bold">{{ ed.doc.title }}</h1>
+          <span v-if="ed.latest" class="text-xs text-stone-500">v{{ ed.latest.version }} · {{ ed.latest.status }}</span>
+        </div>
+
+        <div class="flex gap-1 my-4 bg-stone-200 rounded-lg p-1 w-fit">
+          <button v-for="(s,i) in ['1 Upload','2 Finalise','3 Questions']" :key="i" @click="wizard=i"
+                  class="tap text-sm font-semibold px-4 py-2 rounded-md transition"
+                  :class="wizard===i ? 'bg-white shadow-sm' : 'text-stone-600'">{{ s }}</button>
+        </div>
+
+        <!-- STEP 1 -->
+        <div v-if="wizard===0" class="bg-white rounded-xl border border-stone-200 p-5">
+          <p class="text-sm text-stone-600 mb-4">Upload the SOP you already have — a PDF, or a photo of the one on the wall — or paste the text. Claude drafts it into the standard format and you correct it.</p>
+          <div v-if="ed.latest && ed.latest.status==='published'" class="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3 mb-4">
+            v{{ ed.latest.version }} is published. Start a new version to make changes.
+            <button @click="newVersion" class="ml-2 underline font-semibold">New version</button>
+          </div>
+          <template v-else>
+            <input type="file" accept="application/pdf,image/*" multiple @change="pickFiles" class="text-sm mb-3 block">
+            <p v-if="upFiles.length" class="text-xs text-stone-500 mb-3">{{ upFiles.length }} file{{ upFiles.length===1?'':'s' }} ready</p>
+            <textarea v-model="pasteText" rows="6" placeholder="…or paste the SOP text here"
+                      class="w-full text-sm border border-stone-300 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:border-green-800"></textarea>
+            <button @click="draftIt" :disabled="busy || (!upFiles.length && !pasteText.trim())"
+                    class="tap bg-green-800 text-white rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-40">
+              {{ busy ? 'Reading it…' : 'Draft it' }}
+            </button>
+            <p class="text-xs text-stone-400 mt-3">Claude never invents a number, temperature or time. Anything it cannot read is flagged for you to fill in.</p>
+          </template>
+        </div>
+
+        <!-- STEP 2 -->
+        <div v-else-if="wizard===1">
+          <div class="bg-white rounded-xl border border-stone-200 p-5 mb-4">
+            <div class="grid sm:grid-cols-2 gap-4">
+              <label class="block"><span class="text-xs font-semibold text-stone-500 uppercase">Title</span>
+                <input v-model="ed.doc.title" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+              <label class="block"><span class="text-xs font-semibold text-stone-500 uppercase">Owner</span>
+                <input v-model="ed.doc.owner" placeholder="Who keeps this current" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+              <label class="block sm:col-span-2"><span class="text-xs font-semibold text-stone-500 uppercase">Summary</span>
+                <input v-model="ed.doc.summary" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+              <label class="block"><span class="text-xs font-semibold text-stone-500 uppercase">Review by</span>
+                <input type="date" v-model="ed.doc.review_by" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+              <label class="block"><span class="text-xs font-semibold text-stone-500 uppercase">How it is assessed</span>
+                <select v-model="ed.doc.assess_mode" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1">
+                  <option value="quiz">Questions</option>
+                  <option value="practical">Practical sign-off only</option>
+                  <option value="both">Questions, then sign-off</option>
+                  <option value="ack">Read and acknowledge</option>
+                </select></label>
+              <label class="block sm:col-span-2"><span class="text-xs font-semibold text-stone-500 uppercase">Tags <span class="normal-case font-normal">(comma separated — this is how people find it)</span></span>
+                <input v-model="tagText" placeholder="cooling, food safety, soup" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+            </div>
+            <div class="mt-4">
+              <p class="text-xs font-semibold text-stone-500 uppercase mb-2">Required for</p>
+              <label class="inline-flex items-center gap-2 mr-4 text-sm"><input type="checkbox" :checked="reqAreas.includes('all')" @change="toggleArea('all')" class="w-4 h-4 accent-green-800"> Everyone</label>
+              <label v-for="a in areas" :key="a.id" class="inline-flex items-center gap-2 mr-4 text-sm">
+                <input type="checkbox" :checked="reqAreas.includes(a.id)" @change="toggleArea(a.id)" class="w-4 h-4 accent-green-800"> {{ a.label }}</label>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-stone-200 p-5 mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <p class="font-bold">Steps</p>
+              <span class="text-xs text-stone-400">{{ ed.steps.length }} — aim for 4 to 7</span>
+            </div>
+            <div v-for="(s,i) in ed.steps" :key="i" class="border border-stone-200 rounded-lg p-3 mb-3"
+                 :class="s.needs_check ? 'border-amber-400 bg-amber-50' : ''">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="font-mono text-xs text-stone-400">{{ i+1 }}</span>
+                <button @click="move(i,-1)" :disabled="i===0" class="tap text-xs px-2 py-1 border rounded disabled:opacity-30">↑</button>
+                <button @click="move(i,1)" :disabled="i===ed.steps.length-1" class="tap text-xs px-2 py-1 border rounded disabled:opacity-30">↓</button>
+                <span v-if="s.needs_check" class="text-[10px] font-bold text-amber-700 bg-amber-200 px-2 py-0.5 rounded">CHECK THIS</span>
+                <button @click="ed.steps.splice(i,1)" class="tap ml-auto text-xs text-red-600">Remove</button>
+              </div>
+              <input v-model="s.step" placeholder="The action — short, imperative" class="w-full border border-stone-300 rounded px-3 py-2 text-sm mb-2">
+              <input v-model="s.key_point" placeholder="Key point — the limit, measurement or check" class="w-full border border-stone-300 rounded px-3 py-2 text-sm mb-2">
+              <textarea v-model="s.why" rows="2" placeholder="Why it matters — this becomes the feedback when someone gets it wrong" class="w-full border border-stone-300 rounded px-3 py-2 text-sm mb-2"></textarea>
+              <div class="flex items-center gap-3">
+                <input type="file" accept="image/*" @change="stepPhoto(i,$event)" class="text-xs">
+                <img v-if="s.photo_path" :src="photoUrl(s.photo_path)" class="h-12 rounded border">
+                <label v-if="s.needs_check" class="text-xs flex items-center gap-1.5"><input type="checkbox" v-model="s.needs_check" class="w-4 h-4 accent-amber-600"> still needs checking</label>
+              </div>
+            </div>
+            <button @click="ed.steps.push({step:'',key_point:'',why:'',needs_check:false})" class="tap text-sm font-semibold text-green-800">+ Add a step</button>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button @click="saveAll" :disabled="busy" class="tap bg-green-800 text-white rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-40">{{ busy ? 'Saving…' : 'Save' }}</button>
+            <button @click="printSheet" class="tap border-2 border-stone-300 rounded-lg px-5 py-2.5 text-sm font-semibold">Print the one-pager</button>
+            <button @click="wizard=2" class="tap border-2 border-green-800 text-green-900 rounded-lg px-5 py-2.5 text-sm font-semibold">Next: questions →</button>
+          </div>
+        </div>
+
+        <!-- STEP 3 -->
+        <div v-else>
+          <div v-if="ed.doc.assess_mode==='practical' || ed.doc.assess_mode==='ack'" class="bg-white rounded-xl border border-stone-200 p-5 mb-4 text-sm text-stone-600">
+            This one is set to "{{ ed.doc.assess_mode==='practical' ? 'practical sign-off only' : 'read and acknowledge' }}", so it does not need questions. You can publish it now.
+          </div>
+          <div v-else class="bg-white rounded-xl border border-stone-200 p-5 mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <p class="font-bold">Questions</p>
+              <button @click="suggestQuestions" :disabled="busy || !ed.steps.length" class="tap text-sm font-semibold text-green-800 disabled:opacity-40">
+                {{ busy ? 'Writing…' : 'Suggest questions' }}
+              </button>
+            </div>
+            <div v-for="(q,qi) in ed.questions" :key="qi" class="border border-stone-200 rounded-lg p-3 mb-3">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="font-mono text-xs text-stone-400">Q{{ qi+1 }}</span>
+                <button @click="ed.questions.splice(qi,1)" class="tap ml-auto text-xs text-red-600">Remove</button>
+              </div>
+              <textarea v-model="q.prompt" rows="2" class="w-full border border-stone-300 rounded px-3 py-2 text-sm mb-2" placeholder="The question"></textarea>
+              <div v-for="(o,oi) in q.options" :key="oi" class="flex items-start gap-2 mb-2">
+                <input type="radio" :name="'q'+qi" :checked="o.correct" @change="setCorrect(qi,oi)" class="mt-3 w-4 h-4 accent-green-800 shrink-0">
+                <div class="flex-1">
+                  <input v-model="o.text" placeholder="Answer" class="w-full border border-stone-300 rounded px-3 py-1.5 text-sm">
+                  <input v-model="o.explain" placeholder="Why this is right / wrong — shown to the staff member" class="w-full border border-stone-200 rounded px-3 py-1.5 text-xs mt-1 text-stone-600">
+                </div>
+                <button @click="q.options.splice(oi,1)" class="tap text-xs text-red-500 mt-2">×</button>
+              </div>
+              <button @click="q.options.push({text:'',correct:false,explain:''})" class="tap text-xs font-semibold text-green-800">+ option</button>
+            </div>
+            <button @click="ed.questions.push({prompt:'',step_sort:null,options:[{text:'',correct:true,explain:''},{text:'',correct:false,explain:''}]})"
+                    class="tap text-sm font-semibold text-green-800">+ Add a question</button>
+          </div>
+
+          <div class="bg-white rounded-xl border border-stone-200 p-5">
+            <p class="font-bold mb-3">Publish</p>
+            <label class="block mb-3"><span class="text-xs font-semibold text-stone-500 uppercase">What changed</span>
+              <input v-model="changeNote" placeholder="e.g. cooling times updated after the July audit" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+            <label class="flex items-start gap-2 mb-4 text-sm">
+              <input type="checkbox" v-model="minorEdit" class="mt-1 w-4 h-4 accent-green-800">
+              <span>Minor edit — a typo or rewording. <b>Everyone stays trained.</b><br>
+                <span class="text-xs text-stone-500">Leave this off if the procedure actually changed; everyone will be asked to read it again.</span></span>
+            </label>
+            <button @click="doPublish" :disabled="busy" class="tap bg-green-800 text-white rounded-lg px-6 py-3 text-sm font-bold disabled:opacity-40">
+              {{ busy ? 'Publishing…' : 'Save and publish' }}
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- ============ MATRIX ============ -->
+    <div v-else-if="tab==='matrix'">
+      <div v-if="!mx" class="text-stone-500 text-sm">Loading…</div>
+      <template v-else>
+        <div class="flex flex-wrap items-center gap-3 mb-3 text-xs">
+          <span class="cell bg-red-100 text-red-700">TO DO</span>
+          <span class="cell bg-amber-100 text-amber-800">UPD</span>
+          <span class="cell bg-green-100 text-green-800">DONE</span>
+          <span class="cell bg-stone-100 text-stone-400">—</span>
+          <span class="text-stone-500">Click any cell for the detail.</span>
+        </div>
+        <div class="bg-white rounded-xl border border-stone-200 overflow-x-auto">
+          <table class="text-sm min-w-full">
+            <thead><tr class="border-b border-stone-200">
+              <th class="text-left px-3 py-2 font-semibold sticky left-0 bg-white">Person</th>
+              <th v-for="d in mx.docs" :key="d.id" class="px-1.5 py-2 text-[10px] font-mono text-stone-500 whitespace-nowrap" :title="d.title">{{ ref_(d) }}</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="s in mx.staff" :key="s.id" class="border-b border-stone-100 last:border-0">
+                <td class="px-3 py-2 font-medium whitespace-nowrap sticky left-0 bg-white">{{ s.name }}</td>
+                <td v-for="d in mx.docs" :key="d.id" class="px-1 py-1.5 text-center">
+                  <button @click="cellClick(s,d)" class="tap cell" :class="cellClass(cell(s.id,d.id).state)">{{ cellText(cell(s.id,d.id).state) }}</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-if="sel" class="bg-white rounded-xl border border-stone-200 p-5 mt-4">
+          <p class="font-bold mb-1">{{ sel.staff.name }} — {{ ref_(sel.doc) }} {{ sel.doc.title }}</p>
+          <p class="text-sm text-stone-600 mb-4">
+            <template v-if="sel.c.state==='done'">Done {{ fmt(sel.c.at) }} · {{ methodLabel(sel.c.method) }}<span v-if="sel.c.score"> · {{ sel.c.score }}%</span></template>
+            <template v-else-if="sel.c.state==='restudy'">Trained on an older version ({{ fmt(sel.c.at) }}). Needs a re-read.</template>
+            <template v-else-if="sel.c.state==='todo'">Required, not done.</template>
+            <template v-else>Not required for this person.</template>
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <button @click="signOff(sel)" :disabled="busy" class="tap bg-green-800 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40">Sign off — I watched them do it</button>
+            <button @click="manualMark(sel)" :disabled="busy" class="tap border-2 border-stone-300 rounded-lg px-4 py-2 text-sm font-semibold">Mark trained (with a reason)</button>
+            <button @click="assignOne(sel)" :disabled="busy" class="tap border-2 border-stone-300 rounded-lg px-4 py-2 text-sm font-semibold">Assign this to them</button>
+            <button @click="sel=null" class="tap text-sm text-stone-500 px-2">Close</button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- ============ PEOPLE / AREAS ============ -->
+    <div v-else-if="tab==='people'">
+      <p class="text-sm text-stone-600 mb-4">Which areas someone works in decides what training they are required to do. Add and invite people in <a href="/timeclock/" class="text-green-800 underline font-semibold">Timesheets</a>.</p>
+      <div class="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div v-for="s in staff" :key="s.id" class="border-b border-stone-100 last:border-0 px-4 py-3">
+          <p class="font-semibold text-sm mb-2">{{ s.name }}</p>
+          <label v-for="a in areas" :key="a.id" class="inline-flex items-center gap-1.5 mr-4 text-sm">
+            <input type="checkbox" :checked="(staffAreas[s.id]||[]).includes(a.id)" @change="toggleStaffArea(s.id,a.id)" class="w-4 h-4 accent-green-800"> {{ a.label }}
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SESSIONS ============ -->
+    <div v-else-if="tab==='sessions'">
+      <div class="bg-white rounded-xl border border-stone-200 p-5">
+        <p class="font-bold mb-1">Record training you ran in person</p>
+        <p class="text-sm text-stone-600 mb-4">Toolbox talk, a demo on the floor, a new starter walkthrough. Tick who was there and it is recorded against all of them.</p>
+        <div class="grid sm:grid-cols-2 gap-4 mb-4">
+          <label class="block"><span class="text-xs font-semibold text-stone-500 uppercase">Date</span>
+            <input type="date" v-model="ses.held_on" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+          <label class="block"><span class="text-xs font-semibold text-stone-500 uppercase">Run by</span>
+            <input v-model="ses.run_by" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+        </div>
+        <p class="text-xs font-semibold text-stone-500 uppercase mb-2">What was covered</p>
+        <div class="max-h-52 overflow-y-auto border border-stone-200 rounded-lg p-3 mb-4">
+          <label v-for="d in liveDocs" :key="d.id" class="flex items-center gap-2 text-sm mb-1.5">
+            <input type="checkbox" :value="d.id" v-model="ses.doc_ids" class="w-4 h-4 accent-green-800">
+            <span class="font-mono text-xs text-green-800">{{ ref_(d) }}</span> {{ d.title }}
+          </label>
+        </div>
+        <p class="text-xs font-semibold text-stone-500 uppercase mb-2">Who was there</p>
+        <div class="border border-stone-200 rounded-lg p-3 mb-4">
+          <label v-for="s in staff" :key="s.id" class="inline-flex items-center gap-1.5 mr-4 mb-1.5 text-sm">
+            <input type="checkbox" :value="s.id" v-model="ses.staff_ids" class="w-4 h-4 accent-green-800"> {{ s.name }}
+          </label>
+        </div>
+        <label class="block mb-4"><span class="text-xs font-semibold text-stone-500 uppercase">Note</span>
+          <input v-model="ses.note" placeholder="Anything worth recording" class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm mt-1"></label>
+        <button @click="saveSession" :disabled="busy || !ses.doc_ids.length || !ses.staff_ids.length"
+                class="tap bg-green-800 text-white rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-40">
+          {{ busy ? 'Recording…' : 'Record this session' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ FEEDBACK ============ -->
+    <div v-else-if="tab==='feedback'">
+      <p class="text-sm text-stone-600 mb-4">When someone says an SOP does not match what they actually do, it lands here. This is how you find out before an auditor does.</p>
+      <div v-if="!feedback.length" class="bg-white rounded-xl border border-stone-200 p-8 text-center text-stone-500 text-sm">Nothing raised yet.</div>
+      <div v-for="f in feedback" :key="f.id" class="bg-white rounded-xl border border-stone-200 p-4 mb-3"
+           :class="f.status==='open' ? 'border-amber-300' : ''">
+        <div class="flex items-center gap-2 mb-1 flex-wrap">
+          <span class="font-mono text-xs font-bold text-green-800">{{ f.doc ? ref_(f.doc) : '—' }}</span>
+          <span class="text-sm font-semibold">{{ f.staff_name }}</span>
+          <span class="text-xs text-stone-400">{{ fmt(f.created_at) }}</span>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded ml-auto"
+                :class="f.status==='open' ? 'bg-amber-100 text-amber-800' : 'bg-stone-200 text-stone-500'">{{ f.status.toUpperCase() }}</span>
+        </div>
+        <p class="text-sm text-stone-700 mb-2">{{ f.body }}</p>
+        <div v-if="f.status==='open'" class="flex gap-2">
+          <button @click="setFeedback(f,'actioned')" class="tap text-xs font-semibold text-green-800">Mark actioned</button>
+          <button @click="setFeedback(f,'closed')" class="tap text-xs font-semibold text-stone-500">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ EXPORT ============ -->
+    <div v-else-if="tab==='export'">
+      <div class="bg-white rounded-xl border border-stone-200 p-5 mb-4">
+        <p class="font-bold mb-1">Audit export</p>
+        <p class="text-sm text-stone-600 mb-4">Every training record: who, what, when, by which method, against which version. This is the file to hand an auditor.</p>
+        <button @click="downloadCsv" :disabled="busy" class="tap bg-green-800 text-white rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-40">
+          {{ busy ? 'Building…' : 'Download CSV' }}
+        </button>
+      </div>
+      <div class="bg-white rounded-xl border border-stone-200 p-5">
+        <p class="font-bold mb-3">Recent changes</p>
+        <button @click="loadAudit" class="tap text-sm font-semibold text-green-800 mb-3">Refresh</button>
+        <div v-for="l in auditLog" :key="l.id" class="text-xs border-b border-stone-100 last:border-0 py-1.5 flex gap-3">
+          <span class="text-stone-400 w-32 shrink-0">{{ fmt(l.at) }}</span>
+          <span class="font-semibold w-28 shrink-0">{{ l.action }}</span>
+          <span class="text-stone-600 truncate">{{ l.actor }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PRINTABLE ONE-PAGER ============ -->
+  <div class="printsheet" v-if="ed.doc">
+    <div style="border-bottom:3px solid #16543f;padding-bottom:8px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div>
+          <div style="font-family:monospace;font-size:13px;font-weight:700;color:#16543f">{{ ref_(ed.doc) }}</div>
+          <div style="font-size:26px;font-weight:700;line-height:1.1;margin-top:2px">{{ ed.doc.title }}</div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:#555;line-height:1.5">
+          <div>Version {{ ed.latest ? ed.latest.version : 1 }}</div>
+          <div>{{ today }}</div>
+          <div v-if="ed.doc.owner">Owner: {{ ed.doc.owner }}</div>
+          <div v-if="ed.doc.review_by">Review by: {{ ed.doc.review_by }}</div>
+        </div>
+      </div>
+      <div v-if="ed.doc.summary" style="font-size:13px;color:#444;margin-top:6px">{{ ed.doc.summary }}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#eceff0">
+        <th style="text-align:left;padding:7px 9px;width:26%;border:1px solid #ccc;font-size:11px;letter-spacing:.06em">STEP</th>
+        <th style="text-align:left;padding:7px 9px;width:32%;border:1px solid #ccc;font-size:11px;letter-spacing:.06em">KEY POINT</th>
+        <th style="text-align:left;padding:7px 9px;width:42%;border:1px solid #ccc;font-size:11px;letter-spacing:.06em">WHY IT MATTERS</th>
+      </tr></thead>
+      <tbody>
+        <tr v-for="(s,i) in ed.steps" :key="i">
+          <td style="padding:8px 9px;border:1px solid #ccc;vertical-align:top"><b>{{ i+1 }}.</b> {{ s.step }}</td>
+          <td style="padding:8px 9px;border:1px solid #ccc;vertical-align:top;font-weight:600">{{ s.key_point }}</td>
+          <td style="padding:8px 9px;border:1px solid #ccc;vertical-align:top;color:#333">{{ s.why }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:10px;color:#777">Revive · {{ ref_(ed.doc) }} v{{ ed.latest ? ed.latest.version : 1 }} · the current version is always on team.revive.co.nz</div>
+  </div>
+  </template>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const portal = supabase.createClient(PORTAL_URL, PORTAL_ANON);
+const SUPA = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
+
+createApp({
+  setup() {
+    const ready = ref(false), gateError = ref(''), busy = ref(false), err = ref(''), toast = ref('');
+    const tab = ref('library'), wizard = ref(0), showArchived = ref(false);
+    const docs = ref([]), areas = ref([]), staff = ref([]), staffAreas = ref({});
+    const ed = ref({ doc: null, latest: null, steps: [], questions: [], versions: [] });
+    const upFiles = ref([]), pasteText = ref(''), tagText = ref(''), reqAreas = ref([]);
+    const changeNote = ref(''), minorEdit = ref(false);
+    const mx = ref(null), sel = ref(null);
+    const feedback = ref([]), auditLog = ref([]);
+    const ses = ref({ held_on: new Date().toISOString().slice(0, 10), run_by: '', note: '', doc_ids: [], staff_ids: [] });
+
+    const tabs = [
+      { id: 'library', label: 'Documents' }, { id: 'matrix', label: 'Matrix' },
+      { id: 'sessions', label: 'In-person training' }, { id: 'people', label: 'People & areas' },
+      { id: 'feedback', label: 'Feedback' }, { id: 'export', label: 'Export' },
+    ];
+
+    const ref_ = (d) => (d.kind === 'opl' ? 'OPL' : d.kind === 'notice' ? 'NOTICE' : 'SOP') + d.number;
+    const photoUrl = (p) => SUPA + '/storage/v1/object/public/training-photos/' + p;
+    const today = new Date().toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' });
+    const fmt = (s) => s ? new Date(s).toLocaleString('en-NZ', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const methodLabel = (m) => ({ quiz: 'questions', in_person: 'in person', practical: 'signed off', manual: 'recorded by a manager', ack: 'read' }[m] || m);
+    const liveV = (d) => { const v = (d.versions || []).find(x => x.id === d.current_version_id); return v ? v.version : '?'; };
+    const visibleDocs = computed(() => docs.value.filter(d => showArchived.value || !d.archived));
+    const liveDocs = computed(() => docs.value.filter(d => d.current_version_id && !d.archived));
+    const openFeedback = computed(() => feedback.value.filter(f => f.status === 'open').length);
+
+    async function tok() { const { data: { session } } = await portal.auth.getSession(); return session ? session.access_token : ''; }
+    async function api(fn, payload) {
+      err.value = '';
+      const res = await fetch('/.netlify/functions/' + fn, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await tok() },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+      if (data.error) throw new Error(data.error);
+      return data;
+    }
+    const A = (p) => api('training-admin', p);
+    const AI = (p) => api('training-ai', p);
+    function flash(m) { toast.value = m; setTimeout(() => { toast.value = ''; }, 3500); }
+    function fail(e) { err.value = e.message || String(e); }
+
+    // ---- library ----
+    async function loadDocs() { docs.value = (await A({ action: 'docs' })).docs; }
+
+    async function newDoc(kind) {
+      busy.value = true;
+      try {
+        const title = prompt(kind === 'opl' ? 'One Point Lesson — what is the one point?' : 'What is this procedure called?');
+        if (!title) return;
+        const r = await A({ action: 'create_doc', kind, title });
+        await loadDocs();
+        await openEditor(r.doc.id);
+        flash('Created ' + ref_(r.doc) + '. Now upload the existing version, or go straight to step 2.');
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+
+    async function openEditor(id) {
+      tab.value = 'editor'; wizard.value = 0; ed.value = { doc: null, latest: null, steps: [], questions: [], versions: [] };
+      try {
+        const r = await A({ action: 'doc', doc_id: id });
+        ed.value = {
+          doc: r.doc, latest: r.latest, versions: r.versions,
+          steps: r.steps.map(s => ({ ...s })),
+          questions: r.questions.map(q => ({
+            prompt: q.prompt,
+            step_sort: (r.steps.find(s => s.id === q.step_id) || {}).sort ?? null,
+            options: q.options.map(o => ({ text: o.text, correct: o.correct, explain: o.explain })),
+          })),
+        };
+        reqAreas.value = r.areas.map(a => a === null ? 'all' : a);
+        const allTags = (await A({ action: 'bootstrap' })).tags;
+        tagText.value = r.tags.map(id => (allTags.find(t => t.id === id) || {}).name).filter(Boolean).join(', ');
+        changeNote.value = r.latest ? (r.latest.change_note || '') : '';
+        minorEdit.value = false;
+        if (r.steps.length) wizard.value = 1;
+      } catch (e) { fail(e); }
+    }
+
+    async function newVersion() {
+      busy.value = true;
+      try {
+        await A({ action: 'new_version', doc_id: ed.value.doc.id });
+        await openEditor(ed.value.doc.id);
+        wizard.value = 0;
+        flash('Started a new draft version.');
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+
+    // ---- step 1 ----
+    function fileToDataUrl(f) {
+      return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+    }
+    async function pickFiles(ev) {
+      const files = Array.from(ev.target.files || []).slice(0, 5);
+      upFiles.value = await Promise.all(files.map(fileToDataUrl));
+    }
+    async function draftIt() {
+      busy.value = true;
+      try {
+        const r = await AI({ action: 'draft', files: upFiles.value, text: pasteText.value });
+        ed.value.steps = (r.steps || []).map(s => ({ step: s.step || '', key_point: s.key_point || '', why: s.why || '', needs_check: !!s.needs_check, photo_path: null }));
+        if (r.title && /^untitled$/i.test(ed.value.doc.title)) ed.value.doc.title = r.title;
+        if (r.summary && !ed.value.doc.summary) ed.value.doc.summary = r.summary;
+        if (r.suggested_tags && r.suggested_tags.length && !tagText.value) tagText.value = r.suggested_tags.join(', ');
+        // Keep the original file with the version so the wall copy is always retrievable.
+        if (upFiles.value.length) {
+          const up = await A({ action: 'upload', data: upFiles.value[0], prefix: ref_(ed.value.doc).toLowerCase() });
+          await A({ action: 'save_version', version_id: ed.value.latest.id, file_path: up.path, file_type: up.file_type, source_text: pasteText.value || null });
+        }
+        wizard.value = 1;
+        flash(r.needs_check_count ? (r.needs_check_count + ' step(s) need a value checked — they are marked in amber.') : 'Drafted. Check every line before you publish.');
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+
+    // ---- step 2 ----
+    const move = (i, d) => { const a = ed.value.steps; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; };
+    function toggleArea(id) {
+      const i = reqAreas.value.indexOf(id);
+      if (i >= 0) reqAreas.value.splice(i, 1);
+      else if (id === 'all') reqAreas.value = ['all'];
+      else { reqAreas.value = reqAreas.value.filter(x => x !== 'all'); reqAreas.value.push(id); }
+    }
+    async function stepPhoto(i, ev) {
+      const f = (ev.target.files || [])[0]; if (!f) return;
+      busy.value = true;
+      try {
+        const up = await A({ action: 'upload', data: await fileToDataUrl(f), bucket: 'photo', prefix: 'step' });
+        ed.value.steps[i].photo_path = up.path;
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+    async function saveAll() {
+      busy.value = true;
+      try {
+        const d = ed.value.doc;
+        await A({ action: 'update_doc', doc_id: d.id, title: d.title, summary: d.summary, owner: d.owner, review_by: d.review_by || null, assess_mode: d.assess_mode });
+        await A({ action: 'save_version', version_id: ed.value.latest.id, steps: ed.value.steps });
+        await A({ action: 'set_tags', doc_id: d.id, tags: tagText.value.split(',').map(t => t.trim()).filter(Boolean) });
+        await A({ action: 'set_requirements', doc_id: d.id, areas: reqAreas.value });
+        await loadDocs();
+        flash('Saved.');
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+    function printSheet() { window.print(); }
+
+    // ---- step 3 ----
+    async function suggestQuestions() {
+      busy.value = true;
+      try {
+        const steps = ed.value.steps.map((s, i) => ({ ...s, sort: i }));
+        const r = await AI({ action: 'questions', title: ed.value.doc.title, steps });
+        ed.value.questions = r.questions;
+        flash('Drafted ' + r.questions.length + ' questions. Read them before you publish.');
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+    function setCorrect(qi, oi) { ed.value.questions[qi].options.forEach((o, i) => { o.correct = i === oi; }); }
+
+    async function doPublish() {
+      busy.value = true;
+      try {
+        await saveAllQuiet();
+        if (!['practical', 'ack'].includes(ed.value.doc.assess_mode)) {
+          await A({ action: 'save_questions', version_id: ed.value.latest.id, questions: ed.value.questions });
+        }
+        const r = await A({ action: 'publish', version_id: ed.value.latest.id, minor: minorEdit.value, change_note: changeNote.value });
+        await loadDocs();
+        await openEditor(ed.value.doc.id);
+        flash(r.retrain ? 'Published. Anyone previously trained will be asked to read it again.' : 'Published as a minor edit — existing training stays valid.');
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+    async function saveAllQuiet() {
+      const d = ed.value.doc;
+      await A({ action: 'update_doc', doc_id: d.id, title: d.title, summary: d.summary, owner: d.owner, review_by: d.review_by || null, assess_mode: d.assess_mode });
+      await A({ action: 'save_version', version_id: ed.value.latest.id, steps: ed.value.steps });
+      await A({ action: 'set_tags', doc_id: d.id, tags: tagText.value.split(',').map(t => t.trim()).filter(Boolean) });
+      await A({ action: 'set_requirements', doc_id: d.id, areas: reqAreas.value });
+    }
+
+    // ---- matrix ----
+    async function loadMatrix() { try { mx.value = await A({ action: 'matrix' }); sel.value = null; } catch (e) { fail(e); } }
+    const cell = (sid, did) => (mx.value && mx.value.cells[sid + '|' + did]) || { state: 'na' };
+    const cellText = (s) => ({ todo: 'TODO', restudy: 'UPD', done: 'OK', na: '—' }[s] || '—');
+    const cellClass = (s) => ({ todo: 'bg-red-100 text-red-700', restudy: 'bg-amber-100 text-amber-800', done: 'bg-green-100 text-green-800', na: 'bg-stone-100 text-stone-400' }[s]);
+    function cellClick(s, d) { sel.value = { staff: s, doc: d, c: cell(s.id, d.id) }; }
+
+    async function signOff(x) {
+      busy.value = true;
+      try { await A({ action: 'signoff', staff_id: x.staff.id, doc_id: x.doc.id }); await loadMatrix(); flash('Signed off.'); }
+      catch (e) { fail(e); } finally { busy.value = false; }
+    }
+    async function manualMark(x) {
+      const note = prompt('Why are you marking this trained without the questions?');
+      if (!note) return;
+      busy.value = true;
+      try { await A({ action: 'manual_mark', staff_id: x.staff.id, doc_id: x.doc.id, note }); await loadMatrix(); flash('Recorded.'); }
+      catch (e) { fail(e); } finally { busy.value = false; }
+    }
+    async function assignOne(x) {
+      busy.value = true;
+      try { await A({ action: 'assign', staff_id: x.staff.id, doc_id: x.doc.id }); await loadMatrix(); flash('Assigned.'); }
+      catch (e) { fail(e); } finally { busy.value = false; }
+    }
+
+    // ---- people ----
+    async function toggleStaffArea(sid, aid) {
+      const cur = (staffAreas.value[sid] || []).slice();
+      const i = cur.indexOf(aid);
+      if (i >= 0) cur.splice(i, 1); else cur.push(aid);
+      staffAreas.value = { ...staffAreas.value, [sid]: cur };
+      try { await A({ action: 'set_staff_areas', staff_id: sid, areas: cur }); } catch (e) { fail(e); }
+    }
+
+    // ---- sessions ----
+    async function saveSession() {
+      busy.value = true;
+      try {
+        const r = await A({ action: 'session_create', ...ses.value });
+        flash('Recorded — ' + r.recorded + ' training record' + (r.recorded === 1 ? '' : 's') + ' created.');
+        ses.value = { held_on: new Date().toISOString().slice(0, 10), run_by: ses.value.run_by, note: '', doc_ids: [], staff_ids: [] };
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+
+    // ---- feedback / export ----
+    async function loadFeedback() { try { feedback.value = (await A({ action: 'feedback_list' })).feedback; } catch (e) { fail(e); } }
+    async function setFeedback(f, status) {
+      try { await A({ action: 'feedback_set', id: f.id, status }); await loadFeedback(); } catch (e) { fail(e); }
+    }
+    async function loadAudit() { try { auditLog.value = (await A({ action: 'audit' })).log; } catch (e) { fail(e); } }
+    async function downloadCsv() {
+      busy.value = true;
+      try {
+        const r = await A({ action: 'export' });
+        const blob = new Blob([r.csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'revive-training-' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+        flash(r.rows + ' records exported.');
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+
+    onMounted(async () => {
+      const { data: { session } } = await portal.auth.getSession();
+      if (!session) { window.location.href = '/'; return; }
+      try {
+        const boot = await A({ action: 'bootstrap' });
+        areas.value = boot.areas; staff.value = boot.staff;
+        const map = {};
+        for (const sa of boot.staff_areas) (map[sa.staff_id] = map[sa.staff_id] || []).push(sa.area_id);
+        staffAreas.value = map;
+        await loadDocs();
+        await loadFeedback();
+      } catch (e) {
+        gateError.value = /access/i.test(e.message) ? 'You do not have access to Training. Ask an administrator.' : ('Could not load: ' + e.message);
+        ready.value = true; return;
+      }
+      ready.value = true;
+      // Load the heavier views on demand.
+      const w = Vue.watch(tab, (t) => {
+        if (t === 'matrix' && !mx.value) loadMatrix();
+        if (t === 'export') loadAudit();
+      });
+    });
+
+    return {
+      ready, gateError, busy, err, toast, tab, tabs, wizard, showArchived,
+      docs, areas, staff, staffAreas, ed, upFiles, pasteText, tagText, reqAreas, changeNote, minorEdit,
+      mx, sel, feedback, auditLog, ses,
+      visibleDocs, liveDocs, openFeedback,
+      ref_, photoUrl, today, fmt, methodLabel, liveV,
+      newDoc, openEditor, newVersion, pickFiles, draftIt, move, toggleArea, stepPhoto, saveAll, printSheet,
+      suggestQuestions, setCorrect, doPublish,
+      loadMatrix, cell, cellText, cellClass, cellClick, signOff, manualMark, assignOne,
+      toggleStaffArea, saveSession, loadFeedback, setFeedback, loadAudit, downloadCsv,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

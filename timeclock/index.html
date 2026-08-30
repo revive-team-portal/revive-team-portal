@@ -237,6 +237,50 @@
       </section>
 
       <!-- ============ SETTINGS (supervisor) ============ -->
+      <!-- ============ STAFF SETUP ============ -->
+      <section v-if="screen==='people' && isSupervisor">
+        <h1 class="text-lg font-bold text-stone-800 mb-1">Staff setup</h1>
+        <p class="text-xs text-stone-500 mb-3">One place to add a person. They get their own link and PIN for <b>team.revive.co.nz/me</b> &mdash; clock in, timesheet and training, all on their phone.</p>
+
+        <div class="bg-white border border-stone-200 rounded-xl p-4 mb-3">
+          <div class="text-sm font-semibold text-stone-700 mb-2">Add someone</div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+            <input v-model="newPerson.name" placeholder="Full name" class="border border-stone-300 rounded px-2 py-1.5">
+            <input v-model="newPerson.email" placeholder="Email (for their link)" class="border border-stone-300 rounded px-2 py-1.5">
+            <input v-model="newPerson.phone" placeholder="Phone (optional)" class="border border-stone-300 rounded px-2 py-1.5">
+          </div>
+          <button @click="addPerson" :disabled="peopleBusy || !newPerson.name.trim()" class="mt-3 text-sm bg-green-700 text-white rounded-lg px-4 py-1.5 disabled:opacity-40">Add and issue a link</button>
+          <p v-if="peopleErr" class="text-xs text-red-600 mt-2">{{ peopleErr }}</p>
+        </div>
+
+        <div v-for="p in peopleList" :key="p.id" class="bg-white border border-stone-200 rounded-xl p-4 mb-2">
+          <div class="flex items-start gap-2 flex-wrap">
+            <div class="min-w-0 flex-1">
+              <div class="font-semibold text-sm">{{ p.name }}<span v-if="!p.active" class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded bg-stone-200 text-stone-500">INACTIVE</span></div>
+              <div class="text-xs text-stone-500">{{ p.email || 'no email on file' }}</div>
+              <div class="text-xs mt-1">
+                <span v-if="p.link" class="font-mono text-green-800">{{ p.link }}</span>
+                <span v-else class="text-amber-700">no link issued yet</span>
+                <span class="ml-2" :class="p.has_pin ? 'text-stone-500' : 'text-amber-700'">{{ p.has_pin ? 'PIN set' : 'PIN not set yet' }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            <button @click="invite(p,false)" :disabled="peopleBusy" class="text-xs font-semibold border border-stone-300 rounded px-2.5 py-1 disabled:opacity-40">{{ p.invited_at ? 'Send link again' : 'Send their link' }}</button>
+            <button @click="invite(p,true)" :disabled="peopleBusy" class="text-xs font-semibold border border-amber-300 text-amber-800 rounded px-2.5 py-1 disabled:opacity-40">Reset PIN</button>
+            <button v-if="p.link" @click="copyLink(p)" class="text-xs font-semibold border border-stone-300 rounded px-2.5 py-1">Copy link</button>
+            <button @click="toggleActive(p)" :disabled="peopleBusy" class="text-xs font-semibold border border-stone-300 rounded px-2.5 py-1 disabled:opacity-40">{{ p.active ? 'Deactivate' : 'Reactivate' }}</button>
+          </div>
+          <div class="mt-2">
+            <span class="text-[10px] font-semibold text-stone-400 uppercase tracking-wide">Works in</span>
+            <label v-for="a in peopleAreas" :key="a.id" class="inline-flex items-center gap-1 ml-2 text-xs">
+              <input type="checkbox" :checked="p.areas.includes(a.id)" @change="togglePersonArea(p,a.id)" class="w-3.5 h-3.5 accent-green-700"> {{ a.label }}
+            </label>
+            <p class="text-[10px] text-stone-400 mt-1">Areas decide which training is required for them.</p>
+          </div>
+        </div>
+      </section>
+
       <section v-if="screen==='settings' && isSupervisor">
         <h1 class="text-lg font-bold text-stone-800 mb-2">Settings</h1>
         <div class="bg-white border border-stone-200 rounded-xl p-4 mb-3">
@@ -358,10 +402,45 @@
 
       const tabs=[
         {id:'clock',label:'Clock'},{id:'timesheet',label:'My timesheet'},{id:'team',label:'On now'},
-        {id:'review',label:'Review',sup:true},{id:'leave',label:'Leave'},{id:'settings',label:'Settings',sup:true},
+        {id:'review',label:'Review',sup:true},{id:'leave',label:'Leave'},{id:'people',label:'Staff setup',sup:true},{id:'settings',label:'Settings',sup:true},
       ];
       const visibleTabs=computed(()=> tabs.filter(t=> !t.sup || isSupervisor.value));
+      // ---- staff setup (issues the /me link + PIN) ----
+      const peopleList=ref([]), peopleAreas=ref([]), peopleBusy=ref(false), peopleErr=ref('');
+      const newPerson=reactive({name:'',email:'',phone:''});
+      async function callStaff(payload){
+        const r=await fetch('/.netlify/functions/staff-admin',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},body:JSON.stringify(payload)});
+        const j=await r.json().catch(()=>({error:'bad response'})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j;
+      }
+      async function loadPeople(){ peopleErr.value=''; try{ const d=await callStaff({action:'list'}); peopleList.value=d.staff; peopleAreas.value=d.areas; }catch(e){ peopleErr.value=e.message; } }
+      async function addPerson(){
+        peopleBusy.value=true; peopleErr.value='';
+        try{ await callStaff({action:'save',name:newPerson.name,email:newPerson.email||null,phone:newPerson.phone||null});
+             newPerson.name=''; newPerson.email=''; newPerson.phone=''; await loadPeople(); flash('Added. Send them their link.'); }
+        catch(e){ peopleErr.value=e.message; } finally{ peopleBusy.value=false; }
+      }
+      async function invite(p,reset){
+        if(reset && !confirm('Reset '+p.name+"'s PIN? They will choose a new one next time they open their link.")) return;
+        peopleBusy.value=true; peopleErr.value='';
+        try{ const r=await callStaff({action: reset?'reset_pin':'invite', staff_id:p.id});
+             await loadPeople();
+             flash(r.sent ? ('Emailed '+p.name) : ('Link ready — '+(r.mailError||'email not sent')+'. Copy it and send it yourself.')); }
+        catch(e){ peopleErr.value=e.message; } finally{ peopleBusy.value=false; }
+      }
+      function copyLink(p){ navigator.clipboard.writeText(p.link).then(()=>flash('Link copied')).catch(()=>flash(p.link)); }
+      async function toggleActive(p){
+        peopleBusy.value=true;
+        try{ await callStaff({action:'save',staff_id:p.id,active:!p.active}); await loadPeople(); }
+        catch(e){ peopleErr.value=e.message; } finally{ peopleBusy.value=false; }
+      }
+      async function togglePersonArea(p,aid){
+        const cur=p.areas.slice(); const i=cur.indexOf(aid); if(i>=0) cur.splice(i,1); else cur.push(aid);
+        p.areas=cur;
+        try{ await callStaff({action:'set_areas',staff_id:p.id,areas:cur}); }catch(e){ peopleErr.value=e.message; }
+      }
+
       const screen=ref('clock');
+      Vue.watch(screen,(t)=>{ if(t==='people' && !peopleList.value.length) loadPeople(); });
 
       const activeStaff=computed(()=> !!myId.value);
 
@@ -508,7 +587,8 @@
 
       return { ready,gateError,toast,isSupervisor,myId,myName,signedInAs,debugUid,areas,settings,state,punches,myRequests,busy,err,lastResult,lastSelfie,lastAreaId,whosOn,feed,reviewDate,reviewErr,showPrivacy,
         cam,camVid,camCnv,chg,selfieView,tabs,visibleTabs,screen,activeStaff,stateLabel,currentArea,currentAreaId,areaColor,elapsed,shifts,whosOnGrouped,exceptionCount,capMsg,
-        hm,punchShort,punchLong,go,startPunch,useShot,continueNoPhoto,cancelCam,retake,loadWhosOn,loadReview,openChange,submitChange,resolve,viewSelfie,showSelfie,setToHere,saveSettings };
+        hm,punchShort,punchLong,go,startPunch,useShot,continueNoPhoto,cancelCam,retake,loadWhosOn,loadReview,openChange,submitChange,resolve,viewSelfie,showSelfie,setToHere,saveSettings,
+        peopleList,peopleAreas,peopleBusy,peopleErr,newPerson,loadPeople,addPerson,invite,copyLink,toggleActive,togglePersonArea };
     }
   }).mount('#app');
 </script>
