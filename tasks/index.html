@@ -66,13 +66,13 @@
 
     <nav class="rv-nav no-print">
       <div class="flex items-center gap-2">
-        <img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+        <a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
         <span class="rv-appname">Tasks</span>
       </div>
       <div class="flex items-center gap-3">
         <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isManager ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ isManager ? 'Manager' : 'Team' }}</span>
         <span class="text-white/80 text-xs hidden md:inline">{{ myName }}</span>
-        <a href="/" class="rv-portal">&larr; Main Portal</a>
+        
       </div>
     </nav>
 

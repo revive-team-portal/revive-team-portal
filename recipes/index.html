@@ -75,7 +75,7 @@
     <!-- NAV -->
     <nav class="rv-nav no-print">
       <div class="flex items-center gap-5">
-        <span class="inline-flex items-center gap-2"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Recipe Manager</span></span>
+        <span class="inline-flex items-center gap-2"><a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Recipe Manager</span></span>
         <button @click="goToList" class="text-sm transition"
           :class="currentView==='list'?'text-amber-400 font-semibold':'text-stone-300 hover:text-white'">Recipes</button>
         <button @click="goToMeals" class="text-sm transition"
@@ -96,7 +96,7 @@
           class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition no-print">
           + New Recipe
         </button>
-        <a href="/" class="rv-portal">&larr; Main Portal</a>
+        
         <button @click="logout" class="rv-btn ml-1 no-print">Logout</button>
       </div>
     </nav>

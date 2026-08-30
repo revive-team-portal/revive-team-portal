@@ -246,11 +246,11 @@ async function signOut(){await sb.auth.signOut();location.href="/";}
 
 function renderShell(){
   document.getElementById("root").innerHTML=`
-  <header class="app rv-nav"><div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Rostering</span></div><div class="spacer"></div>
+  <header class="app rv-nav"><div class="rv-left"><a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Rostering</span></div><div class="spacer"></div>
     <div class="modewrap"><button id="mPlan" class="active" onclick="setMode('plan')">Planner</button>
     <button id="mSettings" onclick="setMode('settings')">Settings</button>
     <button id="mPublic" onclick="setMode('public')">Public view</button></div>
-    <a class="rv-portal" href="/" style="margin-left:14px">&larr; Main Portal</a>
+    
     <a class="back" href="#" onclick="signOut();return false" style="margin-left:14px">Sign out</a>
   </header>
   <div class="wrap">

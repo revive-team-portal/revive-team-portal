@@ -42,6 +42,8 @@
   padding:6px 8px;border-radius:8px;
 }
 .rv-portal:hover{color:#fff;background:rgba(255,255,255,.12)}
+.rv-back{border:1px solid rgba(255,255,255,.32);margin-right:4px}
+.rv-back:hover{border-color:rgba(255,255,255,.75)}
 .rv-who{color:rgba(255,255,255,.8);font-size:12px;white-space:nowrap}
 
 /* ---------- LOADING SCREEN ---------- */

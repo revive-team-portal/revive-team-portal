@@ -47,7 +47,7 @@
     <!-- NAV -->
     <nav class="rv-nav">
       <div class="flex items-center gap-2">
-        <img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+        <a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
         <span class="rv-appname">Sales CRM</span>
       </div>
       <div class="flex items-center gap-2">
@@ -57,7 +57,7 @@
         <button @click="showMotivation=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
         <button v-if="isAdmin" @click="openAdmin" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Admin</button>
         <span class="text-white/80 text-xs hidden md:inline ml-1">{{ me }}</span>
-        <a href="/" class="rv-portal">&larr; Main Portal</a>
+        
       </div>
     </nav>
 

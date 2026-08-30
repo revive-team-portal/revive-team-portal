@@ -247,11 +247,11 @@ td.der .subn,td .subn{opacity:.85}
 
   <div v-else class="wrap">
     <nav class="rv-nav" style="margin:0 -18px 14px">
-      <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Scorecard</span></div>
+      <div class="rv-left"><a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Scorecard</span></div>
       <div class="rv-right">
         <span class="pill" :class="level==='manager'?'mgr':(level==='supervisor'?'sup':'')">{{ levelLabel }}</span>
         <span class="rv-who">{{ email }}</span>
-        <a href="/" class="rv-portal">&larr; Main Portal</a>
+        
       </div>
     </nav>
 

@@ -51,8 +51,8 @@
 
   <div v-else class="min-h-screen flex flex-col">
     <nav class="rv-nav no-print">
-      <div class="rv-left"><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Production</span></div>
-      <div class="flex items-center gap-3"><span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ roleLabel }}</span><span class="text-white/80 text-xs hidden md:inline">{{ me }}</span><a href="/" class="rv-portal">&larr; Main Portal</a></div>
+      <div class="rv-left"><a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Production</span></div>
+      <div class="flex items-center gap-3"><span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isSupervisor ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ roleLabel }}</span><span class="text-white/80 text-xs hidden md:inline">{{ me }}</span></div>
     </nav>
 
     <div class="bg-white border-b border-stone-200 px-3 py-2 flex flex-wrap gap-2 no-print sticky top-[53px] z-30">
