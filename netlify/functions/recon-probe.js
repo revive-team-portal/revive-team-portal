@@ -109,6 +109,34 @@ exports.handler = async (event) => {
       return ok(d);
     }
 
+
+    if (action === 'dbtest') {
+      const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
+      const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
+      const out = { has_key: !!APPS_KEY };
+      const res = await fetch(APPS_URL + '/rest/v1/run?select=id&limit=1', {
+        headers: { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Accept-Profile': 'recon' },
+      });
+      out.read_status = res.status;
+      out.read_body = (await res.text()).slice(0, 300);
+      const w = await fetch(APPS_URL + '/rest/v1/run', {
+        method: 'POST',
+        headers: { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json',
+                   'Accept-Profile': 'recon', 'Content-Profile': 'recon', Prefer: 'return=minimal' },
+        body: JSON.stringify({ kind: 'dbtest', note: 'probe write' }),
+      });
+      out.write_status = w.status;
+      out.write_body = (await w.text()).slice(0, 300);
+      return ok(out);
+    }
+
+    if (action === 'urltest') {
+      const u = (event.queryStringParameters || {}).u || '';
+      const r = await fetch(u);
+      const t = await r.text();
+      return ok({ status: r.status, bytes: t.length, head: t.slice(0, 400) });
+    }
+
     return { statusCode: 400, body: 'unknown action' };
   } catch (e) {
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: String(e.message || e).slice(0, 800) }) };
