@@ -170,6 +170,30 @@ exports.handler = async (event) => {
       });
     }
 
+
+    if (action === 'csv') {
+      const from = qp.from || '2026-04-01', to = qp.to || '2026-08-31';
+      const txns = await R.reconDbAll('txn?select=txn_processed_at,nz_date,kind,status,gateway,amount,fee,is_test,order_name' +
+        '&nz_date=gte.' + from + '&nz_date=lte.' + to + '&order=txn_processed_at');
+      const which = qp.what || 'batches';
+      let out = '';
+      if (which === 'txns') {
+        out = 'order,txn_processed_at,nz_date,utc_date,kind,status,gateway,amount,fee\n';
+        for (const t of txns) {
+          if (t.status !== 'SUCCESS' || t.is_test) continue;
+          out += [t.order_name, t.txn_processed_at, R.nzDate(t.txn_processed_at), R.utcDate(t.txn_processed_at),
+                  t.kind, t.status, t.gateway, t.amount, t.fee].join(',') + '\n';
+        }
+      } else {
+        const cutoff = qp.cutoff === 'nz' ? 'nz' : 'utc';
+        const lag = { card: Number(qp.lag_card || 2), afterpay: Number(qp.lag_afterpay || 2) };
+        const b = R.buildBatches(txns, { cutoff, lag });
+        out = 'batch_date,rail,txns,gross,refunds,fees,expected_net,expected_in_bank\n';
+        for (const x of b) out += [x.batch_date, x.rail, x.n, x.gross, x.refunds, x.fees, x.expected_net, x.expected_date].join(',') + '\n';
+      }
+      return { statusCode: 200, headers: { 'Content-Type': 'text/csv', 'Cache-Control': 'no-store' }, body: out };
+    }
+
     return { statusCode: 400, body: 'unknown action' };
   } catch (e) {
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: String(e.message || e).slice(0, 800) }) };
