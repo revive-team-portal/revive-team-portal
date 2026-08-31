@@ -156,6 +156,23 @@
             <p class="font-semibold text-lg leading-snug">{{ s.step }}</p>
             <p v-if="s.key_point" class="mt-2 text-green-900 bg-green-50 rounded-lg px-3 py-2 font-medium">{{ s.key_point }}</p>
             <img v-if="s.photo_path" :src="photoUrl(s.photo_path)" alt="" class="mt-3 rounded-lg w-full max-w-full">
+
+            <div v-if="s.video_id" class="mt-3">
+              <div v-if="playing===s.id" class="relative w-full rounded-lg overflow-hidden bg-black" style="aspect-ratio:16/9">
+                <iframe :src="embedUrl(s.video_id)" class="absolute inset-0 w-full h-full" style="border:0"
+                        allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        allowfullscreen :title="s.video_title || 'Training video'"></iframe>
+              </div>
+              <button v-else @click="playing = s.id" class="tap relative block w-full rounded-lg overflow-hidden bg-black active:scale-[.99] transition" style="aspect-ratio:16/9">
+                <img :src="s.video_thumb" alt="" class="absolute inset-0 w-full h-full object-cover opacity-80">
+                <span class="absolute inset-0 flex items-center justify-center">
+                  <span class="w-16 h-16 rounded-full bg-white/95 flex items-center justify-center shadow-lg">
+                    <svg viewBox="0 0 24 24" class="w-7 h-7 ml-1" fill="#16543f"><path d="M8 5v14l11-7z"/></svg>
+                  </span>
+                </span>
+              </button>
+              <p class="text-xs text-stone-400 mt-1">{{ s.video_title || 'Watch this step' }} · loads when you tap</p>
+            </div>
             <p v-if="s.why" class="mt-2 text-sm text-stone-600 leading-snug"><span class="font-semibold text-stone-500">Why:</span> {{ s.why }}</p>
           </div>
 
@@ -273,6 +290,7 @@ createApp({
     const doc = ref(null);
     const questions = ref([]), picked = ref({}), qIndex = ref(0), result = ref(null);
     const fbOpen = ref(false), fbText = ref(''), fbDone = ref(false);
+    const playing = ref(null);
     let idleTimer = null, searchTimer = null;
 
     const pinReady = computed(() => {
@@ -286,6 +304,8 @@ createApp({
     const docRef = (d) => (d.kind === 'opl' ? 'OPL' : d.kind === 'notice' ? 'NOTICE' : 'SOP') + d.number;
     const fileUrl = (p) => SUPA + '/storage/v1/object/public/training-docs/' + p;
     const photoUrl = (p) => SUPA + '/storage/v1/object/public/training-photos/' + p;
+    // Built from the stored id only — never from anything a person pasted.
+    const embedUrl = (id) => 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?rel=0&modestbranding=1&playsinline=1&autoplay=1';
     const shortDate = (s) => s ? new Date(s).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' }) : '';
     const methodLabel = (m) => ({ quiz: 'questions', in_person: 'in person', practical: 'signed off', manual: 'recorded by manager', ack: 'read' }[m] || m);
     const badgeText = (s) => ({ todo: 'TO DO', restudy: 'UPDATED', done: 'DONE' }[s] || s);
@@ -397,7 +417,7 @@ createApp({
 
     async function openDoc(id) {
       screen.value = 'doc'; loading.value = true; doc.value = null; error.value = '';
-      fbOpen.value = false; fbText.value = ''; fbDone.value = false;
+      fbOpen.value = false; fbText.value = ''; fbDone.value = false; playing.value = null;
       try {
         const r = await api(DATA_FN, { action: 'doc', doc_id: id });
         if (r.error) { error.value = r.error; } else { doc.value = r; }
@@ -461,7 +481,7 @@ createApp({
       booting, busy, loading, code, personName, needsSetup, lookupError, signInError, error,
       pin, pin2, pinRefs, pin2Refs, remember, pinReady, token, me, screen,
       items, outstanding, q, results, searching, doc, questions, picked, qIndex, result, current, allAnswered,
-      fbOpen, fbText, fbDone,
+      fbOpen, fbText, fbDone, playing, embedUrl,
       onPin, onPin2, onPinKey, onPin2Key, lookup, doSignIn, signOut, goHome, runSearch,
       openDoc, startQuiz, pick, submitQuiz, ack, sendFeedback,
       docRef, fileUrl, photoUrl, shortDate, methodLabel, badgeText, badgeClass,

@@ -181,13 +181,28 @@
               <input v-model="s.step" placeholder="The action — short, imperative" class="w-full border border-stone-300 rounded px-3 py-2 text-sm mb-2">
               <input v-model="s.key_point" placeholder="Key point — the limit, measurement or check" class="w-full border border-stone-300 rounded px-3 py-2 text-sm mb-2">
               <textarea v-model="s.why" rows="2" placeholder="Why it matters — this becomes the feedback when someone gets it wrong" class="w-full border border-stone-300 rounded px-3 py-2 text-sm mb-2"></textarea>
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3 flex-wrap">
                 <input type="file" accept="image/*" @change="stepPhoto(i,$event)" class="text-xs">
                 <img v-if="s.photo_path" :src="photoUrl(s.photo_path)" class="h-12 rounded border">
                 <label v-if="s.needs_check" class="text-xs flex items-center gap-1.5"><input type="checkbox" v-model="s.needs_check" class="w-4 h-4 accent-amber-600"> still needs checking</label>
               </div>
+              <div class="mt-2 pt-2 border-t border-stone-100">
+                <div class="flex gap-2 items-start">
+                  <input v-model="s.video_paste" placeholder="Paste a YouTube link for this step (set it to Unlisted first)"
+                         class="flex-1 border border-stone-300 rounded px-3 py-1.5 text-xs">
+                  <button @click="attachVideo(i)" :disabled="busy || !s.video_paste" class="tap text-xs font-semibold border border-stone-300 rounded px-3 py-1.5 disabled:opacity-30">Attach</button>
+                </div>
+                <div v-if="s.video_id" class="flex items-center gap-2 mt-2">
+                  <img :src="s.video_thumb" class="h-12 rounded border">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-semibold truncate">{{ s.video_title || 'YouTube video' }}</p>
+                    <a :href="'https://www.youtube.com/watch?v='+s.video_id" target="_blank" rel="noopener" class="text-[11px] text-green-800 underline">check it plays</a>
+                  </div>
+                  <button @click="s.video_id=null;s.video_title=null;s.video_thumb=null;s.video_paste=''" class="tap text-xs text-red-600">Remove</button>
+                </div>
+              </div>
             </div>
-            <button @click="ed.steps.push({step:'',key_point:'',why:'',needs_check:false})" class="tap text-sm font-semibold text-green-800">+ Add a step</button>
+            <button @click="ed.steps.push({step:'',key_point:'',why:'',needs_check:false,video_paste:'',video_id:null,video_title:null,video_thumb:null})" class="tap text-sm font-semibold text-green-800">+ Add a step</button>
           </div>
 
           <div class="flex flex-wrap gap-2">
@@ -488,7 +503,7 @@ createApp({
         const r = await A({ action: 'doc', doc_id: id });
         ed.value = {
           doc: r.doc, latest: r.latest, versions: r.versions,
-          steps: r.steps.map(s => ({ ...s })),
+          steps: r.steps.map(s => ({ ...s, video_paste: '' })),
           questions: r.questions.map(q => ({
             prompt: q.prompt,
             step_sort: (r.steps.find(s => s.id === q.step_id) || {}).sort ?? null,
@@ -526,7 +541,7 @@ createApp({
       busy.value = true;
       try {
         const r = await AI({ action: 'draft', files: upFiles.value, text: pasteText.value });
-        ed.value.steps = (r.steps || []).map(s => ({ step: s.step || '', key_point: s.key_point || '', why: s.why || '', needs_check: !!s.needs_check, photo_path: null }));
+        ed.value.steps = (r.steps || []).map(s => ({ step: s.step || '', key_point: s.key_point || '', why: s.why || '', needs_check: !!s.needs_check, photo_path: null, video_paste: '', video_id: null, video_title: null, video_thumb: null }));
         if (r.title && /^untitled$/i.test(ed.value.doc.title)) ed.value.doc.title = r.title;
         if (r.summary && !ed.value.doc.summary) ed.value.doc.summary = r.summary;
         if (r.suggested_tags && r.suggested_tags.length && !tagText.value) tagText.value = r.suggested_tags.join(', ');
@@ -556,6 +571,17 @@ createApp({
         ed.value.steps[i].photo_path = up.path;
       } catch (e) { fail(e); } finally { busy.value = false; }
     }
+    async function attachVideo(i) {
+      const st = ed.value.steps[i];
+      busy.value = true;
+      try {
+        const r = await A({ action: 'resolve_video', url: st.video_paste });
+        st.video_id = r.video_id; st.video_title = r.video_title; st.video_thumb = r.video_thumb;
+        st.video_paste = '';
+        flash('Video attached. Save to keep it.');
+      } catch (e) { fail(e); } finally { busy.value = false; }
+    }
+
     async function saveAll() {
       busy.value = true;
       try {
@@ -696,7 +722,7 @@ createApp({
       visibleDocs, liveDocs, openFeedback,
       ref_, photoUrl, today, fmt, methodLabel, liveV,
       newDoc, openEditor, newVersion, pickFiles, draftIt, move, toggleArea, stepPhoto, saveAll, printSheet,
-      suggestQuestions, setCorrect, doPublish,
+      attachVideo, suggestQuestions, setCorrect, doPublish,
       loadMatrix, cell, cellText, cellClass, cellClick, signOff, manualMark, assignOne,
       toggleStaffArea, saveSession, loadFeedback, setFeedback, loadAudit, downloadCsv,
     };

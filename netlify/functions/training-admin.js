@@ -34,6 +34,45 @@ async function audit(action, entity, entityId, detail) {
   } catch { /* never let logging break the write */ }
 }
 
+
+// --- YouTube -----------------------------------------------------------------
+// We never store or trust the pasted URL. We extract the 11-character video id
+// and rebuild every URL from that, so a pasted string can never reach an iframe.
+function youtubeId(input) {
+  const v = String(input || '').trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+  const pats = [
+    /(?:youtube\.com|youtube-nocookie\.com)\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/)([A-Za-z0-9_-]{11})/,
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,
+  ];
+  for (const pat of pats) { const m = pat.exec(v); if (m) return m[1]; }
+  return null;
+}
+
+// oEmbed needs no API key and no quota, and it works for unlisted videos.
+// A private or deleted video errors, which is how we tell someone their link
+// is not shareable yet.
+async function resolveVideo(input) {
+  const id = youtubeId(input);
+  if (!id) return { error: 'That does not look like a YouTube link. Use the Share button in YouTube and paste the whole link.' };
+  let title = null;
+  let thumb = 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg';
+  try {
+    const res = await fetch('https://www.youtube.com/oembed?format=json&url=' +
+      encodeURIComponent('https://www.youtube.com/watch?v=' + id));
+    if (res.status === 401 || res.status === 403) {
+      return { error: 'That video is Private. In YouTube change it to Unlisted, then paste the link again.' };
+    }
+    if (res.status === 404) return { error: 'That video could not be found. Check the link.' };
+    if (res.ok) {
+      const d = await res.json();
+      if (d.title) title = d.title;
+      if (d.thumbnail_url) thumb = d.thumbnail_url;
+    }
+  } catch (e) { /* keep the derived thumbnail — the id is what actually matters */ }
+  return { video_id: id, video_title: title, video_thumb: thumb };
+}
+
 function publicUrl(bucket, path) {
   return APPS_URL + '/storage/v1/object/public/' + bucket + '/' + path;
 }
@@ -78,6 +117,7 @@ exports.handler = async (event) => {
       case 'save_version':  return json(200, await saveVersion(b));
       case 'save_questions':return json(200, await saveQuestions(b));
       case 'publish':       return json(200, await publish(b));
+      case 'resolve_video': return json(200, await resolveVideo(b.url));
       case 'upload':        return json(200, await uploadDataUrl(b.data, b.bucket === 'photo' ? PHOTO_BUCKET : DOC_BUCKET, b.prefix || 'doc'));
       case 'set_requirements': return json(200, await setRequirements(b));
       case 'set_tags':      return json(200, await setTags(b));
@@ -232,6 +272,9 @@ async function writeSteps(versionId, steps) {
     step: String(s.step || '').slice(0, 500),
     key_point: s.key_point || null, why: s.why || null,
     photo_path: s.photo_path || null, needs_check: !!s.needs_check,
+    video_id: youtubeId(s.video_id) || null,
+    video_title: s.video_title || null,
+    video_thumb: s.video_thumb || null,
   })).filter(r => r.step.trim());
   if (rows.length) await T('step', { method: 'POST', ...MIN, body: JSON.stringify(rows) });
   return rows.length;
