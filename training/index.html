@@ -199,11 +199,15 @@
                     <input type="file" accept="video/*" class="hidden" @change="stepVideo(i,$event)">
                   </label>
                   <label class="text-xs flex items-center gap-1.5"><input type="checkbox" v-model="s.video_mute" class="w-4 h-4 accent-green-800"> no sound</label>
-                  <span class="text-[11px] text-stone-400"><b class="text-stone-500">2 minutes max</b> · most should be well under 1 minute — one point per clip · shrunk on your phone before it uploads</span>
+                  <span class="text-[11px] text-stone-400"><b class="text-stone-500">2 minutes max</b> · most should be well under 1 minute — one point per clip</span>
+                </div>
+                <p class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 mt-2">
+                  May take 1&ndash;2 minutes to compress and upload. Please leave the phone browser open.
                 </div>
                 <div v-if="vid[i]" class="mt-2">
                   <div class="h-1.5 bg-stone-200 rounded overflow-hidden"><div class="h-full bg-green-700 transition-all" :style="{width:(vid[i].pct*100)+'%'}"></div></div>
                   <p class="text-[11px] text-stone-500 mt-1">{{ vid[i].msg }}</p>
+                  <p class="text-[11px] font-semibold text-amber-800 mt-1">May take 1&ndash;2 minutes to compress and upload. Please leave the phone browser open.</p>
                 </div>
                 <div v-if="s.video_path" class="flex items-center gap-2 mt-2">
                   <img v-if="s.video_poster" :src="photoUrl(s.video_poster)" class="h-12 rounded border">
