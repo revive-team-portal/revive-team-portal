@@ -3,6 +3,7 @@
 // itself is never stored in this public repo. DELETE THIS FILE once extraction is done.
 const crypto = require('crypto');
 const { gql, STORE, API_VER } = require('./_shopify');
+const R = require('./_recon');
 
 const KEY_HASH = '7f10988a658d5af94698b56ab5dd927e728633f18336fa9fe3bc12707246f85a';
 
@@ -135,6 +136,38 @@ exports.handler = async (event) => {
       const r = await fetch(u);
       const t = await r.text();
       return ok({ status: r.status, bytes: t.length, head: t.slice(0, 400) });
+    }
+
+
+    if (action === 'verify') {
+      const from = qp.from || '2026-04-01', to = qp.to || '2026-08-31';
+      const cutoff = qp.cutoff === 'nz' ? 'nz' : 'utc';
+      const lag = { card: Number(qp.lag_card || 2), afterpay: Number(qp.lag_afterpay || 2) };
+      const txns = await R.reconDb('txn?select=txn_id,txn_processed_at,nz_date,kind,status,gateway,amount,fee,is_test' +
+        '&nz_date=gte.' + from + '&nz_date=lte.' + to + '&limit=100000');
+      const batches = R.buildBatches(txns, { cutoff, lag });
+      const bank = await R.reconDb('bank?select=id,bank_date,amount,reference,provider&limit=20000') || [];
+      const m = R.matchBatches(batches, bank);
+      const sum = (a, f) => Math.round(a.reduce((s, x) => s + Number(f(x)), 0) * 100) / 100;
+      const byRail = {};
+      for (const b of batches) {
+        const r = byRail[b.rail] || (byRail[b.rail] = { batches: 0, gross: 0, refunds: 0, fees: 0, net: 0 });
+        r.batches++; r.gross += b.gross; r.refunds += b.refunds; r.fees += b.fees; r.net += b.expected_net;
+      }
+      for (const k of Object.keys(byRail)) for (const f of ['gross','refunds','fees','net'])
+        byRail[k][f] = Math.round(byRail[k][f] * 100) / 100;
+      return ok({
+        period: { from, to }, cutoff, lag,
+        txns_loaded: txns.length, batch_count: batches.length,
+        by_rail: byRail,
+        totals: { gross: sum(batches, b => b.gross), fees: sum(batches, b => b.fees), expected_net: sum(batches, b => b.expected_net) },
+        cutoff_impact: R.cutoffImpact(txns),
+        first_batches: batches.slice(0, 4),
+        last_batches: batches.slice(-3),
+        bank_rows: bank.length,
+        unmatched_bank: m.unmatchedBank.length,
+        sample_matched: m.rows.slice(0, 2),
+      });
     }
 
     return { statusCode: 400, body: 'unknown action' };
