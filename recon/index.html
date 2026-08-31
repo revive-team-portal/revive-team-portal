@@ -89,6 +89,51 @@
         <p v-if="msg" class="mt-3 text-sm px-3 py-2 rounded-lg" :class="msgBad ? 'bg-rose-50 text-rose-800' : 'bg-emerald-50 text-emerald-800'">{{ msg }}</p>
       </section>
 
+      <!-- Xero -->
+      <section class="bg-white rounded-xl border border-stone-200 p-4 no-print">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-stone-800">Xero bank feed</h2>
+            <p v-if="!xero" class="text-sm text-stone-500 mt-1">Checking…</p>
+            <p v-else-if="!xero.configured" class="text-sm text-amber-800 mt-1">
+              Not set up yet — XERO_CLIENT_ID and XERO_CLIENT_SECRET still need to go into Netlify.
+            </p>
+            <p v-else-if="!xero.connected && !xero.error" class="text-sm text-stone-600 mt-1">
+              Ready to connect. You'll be sent to Xero to approve access, then brought straight back.
+            </p>
+            <p v-else-if="xero.error" class="text-sm text-rose-700 mt-1">{{ xero.error }}</p>
+            <p v-else class="text-sm text-emerald-800 mt-1">
+              Connected to <strong>{{ xero.tenant_name }}</strong>.
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <button v-if="xero && xero.configured && !xero.connected"
+                    class="px-4 py-2 rounded-lg bg-emerald-800 text-white text-sm font-semibold disabled:opacity-50"
+                    @click="connectXero" :disabled="busy">Connect Xero</button>
+            <button v-if="xero && xero.connected"
+                    class="px-3 py-2 rounded-lg border border-stone-300 text-sm font-semibold hover:bg-stone-50"
+                    @click="connectXero" :disabled="busy">Reconnect</button>
+          </div>
+        </div>
+
+        <div v-if="xero && xero.connected && xero.accounts" class="flex flex-wrap items-end gap-3 mt-4 pt-4 border-t border-stone-200">
+          <label class="text-xs font-semibold text-stone-600">Bank account
+            <select v-model="xeroAccount" class="mt-1 block border border-stone-300 rounded-lg px-2 py-1.5 text-sm">
+              <option value="">Choose…</option>
+              <option v-for="a in xero.accounts" :key="a.account_id" :value="a.account_id">
+                {{ a.name }}{{ a.number ? ' — ' + a.number : '' }}
+              </option>
+            </select>
+          </label>
+          <button class="px-4 py-2 rounded-lg bg-emerald-800 text-white text-sm font-semibold disabled:opacity-50"
+                  @click="pullXero" :disabled="busy || !xeroAccount">Pull deposits for this period</button>
+          <p class="text-xs text-stone-500 basis-full">
+            Reads the bank statement lines for {{ from }} to {{ to }} and keeps the deposits that look like
+            Shopify or Afterpay settlements. Running it again is safe — deposits are de-duplicated.
+          </p>
+        </div>
+      </section>
+
       <!-- bank import -->
       <section v-if="showImport" class="bg-white rounded-xl border border-stone-200 p-4 no-print">
         <h2 class="font-semibold text-stone-800">Import bank deposits</h2>
@@ -270,6 +315,7 @@ createApp({
     const ready=ref(false), gateError=ref(''), busy=ref(false), msg=ref(''), msgBad=ref(false);
     const data=ref(null);
     const showImport=ref(false), importCsv=ref(''), importProvider=ref('card');
+    const xero=ref(null), xeroAccount=ref('');
     const onlyProblems=ref(false);
     const cutoff=ref('utc'), lagCard=ref(2), lagAp=ref(2);
 
@@ -348,6 +394,30 @@ createApp({
       finally{ busy.value=false; }
     }
 
+    async function loadXero(){
+      try{ xero.value=await call({action:'xero_status'}); }
+      catch(e){ xero.value={configured:false,connected:false}; }
+    }
+
+    async function connectXero(){
+      busy.value=true;
+      try{
+        const r=await call({action:'xero_auth_url'});
+        window.location.href=r.url;   // Xero shows its own consent screen
+      }catch(e){ flash(e.message,true); busy.value=false; }
+    }
+
+    async function pullXero(){
+      busy.value=true;
+      try{
+        const r=await call({action:'xero_pull',account_id:xeroAccount.value,from:from.value,to:to.value});
+        flash('Found '+r.deposits_found+' deposits, imported '+r.imported+' as Shopify/Afterpay settlements'
+          +(r.unclassified?'. '+r.unclassified+' other deposit(s) ignored.':'.'));
+        await load();
+      }catch(e){ flash(e.message,true); }
+      finally{ busy.value=false; }
+    }
+
     function applySolver(){
       const b=data.value.solver.best;
       cutoff.value=b.cutoff; lagCard.value=b.lag_card; lagAp.value=b.lag_afterpay;
@@ -365,6 +435,8 @@ createApp({
             await load();
           } else throw e1;
         }
+        await loadXero();
+        if(new URLSearchParams(location.search).get('xero')==='ok') flash('Xero connected.');
       }catch(e){
         const m=e.message||'';
         gateError.value=/access/i.test(m)
@@ -376,6 +448,7 @@ createApp({
 
     return { ready,gateError,busy,msg,msgBad,data,showImport,importCsv,importProvider,onlyProblems,
       cutoff,lagCard,lagAp,month,from,to,monthOptions,applyMonth,fmt,label,badge,visibleBatches,
+      xero,xeroAccount,connectXero,pullXero,
       load,syncNow,importBank,applySolver,window };
   }
 }).mount('#app');

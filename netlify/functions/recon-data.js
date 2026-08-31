@@ -1,8 +1,10 @@
 // Endpoint for the payment reconciliation app (/recon/).
 // Gated on a logged-in portal user with access to 'recon'. Financial data, so no
 // unauthenticated path and no CORS wildcard.
+const crypto = require('crypto');
 const { json, validatePortalUser } = require('./_portal');
 const R = require('./_recon');
+const X = require('./_xero');
 
 function csvSplit(line) {
   // Handles quoted fields with embedded commas, as exported by banks and Xero.
@@ -100,6 +102,71 @@ exports.handler = async (event) => {
         written += Math.min(300, rows.length - i);
       }
       return json(200, { imported: written, skipped: bad.length, examples: bad.slice(0, 3) });
+    }
+
+    /* ---- Xero: connection status ---- */
+    if (action === 'xero_status') {
+      if (!X.configured()) return json(200, { configured: false, connected: false });
+      const row = await X.getRow();
+      if (!row || !row.refresh_token) return json(200, { configured: true, connected: false });
+      let accounts = null, error = null;
+      try { accounts = await X.bankAccounts(); }
+      catch (e) { error = String(e.message || e).slice(0, 200); }
+      return json(200, {
+        configured: true, connected: !error, tenant_name: row.tenant_name,
+        connected_at: row.connected_at, accounts, error,
+      });
+    }
+
+    /* ---- Xero: start the consent flow ---- */
+    if (action === 'xero_auth_url') {
+      if (!X.configured()) return json(400, { error: 'Xero client ID and secret are not set in Netlify yet.' });
+      const state = crypto.randomBytes(24).toString('hex');
+      await X.saveRow({ state, state_at: new Date().toISOString() });
+      return json(200, { url: X.authorizeUrl(state) });
+    }
+
+    if (action === 'xero_disconnect') {
+      await X.saveRow({ refresh_token: null, tenant_id: null, tenant_name: null, state: null, connected_at: null });
+      return json(200, { disconnected: true });
+    }
+
+    /* ---- Xero: pull real bank statement lines ---- */
+    if (action === 'xero_pull') {
+      const acct = body.account_id;
+      if (!acct) return json(400, { error: 'Pick a bank account first.' });
+      const f = body.from, t = body.to;
+      if (!f || !t) return json(400, { error: 'Need a date range.' });
+
+      const lines = await X.bankStatement(acct, f, t);
+      const rows = [], unclassified = [];
+      for (const l of lines) {
+        const provider = X.classify(l);
+        if (!provider) { unclassified.push(l); continue; }
+        rows.push({
+          bank_date: l.bank_date, amount: l.amount, reference: l.reference,
+          description: l.description, source: 'xero', provider,
+          reconciled: l.reconciled, bank_account_id: acct,
+          external_id: 'xero|' + acct + '|' + l.bank_date + '|' + l.amount.toFixed(2) + '|' + (l.reference || '').slice(0, 40),
+        });
+      }
+      for (let i = 0; i < rows.length; i += 300) {
+        await R.reconDb('bank?on_conflict=external_id', {
+          method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify(rows.slice(i, i + 300)),
+        });
+      }
+      await R.reconDb('run', {
+        method: 'POST', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ kind: 'xero_pull', period_from: f, period_to: t, rows_in: rows.length,
+          note: 'lines=' + lines.length + ' unclassified=' + unclassified.length }),
+      }).catch(() => {});
+
+      return json(200, {
+        deposits_found: lines.length, imported: rows.length,
+        unclassified: unclassified.length,
+        unclassified_examples: unclassified.slice(0, 8).map(u => ({ date: u.bank_date, amount: u.amount, ref: u.reference })),
+      });
     }
 
     if (action === 'clear_bank') {
