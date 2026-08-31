@@ -28,7 +28,7 @@
   schedule = "40 18 * * *"
 
 [functions."monthly-pos-report"]
-  schedule = "0 0 1-4 * *"
+  schedule = "0 18 28-31,1-3 * *"
 
 [functions."timeclock-cleanup"]
   schedule = "0 2 * * *"
