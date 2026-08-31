@@ -90,7 +90,7 @@
 
   async function compress(file, opts) {
     opts = opts || {};
-    const maxSeconds = opts.maxSeconds || 60;
+    const maxSeconds = opts.maxSeconds || 120;
     const maxEdge = opts.maxEdge || 1280;      // 720p on the long edge
     const bitrate = opts.bitrate || 900000;    // ~6.7MB per minute
     const mute = !!opts.mute;
@@ -105,7 +105,8 @@
       const duration = video.duration;
       if (!isFinite(duration) || duration <= 0) throw new Error('That video has no readable length.');
       if (duration > maxSeconds + 0.75) {
-        throw new Error('That clip is ' + Math.round(duration) + ' seconds. Keep training clips to ' + maxSeconds + ' seconds or less — one point per clip.');
+        const mins = Math.floor(maxSeconds / 60);
+        throw new Error('That clip is ' + Math.round(duration) + ' seconds long. The limit is ' + (mins ? mins + ' minute' + (mins > 1 ? 's' : '') : maxSeconds + ' seconds') + ' — try filming just the one step.');
       }
 
       const { w, h } = targetSize(video, maxEdge);

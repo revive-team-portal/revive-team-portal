@@ -199,7 +199,7 @@
                     <input type="file" accept="video/*" class="hidden" @change="stepVideo(i,$event)">
                   </label>
                   <label class="text-xs flex items-center gap-1.5"><input type="checkbox" v-model="s.video_mute" class="w-4 h-4 accent-green-800"> no sound</label>
-                  <span class="text-[11px] text-stone-400">60 seconds max · shrunk on your phone before it uploads</span>
+                  <span class="text-[11px] text-stone-400"><b class="text-stone-500">2 minutes max</b> · most should be well under 1 minute — one point per clip · shrunk on your phone before it uploads</span>
                 </div>
                 <div v-if="vid[i]" class="mt-2">
                   <div class="h-1.5 bg-stone-200 rounded overflow-hidden"><div class="h-full bg-green-700 transition-all" :style="{width:(vid[i].pct*100)+'%'}"></div></div>
@@ -605,9 +605,9 @@ createApp({
       busy.value = true;
       try {
         if (!window.RVVideo || !RVVideo.supported()) throw new Error('This browser cannot shrink video. Try Safari or Chrome on your phone.');
-        set(0.02, 'Shrinking the clip — this runs in real time, so a 60 second clip takes about a minute.');
+        set(0.02, 'Shrinking the clip on this device — it runs in real time, so it takes about as long as the clip itself.');
         const out = await RVVideo.compress(f, {
-          maxSeconds: 60, maxEdge: 1280, bitrate: 900000, mute: !!st.video_mute,
+          maxSeconds: 120, maxEdge: 1280, bitrate: 900000, mute: !!st.video_mute,
           onProgress: (p) => set(p * 0.8, 'Shrinking… ' + Math.round(p * 100) + '%'),
         });
         const mb = (out.blob.size / 1048576).toFixed(1);
