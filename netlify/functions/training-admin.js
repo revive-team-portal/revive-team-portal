@@ -93,6 +93,24 @@ async function uploadDataUrl(dataUrl, bucket, prefix) {
   return { path, url: publicUrl(bucket, path), file_type: m[1] };
 }
 
+
+// A Netlify function body caps at ~6MB and base64 inflates by a third, so video
+// can never be relayed through here. Instead we hand the browser a signed URL
+// and it PUTs straight to storage.
+const VIDEO_BUCKET = 'training-videos';
+async function videoUploadUrl(prefix) {
+  const safe = String(prefix || 'clip').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24) || 'clip';
+  const path = safe + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.mp4';
+  const res = await fetch(APPS_URL + '/storage/v1/object/upload/sign/' + VIDEO_BUCKET + '/' + path, {
+    method: 'POST',
+    headers: { apikey: APPS_KEY, Authorization: 'Bearer ' + APPS_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiresIn: 900 }),
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok || !d.url) throw new Error('Could not start the upload: ' + res.status + ' ' + JSON.stringify(d).slice(0, 160));
+  return { path, upload_url: APPS_URL + '/storage/v1' + d.url, public_url: publicUrl(VIDEO_BUCKET, path) };
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, body: '' };
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
@@ -117,6 +135,7 @@ exports.handler = async (event) => {
       case 'save_version':  return json(200, await saveVersion(b));
       case 'save_questions':return json(200, await saveQuestions(b));
       case 'publish':       return json(200, await publish(b));
+      case 'video_upload_url': return json(200, await videoUploadUrl(b.prefix));
       case 'resolve_video': return json(200, await resolveVideo(b.url));
       case 'upload':        return json(200, await uploadDataUrl(b.data, b.bucket === 'photo' ? PHOTO_BUCKET : DOC_BUCKET, b.prefix || 'doc'));
       case 'set_requirements': return json(200, await setRequirements(b));
@@ -275,6 +294,10 @@ async function writeSteps(versionId, steps) {
     video_id: youtubeId(s.video_id) || null,
     video_title: s.video_title || null,
     video_thumb: s.video_thumb || null,
+    video_path: s.video_path || null,
+    video_poster: s.video_poster || null,
+    video_secs: s.video_secs || null,
+    video_mute: !!s.video_mute,
   })).filter(r => r.step.trim());
   if (rows.length) await T('step', { method: 'POST', ...MIN, body: JSON.stringify(rows) });
   return rows.length;

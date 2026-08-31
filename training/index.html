@@ -9,6 +9,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/video-compress.js"></script>
   <style>
     [v-cloak]{display:none}
     .tap{-webkit-tap-highlight-color:transparent;user-select:none}
@@ -192,6 +193,26 @@
                          class="flex-1 border border-stone-300 rounded px-3 py-1.5 text-xs">
                   <button @click="attachVideo(i)" :disabled="busy || !s.video_paste" class="tap text-xs font-semibold border border-stone-300 rounded px-3 py-1.5 disabled:opacity-30">Attach</button>
                 </div>
+                <div class="flex items-center gap-2 mt-2 flex-wrap">
+                  <label class="tap text-xs font-semibold border border-stone-300 rounded px-3 py-1.5 cursor-pointer">
+                    Upload a clip
+                    <input type="file" accept="video/*" class="hidden" @change="stepVideo(i,$event)">
+                  </label>
+                  <label class="text-xs flex items-center gap-1.5"><input type="checkbox" v-model="s.video_mute" class="w-4 h-4 accent-green-800"> no sound</label>
+                  <span class="text-[11px] text-stone-400">60 seconds max · shrunk on your phone before it uploads</span>
+                </div>
+                <div v-if="vid[i]" class="mt-2">
+                  <div class="h-1.5 bg-stone-200 rounded overflow-hidden"><div class="h-full bg-green-700 transition-all" :style="{width:(vid[i].pct*100)+'%'}"></div></div>
+                  <p class="text-[11px] text-stone-500 mt-1">{{ vid[i].msg }}</p>
+                </div>
+                <div v-if="s.video_path" class="flex items-center gap-2 mt-2">
+                  <img v-if="s.video_poster" :src="photoUrl(s.video_poster)" class="h-12 rounded border">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-semibold">Clip uploaded · {{ s.video_secs }}s{{ s.video_mute ? ' · no sound' : '' }}</p>
+                    <a :href="videoUrl(s.video_path)" target="_blank" rel="noopener" class="text-[11px] text-green-800 underline">check it plays</a>
+                  </div>
+                  <button @click="s.video_path=null;s.video_poster=null;s.video_secs=null" class="tap text-xs text-red-600">Remove</button>
+                </div>
                 <div v-if="s.video_id" class="flex items-center gap-2 mt-2">
                   <img :src="s.video_thumb" class="h-12 rounded border">
                   <div class="min-w-0 flex-1">
@@ -202,7 +223,7 @@
                 </div>
               </div>
             </div>
-            <button @click="ed.steps.push({step:'',key_point:'',why:'',needs_check:false,video_paste:'',video_id:null,video_title:null,video_thumb:null})" class="tap text-sm font-semibold text-green-800">+ Add a step</button>
+            <button @click="ed.steps.push({step:'',key_point:'',why:'',needs_check:false,video_paste:'',video_id:null,video_title:null,video_thumb:null,video_path:null,video_poster:null,video_secs:null,video_mute:false})" class="tap text-sm font-semibold text-green-800">+ Add a step</button>
           </div>
 
           <div class="flex flex-wrap gap-2">
@@ -541,7 +562,7 @@ createApp({
       busy.value = true;
       try {
         const r = await AI({ action: 'draft', files: upFiles.value, text: pasteText.value });
-        ed.value.steps = (r.steps || []).map(s => ({ step: s.step || '', key_point: s.key_point || '', why: s.why || '', needs_check: !!s.needs_check, photo_path: null, video_paste: '', video_id: null, video_title: null, video_thumb: null }));
+        ed.value.steps = (r.steps || []).map(s => ({ step: s.step || '', key_point: s.key_point || '', why: s.why || '', needs_check: !!s.needs_check, photo_path: null, video_paste: '', video_id: null, video_title: null, video_thumb: null, video_path: null, video_poster: null, video_secs: null, video_mute: false }));
         if (r.title && /^untitled$/i.test(ed.value.doc.title)) ed.value.doc.title = r.title;
         if (r.summary && !ed.value.doc.summary) ed.value.doc.summary = r.summary;
         if (r.suggested_tags && r.suggested_tags.length && !tagText.value) tagText.value = r.suggested_tags.join(', ');
@@ -571,6 +592,41 @@ createApp({
         ed.value.steps[i].photo_path = up.path;
       } catch (e) { fail(e); } finally { busy.value = false; }
     }
+    const vid = ref({});
+    const videoUrl = (p) => SUPA + '/storage/v1/object/public/training-videos/' + p;
+
+    async function stepVideo(i, ev) {
+      const f = (ev.target.files || [])[0];
+      ev.target.value = '';
+      if (!f) return;
+      const st = ed.value.steps[i];
+      const set = (pct, msg) => { vid.value = { ...vid.value, [i]: { pct, msg } }; };
+      const clear = () => { const c = { ...vid.value }; delete c[i]; vid.value = c; };
+      busy.value = true;
+      try {
+        if (!window.RVVideo || !RVVideo.supported()) throw new Error('This browser cannot shrink video. Try Safari or Chrome on your phone.');
+        set(0.02, 'Shrinking the clip — this runs in real time, so a 60 second clip takes about a minute.');
+        const out = await RVVideo.compress(f, {
+          maxSeconds: 60, maxEdge: 1280, bitrate: 900000, mute: !!st.video_mute,
+          onProgress: (p) => set(p * 0.8, 'Shrinking… ' + Math.round(p * 100) + '%'),
+        });
+        const mb = (out.blob.size / 1048576).toFixed(1);
+        set(0.85, 'Uploading ' + mb + ' MB…');
+        const sign = await A({ action: 'video_upload_url', prefix: ref_(ed.value.doc) + '-s' + (i + 1) });
+        const put = await fetch(sign.upload_url, { method: 'PUT', headers: { 'Content-Type': out.mime, 'x-upsert': 'true' }, body: out.blob });
+        if (!put.ok) throw new Error('Upload failed (' + put.status + '). Check your connection and try again.');
+        if (out.poster) {
+          set(0.95, 'Saving the thumbnail…');
+          const pu = await A({ action: 'upload', data: out.poster, bucket: 'photo', prefix: 'poster' });
+          st.video_poster = pu.path;
+        }
+        st.video_path = sign.path;
+        st.video_secs = out.seconds;
+        clear();
+        flash('Clip added (' + mb + ' MB from ' + (f.size / 1048576).toFixed(0) + ' MB). Save to keep it.');
+      } catch (e) { clear(); fail(e); } finally { busy.value = false; }
+    }
+
     async function attachVideo(i) {
       const st = ed.value.steps[i];
       busy.value = true;
@@ -722,7 +778,7 @@ createApp({
       visibleDocs, liveDocs, openFeedback,
       ref_, photoUrl, today, fmt, methodLabel, liveV,
       newDoc, openEditor, newVersion, pickFiles, draftIt, move, toggleArea, stepPhoto, saveAll, printSheet,
-      attachVideo, suggestQuestions, setCorrect, doPublish,
+      attachVideo, vid, videoUrl, stepVideo, suggestQuestions, setCorrect, doPublish,
       loadMatrix, cell, cellText, cellClass, cellClick, signOff, manualMark, assignOne,
       toggleStaffArea, saveSession, loadFeedback, setFeedback, loadAudit, downloadCsv,
     };

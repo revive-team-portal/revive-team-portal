@@ -157,6 +157,13 @@
             <p v-if="s.key_point" class="mt-2 text-green-900 bg-green-50 rounded-lg px-3 py-2 font-medium">{{ s.key_point }}</p>
             <img v-if="s.photo_path" :src="photoUrl(s.photo_path)" alt="" class="mt-3 rounded-lg w-full max-w-full">
 
+            <div v-if="s.video_path" class="mt-3">
+              <video controls playsinline preload="none" class="w-full rounded-lg bg-black"
+                     :poster="s.video_poster ? photoUrl(s.video_poster) : null"
+                     :src="videoUrl(s.video_path)"></video>
+              <p class="text-xs text-stone-400 mt-1">{{ s.video_secs }} second clip · loads when you press play</p>
+            </div>
+
             <div v-if="s.video_id" class="mt-3">
               <div v-if="playing===s.id" class="relative w-full rounded-lg overflow-hidden bg-black" style="aspect-ratio:16/9">
                 <iframe :src="embedUrl(s.video_id)" class="absolute inset-0 w-full h-full" style="border:0"
@@ -305,6 +312,7 @@ createApp({
     const fileUrl = (p) => SUPA + '/storage/v1/object/public/training-docs/' + p;
     const photoUrl = (p) => SUPA + '/storage/v1/object/public/training-photos/' + p;
     // Built from the stored id only — never from anything a person pasted.
+    const videoUrl = (p) => SUPA + '/storage/v1/object/public/training-videos/' + p;
     const embedUrl = (id) => 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?rel=0&modestbranding=1&playsinline=1&autoplay=1';
     const shortDate = (s) => s ? new Date(s).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' }) : '';
     const methodLabel = (m) => ({ quiz: 'questions', in_person: 'in person', practical: 'signed off', manual: 'recorded by manager', ack: 'read' }[m] || m);
@@ -481,7 +489,7 @@ createApp({
       booting, busy, loading, code, personName, needsSetup, lookupError, signInError, error,
       pin, pin2, pinRefs, pin2Refs, remember, pinReady, token, me, screen,
       items, outstanding, q, results, searching, doc, questions, picked, qIndex, result, current, allAnswered,
-      fbOpen, fbText, fbDone, playing, embedUrl,
+      fbOpen, fbText, fbDone, playing, embedUrl, videoUrl,
       onPin, onPin2, onPinKey, onPin2Key, lookup, doSignIn, signOut, goHome, runSearch,
       openDoc, startQuiz, pick, submitQuiz, ack, sendFeedback,
       docRef, fileUrl, photoUrl, shortDate, methodLabel, badgeText, badgeClass,
