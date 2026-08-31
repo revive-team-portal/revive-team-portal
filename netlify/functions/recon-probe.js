@@ -1,0 +1,116 @@
+// TEMPORARY extraction endpoint for the Shopify -> bank payment reconciliation.
+// Guarded by a SHA-256 hash of a one-time key held only by the operator; the key
+// itself is never stored in this public repo. DELETE THIS FILE once extraction is done.
+const crypto = require('crypto');
+const { gql, STORE, API_VER } = require('./_shopify');
+
+const KEY_HASH = '7f10988a658d5af94698b56ab5dd927e728633f18336fa9fe3bc12707246f85a';
+
+function ok(obj) {
+  return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(obj) };
+}
+
+exports.handler = async (event) => {
+  const hdr = (event.headers || {})['x-recon-key'] || '';
+  if (!hdr || crypto.createHash('sha256').update(hdr).digest('hex') !== KEY_HASH) {
+    return { statusCode: 403, body: 'nope' };
+  }
+  const qp = (event.queryStringParameters) || {};
+  const action = qp.action || 'scopes';
+  const after = qp.after || null;
+  const first = Math.min(Number(qp.first || 100), 250);
+
+  try {
+    if (action === 'scopes') {
+      const d = await gql('{ currentAppInstallation{ accessScopes{ handle } app{ title } } }');
+      return ok({
+        store: STORE, api_version: API_VER,
+        app: d.currentAppInstallation.app && d.currentAppInstallation.app.title,
+        scopes: (d.currentAppInstallation.accessScopes || []).map(x => x.handle).sort(),
+      });
+    }
+
+    if (action === 'account') {
+      const d = await gql(`{
+        shopifyPaymentsAccount {
+          id defaultCurrency chargeStatementDescriptors { default }
+          payoutSchedule { interval monthlyAnchor weeklyAnchor }
+          bankAccounts(first: 10) { nodes { id accountNumberLastDigits bankName country currency status createdAt } }
+        }
+      }`);
+      return ok(d);
+    }
+
+    if (action === 'payouts') {
+      const d = await gql(`query($first:Int!,$after:String,$q:String){
+        shopifyPaymentsAccount { payouts(first:$first, after:$after, query:$q, sortKey: ISSUED_AT) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id issuedAt status
+            net { amount currencyCode }
+            summary {
+              adjustmentsFee { amount } adjustmentsGross { amount }
+              chargesFee { amount } chargesGross { amount }
+              refundsFee { amount } refundsFeeGross { amount }
+              reservedFundsFee { amount } reservedFundsGross { amount }
+              retriedPayoutsFee { amount } retriedPayoutsGross { amount }
+            }
+          }
+        } }
+      }`, { first, after, q: qp.q || null });
+      return ok(d);
+    }
+
+    if (action === 'balance') {
+      // Balance transactions link each charge/refund to the payout that carried it.
+      const d = await gql(`query($first:Int!,$after:String,$q:String){
+        shopifyPaymentsAccount { balanceTransactions(first:$first, after:$after, query:$q, sortKey: PROCESSED_AT) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id type test processedAt
+            amount { amount currencyCode }
+            fee { amount currencyCode }
+            net { amount currencyCode }
+            sourceId sourceType sourceOrderTransactionId
+            associatedPayout { id status }
+            associatedOrder { id name processedAt }
+          }
+        } }
+      }`, { first, after, q: qp.q || null });
+      return ok(d);
+    }
+
+    if (action === 'orders') {
+      const d = await gql(`query($first:Int!,$after:String,$q:String){
+        orders(first:$first, after:$after, query:$q, sortKey: PROCESSED_AT) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id name createdAt processedAt cancelledAt test
+            displayFinancialStatus
+            currentTotalPriceSet { shopMoney { amount } }
+            totalPriceSet { shopMoney { amount } }
+            totalRefundedSet { shopMoney { amount } }
+            totalTaxSet { shopMoney { amount } }
+            totalDiscountsSet { shopMoney { amount } }
+            totalShippingPriceSet { shopMoney { amount } }
+            subtotalPriceSet { shopMoney { amount } }
+            paymentGatewayNames
+            channelInformation { channelDefinition { channelName subChannelName } }
+            transactions {
+              id kind status gateway formattedGateway processedAt createdAt
+              paymentId accountNumber errorCode
+              amountSet { shopMoney { amount currencyCode } }
+              fees { amount { amount currencyCode } type flatFee { amount } rate rateName }
+              parentTransaction { id }
+            }
+          }
+        }
+      }`, { first, after, q: qp.q || null });
+      return ok(d);
+    }
+
+    return { statusCode: 400, body: 'unknown action' };
+  } catch (e) {
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: String(e.message || e).slice(0, 800) }) };
+  }
+};
