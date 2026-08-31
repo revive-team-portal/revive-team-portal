@@ -115,12 +115,12 @@ exports.handler = async (event) => {
     const lag = { card: Number(body.lag_card != null ? body.lag_card : 2), afterpay: Number(body.lag_afterpay != null ? body.lag_afterpay : 2) };
 
     // Pull a couple of days either side so batches at the period edges are whole.
-    const txns = await R.reconDb('txn?select=txn_id,txn_processed_at,nz_date,kind,status,gateway,amount,fee,is_test,order_name' +
-      '&nz_date=gte.' + R.addDays(from, -2) + '&nz_date=lte.' + R.addDays(to, 2) + '&limit=100000');
+    const txns = await R.reconDbAll('txn?select=txn_id,txn_processed_at,nz_date,kind,status,gateway,amount,fee,is_test,order_name' +
+      '&nz_date=gte.' + R.addDays(from, -2) + '&nz_date=lte.' + R.addDays(to, 2) + '&order=txn_id');
     const inPeriod = txns.filter(t => t.nz_date >= from && t.nz_date <= to);
 
-    const bank = await R.reconDb('bank?select=id,bank_date,amount,reference,provider' +
-      '&bank_date=gte.' + from + '&bank_date=lte.' + R.addDays(to, 10) + '&limit=20000') || [];
+    const bank = await R.reconDbAll('bank?select=id,bank_date,amount,reference,provider' +
+      '&bank_date=gte.' + from + '&bank_date=lte.' + R.addDays(to, 10) + '&order=id') || [];
 
     const batches = R.buildBatches(inPeriod, { cutoff, lag });
     const { rows, unmatchedBank } = R.matchBatches(batches, bank);

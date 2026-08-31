@@ -25,6 +25,21 @@ async function reconDb(path, opts = {}) {
   return t ? JSON.parse(t) : null;
 }
 
+// PostgREST caps every response at db-max-rows (1000 on Supabase) regardless of any
+// limit in the query, so a single call silently truncates a busy month. Always page.
+async function reconDbAll(path, pageSize = 1000) {
+  const sep = path.includes('?') ? '&' : '?';
+  let out = [], offset = 0;
+  for (let guard = 0; guard < 500; guard++) {
+    const page = await reconDb(path + sep + 'limit=' + pageSize + '&offset=' + offset);
+    if (!Array.isArray(page) || !page.length) break;
+    out = out.concat(page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+  return out;
+}
+
 /* ---------- dates ---------- */
 const nzFmt = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -236,6 +251,6 @@ function cutoffImpact(txns) {
 }
 
 module.exports = {
-  reconDb, nzDate, utcDate, todayNZ, addDays, addBusinessDays, money,
+  reconDb, reconDbAll, nzDate, utcDate, todayNZ, addDays, addBusinessDays, money,
   railOf, RAIL_LABEL, syncTxns, buildBatches, matchBatches, solve, cutoffImpact,
 };

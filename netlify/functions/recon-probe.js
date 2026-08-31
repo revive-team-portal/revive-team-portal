@@ -143,10 +143,10 @@ exports.handler = async (event) => {
       const from = qp.from || '2026-04-01', to = qp.to || '2026-08-31';
       const cutoff = qp.cutoff === 'nz' ? 'nz' : 'utc';
       const lag = { card: Number(qp.lag_card || 2), afterpay: Number(qp.lag_afterpay || 2) };
-      const txns = await R.reconDb('txn?select=txn_id,txn_processed_at,nz_date,kind,status,gateway,amount,fee,is_test' +
-        '&nz_date=gte.' + from + '&nz_date=lte.' + to + '&limit=100000');
+      const txns = await R.reconDbAll('txn?select=txn_id,txn_processed_at,nz_date,kind,status,gateway,amount,fee,is_test' +
+        '&nz_date=gte.' + from + '&nz_date=lte.' + to + '&order=txn_id');
       const batches = R.buildBatches(txns, { cutoff, lag });
-      const bank = await R.reconDb('bank?select=id,bank_date,amount,reference,provider&limit=20000') || [];
+      const bank = await R.reconDbAll('bank?select=id,bank_date,amount,reference,provider&order=id') || [];
       const m = R.matchBatches(batches, bank);
       const sum = (a, f) => Math.round(a.reduce((s, x) => s + Number(f(x)), 0) * 100) / 100;
       const byRail = {};
