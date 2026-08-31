@@ -50,7 +50,7 @@
     function caut(f) { return f ? (!stamp[f] || (now - stamp[f] > STALE)) : false; }
     function box(lab, val, f) { var c = caut(f); return '<span class="rtb-seg' + (c ? ' rtb-stale' : '') + '"' + (c ? ' title="Not updating — last good ' + (stamp[f] ? hm(stamp[f]) : 'never') + '"' : '') + '><span class="rtb-lab">' + lab + (c ? ' ⚠️' : '') + '</span><b>' + val + '</b></span>'; }
     var h = '';
-    if (store.sales != null) { h += box('Cafe $ today', money0(store.sales), 'sales'); h += box('Covers today', (Math.round(store.covers) || 0).toLocaleString(), 'covers'); }
+    if (store.sales != null) { h += box('Cafe $ today', money0(store.sales), 'sales'); var _cov = Number(store.covers) || 0; var _avg = _cov > 0 ? (store.sales / _cov) : null; h += box('Covers/avg', Math.round(_cov).toLocaleString() + (_avg != null ? ' \u00b7 $' + _avg.toFixed(2) : ''), 'covers'); }
     var proj = (nzMin() >= HALF_MIN && store.sales_1245 > 0);
     h += box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : ' ', proj ? 'sales' : null);
     if (store.shopify_today != null) h += box('Shopify today', money0(store.shopify_today) + (store.shopify_today_orders != null ? ' · ' + Number(store.shopify_today_orders).toLocaleString() : ''), 'shopify_today');
