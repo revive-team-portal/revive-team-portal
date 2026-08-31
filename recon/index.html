@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revive — Recon</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    [v-cloak]{display:none}
+    ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
+    .scroll-x{overflow-x:auto}
+    table{border-collapse:collapse}
+    .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+    @media print{ @page{size:A4 landscape;margin:10mm} .no-print{display:none!important} body{background:#fff!important} }
+  </style>
+  <link rel="stylesheet" href="/chrome.css">
+</head>
+<body class="bg-stone-100 font-sans text-stone-900">
+<script src="/today-bar.js" defer></script>
+<script>
+  const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
+  const PORTAL_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY2J0ZmRqY3NiZGVxbml6cnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODkzNDcsImV4cCI6MjA5MzY2NTM0N30.chmQ9vY8vc0Yyu81d-a6bccIgGsFIIRrdo6kEKFS79w';
+</script>
+
+<div id="app" v-cloak>
+
+  <div v-if="!ready" class="rv-load">
+    <div class="rv-load__scrim"></div>
+    <div class="rv-load__box">
+      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+      <div class="rv-load__text">Reconciling payments</div>
+      <div class="rv-load__bar"><i></i></div>
+    </div>
+  </div>
+
+  <template v-else>
+    <nav class="rv-nav no-print">
+      <div class="rv-left">
+        <a href="/" class="rv-portal rv-back">&larr; Portal</a>
+        <img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
+        <span class="rv-appname">Recon</span>
+      </div>
+      <div class="rv-right">
+        <button class="rv-btn" @click="syncNow" :disabled="busy">{{ busy ? 'Working…' : 'Sync Shopify' }}</button>
+        <button class="rv-btn rv-btn-primary" @click="window.print()">Print</button>
+      </div>
+    </nav>
+
+    <div v-if="gateError" class="max-w-2xl mx-auto mt-16 bg-white rounded-xl border border-stone-200 p-6 text-center">
+      <p class="text-stone-700">{{ gateError }}</p>
+    </div>
+
+    <main v-else class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+
+      <!-- controls -->
+      <section class="bg-white rounded-xl border border-stone-200 p-4 no-print">
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="text-xs font-semibold text-stone-600">Month
+            <select v-model="month" @change="applyMonth" class="mt-1 block border border-stone-300 rounded-lg px-2 py-1.5 text-sm">
+              <option v-for="m in monthOptions" :key="m.v" :value="m.v">{{ m.label }}</option>
+            </select>
+          </label>
+          <label class="text-xs font-semibold text-stone-600">From
+            <input type="date" v-model="from" class="mt-1 block border border-stone-300 rounded-lg px-2 py-1.5 text-sm">
+          </label>
+          <label class="text-xs font-semibold text-stone-600">To
+            <input type="date" v-model="to" class="mt-1 block border border-stone-300 rounded-lg px-2 py-1.5 text-sm">
+          </label>
+          <label class="text-xs font-semibold text-stone-600">Settlement cut-off
+            <select v-model="cutoff" class="mt-1 block border border-stone-300 rounded-lg px-2 py-1.5 text-sm">
+              <option value="utc">UTC midnight (noon NZ)</option>
+              <option value="nz">NZ midnight</option>
+            </select>
+          </label>
+          <label class="text-xs font-semibold text-stone-600">Card lag (bus. days)
+            <input type="number" min="0" max="10" v-model.number="lagCard" class="mt-1 block w-20 border border-stone-300 rounded-lg px-2 py-1.5 text-sm">
+          </label>
+          <label class="text-xs font-semibold text-stone-600">Afterpay lag
+            <input type="number" min="0" max="10" v-model.number="lagAp" class="mt-1 block w-20 border border-stone-300 rounded-lg px-2 py-1.5 text-sm">
+          </label>
+          <button class="px-4 py-2 rounded-lg bg-emerald-800 text-white text-sm font-semibold hover:bg-emerald-900 disabled:opacity-50"
+                  @click="load" :disabled="busy">Run</button>
+          <button class="px-3 py-2 rounded-lg border border-stone-300 text-sm font-semibold hover:bg-stone-50" @click="showImport=!showImport">
+            {{ showImport ? 'Hide' : 'Import bank lines' }}
+          </button>
+        </div>
+        <p v-if="msg" class="mt-3 text-sm px-3 py-2 rounded-lg" :class="msgBad ? 'bg-rose-50 text-rose-800' : 'bg-emerald-50 text-emerald-800'">{{ msg }}</p>
+      </section>
+
+      <!-- bank import -->
+      <section v-if="showImport" class="bg-white rounded-xl border border-stone-200 p-4 no-print">
+        <h2 class="font-semibold text-stone-800">Import bank deposits</h2>
+        <p class="text-sm text-stone-600 mt-1">
+          Paste the deposit lines from the bank statement or Xero — one per line, as
+          <code class="bg-stone-100 px-1 rounded">date,amount,reference</code>. A header row is fine, and
+          day-first NZ dates are understood. Only positive amounts are imported.
+        </p>
+        <div class="flex flex-wrap items-end gap-3 mt-3">
+          <label class="text-xs font-semibold text-stone-600">These deposits are from
+            <select v-model="importProvider" class="mt-1 block border border-stone-300 rounded-lg px-2 py-1.5 text-sm">
+              <option value="card">Shopify Payments</option>
+              <option value="afterpay">Afterpay</option>
+            </select>
+          </label>
+        </div>
+        <textarea v-model="importCsv" rows="7" placeholder="2026-08-04,3218.44,SHOPIFY PAYMENTS"
+                  class="mt-3 w-full border border-stone-300 rounded-lg p-2 text-sm font-mono"></textarea>
+        <div class="mt-2 flex gap-2">
+          <button class="px-4 py-2 rounded-lg bg-emerald-800 text-white text-sm font-semibold disabled:opacity-50"
+                  @click="importBank" :disabled="busy || !importCsv.trim()">Import</button>
+          <button class="px-3 py-2 rounded-lg border border-stone-300 text-sm" @click="importCsv=''">Clear box</button>
+        </div>
+      </section>
+
+      <!-- headline -->
+      <section v-if="data" class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="bg-white rounded-xl border border-stone-200 p-4">
+          <div class="text-xs font-semibold text-stone-500 uppercase tracking-wide">Gross sales</div>
+          <div class="text-2xl font-bold mt-1">{{ fmt(data.totals.gross) }}</div>
+        </div>
+        <div class="bg-white rounded-xl border border-stone-200 p-4">
+          <div class="text-xs font-semibold text-stone-500 uppercase tracking-wide">Refunds</div>
+          <div class="text-2xl font-bold mt-1 text-stone-700">{{ fmt(data.totals.refunds) }}</div>
+        </div>
+        <div class="bg-white rounded-xl border border-stone-200 p-4">
+          <div class="text-xs font-semibold text-stone-500 uppercase tracking-wide">Processing fees</div>
+          <div class="text-2xl font-bold mt-1 text-stone-700">{{ fmt(data.totals.fees) }}</div>
+        </div>
+        <div class="bg-white rounded-xl border border-stone-200 p-4">
+          <div class="text-xs font-semibold text-stone-500 uppercase tracking-wide">Expected in bank</div>
+          <div class="text-2xl font-bold mt-1 text-emerald-800">{{ fmt(data.totals.expected_net) }}</div>
+        </div>
+        <div class="bg-white rounded-xl border border-stone-200 p-4">
+          <div class="text-xs font-semibold text-stone-500 uppercase tracking-wide">Actually banked</div>
+          <div class="text-2xl font-bold mt-1" :class="data.has_bank ? 'text-emerald-800' : 'text-stone-400'">
+            {{ data.has_bank ? fmt(data.totals.banked) : '—' }}
+          </div>
+          <div v-if="data.has_bank" class="text-xs mt-1 font-semibold"
+               :class="Math.abs(data.totals.banked - data.totals.expected_net) < 1 ? 'text-emerald-700' : 'text-rose-700'">
+            {{ fmt(data.totals.banked - data.totals.expected_net) }} vs expected
+          </div>
+        </div>
+      </section>
+
+      <!-- cut-off warning -->
+      <section v-if="data && data.cutoff_impact.pct > 5" class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <h2 class="font-semibold text-amber-900">Why the days never line up</h2>
+        <p class="text-sm text-amber-900/90 mt-1">
+          <strong>{{ fmt(data.cutoff_impact.swing) }}</strong> of takings
+          ({{ data.cutoff_impact.pct }}% of the period, {{ data.cutoff_impact.txns }} transactions)
+          falls on a <em>different calendar day</em> depending on whether the settlement day is cut at
+          NZ midnight or at UTC midnight — which is <strong>noon NZ time</strong>. Every sale between
+          midnight and noon NZ belongs to the previous UTC day. If the bank batch is cut at UTC midnight
+          and you reconcile against NZ calendar days, a large slice of each day will always look missing.
+        </p>
+      </section>
+
+      <!-- solver -->
+      <section v-if="data && data.solver" class="bg-white rounded-xl border border-stone-200 p-4">
+        <h2 class="font-semibold text-stone-800">What the deposits say the timing actually is</h2>
+        <p class="text-sm text-stone-600 mt-1">
+          Every cut-off and lag combination was tested against the imported deposits. Best fit:
+          <strong>{{ data.solver.best.cutoff === 'utc' ? 'UTC midnight (noon NZ)' : 'NZ midnight' }}</strong>,
+          card settling <strong>{{ data.solver.best.lag_card }}</strong> business day(s) later,
+          Afterpay <strong>{{ data.solver.best.lag_afterpay }}</strong> —
+          {{ data.solver.best.exact_matches }} exact matches, {{ fmt(data.solver.best.abs_error) }} unexplained.
+        </p>
+        <button class="mt-2 text-xs font-semibold text-emerald-800 underline" @click="applySolver">Use these settings</button>
+      </section>
+
+      <!-- rails -->
+      <section v-if="data" class="bg-white rounded-xl border border-stone-200 p-4">
+        <h2 class="font-semibold text-stone-800 mb-3">By payment rail</h2>
+        <div class="scroll-x">
+          <table class="w-full text-sm">
+            <thead><tr class="text-xs uppercase tracking-wide text-stone-500 border-b border-stone-200">
+              <th class="text-left py-2">Rail</th><th class="num py-2">Sales</th><th class="num py-2">Gross</th>
+              <th class="num py-2">Refunds</th><th class="num py-2">Fees</th><th class="num py-2">Expected net</th>
+              <th class="num py-2">Banked</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="r in data.rails" :key="r.rail" class="border-b border-stone-100">
+                <td class="py-2 font-medium">{{ r.label }}</td>
+                <td class="num">{{ r.n }}</td>
+                <td class="num">{{ fmt(r.gross) }}</td>
+                <td class="num">{{ fmt(r.refunds) }}</td>
+                <td class="num">{{ r.rail === 'afterpay' && !r.fees ? 'not in Shopify' : fmt(r.fees) }}</td>
+                <td class="num font-semibold">{{ fmt(r.expected_net) }}</td>
+                <td class="num">{{ data.banked[r.rail] != null ? fmt(data.banked[r.rail]) : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs text-stone-500 mt-3">
+          Afterpay's merchant fee is deducted by Afterpay at settlement and never appears in Shopify, so
+          Afterpay's expected net is shown <em>before</em> that fee. The deposit will be lower by roughly the
+          Afterpay commission — that gap is expected, not missing money.
+        </p>
+      </section>
+
+      <!-- batches -->
+      <section v-if="data" class="bg-white rounded-xl border border-stone-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-stone-800">Settlement batches</h2>
+          <label class="text-xs text-stone-600 no-print"><input type="checkbox" v-model="onlyProblems" class="mr-1">Only unmatched / variances</label>
+        </div>
+        <div class="scroll-x">
+          <table class="w-full text-sm">
+            <thead><tr class="text-xs uppercase tracking-wide text-stone-500 border-b border-stone-200">
+              <th class="text-left py-2">Batch day</th><th class="text-left py-2">Rail</th>
+              <th class="num py-2">Gross</th><th class="num py-2">Refunds</th><th class="num py-2">Fees</th>
+              <th class="num py-2">Expected net</th><th class="text-left py-2 pl-3">Expected in bank</th>
+              <th class="num py-2">Bank</th><th class="num py-2">Variance</th><th class="text-left py-2 pl-3">Status</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="b in visibleBatches" :key="b.rail + b.batch_date" class="border-b border-stone-100">
+                <td class="py-2">{{ b.batch_date }}</td>
+                <td>{{ label(b.rail) }}</td>
+                <td class="num">{{ fmt(b.gross) }}</td>
+                <td class="num">{{ b.refunds ? fmt(b.refunds) : '' }}</td>
+                <td class="num">{{ b.fees ? fmt(b.fees) : '' }}</td>
+                <td class="num font-semibold">{{ fmt(b.expected_net) }}</td>
+                <td class="pl-3">{{ b.expected_date }}</td>
+                <td class="num">{{ b.bank_amount != null ? fmt(b.bank_amount) : '—' }}</td>
+                <td class="num" :class="b.variance && Math.abs(b.variance) >= 0.01 ? 'text-rose-700 font-semibold' : ''">
+                  {{ b.variance != null ? fmt(b.variance) : '' }}
+                </td>
+                <td class="pl-3">
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="badge(b.status)">{{ b.status }}</span>
+                </td>
+              </tr>
+              <tr v-if="!visibleBatches.length"><td colspan="10" class="py-6 text-center text-stone-500">Nothing to show.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- unmatched bank -->
+      <section v-if="data && data.unmatched_bank.length" class="bg-white rounded-xl border border-stone-200 p-4">
+        <h2 class="font-semibold text-stone-800 mb-1">Bank deposits with no matching batch</h2>
+        <p class="text-sm text-stone-600 mb-3">Money that arrived but couldn't be tied to a settlement — check these first.</p>
+        <div class="scroll-x">
+          <table class="w-full text-sm">
+            <thead><tr class="text-xs uppercase tracking-wide text-stone-500 border-b border-stone-200">
+              <th class="text-left py-2">Date</th><th class="num py-2">Amount</th><th class="text-left py-2 pl-3">Reference</th><th class="text-left py-2">Provider</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="b in data.unmatched_bank" :key="b.id" class="border-b border-stone-100">
+                <td class="py-2">{{ b.bank_date }}</td><td class="num">{{ fmt(b.amount) }}</td>
+                <td class="pl-3">{{ b.reference }}</td><td>{{ label(b.provider) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </template>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+const { createClient } = supabase;
+const portal = createClient(PORTAL_URL, PORTAL_ANON);
+
+createApp({
+  setup(){
+    const ready=ref(false), gateError=ref(''), busy=ref(false), msg=ref(''), msgBad=ref(false);
+    const data=ref(null);
+    const showImport=ref(false), importCsv=ref(''), importProvider=ref('card');
+    const onlyProblems=ref(false);
+    const cutoff=ref('utc'), lagCard=ref(2), lagAp=ref(2);
+
+    const nzToday=new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const month=ref(nzToday.slice(0,7));
+    const from=ref(nzToday.slice(0,7)+'-01'), to=ref(nzToday);
+
+    const monthOptions=computed(()=>{
+      const out=[]; let [y,m]=nzToday.slice(0,7).split('-').map(Number);
+      for(let i=0;i<18;i++){
+        const v=y+'-'+String(m).padStart(2,'0');
+        out.push({v,label:new Date(v+'-01T00:00:00Z').toLocaleDateString('en-NZ',{month:'long',year:'numeric',timeZone:'UTC'})});
+        m--; if(m===0){m=12;y--;}
+      }
+      return out;
+    });
+
+    function applyMonth(){
+      const [y,m]=month.value.split('-').map(Number);
+      from.value=month.value+'-01';
+      const last=new Date(Date.UTC(y,m,0)).toISOString().slice(0,10);
+      to.value = last > nzToday ? nzToday : last;
+    }
+
+    const fmt=n=> (n==null||isNaN(n)) ? '—' :
+      (n<0?'-':'')+'$'+Math.abs(Number(n)).toLocaleString('en-NZ',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const LBL={card:'Shopify Payments',afterpay:'Afterpay',other:'Other / manual'};
+    const label=r=>LBL[r]||r;
+    const badge=s=> s==='matched' ? 'bg-emerald-100 text-emerald-800'
+      : s==='variance' ? 'bg-amber-100 text-amber-900' : 'bg-rose-100 text-rose-800';
+
+    const visibleBatches=computed(()=>{
+      const b=(data.value&&data.value.batches)||[];
+      return onlyProblems.value ? b.filter(x=>x.status!=='matched') : b;
+    });
+
+    async function token(){ const {data:{session}}=await portal.auth.getSession(); return session?session.access_token:''; }
+    async function call(payload){
+      const r=await fetch('/.netlify/functions/recon-data',{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},
+        body:JSON.stringify(payload)});
+      const j=await r.json().catch(()=>({error:'Bad response from server.'}));
+      if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+      return j;
+    }
+
+    function flash(t,bad){ msg.value=t; msgBad.value=!!bad; setTimeout(()=>{ if(msg.value===t) msg.value=''; },7000); }
+
+    async function load(){
+      busy.value=true;
+      try{
+        data.value=await call({action:'summary',from:from.value,to:to.value,cutoff:cutoff.value,
+          lag_card:lagCard.value,lag_afterpay:lagAp.value});
+      }catch(e){ flash(e.message,true); }
+      finally{ busy.value=false; }
+    }
+
+    async function syncNow(){
+      busy.value=true;
+      try{
+        const r=await call({action:'sync',from:from.value,to:to.value});
+        flash('Pulled '+r.txns+' transactions from '+r.orders+' orders.');
+        await load();
+      }catch(e){ flash(e.message,true); }
+      finally{ busy.value=false; }
+    }
+
+    async function importBank(){
+      busy.value=true;
+      try{
+        const r=await call({action:'import_bank',csv:importCsv.value,provider:importProvider.value});
+        flash('Imported '+r.imported+' deposits'+(r.skipped?', skipped '+r.skipped+' unreadable line(s)':'')+'.');
+        importCsv.value='';
+        await load();
+      }catch(e){ flash(e.message,true); }
+      finally{ busy.value=false; }
+    }
+
+    function applySolver(){
+      const b=data.value.solver.best;
+      cutoff.value=b.cutoff; lagCard.value=b.lag_card; lagAp.value=b.lag_afterpay;
+      load();
+    }
+
+    onMounted(async()=>{
+      const {data:{session:p}}=await portal.auth.getSession();
+      if(!p){ window.location.href='/'; return; }
+      try{
+        try{ await load(); }
+        catch(e1){
+          if(/not authenticated|401|jwt|expired|token/i.test(e1.message||'')){
+            try{ if(portal.auth.refreshSession) await portal.auth.refreshSession(); }catch(_){}
+            await load();
+          } else throw e1;
+        }
+      }catch(e){
+        const m=e.message||'';
+        gateError.value=/access/i.test(m)
+          ? "You don't have access to Recon. Ask an administrator to grant it."
+          : ('Could not load Recon: '+m);
+      }
+      ready.value=true;
+    });
+
+    return { ready,gateError,busy,msg,msgBad,data,showImport,importCsv,importProvider,onlyProblems,
+      cutoff,lagCard,lagAp,month,from,to,monthOptions,applyMonth,fmt,label,badge,visibleBatches,
+      load,syncNow,importBank,applySolver,window };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
