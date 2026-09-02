@@ -9,7 +9,7 @@
   var store = {}, stamp = {}, shown = false;
   var SRC = [['shopify', 'Shopify'], ['meta', 'Meta'], ['pos', 'POS'], ['support', 'Support'], ['jobs', 'Jobs']];
   var tick = { shopify: false, meta: false, pos: false, support: false };
-  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'meta_acq_week', 'meta_cpa_week', 'shopify_yest', 'shopify_yest_orders', 'meta_yest', 'orders_to_fulfil', 'orders_fulfilled_today', 'orders_fulfilled_yest', 'orders_fulfilled_week', 'outstanding_tickets', 'new_job_apps', 'new_job_apps_yest', 'new_job_apps_week'];
+  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'meta_acq_week', 'meta_cpa_week', 'shopify_yest', 'shopify_yest_orders', 'meta_yest', 'meta_acq_yest', 'meta_cpa_yest', 'cafe_sales_y', 'cafe_covers_y', 'cafe_sales_w', 'cafe_covers_w', 'orders_to_fulfil', 'orders_fulfilled_today', 'orders_fulfilled_yest', 'orders_fulfilled_week', 'outstanding_tickets', 'new_job_apps', 'new_job_apps_yest', 'new_job_apps_week'];
 
   var css = '.rtb-bar{background:#16543f;color:#fff;padding:6px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;flex-direction:column;align-items:stretch;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
     + '.rtb-hidden{display:none!important}'
@@ -22,10 +22,13 @@
     + '.rtb-load{font-weight:800;font-size:14px;margin-right:6px}'
     + '.rtb-src{font-size:13px;opacity:.82;display:inline-flex;align-items:center;gap:5px}.rtb-src.rtb-done{opacity:1;font-weight:700}'
     + '.rtb-main{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;min-height:44px}'
-    + '.rtb-exp{display:none;flex-direction:column;gap:6px;margin-top:6px}.rtb-bar.rtb-open .rtb-exp{display:flex}'
-    + '.rtb-erow{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.12);padding-top:6px}'
-    + '.rtb-eplab{font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.85;font-weight:700;min-width:96px;text-align:right}'
-    + '.rtb-plus{cursor:pointer;color:#fff;background:rgba(255,255,255,.14);border:none;border-radius:8px;width:24px;height:24px;font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center;margin-left:2px}.rtb-plus:hover{background:rgba(255,255,255,.24)}';
+    + '.rtb-flexwrap{display:flex;align-items:flex-start;justify-content:center;gap:12px;flex-wrap:wrap;width:100%}'
+    + '.rtb-tbl{display:table;border-collapse:separate;border-spacing:6px 4px}'
+    + '.rtb-trow{display:table-row}.rtb-cell{display:table-cell;vertical-align:middle}'
+    + '.rtb-rlab{display:table-cell;vertical-align:middle;text-align:right;padding-right:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;opacity:.85;white-space:nowrap}'
+    + '.rtb-bar:not(.rtb-open) .rtb-exprow{display:none}'
+    + '.rtb-extra{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-top:2px}'
+    + '.rtb-plus{cursor:pointer;color:#fff;background:rgba(255,255,255,.14);border:none;border-radius:8px;width:24px;height:24px;font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center}.rtb-plus:hover{background:rgba(255,255,255,.24)}';
   var s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
   var bar = null;
   function isOpen() { try { return localStorage.getItem('rtbOpen') === '1'; } catch (e) { return false; } }
@@ -55,39 +58,40 @@
   function render() {
     var now = Date.now();
     function caut(f) { return f ? (!stamp[f] || (now - stamp[f] > STALE)) : false; }
-    function box(lab, val, f) { var c = caut(f); return '<span class="rtb-seg' + (c ? ' rtb-stale' : '') + '"' + (c ? ' title="Not updating — last good ' + (stamp[f] ? hm(stamp[f]) : 'never') + '"' : '') + '><span class="rtb-lab">' + lab + (c ? ' ⚠️' : '') + '</span><b>' + val + '</b></span>'; }
-    var h = '';
-    if (store.sales != null) { h += box('Cafe $ today', money0(store.sales), 'sales'); var _cov = Number(store.covers) || 0; var _avg = _cov > 0 ? (store.sales / _cov) : null; h += box('Covers/avg', Math.round(_cov).toLocaleString() + (_avg != null ? ' \u00b7 $' + _avg.toFixed(2) : ''), 'covers'); }
-    var proj = (nzMin() >= HALF_MIN && store.sales_1245 > 0);
-    h += box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : ' ', proj ? 'sales' : null);
-    if (store.shopify_today != null) h += box('Shopify today', money0(store.shopify_today) + (store.shopify_today_orders != null ? ' · ' + Number(store.shopify_today_orders).toLocaleString() : ''), 'shopify_today');
-    if (store.shopify_week != null) h += box('Shopify this week', money0(store.shopify_week) + (store.shopify_week_orders != null ? ' · ' + Number(store.shopify_week_orders).toLocaleString() : ''), 'shopify_week');
-    if (store.meta_today != null) h += box('Meta today - ACQ/CPA', money0(store.meta_today) + (store.meta_today_pct != null ? ' · ' + store.meta_today_pct + '%' : '') + ' · ' + (store.meta_acq_today != null ? Number(store.meta_acq_today).toLocaleString() : '—') + ' / ' + (store.meta_cpa_today != null ? money0(store.meta_cpa_today) : '—'), 'meta_today');
-    if (store.meta_week != null) h += box('Meta week - ACQ/CPA', money0(store.meta_week) + (store.meta_week_pct != null ? ' · ' + store.meta_week_pct + '%' : '') + ' · ' + (store.meta_acq_week != null ? Number(store.meta_acq_week).toLocaleString() : '—') + ' / ' + (store.meta_cpa_week != null ? money0(store.meta_cpa_week) : '—'), 'meta_week');
-    if (store.orders_to_fulfil != null) h += box('To fulfil', (store.orders_to_fulfil || 0).toLocaleString(), 'orders_to_fulfil');
-    if (store.orders_fulfilled_today != null) h += box('Fulfilled today', (store.orders_fulfilled_today || 0).toLocaleString(), 'orders_fulfilled_today');
-    if (store.outstanding_tickets != null) h += box('Tickets', (store.outstanding_tickets || 0).toLocaleString(), 'outstanding_tickets');
-    if (store.new_job_apps != null) h += box('New job apps', (store.new_job_apps || 0).toLocaleString(), 'new_job_apps');
-    if (!h) return;
-    h += '<span class="rtb-tstamp">as at ' + hm(now) + '</span><a class="rtb-rf" title="Refresh">↻</a>';
-    h += '<button class="rtb-plus" title="Yesterday & week to date">' + (isOpen() ? '\u2212' : '+') + '</button>';
-    function erow(period, sh, shO, mt, ff, nj) {
-      var g = '';
-      g += box('Shopify', sh != null ? money0(sh) + (shO != null ? ' \u00b7 ' + Number(shO).toLocaleString() : '') : '\u2014', null);
-      g += box('Meta', mt != null ? money0(mt) : '\u2014', null);
-      g += box('Fulfilled', ff != null ? Number(ff).toLocaleString() : '\u2014', null);
-      g += box('New jobs', nj != null ? Number(nj).toLocaleString() : '\u2014', null);
-      return '<div class="rtb-erow"><span class="rtb-eplab">' + period + '</span>' + g + '</div>';
+    function box(lab, val, f) { var c = caut(f); return '<span class="rtb-seg' + (c ? ' rtb-stale' : '') + '"' + (c ? ' title="Not updating"' : '') + '><span class="rtb-lab">' + lab + (c ? ' ⚠️' : '') + '</span><b>' + val + '</b></span>'; }
+    function cell(inner) { return '<span class="rtb-cell">' + inner + '</span>'; }
+    function metaVal(spend, pctv, acq, cpa) { return spend != null ? money0(spend) + (pctv != null ? ' · ' + pctv + '%' : '') + ' · ' + (acq != null ? Number(acq).toLocaleString() : '—') + ' / ' + (cpa != null ? money0(cpa) : '—') : '—'; }
+    function periodCells(P) {
+      var out = '';
+      out += cell(box('Cafe $', P.sales != null ? money0(P.sales) : '—', P.salesF));
+      var cov = Number(P.covers) || 0, avg = (cov > 0 && P.sales != null) ? (P.sales / cov) : null;
+      out += cell(box('Covers/avg', P.covers != null ? (Math.round(cov).toLocaleString() + (avg != null ? ' · $' + avg.toFixed(2) : '')) : '—', P.coversF));
+      out += cell(box('Shopify', P.shopify != null ? money0(P.shopify) + (P.shopifyOrders != null ? ' · ' + Number(P.shopifyOrders).toLocaleString() : '') : '—', P.shopifyF));
+      out += cell(box('Meta', metaVal(P.metaSpend, P.metaPct, P.metaAcq, P.metaCpa), P.metaF));
+      out += cell(box('Fulfilled', P.fulfilled != null ? Number(P.fulfilled).toLocaleString() : '—', P.fulfilledF));
+      out += cell(box('New jobs', P.newjobs != null ? Number(P.newjobs).toLocaleString() : '—', P.newjobsF));
+      return out;
     }
-    var exp = '<div class="rtb-exp">'
-      + erow('Yesterday', store.shopify_yest, store.shopify_yest_orders, store.meta_yest, store.orders_fulfilled_yest, store.new_job_apps_yest)
-      + erow('Week to date', store.shopify_week, store.shopify_week_orders, store.meta_week, store.orders_fulfilled_week, store.new_job_apps_week)
+    if (store.sales == null && store.shopify_today == null && store.meta_today == null && store.new_job_apps == null) return;
+    var today = { sales: store.sales, salesF: 'sales', covers: store.covers, coversF: 'covers', shopify: store.shopify_today, shopifyOrders: store.shopify_today_orders, shopifyF: 'shopify_today', metaSpend: store.meta_today, metaPct: store.meta_today_pct, metaAcq: store.meta_acq_today, metaCpa: store.meta_cpa_today, metaF: 'meta_today', fulfilled: store.orders_fulfilled_today, fulfilledF: 'orders_fulfilled_today', newjobs: store.new_job_apps, newjobsF: 'new_job_apps' };
+    var yPct = (store.meta_yest != null && store.shopify_yest > 0) ? Math.round(store.meta_yest / store.shopify_yest * 100) : null;
+    var yest = { sales: store.cafe_sales_y, covers: store.cafe_covers_y, shopify: store.shopify_yest, shopifyOrders: store.shopify_yest_orders, metaSpend: store.meta_yest, metaPct: yPct, metaAcq: store.meta_acq_yest, metaCpa: store.meta_cpa_yest, fulfilled: store.orders_fulfilled_yest, newjobs: store.new_job_apps_yest };
+    var week = { sales: store.cafe_sales_w, covers: store.cafe_covers_w, shopify: store.shopify_week, shopifyOrders: store.shopify_week_orders, metaSpend: store.meta_week, metaPct: store.meta_week_pct, metaAcq: store.meta_acq_week, metaCpa: store.meta_cpa_week, fulfilled: store.orders_fulfilled_week, newjobs: store.new_job_apps_week };
+    var proj = (nzMin() >= HALF_MIN && store.sales_1245 > 0);
+    var extra = box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : ' ', proj ? 'sales' : null);
+    if (store.orders_to_fulfil != null) extra += box('To fulfil', (store.orders_to_fulfil || 0).toLocaleString(), 'orders_to_fulfil');
+    if (store.outstanding_tickets != null) extra += box('Tickets', (store.outstanding_tickets || 0).toLocaleString(), 'outstanding_tickets');
+    var tbl = '<div class="rtb-tbl">'
+      + '<div class="rtb-trow"><span class="rtb-rlab">Today</span>' + periodCells(today) + '</div>'
+      + '<div class="rtb-trow rtb-exprow"><span class="rtb-rlab">Yesterday</span>' + periodCells(yest) + '</div>'
+      + '<div class="rtb-trow rtb-exprow"><span class="rtb-rlab">Week to date</span>' + periodCells(week) + '</div>'
       + '</div>';
-    bar.innerHTML = '<div class="rtb-main">' + h + '</div>' + exp;
+    var ctrl = '<div class="rtb-extra">' + extra + '<span class="rtb-tstamp">as at ' + hm(now) + '</span><a class="rtb-rf" title="Refresh">↻</a><button class="rtb-plus" title="Yesterday & week to date">' + (isOpen() ? '−' : '+') + '</button></div>';
+    bar.innerHTML = '<div class="rtb-flexwrap">' + tbl + ctrl + '</div>';
     bar.classList.toggle('rtb-open', isOpen());
     bar.classList.remove('rtb-hidden'); shown = true;
     var rf = bar.querySelector('.rtb-rf'); if (rf) rf.onclick = function () { refreshAll(true); };
-    var pl = bar.querySelector('.rtb-plus'); if (pl) pl.onclick = function () { var v = !isOpen(); setOpen(v); bar.classList.toggle('rtb-open', v); pl.textContent = v ? '\u2212' : '+'; };
+    var pl = bar.querySelector('.rtb-plus'); if (pl) pl.onclick = function () { var v = !isOpen(); setOpen(v); bar.classList.toggle('rtb-open', v); pl.textContent = v ? '−' : '+'; };
   }
   function allTicked() { return SRC.every(function (a) { return tick[a[0]]; }); }
   function loadSource(k) {

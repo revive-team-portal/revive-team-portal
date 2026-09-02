@@ -25,6 +25,16 @@ const TODAY_SQL =
   " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
   " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
   " WHERE CAST(t.Receipt_Date_Time AS date)=CAST(GETDATE() AS date);";
+const YESTERDAY_SQL =
+  "SELECT SUM(i.Sales) AS sales, SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS covers" +
+  " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
+  " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
+  " WHERE CAST(t.Receipt_Date_Time AS date)=CAST(DATEADD(day,-1,GETDATE()) AS date);";
+const WEEK_TD_SQL =
+  "SELECT SUM(i.Sales) AS sales, SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS covers" +
+  " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
+  " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
+  " WHERE t.Receipt_Date_Time >= DATEADD(day,-6,DATEADD(day,((7-(DATEDIFF(day,'1900-01-05',CAST(GETDATE() AS date))%7))%7),CAST(GETDATE() AS date)));";
 
 const DEPT_SQL =
   "SELECT CONVERT(varchar(10)," + WEEK_END + ",23) AS week_end, p.Product_Group AS grp," +
@@ -63,6 +73,16 @@ async function ingest(note, result) {
     const { cols, rows } = parseTSV(result); const r = rows[0] || []; const ix = c => cols.indexOf(c);
     const sales = Number(r[ix('sales')] || 0), covers = Number(r[ix('covers')] || 0), sales_1245 = Number(r[ix('sales_1245')] || 0);
     await db('pos_today?id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sales, covers, sales_1245, updated_at: new Date().toISOString() }) });
+    return;
+  }
+  if (note.indexOf('cafe-yesterday') === 0) {
+    const { cols, rows } = parseTSV(result); const r = rows[0] || []; const ix = c => cols.indexOf(c);
+    await db('pos_today?id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sales_y: Number(r[ix('sales')] || 0), covers_y: Number(r[ix('covers')] || 0) }) });
+    return;
+  }
+  if (note.indexOf('cafe-week') === 0) {
+    const { cols, rows } = parseTSV(result); const r = rows[0] || []; const ix = c => cols.indexOf(c);
+    await db('pos_today?id=eq.1', { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sales_w: Number(r[ix('sales')] || 0), covers_w: Number(r[ix('covers')] || 0) }) });
     return;
   }
   if (note.indexOf('weekly-feed') === 0) {
@@ -111,4 +131,4 @@ async function ingest(note, result) {
     return;
   }
 }
-module.exports = { WEEKLY_SQL, TODAY_SQL, DEPT_SQL, UBER_SQL, queueJob, ingest, db };
+module.exports = { WEEKLY_SQL, TODAY_SQL, YESTERDAY_SQL, WEEK_TD_SQL, DEPT_SQL, UBER_SQL, queueJob, ingest, db };

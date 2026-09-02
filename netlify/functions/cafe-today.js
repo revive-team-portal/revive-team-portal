@@ -1,4 +1,4 @@
-const { TODAY_SQL, queueJob, db } = require('./_posqueries');
+const { TODAY_SQL, YESTERDAY_SQL, WEEK_TD_SQL, queueJob, db } = require('./_posqueries');
 const { gql } = require('./_shopify');
 const { rest } = require('./_appsdb');
 const { spendRange, metaInsightsRange, metaAccountTz } = require('./_metasync');
@@ -42,11 +42,11 @@ async function metaSpend() {
     const meta_today = Math.round(t.spend * 100) / 100;
     const meta_week = Math.round(w.spend * 100) / 100;
     const meta_yest = Math.round((y.spend || 0) * 100) / 100;
-    const acqT = Math.round(t.acq || 0), acqW = Math.round(w.acq || 0);
-    return { meta_today, meta_week, meta_yest,
+    const acqT = Math.round(t.acq || 0), acqW = Math.round(w.acq || 0), acqY = Math.round(y.acq || 0);
+    return { meta_today, meta_week, meta_yest, meta_acq_yest: acqY, meta_cpa_yest: acqY > 0 ? Math.round((meta_yest / acqY) * 100) / 100 : null,
       meta_acq_today: acqT, meta_cpa_today: acqT > 0 ? Math.round((meta_today / acqT) * 100) / 100 : null,
       meta_acq_week: acqW, meta_cpa_week: acqW > 0 ? Math.round((meta_week / acqW) * 100) / 100 : null };
-  } catch (e) { return { meta_today: null, meta_week: null, meta_yest: null, meta_acq_today: null, meta_cpa_today: null, meta_acq_week: null, meta_cpa_week: null }; }
+  } catch (e) { return { meta_today: null, meta_week: null, meta_yest: null, meta_acq_yest: null, meta_cpa_yest: null, meta_acq_today: null, meta_cpa_today: null, meta_acq_week: null, meta_cpa_week: null }; }
 }
 async function shopifySums() {
   try {
@@ -102,19 +102,19 @@ exports.handler = async (event) => {
   const only = qp.only;
   try {
     // Per-source endpoints so the loading bar can tick each independently.
-    if (only === 'pos') { if (qp.refresh) await queueJob('cafe-today', TODAY_SQL).catch(() => {}); const rows = await db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at'); const t = (rows && rows[0]) || {}; return send({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at }); }
+    if (only === 'pos') { if (qp.refresh) { await queueJob('cafe-today', TODAY_SQL).catch(() => {}); await queueJob('cafe-yesterday', YESTERDAY_SQL).catch(() => {}); await queueJob('cafe-week', WEEK_TD_SQL).catch(() => {}); } const rows = await db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at,sales_y,covers_y,sales_w,covers_w'); const t = (rows && rows[0]) || {}; return send({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at, cafe_sales_y: t.sales_y, cafe_covers_y: t.covers_y, cafe_sales_w: t.sales_w, cafe_covers_w: t.covers_w }); }
     if (only === 'shopify') { const [ss, oc] = await Promise.all([shopifySums(), orderCounts()]); return send({ ...ss, ...oc }); }
     if (only === 'meta') { const ms = await metaSpend(); return send(ms); }
     if (only === 'support') { const tk = await outstandingTickets(); return send(tk); }
     if (only === 'jobs') { const jb = await newJobApps(); return send(jb); }
     if (qp.refresh) await queueJob('cafe-today', TODAY_SQL).catch(() => {});
-    const [rows, oc, ss, tk, ms, jb] = await Promise.all([db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at'), orderCounts(), shopifySums(), outstandingTickets(), metaSpend(), newJobApps()]);
+    const [rows, oc, ss, tk, ms, jb] = await Promise.all([db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at,sales_y,covers_y,sales_w,covers_w'), orderCounts(), shopifySums(), outstandingTickets(), metaSpend(), newJobApps()]);
     const pct = (spend, sales) => (spend != null && sales != null && sales > 0) ? Math.round(spend / sales * 100) : null;
     const t = (rows && rows[0]) || {};
     return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at,
+      body: JSON.stringify({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at, cafe_sales_y: t.sales_y, cafe_covers_y: t.covers_y, cafe_sales_w: t.sales_w, cafe_covers_w: t.covers_w,
         shopify_today: ss.shopify_today, shopify_week: ss.shopify_week, shopify_yest: ss.shopify_yest, shopify_today_orders: ss.shopify_today_orders, shopify_week_orders: ss.shopify_week_orders, shopify_yest_orders: ss.shopify_yest_orders,
         orders_to_fulfil: oc.orders_to_fulfil, orders_fulfilled_today: oc.orders_fulfilled_today, orders_fulfilled_yest: oc.orders_fulfilled_yest, orders_fulfilled_week: oc.orders_fulfilled_week, outstanding_tickets: tk.outstanding_tickets, new_job_apps: jb.new_job_apps, new_job_apps_yest: jb.new_job_apps_yest, new_job_apps_week: jb.new_job_apps_week,
-        meta_today: ms.meta_today, meta_week: ms.meta_week, meta_yest: ms.meta_yest, meta_acq_today: ms.meta_acq_today, meta_cpa_today: ms.meta_cpa_today, meta_acq_week: ms.meta_acq_week, meta_cpa_week: ms.meta_cpa_week, meta_today_pct: pct(ms.meta_today, ss.shopify_today), meta_week_pct: pct(ms.meta_week, ss.shopify_week) }) };
+        meta_today: ms.meta_today, meta_week: ms.meta_week, meta_yest: ms.meta_yest, meta_acq_yest: ms.meta_acq_yest, meta_cpa_yest: ms.meta_cpa_yest, meta_acq_today: ms.meta_acq_today, meta_cpa_today: ms.meta_cpa_today, meta_acq_week: ms.meta_acq_week, meta_cpa_week: ms.meta_cpa_week, meta_today_pct: pct(ms.meta_today, ss.shopify_today), meta_week_pct: pct(ms.meta_week, ss.shopify_week) }) };
   } catch (e) { return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: String(e.message || e) }) }; }
 };
