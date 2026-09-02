@@ -90,8 +90,8 @@ async function runInboxSync(opts){
   if(!at.ok) return { ok:false, error:at.error, connected:false };
   const token=at.access_token;
   let purged=0; try{ const pr=await runAutoReplyPurge(token); purged=pr.trashed||0; }catch(e){}
-  const q=opts.q||'in:inbox -category:promotions -category:social';
-  const maxThreads=Math.min(Number(opts.max)||18,30);
+  const q=opts.q||'in:inbox';
+  const maxThreads=Math.min(Number(opts.max)||45,80);
 
   // Full set of inbox thread ids (for reconcile), newest-first ordered list (for processing).
   const seen=new Set(); const ordered=[]; let pageToken=null, pages=0, complete=true;

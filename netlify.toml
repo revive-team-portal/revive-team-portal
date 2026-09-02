@@ -36,3 +36,9 @@
 # Spam-folder rescue every hour
 [functions."scheduled-spam-check"]
   schedule = "0 * * * *"
+
+[functions."scheduled-nzpost-alert"]
+  schedule = "5 * * * *"
+
+[functions."scheduled-nzpost-delays"]
+  schedule = "10 * * * *"

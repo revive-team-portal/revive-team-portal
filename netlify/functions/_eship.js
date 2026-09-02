@@ -31,6 +31,7 @@ async function track({ trackingNumber, orderNumber } = {}) {
     service: rz.carrier_service || rz.service || '',
     trackingUrl: rz.tracking_url || '',
     trackingNumber: rz.tracking_number || trackingNumber,
+    orderNumber: rz.order_number || rz.orderNumber || rz.reference || '',
     deliveredDate: rz.delivered_date || rz.delivery_date || rz.date_delivered || '',
     signedBy, events,
     raw: { keys: Object.keys(rz || {}), sampleEvent: rawEvents[0] || null },

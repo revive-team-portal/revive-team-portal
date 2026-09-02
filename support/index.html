@@ -8,7 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="quotes.js"></script>
-  <style>[v-cloak]{display:none}::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}</style>
+  <style>@keyframes nzflash{50%{opacity:.45}}
+[v-cloak]{display:none}::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}</style>
 <link rel="stylesheet" href="/chrome.css">
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
@@ -41,6 +42,7 @@
     </div>
   </nav>
 
+  <div id="nzAlertBar"></div>
   <div id="inspoBar" class="flex items-center gap-3 px-5 py-2 text-sm border-b" style="background:#f0f7ef;border-color:#dbebd8">
     <span style="color:#007020">★</span>
     <div class="flex-1 min-w-0 truncate"><span id="inspoText" class="italic text-stone-700"></span> <span id="inspoSrc" class="text-stone-400 text-xs"></span></div>
@@ -59,7 +61,7 @@
 <script>
 const SECTIONS = [
   {id:'dashboard', icon:'📥', label:'Inbox'},
-  {id:'claims',    icon:'🔁', label:'Resends'},
+  {id:'claims',    icon:'🚩', label:'Naughty Orders'},
   {id:'search',    icon:'🔎', label:'Search / Customers'},
   {id:'testimonials', icon:'🌟', label:'Testimonials'},
   {id:'reports',   icon:'📊', label:'Reports'},
@@ -114,7 +116,7 @@ function panelHTML(id){
       + '<div id="aiInsights"></div>'+'<div id="benchmark" class="mt-4"></div>';
   }
   if(id==='claims'){
-    return '<h2 class="text-xl font-bold mb-1">Resends</h2><p class="text-stone-500 text-sm mb-4">Every order re-sent or with an issue. Set the cause on each; weekly value totals up top.</p><div id="claimsList"><div class="text-stone-400 text-sm">Loading…</div></div>';
+    return '<div class="flex items-center justify-between mb-1 flex-wrap gap-2"><h2 class="text-xl font-bold">Naughty Orders</h2><button onclick="refreshNaughty(this)" class="text-xs border border-stone-300 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ Check courier statuses</button></div><p class="text-stone-500 text-sm mb-4">Late / in-trouble orders — NZ Post delays, resends and manually flagged. They stay here until resolved.</p><div id="naughtyList"><div class="text-stone-400 text-sm">Loading…</div></div>';
   }
   if(id==='ticket'){
     return '<h2 class="text-xl font-bold mb-1">Ticket + Customer detail</h2><p class="text-stone-500 text-sm mb-4">The core screen: thread + AI-suggested reply + order panel + notes.</p>'
@@ -165,7 +167,7 @@ function panelHTML(id){
       + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')      + card('Analytics targets', '<div class="grid grid-cols-2 gap-2 text-xs"><label>Resolved / day<input id="anaResolved" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Outstanding max<input id="anaOutstanding" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Fulfilled / day<input id="anaFulfilled" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Resends / day<input id="anaResends" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>1st response hours<input id="anaResponse" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label></div>')
       + '<div class="mb-4"><button onclick="saveSettings(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save settings</button> <span id="setMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + card('Reason codes (seeded)', '<ul class="list-disc pl-5 text-sm text-stone-600 space-y-1"><li>Delivery — late / lost / damaged / wrong address</li><li>Product — quality / GF-allergen / missing / wrong item</li><li>Order — changed / cancelled / duplicate</li><li>Payment / refund</li><li>Subscription</li><li>Wholesale / enquiry</li><li>General enquiry (no fault)</li></ul>')
-      + card('Spam rescue', '<p class="text-xs text-stone-500 mb-2">Legitimate emails caught in Spam are auto-rescued to the inbox every hour. Rescued emails become tickets on the next sync.</p><button onclick="checkSpam(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">Check spam now</button> <span id="spamMsg" class="text-xs text-stone-500 ml-2"></span>')
+      + card('Spam rescue', '<p class="text-xs text-stone-500 mb-2">Legitimate emails caught in Spam are auto-rescued to the inbox every hour. Rescued emails become tickets on the next sync.</p><button onclick="spamModal()" class="text-xs bg-stone-700 hover:bg-stone-800 text-white px-3 py-1.5 rounded-lg mr-1">View spam folder</button><button onclick="checkSpam(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">Auto-rescue now</button> <span id="spamMsg" class="text-xs text-stone-500 ml-2"></span>')
       + card('Klaviyo auto-replies', '<p class="text-xs text-stone-500 mb-2">Out-of-office auto-replies to Klaviyo blasts (reply-to cafe@) are auto-deleted on every sync. Only auto-replies that reference a Klaviyo email are removed — genuine customer emails are safe.</p><button onclick="purgeAutoreplies(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">Purge auto-replies now</button> <span id="arMsg" class="text-xs text-stone-500 ml-2"></span>')
       + card('Connections', '<ul class="text-sm text-stone-600 space-y-1"><li>Shopify Admin — <b class="text-teal-700">connected</b></li><li>eShip / Starshipit — <b class="text-teal-700">keys loaded</b></li><li>Claude AI — <b class="text-teal-700">connected</b></li><li>Gmail (cafe@revive.co.nz) — <span id="gmailStat" class="text-amber-700 font-semibold">checking…</span> <a href="/.netlify/functions/gmail-connect?mailbox=cafe" class="text-teal-700 underline ml-1">Connect / reconnect</a></li></ul>')
       + card('NZ Post / CourierPost codes — editable', '<div id="codesList" class="text-sm">Loading…</div><div class="flex flex-wrap gap-2 mt-3 items-center"><input id="ncCode" placeholder="Code" class="border border-stone-300 rounded px-2 py-1 text-xs w-24"><input id="ncMean" placeholder="Meaning" class="border border-stone-300 rounded px-2 py-1 text-xs flex-1 min-w-[160px]"><label class="text-xs flex items-center gap-1"><input type="checkbox" id="ncPer"> perishable</label><label class="text-xs flex items-center gap-1"><input type="checkbox" id="ncRural"> rural</label><button onclick="addCode()" class="text-xs bg-teal-700 text-white px-3 py-1 rounded-lg">Add / update</button></div>');
@@ -190,7 +192,7 @@ function orderCard(o){
 function orderActions(o){
   const num=(o.id||'').split('/').pop();
   return '<div class="flex flex-wrap gap-1.5 mt-2 border-t border-stone-100 pt-2">'
-    +'<button onclick="raiseClaim(\''+esc(o.name||'')+'\','+(Number(o.total)||0)+')" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">🔁 Log resend</button>'
+    +'<button onclick="raiseClaim(\''+esc(o.name||'')+'\','+(Number(o.total)||0)+')" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">🔁 Log resend</button>'+'<button onclick="flagNaughty(\''+esc(o.name||'')+'\','+(Number(o.total)||0)+',\''+esc((o.tracking&&o.tracking[0]&&o.tracking[0].number)||'')+'\')" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">🚩 Flag naughty</button>'
     +(num?'<a href="https://admin.shopify.com/store/revive-cafe/orders/'+num+'" target="_blank" class="text-xs border border-stone-300 rounded px-2 py-1 hover:bg-stone-50">Shopify ↗</a>':'')
     +'</div>';
 }
@@ -571,10 +573,10 @@ async function replaceOrder(orderId, orderName){
 }
 async function raiseClaim(orderName, value){
   const cur=window.CUR||{};
-  if(!confirm('Log a resend/issue for '+orderName+'? You can set the cause in the Resends tab.')) return;
-  const r=await apiPost('support-claim-create',{ticketId:cur.id||null, orderName, value, status:'Open', customerName:cur.name||'', customerEmail:cur.email||''});
+  if(!confirm('Log a resend for '+orderName+'? It will be added to Naughty Orders.')) return;
+  const r=await apiPost('support-naughty-add',{orderName, value, flagReason:'Resend', source:'manual', ticketId:cur.id||null, customerName:cur.name||'', customerEmail:cur.email||''});
   if(!r.ok){ alert((r.data&&r.data.error)||'Could not log resend.'); return; }
-  alert('✓ Logged to Resends — set the cause in the Resends tab.');
+  alert('🔁 Logged as resend — see Naughty Orders.');
 }
 function openNewTicket(){
   const m=document.createElement('div'); m.id='ntModal'; m.className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'; m.onclick=closeNewTicket;
@@ -743,6 +745,32 @@ function toggleSelect(id,ch){ if(!window.SELECTED) window.SELECTED=new Set(); if
 function renderBulkBar(){ const el=document.getElementById('bulkBar'); if(!el) return; const n=window.SELECTED?window.SELECTED.size:0; el.innerHTML = n ? '<div class="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 flex-wrap"><span class="text-xs text-teal-800 font-medium">'+n+' selected</span><button onclick="fileSelected(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1 rounded-lg">✓ File / mark done (no count)</button><button onclick="clearSel()" class="text-xs border border-stone-300 px-3 py-1 rounded-lg hover:bg-white">Clear</button></div>' : ''; }
 function clearSel(){ window.SELECTED=new Set(); renderBulkBar(); loadTickets(); }
 async function fileSelected(btn){ const ids=[...(window.SELECTED||[])]; if(!ids.length) return; if(!confirm('File '+ids.length+' ticket(s) as done? They will be archived out of the inbox and will NOT count toward daily ticket totals.')) return; if(btn) btn.disabled=true; const r=await apiPost('support-bulk-resolve',{ids}); if(btn) btn.disabled=false; if(!r.ok){ alert((r.data&&r.data.error)||'Failed'); return; } window.SELECTED=new Set(); window.ANALYTICS_HTML=null; window.TRACKING_HTML=null; renderBulkBar(); loadTickets(); loadAnalytics(); loadTracking(); }
+async function loadNaughty(){
+  const el=document.getElementById('naughtyList'); if(!el) return;
+  const r=await apiPost('support-naughty',{});
+  if(!r.ok){ el.innerHTML='<div class="text-amber-700 text-sm">'+esc((r.data&&r.data.error)||'Could not load.')+'</div>'; return; }
+  const os=r.data.orders||[];
+  if(!os.length){ el.innerHTML='<div class="text-stone-400 text-sm">No naughty orders right now 🎉</div>'; return; }
+  const flagCls={'NZ Post delay':'bg-amber-100 text-amber-700','Resend':'bg-sky-100 text-sky-700','Manually flagged':'bg-red-100 text-red-700'};
+  el.innerHTML='<table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200"><th class="py-1 pr-2">Order / tracking</th><th class="py-1 pr-2">Flag</th><th class="py-1 pr-2">Courier status</th><th class="py-1 pr-2">Customer</th><th class="py-1 pr-2">Added</th><th class="py-1">Action</th></tr></thead><tbody>'
+    +os.map(o=>{ const delivered=o.status==='delivered'||/deliver/i.test(o.courier_status||'');
+      const cs=o.courier_status?('<span class="text-xs '+(delivered?'text-green-700 font-semibold':'text-stone-600')+'">'+esc(o.courier_status)+'</span>'):'<span class="text-xs text-stone-400">—</span>';
+      return '<tr class="border-b border-stone-100 align-top"><td class="py-2 pr-2 font-medium whitespace-nowrap">'+esc(o.order_name||o.tracking_number||'—')+(o.resend_order?' → '+esc(o.resend_order):'')+'</td><td class="py-2 pr-2"><span class="text-xs '+(flagCls[o.flag_reason]||'bg-stone-100 text-stone-600')+' rounded px-1.5 py-0.5 whitespace-nowrap">'+esc(o.flag_reason||'')+'</span>'+(delivered?' <span class="text-[10px] text-green-700">✓ delivered</span>':'')+'</td><td class="py-2 pr-2">'+cs+'</td><td class="py-2 pr-2 text-stone-600">'+esc(o.customer_name||o.customer_email||'')+'</td><td class="py-2 pr-2 text-stone-400 whitespace-nowrap">'+(o.created_at?new Date(o.created_at).toLocaleDateString('en-NZ'):'')+'</td><td class="py-2"><button onclick="resolveNaughty(\''+o.id+'\')" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-2 py-1 rounded">Resolve</button></td></tr>';
+    }).join('')+'</tbody></table>';
+}
+async function refreshNaughty(btn){ if(btn) btn.disabled=true; try{ await apiPost('support-naughty-refresh',{}); }catch(e){} if(btn) btn.disabled=false; loadNaughty(); }
+async function resolveNaughty(id){ const reason=prompt('Resolution / action taken:',''); if(reason===null) return; const r=await apiPost('support-naughty-resolve',{id, resolution:reason}); if(!r.ok){ alert((r.data&&r.data.error)||'Failed'); return; } loadNaughty(); }
+async function flagNaughty(orderName,value,tracking){ const cur=window.CUR||{}; if(!confirm('Flag '+orderName+' as a naughty order?')) return; const r=await apiPost('support-naughty-add',{orderName, value, trackingNumber:tracking, flagReason:'Manually flagged', source:'manual', ticketId:cur.id||null, customerName:cur.name||'', customerEmail:cur.email||''}); if(!r.ok){ alert((r.data&&r.data.error)||'Failed'); return; } alert('🚩 Flagged — see Naughty Orders.'); }
+async function loadNZAlert(){ const el=document.getElementById('nzAlertBar'); if(!el) return; let v={}; try{ const r=await apiPost('support-nzpost-alert',{}); v=r.data||{}; }catch(e){} if(v.active && v.message){ el.innerHTML='<div class="px-5 py-1.5 text-white text-sm font-semibold text-center" style="background:#dc2626;animation:nzflash 1s steps(2,end) infinite">🚨 NZ Post: '+esc(v.message)+'</div>'; } else { el.innerHTML='<div class="px-5 py-1 text-white text-xs text-center" style="background:#16a34a">✓ NZ Post — all services normal</div>'; } }
+function spamModal(){
+  const m=document.createElement('div'); m.id='spamModal'; m.className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'; m.onclick=()=>m.remove();
+  m.innerHTML='<div class="bg-white rounded-xl p-5 w-full max-w-2xl max-h-[80vh] overflow-auto" onclick="event.stopPropagation()"><div class="flex items-center justify-between mb-3"><h3 class="font-bold text-base">Spam folder</h3><div class="flex gap-1"><button onclick="spamRecheck(this)" class="text-xs bg-purple-600 text-white px-2 py-1 rounded">✨ AI recheck</button><button onclick="var x=document.getElementById(\'spamModal\');if(x)x.remove();" class="text-stone-400 px-2">✕</button></div></div><div id="spamBody" class="text-sm text-stone-400">Loading…</div></div>';
+  document.body.appendChild(m); loadSpamList();
+}
+async function loadSpamList(){ const b=document.getElementById('spamBody'); if(!b) return; const r=await apiPost('support-spam-list',{}); if(!r.ok){ b.innerHTML='<div class="text-amber-700">'+esc((r.data&&r.data.error)||'Failed')+'</div>'; return; } const it=r.data.items||[]; if(!it.length){ b.innerHTML='<div class="text-stone-400">Spam folder is empty 🎉</div>'; return; } b.innerHTML='<div class="text-xs text-stone-500 mb-2">'+it.length+' in spam</div>'+it.map(x=>'<div class="spamrow flex items-start gap-2 py-1.5 border-b border-stone-100"><div class="min-w-0 flex-1"><div class="text-sm font-medium truncate">'+esc(x.subject)+'</div><div class="text-xs text-stone-500 truncate">'+esc(x.from)+' — '+esc(x.snippet)+'</div></div><button onclick="spamAction(\''+x.id+'\',true,this)" class="text-xs text-teal-700 whitespace-nowrap">Rescue</button><button onclick="spamAction(\''+x.id+'\',false,this)" class="text-xs text-red-600 whitespace-nowrap">Delete</button></div>').join(''); }
+async function spamAction(id, rescue, btn){ if(btn) btn.disabled=true; const r=await apiPost('support-spam-delete',{ids:[id], rescue}); if(!r.ok){ if(btn) btn.disabled=false; alert('Failed'); return; } const row=btn.closest('.spamrow'); if(row){ row.style.opacity=0.35; row.querySelectorAll('button').forEach(x=>x.remove()); } }
+async function spamRecheck(btn){ if(btn) btn.disabled=true; const r=await apiPost('support-spam-check',{}); if(btn) btn.disabled=false; alert('AI rescued '+((r.data&&r.data.rescued)||0)+' legit email(s).'); loadSpamList(); }
+
 function show(id){
   document.querySelectorAll('#sideNav a').forEach(a=>{
     a.className = a.dataset.id===id
@@ -753,7 +781,7 @@ function show(id){
   if(id==='dashboard'){ if(!window.TRACKING_HTML) loadTracking(); if(!window.ANALYTICS_HTML) loadAnalytics(); if(!window.FULFIL_HTML) loadFulfilReport(); if(window.PENDING_SYNC){ const el=document.getElementById('ticketList'); if(el) el.innerHTML='<div class="text-stone-400 text-sm">🔄 Syncing inbox…</div>'; } else loadTickets(); }
   if(id==='nonorder') loadNonOrder();
   if(id==='testimonials') loadTestimonials();
-  if(id==='claims') loadClaims();
+  if(id==='claims') loadNaughty();
   if(id==='reports') loadReports();
   if(id==='settings'){ loadGmailStat(); loadSettings(); loadCodes(); }
   location.hash = id;
@@ -774,7 +802,7 @@ function show(id){
     ).join('');
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
-    inspoInit(); loadCodes(); loadPerishKw(); window.PENDING_SYNC=true;
+    inspoInit(); loadCodes(); loadPerishKw(); loadNZAlert(); window.PENDING_SYNC=true;
     show((location.hash||'#dashboard').slice(1) || 'dashboard');
     setTimeout(()=>{ try{ syncInbox(null); }catch(e){} }, 500);
   }catch(e){ gateMsg.textContent = 'Could not load. Please return to the portal.'; }

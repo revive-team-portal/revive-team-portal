@@ -49,10 +49,10 @@ exports.handler = async (event) => {
     // auto-log this replacement into the Resends register
     if (hasKey()) { try {
       const val = o.totalPriceSet && o.totalPriceSet.shopMoney ? Number(o.totalPriceSet.shopMoney.amount) : null;
-      await rest('claims', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({
+      await rest('naughty_orders', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({
         ticket_id: body.ticketId || null, order_name: o.name, resend_order: order.name,
         customer_name: body.customerName || '', customer_email: body.customerEmail || o.email || '',
-        value: val, cause: null, status: 'Open', reason: 'Free replacement' }) });
+        value: val, flag_reason: 'Resend', source: 'resend', status: 'open' }) });
     } catch(e){} }
     return json(200, { ok:true, orderName: order.name, orderId: order.id, from: o.name });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
