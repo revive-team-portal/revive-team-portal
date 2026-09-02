@@ -9,9 +9,9 @@
   var store = {}, stamp = {}, shown = false;
   var SRC = [['shopify', 'Shopify'], ['meta', 'Meta'], ['pos', 'POS'], ['support', 'Support'], ['jobs', 'Jobs']];
   var tick = { shopify: false, meta: false, pos: false, support: false };
-  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'meta_acq_week', 'meta_cpa_week', 'orders_to_fulfil', 'orders_fulfilled_today', 'outstanding_tickets', 'new_job_apps'];
+  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'meta_acq_week', 'meta_cpa_week', 'shopify_yest', 'shopify_yest_orders', 'meta_yest', 'orders_to_fulfil', 'orders_fulfilled_today', 'orders_fulfilled_yest', 'orders_fulfilled_week', 'outstanding_tickets', 'new_job_apps', 'new_job_apps_yest', 'new_job_apps_week'];
 
-  var css = '.rtb-bar{background:#16543f;color:#fff;padding:9px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
+  var css = '.rtb-bar{background:#16543f;color:#fff;padding:6px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;flex-direction:column;align-items:stretch;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
     + '.rtb-hidden{display:none!important}'
     + '.rtb-seg{background:rgba(255,255,255,.14);border-radius:9px;padding:5px 13px;display:flex;flex-direction:column;line-height:1.12;min-width:58px}'
     + '.rtb-seg.rtb-stale{opacity:.5}'
@@ -20,9 +20,16 @@
     + '.rtb-tstamp{font-size:11.5px;opacity:.8;margin-left:4px}'
     + '.rtb-rf{cursor:pointer;color:#fff;text-decoration:none;font-size:22px;line-height:1}.rtb-rf:hover{opacity:.75}'
     + '.rtb-load{font-weight:800;font-size:14px;margin-right:6px}'
-    + '.rtb-src{font-size:13px;opacity:.82;display:inline-flex;align-items:center;gap:5px}.rtb-src.rtb-done{opacity:1;font-weight:700}';
+    + '.rtb-src{font-size:13px;opacity:.82;display:inline-flex;align-items:center;gap:5px}.rtb-src.rtb-done{opacity:1;font-weight:700}'
+    + '.rtb-main{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;min-height:44px}'
+    + '.rtb-exp{display:none;flex-direction:column;gap:6px;margin-top:6px}.rtb-bar.rtb-open .rtb-exp{display:flex}'
+    + '.rtb-erow{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.12);padding-top:6px}'
+    + '.rtb-eplab{font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.85;font-weight:700;min-width:96px;text-align:right}'
+    + '.rtb-plus{cursor:pointer;color:#fff;background:rgba(255,255,255,.14);border:none;border-radius:8px;width:24px;height:24px;font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center;margin-left:2px}.rtb-plus:hover{background:rgba(255,255,255,.24)}';
   var s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
   var bar = null;
+  function isOpen() { try { return localStorage.getItem('rtbOpen') === '1'; } catch (e) { return false; } }
+  function setOpen(v) { try { localStorage.setItem('rtbOpen', v ? '1' : '0'); } catch (e) {} }
 
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   function hm(ms) { var d = new Date(ms); return DOW[d.getDay()] + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
@@ -43,7 +50,7 @@
   function placeholder() {
     if (shown) return; var h = '<span class="rtb-load">Loading</span>';
     SRC.forEach(function (a) { h += '<span class="rtb-src' + (tick[a[0]] ? ' rtb-done' : '') + '">' + a[1] + ' ' + (tick[a[0]] ? '✓' : '○') + '</span>'; });
-    bar.innerHTML = h; bar.classList.remove('rtb-hidden');
+    bar.innerHTML = '<div class="rtb-main">' + h + '</div>'; bar.classList.remove('rtb-hidden');
   }
   function render() {
     var now = Date.now();
@@ -63,8 +70,24 @@
     if (store.new_job_apps != null) h += box('New job apps', (store.new_job_apps || 0).toLocaleString(), 'new_job_apps');
     if (!h) return;
     h += '<span class="rtb-tstamp">as at ' + hm(now) + '</span><a class="rtb-rf" title="Refresh">↻</a>';
-    bar.innerHTML = h; bar.classList.remove('rtb-hidden'); shown = true;
+    h += '<button class="rtb-plus" title="Yesterday & week to date">' + (isOpen() ? '\u2212' : '+') + '</button>';
+    function erow(period, sh, shO, mt, ff, nj) {
+      var g = '';
+      g += box('Shopify', sh != null ? money0(sh) + (shO != null ? ' \u00b7 ' + Number(shO).toLocaleString() : '') : '\u2014', null);
+      g += box('Meta', mt != null ? money0(mt) : '\u2014', null);
+      g += box('Fulfilled', ff != null ? Number(ff).toLocaleString() : '\u2014', null);
+      g += box('New jobs', nj != null ? Number(nj).toLocaleString() : '\u2014', null);
+      return '<div class="rtb-erow"><span class="rtb-eplab">' + period + '</span>' + g + '</div>';
+    }
+    var exp = '<div class="rtb-exp">'
+      + erow('Yesterday', store.shopify_yest, store.shopify_yest_orders, store.meta_yest, store.orders_fulfilled_yest, store.new_job_apps_yest)
+      + erow('Week to date', store.shopify_week, store.shopify_week_orders, store.meta_week, store.orders_fulfilled_week, store.new_job_apps_week)
+      + '</div>';
+    bar.innerHTML = '<div class="rtb-main">' + h + '</div>' + exp;
+    bar.classList.toggle('rtb-open', isOpen());
+    bar.classList.remove('rtb-hidden'); shown = true;
     var rf = bar.querySelector('.rtb-rf'); if (rf) rf.onclick = function () { refreshAll(true); };
+    var pl = bar.querySelector('.rtb-plus'); if (pl) pl.onclick = function () { var v = !isOpen(); setOpen(v); bar.classList.toggle('rtb-open', v); pl.textContent = v ? '\u2212' : '+'; };
   }
   function allTicked() { return SRC.every(function (a) { return tick[a[0]]; }); }
   function loadSource(k) {
@@ -83,7 +106,7 @@
     setTimeout(function () { if (!shown) { pct(); render(); } }, 13000);
   }
   function refreshAll(refresh) {
-    Promise.all([get('shopify', false), get('meta', false), get('pos', refresh), get('support', false)])
+    Promise.all([get('shopify', false), get('meta', false), get('pos', refresh), get('support', false), get('jobs', false)])
       .then(function (parts) { parts.forEach(ingest); pct(); render(); if (refresh) setTimeout(function () { get('pos', false).then(function (j) { ingest(j); pct(); render(); }).catch(function () {}); }, 7000); })
       .catch(function () { if (shown) render(); });
   }
