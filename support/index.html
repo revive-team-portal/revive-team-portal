@@ -323,7 +323,7 @@ async function openTicket(id){
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
     +'<p class="text-stone-500 text-sm mb-2">'+esc(c.name||'')+ratingHtml(c.orders_count)+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
-    +'<div class="mb-4 flex items-center gap-2 flex-wrap">'+'<button onclick="resolveTicket()" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">✓ Resolve &amp; archive</button>'+'<button onclick="replaceHeader()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-1.5 rounded-lg">↩ Replace order (free)</button>'+'<button onclick="forwardTicket()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg">➡ Forward</button>'+'<button onclick="historyModal()" class="text-xs bg-stone-600 hover:bg-stone-700 text-white font-semibold px-3 py-1.5 rounded-lg">📜 Past emails</button>'+'<button onclick="escalateTicket('+(t.escalated?'false':'true')+')" class="text-xs '+(t.escalated?'bg-stone-500 hover:bg-stone-600':'bg-red-600 hover:bg-red-700')+' text-white font-semibold px-3 py-1.5 rounded-lg">'+(t.escalated?'↩ Un-escalate':'🚑 Escalate')+'</button>'+'<span class="text-xs text-stone-400 ml-1">Type:</span>'+typeSelect(t.ticket_type)+'</div>'
+    +'<div class="mb-4 flex items-center gap-2 flex-wrap">'+'<button onclick="resolveTicket(this)" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">✓ Resolve &amp; archive</button>'+'<button onclick="replaceHeader()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-1.5 rounded-lg">↩ Replace order (free)</button>'+'<button onclick="forwardTicket()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg">➡ Forward</button>'+'<button onclick="historyModal()" class="text-xs bg-stone-600 hover:bg-stone-700 text-white font-semibold px-3 py-1.5 rounded-lg">📜 Past emails</button>'+'<button onclick="escalateTicket('+(t.escalated?'false':'true')+')" class="text-xs '+(t.escalated?'bg-stone-500 hover:bg-stone-600':'bg-red-600 hover:bg-red-700')+' text-white font-semibold px-3 py-1.5 rounded-lg">'+(t.escalated?'↩ Un-escalate':'🚑 Escalate')+'</button>'+'<span class="text-xs text-stone-400 ml-1">Type:</span>'+typeSelect(t.ticket_type)+'</div>'
     +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2"><div id="testiBox"></div>'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
   loadActivity(); detectTestimonial(); applyFrames(); loadAttachmentImages();
   if(c.email){
@@ -454,13 +454,10 @@ async function sendReply(){
   const text=((ta&&ta.value)||'').trim(); if(!text){ if(msg) msg.textContent='Nothing to send.'; return; }
   const to=((((document.getElementById('replyTo')||{}).value)||window.CUR.email||'')).trim();
   if(!to){ if(msg) msg.textContent='No recipient — set the To address.'; return; }
-  if(!confirm('Send this reply to '+to+'?')) return;
-  if(b) b.disabled=true; if(msg) msg.textContent='Sending…';
+  if(b){ b.disabled=true; b.textContent='Sending…'; } if(msg) msg.textContent='';
   const r=await apiPost('support-send',{id:window.CUR.id, to, text});
-  if(b) b.disabled=false;
-  if(!r.ok){ if(msg) msg.textContent=''; alert((r.data&&r.data.error)||'Send failed.'); return; }
-  if(msg) msg.textContent='Sent ✓'; if(ta) ta.value='';
-  openTicket(window.CUR.id);
+  if(!r.ok){ if(b){ b.disabled=false; b.textContent='Send reply'; } alert((r.data&&r.data.error)||'Send failed.'); return; }
+  if(ta) ta.value=''; openTicket(window.CUR.id);
 }
 
 async function loadTrack(number, btn){
@@ -538,10 +535,10 @@ async function toggleRural(code,val){ await apiPost('support-codes',{upsert:{cod
 async function togglePerish(code,val){ await apiPost('support-codes',{upsert:{code,perishable:val}}); loadCodes(); }
 async function removeCode(code){ if(!confirm('Remove '+code+'?')) return; await apiPost('support-codes',{remove:code}); loadCodes(); }
 
-async function resolveTicket(){
-  if(!confirm('Resolve this ticket? It will be archived out of the cafe@ inbox and labelled Revive/Resolved.')) return;
+async function resolveTicket(btn){
+  if(btn){ btn.disabled=true; btn.textContent='Resolving…'; }
   const r=await apiPost('support-resolve',{id:window.CUR.id});
-  if(!r.ok){ alert((r.data&&r.data.error)||'Could not resolve.'); return; }
+  if(!r.ok){ if(btn){ btn.disabled=false; btn.innerHTML='✓ Resolve &amp; archive'; } alert((r.data&&r.data.error)||'Could not resolve.'); return; }
   show('dashboard'); loadTickets();
 }
 
