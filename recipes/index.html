@@ -173,7 +173,7 @@
               <!-- Cost per serve -->
               <span class="text-xs text-stone-500 w-28 text-right shrink-0">
                 <span v-if="recipe._cost>0&&recipe._totalWeight&&recipe.serve_weight_g">
-                  ${{ (recipe._cost/((recipe._totalWeight*0.90)/recipe.serve_weight_g)).toFixed(2) }}
+                  ${{ ((recipe._cost/((recipe._totalWeight*0.90)/recipe.serve_weight_g))+(recipe.labour_cost_per_serve||0)+(recipe.packaging_cost_per_serve||0)).toFixed(2) }}
                 </span>
                 <span v-else class="text-stone-300">-</span>
               </span>
@@ -238,8 +238,11 @@
           <div class="bg-stone-50 rounded-xl p-4">
             <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">Cost / Pack</p>
             <p class="text-xl font-bold text-stone-800 mt-1">
-              <span v-if="viewTotalCost>0&amp;&amp;currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ (viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(2) }}</span>
+              <span v-if="viewTotalCost>0&amp;&amp;currentRecipe.serve_weight_g&&viewTotalWeight>0">${{ ((viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g))+(currentRecipe.labour_cost_per_serve||0)+(currentRecipe.packaging_cost_per_serve||0)).toFixed(2) }}</span>
               <span v-else class="text-stone-400">-</span>
+            </p>
+            <p v-if="(currentRecipe.labour_cost_per_serve||currentRecipe.packaging_cost_per_serve)&&viewTotalCost>0&&viewTotalWeight>0" class="text-xs text-stone-400 mt-1 leading-relaxed">
+              ingr ${{ (viewTotalCost/((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(2) }}<span v-if="currentRecipe.labour_cost_per_serve"> + labour ${{ Number(currentRecipe.labour_cost_per_serve).toFixed(2) }}</span><span v-if="currentRecipe.packaging_cost_per_serve"> + pkg ${{ Number(currentRecipe.packaging_cost_per_serve).toFixed(2) }}</span>
             </p>
           </div>
         </div>
@@ -317,6 +320,7 @@
             <div class="w-24 text-right">
               <p class="text-xs text-stone-400 leading-tight">all items</p>
               <p class="text-base font-bold">${{ viewTotalCost.toFixed(2) }}</p>
+              <p v-if="(currentRecipe.labour_cost_per_serve||currentRecipe.packaging_cost_per_serve)&&currentRecipe.serve_weight_g&&viewTotalWeight>0" class="text-xs text-amber-600 mt-0.5">+${{ (((currentRecipe.labour_cost_per_serve||0)+(currentRecipe.packaging_cost_per_serve||0))*((viewTotalWeight*moistureFactor)/currentRecipe.serve_weight_g)).toFixed(2) }} overhead</p>
             </div>
           </div>
         </div>
@@ -551,6 +555,49 @@
               <span class="text-sm font-semibold text-stone-700">Save as Draft</span>
             </label>
             <span class="text-xs text-stone-400">Draft recipes are visible but marked — enter into portal after scanning</span>
+          </div>
+          <!-- Labour & Packaging -->
+          <div class="sm:col-span-2 border-t border-stone-100 pt-4">
+            <p class="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">Labour &amp; Packaging <span class="font-normal normal-case text-stone-400">(per pack — optional)</span></p>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="block text-xs font-semibold text-stone-600 mb-1">Labour: Rate $/hr ÷ packs/hr</label>
+                <div class="flex gap-2 items-center">
+                  <input id="labourRate" type="number" step="0.01" min="0" placeholder="30" @input="val => editForm.labour_cost_per_serve = val.target.closest('.flex').querySelector('#labourUnits').value ? Math.round((Number(val.target.value)/Number(val.target.closest('.flex').querySelector('#labourUnits').value))*100)/100 : editForm.labour_cost_per_serve"
+                    class="flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                  <span class="text-stone-400 text-xs shrink-0">÷</span>
+                  <input id="labourUnits" type="number" step="1" min="1" placeholder="30 packs" @input="val => editForm.labour_cost_per_serve = val.target.closest('.flex').querySelector('#labourRate').value ? Math.round((Number(val.target.closest('.flex').querySelector('#labourRate').value)/Number(val.target.value))*100)/100 : editForm.labour_cost_per_serve"
+                    class="w-24 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-stone-600 mb-1">Labour cost / pack ($)</label>
+                <input v-model.number="editForm.labour_cost_per_serve" type="number" step="0.01" min="0" placeholder="e.g. 1.00"
+                  class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+            </div>
+            <div class="grid grid-cols-4 gap-2">
+              <div>
+                <label class="block text-xs font-semibold text-stone-600 mb-1">Tub ($)</label>
+                <input type="number" step="0.01" min="0" placeholder="0.30" @input="val => { const row=val.target.closest('.grid'); const t=Number(row.children[0].querySelector('input').value||0); const l=Number(row.children[1].querySelector('input').value||0); const s=Number(row.children[2].querySelector('input').value||0); if(t+l+s>0) editForm.packaging_cost_per_serve=Math.round((t+l+s)*100)/100; }"
+                  class="w-full border border-stone-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-stone-600 mb-1">Lid ($)</label>
+                <input type="number" step="0.01" min="0" placeholder="0.20" @input="val => { const row=val.target.closest('.grid'); const t=Number(row.children[0].querySelector('input').value||0); const l=Number(row.children[1].querySelector('input').value||0); const s=Number(row.children[2].querySelector('input').value||0); if(t+l+s>0) editForm.packaging_cost_per_serve=Math.round((t+l+s)*100)/100; }"
+                  class="w-full border border-stone-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-stone-600 mb-1">Sticker ($)</label>
+                <input type="number" step="0.01" min="0" placeholder="0.04" @input="val => { const row=val.target.closest('.grid'); const t=Number(row.children[0].querySelector('input').value||0); const l=Number(row.children[1].querySelector('input').value||0); const s=Number(row.children[2].querySelector('input').value||0); if(t+l+s>0) editForm.packaging_cost_per_serve=Math.round((t+l+s)*100)/100; }"
+                  class="w-full border border-stone-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-stone-600 mb-1">Total pkg / pack ($)</label>
+                <input v-model.number="editForm.packaging_cost_per_serve" type="number" step="0.01" min="0" placeholder="0.54"
+                  class="w-full border border-stone-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+            </div>
           </div>
           <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Description</label>
@@ -1602,7 +1649,7 @@ Method:
         return 0;
       }
       function blankIngForm(){return{id:null,name:'',brand:'',cost_per_kg:null,price_is_estimate:false,ingredient_type:'ambient',state:'raw',raw_ingredient_id:null,cook_ratio:null,main_supplier:'',last_price_update:null,upload_notes:'',energy_kj:null,protein_g:null,fat_g:null,saturated_fat_g:null,carbohydrate_g:null,sugars_g:null,dietary_fibre_g:null,sodium_mg:null};}
-      function blankEditForm(){return{id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,nip_serve_g:45,finished_weight_g:null,status:'active',notes:'',parent_recipe_id:null,steps:[],allIngredients:[]};}
+      function blankEditForm(){return{id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,nip_serve_g:45,finished_weight_g:null,status:'active',notes:'',parent_recipe_id:null,labour_cost_per_serve:null,packaging_cost_per_serve:null,steps:[],allIngredients:[]};}
       function newIngRow(stepTempId=null){return{tempId:uid(),id:null,ingredient_id:'',weight_g:null,volumetric_note:'',prep_method:'',step_tempId:stepTempId,_convLoading:false,_importName:''};}
 
       // ---- AUTH (single sign-on via the portal) ----
@@ -1642,7 +1689,7 @@ Method:
       function startEditRecipe(recipe){
         const steps=viewSteps.value.map(s=>({...s,tempId:s.id||uid()}));
         const allIngredients=(recipe._rawIngredients||viewIngredients.value).map(ri=>({...newIngRow(),id:ri.id,ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',prep_method:ri.prep_method||'',step_tempId:ri.step_id?(steps.find(s=>s.id===ri.step_id)?.tempId||null):null}));
-        editForm.value={id:recipe.id,name:recipe.name,category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,finished_weight_g:recipe.finished_weight_g||null,status:recipe.status||'active',notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,steps,allIngredients};
+        editForm.value={id:recipe.id,name:recipe.name,category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,finished_weight_g:recipe.finished_weight_g||null,status:recipe.status||'active',notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,labour_cost_per_serve:recipe.labour_cost_per_serve||null,packaging_cost_per_serve:recipe.packaging_cost_per_serve||null,steps,allIngredients};
         saveError.value='';currentView.value='edit';
       }
       function startNewVersion(recipe){
@@ -1682,7 +1729,7 @@ Method:
         if(!editForm.value.serve_weight_g||editForm.value.serve_weight_g<=0){saveError.value='Serve size must be >0.';return;}
         savingRecipe.value=true;saveError.value='';
         try{
-          const payload={name:editForm.value.name.trim(),category:editForm.value.category||null,version:editForm.value.version,description:editForm.value.description||null,serve_weight_g:editForm.value.serve_weight_g,nip_serve_g:editForm.value.nip_serve_g||45,finished_weight_g:editForm.value.finished_weight_g||null,status:editForm.value.status||'active',notes:editForm.value.notes||null};
+          const payload={name:editForm.value.name.trim(),category:editForm.value.category||null,version:editForm.value.version,description:editForm.value.description||null,serve_weight_g:editForm.value.serve_weight_g,nip_serve_g:editForm.value.nip_serve_g||45,finished_weight_g:editForm.value.finished_weight_g||null,status:editForm.value.status||'active',notes:editForm.value.notes||null,labour_cost_per_serve:editForm.value.labour_cost_per_serve||null,packaging_cost_per_serve:editForm.value.packaging_cost_per_serve||null};
           if(editForm.value.parent_recipe_id) payload.parent_recipe_id=editForm.value.parent_recipe_id;
           let recipeId;
           if(editForm.value.id){
