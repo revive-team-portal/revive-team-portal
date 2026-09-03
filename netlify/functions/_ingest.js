@@ -61,6 +61,13 @@ async function processThread(token, tid){
     return { m, h, from:parseEmail(h.from), to:parseEmail(h.to), bodyText, html:parts.html, attachments:parts.attachments }; });
   for(const pm of parsed){ const other=pm.from&&pm.from!==MAILBOX?pm.from:(pm.to&&pm.to!==MAILBOX?pm.to:''); if(other&&!custEmail){ custEmail=other; custName=parseName(pm.h.from)||parseName(pm.h.to)||''; } }
   if(!custEmail) custEmail='unknown@no-email.local';
+  // Shopify mailer (contact form / notifications): the real customer address is in Reply-To or the body.
+  if(/@shopify\.com$/i.test(custEmail) || /mailer@shopify/i.test(custEmail)){
+    let real='';
+    for(const pm of parsed){ const rt=parseEmail(pm.h['reply-to']||''); if(rt && !/@shopify\.com$/i.test(rt) && rt!==MAILBOX){ real=rt; break; } }
+    if(!real){ const allBody=parsed.map(pm=>pm.bodyText||'').join(' '); const em=(allBody.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g)||[]).map(x=>x.toLowerCase()).filter(x=>!/@shopify\.com$/i.test(x) && x!==MAILBOX && x.indexOf('revive.co.nz')<0 && x.indexOf('revivealicious')<0 && x.indexOf('noreply')<0 && x.indexOf('no-reply')<0 && x.indexOf('shopifyemail')<0); real=em[0]||''; if(real){ const allB=parsed.map(pm=>pm.bodyText||'').join(' '); const nm=allB.match(/name[:\s]+([A-Za-z][A-Za-z '\-]{1,40})/i); if(nm && !custName) custName=nm[1].trim(); } }
+    if(real) custEmail=real;
+  }
   const custRows=await upsert('customers',{ email:custEmail, name:custName||null, first_seen:new Date(Number(msgs[0].internalDate||Date.now())).toISOString() },'email');
   const customerId=custRows&&custRows[0]&&custRows[0].id;
   const lastTs=new Date(Number(msgs[msgs.length-1].internalDate||Date.now())).toISOString();
