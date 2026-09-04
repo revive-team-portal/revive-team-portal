@@ -122,12 +122,24 @@
         <button @click="startNewRecipe" class="text-amber-600 hover:text-amber-700 font-medium text-sm">+ Create your first recipe</button>
       </div>
       <div v-else>
-        <div v-for="group in groupedRecipes" :key="group.category" class="mb-8">
-          <!-- Category header -->
-          <div class="flex items-center gap-3 mb-2 pb-2 border-b border-stone-200">
-            <h2 class="text-xs font-semibold text-stone-400 uppercase tracking-widest">{{ group.category }}</h2>
-            <span class="text-xs text-stone-300">{{ group.recipes.length }}</span>
+        <!-- Legend + expand all -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-4 text-xs text-stone-400">
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>All prices confirmed</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>Some estimates</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>Missing prices</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-stone-200 inline-block"></span>No cost data</span>
           </div>
+          <button @click="expandAllCategories" class="text-xs text-amber-600 hover:text-amber-700 font-medium">Expand all</button>
+        </div>
+        <div v-for="group in groupedRecipes" :key="group.category" class="mb-4">
+          <!-- Category header -->
+          <div class="flex items-center gap-2 mb-1 pb-2 border-b border-stone-200 cursor-pointer select-none" @click="toggleCategory(group.category)">
+            <button class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-base leading-none shrink-0 transition" :class="expandedCategories[group.category]?'bg-amber-100 text-amber-700':'bg-stone-100 text-stone-500 hover:bg-amber-50 hover:text-amber-600'">{{ expandedCategories[group.category]?'-':'+' }}</button>
+            <h2 class="text-xs font-semibold text-stone-500 uppercase tracking-widest">{{ group.category }}</h2>
+            <span class="text-xs text-stone-300 ml-1">{{ group.recipes.length }} recipe{{ group.recipes.length===1?'':'s' }}</span>
+          </div>
+          <template v-if="expandedCategories[group.category]">
           <!-- Column headers -->
           <div class="flex items-center gap-4 px-4 py-1 mb-1">
             <div class="w-4 shrink-0"></div>
@@ -157,7 +169,7 @@
               </div>
               <!-- Name -->
               <span class="flex-1 font-medium text-stone-800 text-sm group-hover:text-amber-800 leading-snug">
-                {{ recipe.name }}
+                <span v-if="recipe.code" class="text-xs font-mono text-stone-400 mr-1.5">{{ recipe.code }}</span>{{ recipe.name }}
                 <span v-if="recipe.status==='draft'" class="ml-1.5 inline-block text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide align-middle">Draft</span>
               </span>
               <!-- Batch weight -->
@@ -181,6 +193,7 @@
               <span class="text-stone-300 group-hover:text-amber-400 transition text-sm w-3 shrink-0">&rsaquo;</span>
             </div>
           </div>
+          </template>
         </div>
       </div>
     </div>
@@ -206,7 +219,7 @@
           <span class="text-sm font-medium px-3 py-1 rounded-full bg-amber-100 text-amber-800">{{ currentRecipe.category||'Uncategorised' }}</span>
           <span class="text-stone-400 text-sm">Version {{ currentRecipe.version }}</span>
         </div>
-        <h1 class="text-3xl font-bold text-stone-800 leading-tight">{{ currentRecipe.name }}</h1>
+        <div class="flex items-baseline gap-3"><span v-if="currentRecipe.code" class="text-lg font-mono text-stone-400 font-bold">{{ currentRecipe.code }}</span><h1 class="text-3xl font-bold text-stone-800 leading-tight">{{ currentRecipe.name }}</h1></div>
         <p v-if="currentRecipe.description" class="text-stone-500 mt-2">{{ currentRecipe.description }}</p>
 
         <!-- Stats row -->
@@ -515,11 +528,19 @@
       <div class="bg-white rounded-2xl border border-stone-200 p-6 mb-4">
         <h2 class="font-bold text-stone-800 mb-4">Recipe Details</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Recipe Name *</label>
-            <input v-model="editForm.name" type="text"
-              class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              placeholder="e.g. Bircher Muesli Blend">
+          <div class="sm:col-span-2 flex gap-3">
+            <div class="flex-1">
+              <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Recipe Name *</label>
+              <input v-model="editForm.name" type="text"
+                class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                placeholder="e.g. Bircher Muesli Blend">
+            </div>
+            <div class="w-24 shrink-0">
+              <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Code</label>
+              <input v-model="editForm.code" type="text"
+                class="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                placeholder="e.g. 301">
+            </div>
           </div>
           <div>
             <label class="block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">Category</label>
@@ -1456,7 +1477,7 @@ Method:
       const recipes = ref([]); const ingredients = ref([]); const loadingRecipes = ref(false);
       const currentRecipe = ref(null); const viewSteps = ref([]); const viewIngredients = ref([]); const expandedIngId = ref(null);
       const searchQuery = ref(''); const selectedCategory = ref(''); const ingSearchQuery = ref('');
-      const editForm = ref({ id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,notes:'',parent_recipe_id:null,steps:[],allIngredients:[] });
+      const editForm = ref({ id:null,name:'',code:'',category:'',version:1,description:'',serve_weight_g:100,notes:'',parent_recipe_id:null,steps:[],allIngredients:[] });
       const savingRecipe = ref(false); const saveError = ref('');
       const showIngModal = ref(false);
       const ingForm = ref({});
@@ -1482,6 +1503,9 @@ Method:
 
       // ---- COMPUTED ----
       const allCategories = computed(()=>[...new Set(recipes.value.map(r=>r.category).filter(Boolean))].sort());
+      const expandedCategories = Vue.ref({});
+      function toggleCategory(cat){expandedCategories.value=Object.assign({},expandedCategories.value,{[cat]:!expandedCategories.value[cat]});}
+      function expandAllCategories(){const o={};groupedRecipes.value.forEach(g=>{o[g.category]=true;});expandedCategories.value=o;}
       const filteredRecipes = computed(()=>recipes.value.filter(r=>{
         const mc=!selectedCategory.value||r.category===selectedCategory.value;
         const ms=!searchQuery.value||r.name.toLowerCase().includes(searchQuery.value.toLowerCase());
@@ -1649,7 +1673,7 @@ Method:
         return 0;
       }
       function blankIngForm(){return{id:null,name:'',brand:'',cost_per_kg:null,price_is_estimate:false,ingredient_type:'ambient',state:'raw',raw_ingredient_id:null,cook_ratio:null,main_supplier:'',last_price_update:null,upload_notes:'',energy_kj:null,protein_g:null,fat_g:null,saturated_fat_g:null,carbohydrate_g:null,sugars_g:null,dietary_fibre_g:null,sodium_mg:null};}
-      function blankEditForm(){return{id:null,name:'',category:'',version:1,description:'',serve_weight_g:100,nip_serve_g:45,finished_weight_g:null,status:'active',notes:'',parent_recipe_id:null,labour_cost_per_serve:null,packaging_cost_per_serve:null,steps:[],allIngredients:[]};}
+      function blankEditForm(){return{id:null,name:'',code:'',category:'',version:1,description:'',serve_weight_g:100,nip_serve_g:45,finished_weight_g:null,status:'active',notes:'',parent_recipe_id:null,labour_cost_per_serve:null,packaging_cost_per_serve:null,steps:[],allIngredients:[]};}
       function newIngRow(stepTempId=null){return{tempId:uid(),id:null,ingredient_id:'',weight_g:null,volumetric_note:'',prep_method:'',step_tempId:stepTempId,_convLoading:false,_importName:''};}
 
       // ---- AUTH (single sign-on via the portal) ----
@@ -1689,14 +1713,14 @@ Method:
       function startEditRecipe(recipe){
         const steps=viewSteps.value.map(s=>({...s,tempId:s.id||uid()}));
         const allIngredients=(recipe._rawIngredients||viewIngredients.value).map(ri=>({...newIngRow(),id:ri.id,ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',prep_method:ri.prep_method||'',step_tempId:ri.step_id?(steps.find(s=>s.id===ri.step_id)?.tempId||null):null}));
-        editForm.value={id:recipe.id,name:recipe.name,category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,finished_weight_g:recipe.finished_weight_g||null,status:recipe.status||'active',notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,labour_cost_per_serve:recipe.labour_cost_per_serve||null,packaging_cost_per_serve:recipe.packaging_cost_per_serve||null,steps,allIngredients};
+        editForm.value={id:recipe.id,name:recipe.name,code:recipe.code||'',category:recipe.category||'',version:recipe.version||1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,finished_weight_g:recipe.finished_weight_g||null,status:recipe.status||'active',notes:recipe.notes||'',parent_recipe_id:recipe.parent_recipe_id||null,labour_cost_per_serve:recipe.labour_cost_per_serve||null,packaging_cost_per_serve:recipe.packaging_cost_per_serve||null,steps,allIngredients};
         saveError.value='';currentView.value='edit';
       }
       function startNewVersion(recipe){
         const steps=viewSteps.value.map(s=>({...s,id:null,tempId:uid()}));
         const stepOldToNew={};viewSteps.value.forEach((s,i)=>{stepOldToNew[s.id]=steps[i].tempId;});
         const allIngredients=viewIngredients.value.map(ri=>({...newIngRow(),ingredient_id:ri.ingredient_id,weight_g:ri.weight_g,volumetric_note:ri.volumetric_note||'',prep_method:ri.prep_method||'',step_tempId:ri.step_id?(stepOldToNew[ri.step_id]||null):null}));
-        editForm.value={id:null,name:recipe.name,category:recipe.category||'',version:(recipe.version||1)+1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,notes:recipe.notes||'',parent_recipe_id:recipe.id,steps,allIngredients};
+        editForm.value={id:null,name:recipe.name,code:recipe.code||'',category:recipe.category||'',version:(recipe.version||1)+1,description:recipe.description||'',serve_weight_g:recipe.serve_weight_g||100,nip_serve_g:recipe.nip_serve_g||45,notes:recipe.notes||'',parent_recipe_id:recipe.id,steps,allIngredients};
         saveError.value='';currentView.value='edit';
       }
       function cancelEdit(){currentRecipe.value?currentView.value='view':goToList();}
@@ -1729,7 +1753,7 @@ Method:
         if(!editForm.value.serve_weight_g||editForm.value.serve_weight_g<=0){saveError.value='Serve size must be >0.';return;}
         savingRecipe.value=true;saveError.value='';
         try{
-          const payload={name:editForm.value.name.trim(),category:editForm.value.category||null,version:editForm.value.version,description:editForm.value.description||null,serve_weight_g:editForm.value.serve_weight_g,nip_serve_g:editForm.value.nip_serve_g||45,finished_weight_g:editForm.value.finished_weight_g||null,status:editForm.value.status||'active',notes:editForm.value.notes||null,labour_cost_per_serve:editForm.value.labour_cost_per_serve||null,packaging_cost_per_serve:editForm.value.packaging_cost_per_serve||null};
+          const payload={name:editForm.value.name.trim(),code:editForm.value.code?.trim()||null,category:editForm.value.category||null,version:editForm.value.version,description:editForm.value.description||null,serve_weight_g:editForm.value.serve_weight_g,nip_serve_g:editForm.value.nip_serve_g||45,finished_weight_g:editForm.value.finished_weight_g||null,status:editForm.value.status||'active',notes:editForm.value.notes||null,labour_cost_per_serve:editForm.value.labour_cost_per_serve||null,packaging_cost_per_serve:editForm.value.packaging_cost_per_serve||null};
           if(editForm.value.parent_recipe_id) payload.parent_recipe_id=editForm.value.parent_recipe_id;
           let recipeId;
           if(editForm.value.id){
@@ -2148,7 +2172,7 @@ ${descTxt?`<div class="r-desc">${esc(descTxt)}</div>`:''}`;
             allIngredients.push({tempId:uid(),id:null,ingredient_id:matched?.id||'',weight_g:pi.weight_g||null,volumetric_note:pi.volumetric_note||'',step_tempId:step._tempId,_convLoading:false,_importName:''});
           }
         }
-        editForm.value={id:null,name:parsed.name||'Imported Recipe',category:parsed.category||'',version:1,description:parsed.description||'',serve_weight_g:parsed.serve_weight_g||100,notes:parsed.notes||'',parent_recipe_id:null,steps,allIngredients};
+        editForm.value={id:null,name:parsed.name||'Imported Recipe',code:'',category:parsed.category||'',version:1,description:parsed.description||'',serve_weight_g:parsed.serve_weight_g||100,notes:parsed.notes||'',parent_recipe_id:null,steps,allIngredients};
         saveError.value='';currentView.value='edit';
       }
       function handlePhotoSelect(e){const f=e.target.files[0];if(f)readImageFile(f);}
@@ -2192,7 +2216,7 @@ ${descTxt?`<div class="r-desc">${esc(descTxt)}</div>`:''}`;
         nipNutritionPerServe,
         showMinorEdit, minorEditForm, savingMinorEdit, openMinorEdit, saveMinorEdit,
         searchQuery, selectedCategory, ingSearchQuery,
-        allCategories, filteredRecipes, groupedRecipes, filteredIngredients, groupedIngredientList, rawIngredients,
+        allCategories, expandedCategories, toggleCategory, expandAllCategories, filteredRecipes, groupedRecipes, filteredIngredients, groupedIngredientList, rawIngredients,
         editForm, savingRecipe, saveError,
         editGeneralIngredients, editTotalWeight, editTotalCost,
         viewTotalWeight, viewTotalCost, viewUnassignedIngredients, nutrition100g, nutritionPerServe,
