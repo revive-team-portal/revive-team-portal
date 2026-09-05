@@ -305,10 +305,26 @@ function paint(){
   mediaSession();
 }
 
+function flowOffset(i){
+  const wrap = $('flow');
+  const p = wrap.querySelectorAll('p')[i];
+  if(!p) return 0;
+  const wrapH = wrap.parentElement.clientHeight;
+  return wrapH * 0.42 - (p.offsetTop + p.offsetHeight / 2);
+}
+/* park the flow on a line without animating into place */
+function parkFlow(i){
+  const wrap = $('flow');
+  const prev = wrap.style.transition;
+  wrap.style.transition = 'none';
+  wrap.style.transform = 'translateY(' + flowOffset(i) + 'px)';
+  void wrap.offsetHeight;
+  wrap.style.transition = prev;
+}
+
 function buildFlow(){
   const wrap = $('flow'), s = SONGS[idx];
   wrap.innerHTML = '';
-  wrap.style.transform = 'translateY(0)';
   const lines = sung(s);
   if(!lines.length){
     wrap.innerHTML = '<p>Instrumental</p>';
@@ -321,6 +337,7 @@ function buildFlow(){
     wrap.appendChild(p);
   });
   live = -1;
+  requestAnimationFrame(()=>{ if(live < 0) parkFlow(0); });
 }
 
 function buildFull(){
@@ -381,11 +398,9 @@ function runLyrics(){
     ps.forEach(p => p.classList.remove('live'));
     if(n >= 0 && ps[n]){
       ps[n].classList.add('live');
-      const wrapH = $('flow').parentElement.clientHeight;
-      const y = ps[n].offsetTop + ps[n].offsetHeight/2;
-      $('flow').style.transform = 'translateY(' + (wrapH*0.42 - y) + 'px)';
+      $('flow').style.transform = 'translateY(' + flowOffset(n) + 'px)';
     } else {
-      $('flow').style.transform = 'translateY(0)';
+      $('flow').style.transform = 'translateY(' + flowOffset(0) + 'px)';
     }
 
     if($('lyricSheet').classList.contains('open')){
@@ -574,7 +589,10 @@ function setLib(open){
   applyLib();
   if(!open) $('grid').scrollTop = 0;
 }
-window.addEventListener('resize', measureLib);
+window.addEventListener('resize', ()=>{
+  measureLib();
+  parkFlow(live >= 0 ? live : 0);
+});
 $('libhead').addEventListener('click', e=>{
   if(e.target.closest('#shuffleAll')) return;
   setLib(!libOpen);
