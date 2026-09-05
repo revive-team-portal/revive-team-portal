@@ -3,7 +3,7 @@
  "album": "The Inspiration Project",
  "songs": [
   {
-   "title": "Clouds Of Glory",
+   "title": "Clouds of Glory",
    "src": "audio/01.mp3",
    "art": "art/01.jpg",
    "duration": 239.81,
@@ -518,7 +518,7 @@
    ]
   },
   {
-   "title": "Oh my soul",
+   "title": "Oh My Soul",
    "src": "audio/03.mp3",
    "art": "art/03.jpg",
    "duration": 204.65,
