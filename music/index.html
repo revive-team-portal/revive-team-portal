@@ -52,12 +52,13 @@
   .flow p.live{color:#fff;transform:scale(1.03);transform-origin:left center}
   .flow.off{display:none}
 
-  .stagebtns{position:absolute;right:12px;bottom:10px;z-index:3;display:flex;gap:8px}
-  .stagebtns button{width:46px;height:46px;display:grid;place-items:center;border-radius:50%;
-                    background:rgba(10,10,12,.6);backdrop-filter:blur(6px);color:#fff;opacity:.9}
-  .stagebtns button:hover{opacity:1}
+  .stagebtns{position:absolute;right:12px;bottom:10px;z-index:3;display:flex;gap:10px}
+  .stagebtns button{width:58px;height:58px;display:grid;place-items:center;border-radius:50%;
+                    background:rgba(10,10,12,.62);backdrop-filter:blur(6px);color:#fff;opacity:.92}
+  .stagebtns button:hover{opacity:1;background:rgba(10,10,12,.8)}
+  .stagebtns button:active{transform:scale(.9)}
   .stagebtns button.off{color:var(--dim)}
-  .stagebtns svg{width:23px;height:23px;fill:currentColor}
+  .stagebtns svg{width:29px;height:29px;fill:currentColor}
 
   /* ══════════ MIDDLE: track meta + controls ══════════ */
   .deck{flex:0 0 auto;padding:14px 22px 12px}
@@ -129,6 +130,8 @@
   #favFilter.on{color:#FF4D6D}
   .emptyfav{grid-column:1/-1;text-align:center;color:var(--dim);font-size:14px;
             line-height:1.6;padding:34px 16px}
+  #askBtn{color:var(--accent);display:flex;align-items:center;gap:6px;padding:10px 4px;font-weight:600;font-size:14px}
+  #askBtn svg{width:17px;height:17px;fill:currentColor}
   #viewToggle{color:var(--muted);display:flex;align-items:center;padding:10px 4px}
   #viewToggle svg{width:20px;height:20px;fill:currentColor}
 
@@ -203,6 +206,26 @@
   .full p.sect{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
                color:var(--accent);opacity:.7;padding:20px 0 4px}
   #verseSheet{height:auto;max-height:80vh}
+  #askSheet{height:auto;max-height:92vh}
+  #askSheet .sheet-body{padding-bottom:24px}
+  .field{margin:14px 0 0}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:0 0 7px}
+  .field input,.field textarea{width:100%;background:#1B1B20;color:#fff;border:1px solid rgba(255,255,255,.12);
+    border-radius:11px;padding:14px 14px;font-family:inherit;font-size:16px;line-height:1.45;
+    transition:border-color .15s}
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
+  .field textarea{min-height:132px;resize:vertical}
+  .trap{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+  .askhint{margin:2px 0 0;font-size:12.5px;color:var(--dim);line-height:1.5}
+  .send{width:100%;margin-top:20px;background:var(--accent);color:#06210F;font-weight:700;font-size:16px;
+        border-radius:100px;padding:17px;transition:opacity .15s}
+  .send:disabled{opacity:.5}
+  .askmsg{margin:14px 0 0;font-size:13.5px;line-height:1.5;display:none}
+  .askmsg.bad{display:block;color:#FF8095}
+  .askdone{text-align:center;padding:26px 8px 12px;display:none}
+  .askdone svg{width:52px;height:52px;fill:var(--accent);margin-bottom:14px}
+  .askdone h4{margin:0 0 8px;font-size:19px;font-weight:700}
+  .askdone p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
   .scripture{margin:6px 0 0;font-size:19px;line-height:1.62;color:#fff;font-weight:400}
   .chapterlink{display:inline-block;margin:22px 0 6px;font-size:12.5px;font-weight:600;
                color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(43,217,124,.4);
@@ -280,6 +303,7 @@
     <div class="libhead" id="libhead">
       <h3 id="libcount">All songs</h3>
       <div class="libtools">
+        <button id="askBtn"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 00-9 9c0 1.6.42 3.1 1.16 4.4L3 21l4.7-1.13A8.96 8.96 0 0012 21a9 9 0 000-18zm0 2a7 7 0 110 14 6.9 6.9 0 01-3.6-1l-.35-.2-2.2.53.54-2.14-.22-.36A6.9 6.9 0 0112 5z"/></svg>Request a song</button>
         <button id="viewToggle" aria-label="Switch view"></button>
         <button id="favFilter" aria-pressed="false"></button>
       </div>
@@ -289,6 +313,35 @@
 </div>
 
 <div id="scrim"></div>
+<div class="sheet" id="askSheet" role="dialog" aria-label="Request a song">
+  <div class="grip"></div>
+  <div class="sheet-head">
+    <div><h3>Request a song</h3><div class="sub">Tell Jeremy what to write about</div></div>
+    <button class="close">Close</button>
+  </div>
+  <div class="sheet-body">
+    <div id="askForm">
+      <div class="field">
+        <label for="askName">Your name</label>
+        <input id="askName" type="text" maxlength="80" autocomplete="name" placeholder="Who's asking?">
+      </div>
+      <div class="field">
+        <label for="askTheme">What would you like a song about?</label>
+        <textarea id="askTheme" maxlength="1200" placeholder="A theme, a verse, a story, or something you're walking through."></textarea>
+      </div>
+      <input class="trap" id="askTrap" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <p class="askmsg" id="askMsg"></p>
+      <button class="send" id="askSend">Send request</button>
+      <p class="askhint">This goes straight to Jeremy's inbox. He won't get your email address, so mention it if you'd like a reply.</p>
+    </div>
+    <div class="askdone" id="askDone">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.6l-4.2-4.2 1.4-1.4 2.8 2.8 6-6 1.4 1.4-7.4 7.4z"/></svg>
+      <h4>Sent</h4>
+      <p>Thanks — Jeremy has your idea.</p>
+    </div>
+  </div>
+</div>
+
 <div class="sheet" id="verseSheet" role="dialog" aria-label="Scripture">
   <div class="grip"></div>
   <div class="sheet-head">
@@ -752,6 +805,52 @@ $('grid').addEventListener('scroll', ()=>{
   });
 })();
 
+/* ─────────── song requests ─────────── */
+function openAsk(){
+  closeSheet();
+  $('askForm').style.display = '';
+  $('askDone').style.display = 'none';
+  $('askMsg').className = 'askmsg';
+  $('askSend').disabled = false;
+  $('askSend').textContent = 'Send request';
+  $('askSheet').classList.add('open');
+  $('scrim').classList.add('on');
+  setTimeout(()=>$('askName').focus(), 320);
+}
+$('askBtn').addEventListener('click', e=>{ e.stopPropagation(); openAsk(); });
+
+$('askSend').addEventListener('click', async ()=>{
+  const name = $('askName').value.trim();
+  const theme = $('askTheme').value.trim();
+  const msg = $('askMsg');
+  if(!name || !theme){
+    msg.textContent = 'Please add your name and what the song is about.';
+    msg.className = 'askmsg bad';
+    (!name ? $('askName') : $('askTheme')).focus();
+    return;
+  }
+  msg.className = 'askmsg';
+  $('askSend').disabled = true;
+  $('askSend').textContent = 'Sending…';
+  try{
+    const r = await fetch('/.netlify/functions/song-request', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name, theme, website: $('askTrap').value })
+    });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error || 'Could not send.');
+    $('askForm').style.display = 'none';
+    $('askDone').style.display = 'block';
+    $('askName').value = ''; $('askTheme').value = '';
+  }catch(err){
+    msg.textContent = err.message || 'That did not send. Please try again shortly.';
+    msg.className = 'askmsg bad';
+    $('askSend').disabled = false;
+    $('askSend').textContent = 'Send request';
+  }
+});
+
 /* ─────────── boot ─────────── */
 fetch('songs.json', {cache:'no-cache'})
   .then(r => r.json())
@@ -773,5 +872,3 @@ fetch('songs.json', {cache:'no-cache'})
 </script>
 </body>
 </html>
-
-<!-- art rev 04b -->
