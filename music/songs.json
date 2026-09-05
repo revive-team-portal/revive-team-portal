@@ -294,7 +294,12 @@
      "t": 224.78,
      "text": "Jesus, You are Lord"
     }
-   ]
+   ],
+   "note": "The second coming — the sky opening and every eye lifting to watch.",
+   "verse": {
+    "ref": "Revelation 1:7",
+    "url": "https://www.biblegateway.com/passage/?search=Revelation%201%3A7&version=NIV"
+   }
   },
   {
    "title": "Faithful",
@@ -503,7 +508,12 @@
      "t": 270.78,
      "text": "Lord, make me faithful when it’s not yet won."
     }
-   ]
+   ],
+   "note": "Inspired by the story of Joseph — faithful in the pit long before the palace.",
+   "verse": {
+    "ref": "Genesis 50:20",
+    "url": "https://www.biblegateway.com/passage/?search=Genesis%2050%3A20&version=NIV"
+   }
   },
   {
    "title": "Oh my soul",
@@ -663,7 +673,12 @@
      "t": 190.69,
      "text": "it is well (it is well)…"
     }
-   ]
+   ],
+   "note": "Built on the old line “it is well with my soul” — peace that holds in the calm and the storm.",
+   "verse": {
+    "ref": "Psalm 42:5",
+    "url": "https://www.biblegateway.com/passage/?search=Psalm%2042%3A5&version=NIV"
+   }
   },
   {
    "title": "Be Strong",
@@ -864,7 +879,12 @@
      "t": 193.93,
      "text": "Wherever you may go."
     }
-   ]
+   ],
+   "note": "Joshua at the Jordan — the water only parts once the feet step in.",
+   "verse": {
+    "ref": "Joshua 1:9",
+    "url": "https://www.biblegateway.com/passage/?search=Joshua%201%3A9&version=NIV"
+   }
   },
   {
    "title": "Stand Still and See",
@@ -1046,7 +1066,12 @@
      "t": 252.61,
      "text": "Stand still, stand still and see"
     }
-   ]
+   ],
+   "note": "Jehoshaphat facing an army he cannot beat, sending the singers out ahead of the soldiers.",
+   "verse": {
+    "ref": "2 Chronicles 20:17",
+    "url": "https://www.biblegateway.com/passage/?search=2%20Chronicles%2020%3A17&version=NIV"
+   }
   },
   {
    "title": "Handing It Over (Remastered)",
@@ -1195,7 +1220,12 @@
      "t": 183.2,
      "text": "finally handing it over."
     }
-   ]
+   ],
+   "note": "A week that got too heavy, and the decision to stop carrying it alone.",
+   "verse": {
+    "ref": "1 Peter 5:7",
+    "url": "https://www.biblegateway.com/passage/?search=1%20Peter%205%3A7&version=NIV"
+   }
   },
   {
    "title": "Before the Day Begins",
@@ -1356,7 +1386,12 @@
      "t": 278.84,
      "text": "You go before me, You stay by my side"
     }
-   ]
+   ],
+   "note": "Morning prayer in the quiet, before the phone starts ringing.",
+   "verse": {
+    "ref": "Psalm 143:8",
+    "url": "https://www.biblegateway.com/passage/?search=Psalm%20143%3A8&version=NIV"
+   }
   },
   {
    "title": "Cast the Net of Mercy",
@@ -1589,7 +1624,12 @@
      "t": 223.19,
      "text": "As Your fishers of all men."
     }
-   ]
+   ],
+   "note": "Dawn on the shore of Galilee — “leave your nets and follow me.”",
+   "verse": {
+    "ref": "Matthew 4:19",
+    "url": "https://www.biblegateway.com/passage/?search=Matthew%204%3A19&version=NIV"
+   }
   },
   {
    "title": "Shepherd of My Soul",
@@ -1682,7 +1722,12 @@
      "t": 105.8,
      "text": "In Your house forever, I will belong"
     }
-   ]
+   ],
+   "note": "Psalm 23, almost line for line.",
+   "verse": {
+    "ref": "Psalm 23:1-6",
+    "url": "https://www.biblegateway.com/passage/?search=Psalm%2023%3A1-6&version=NIV"
+   }
   }
  ]
 }

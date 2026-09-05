@@ -63,6 +63,13 @@
   .deck h2{margin:0;font-size:21px;font-weight:700;letter-spacing:-.015em;line-height:1.2;
            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .deck .artist{margin:3px 0 0;font-size:13px;color:var(--muted);font-weight:500}
+  .deck .note{margin:8px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted);font-weight:400}
+  .verse{display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+         font-size:11.5px;font-weight:600;color:var(--accent);text-decoration:none;
+         border:1px solid rgba(43,217,124,.35);border-radius:100px;padding:4px 10px;
+         transition:background .15s}
+  .verse:hover{background:rgba(43,217,124,.12)}
+  .verse svg{width:11px;height:11px;fill:currentColor;opacity:.8}
 
   .seekrow{margin-top:14px}
   input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;
@@ -100,16 +107,19 @@
   .libhead button{font-size:12px;font-weight:600;color:var(--muted);padding:4px 2px}
   .libhead button:hover{color:var(--text)}
   .grid{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
-        display:grid;grid-template-columns:repeat(3,1fr);gap:14px 12px;padding:2px 20px 22px}
-  @media (max-width:400px){.grid{grid-template-columns:repeat(2,1fr)}}
-  @media (min-width:560px){.grid{grid-template-columns:repeat(4,1fr)}}
-  .tile{text-align:left;width:100%}
+        display:grid;grid-template-columns:repeat(2,1fr);gap:18px 14px;padding:2px 20px 26px}
+  @media (min-width:520px){.grid{grid-template-columns:repeat(3,1fr)}}
+  .tile{text-align:left;width:100%;display:flex;flex-direction:column;align-items:flex-start}
+  .tile .hit{text-align:left;width:100%;display:block}
   .tile .thumb{position:relative;width:100%;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#222}
   .tile .thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s,filter .3s}
   .tile:hover .thumb img{transform:scale(1.05)}
   .tile .tt{margin-top:7px;font-size:12.5px;font-weight:600;line-height:1.3;
             display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .tile .ts{font-size:11px;color:var(--dim);margin-top:2px;font-variant-numeric:tabular-nums}
+  .tile .tn{font-size:11.5px;line-height:1.4;color:var(--muted);margin-top:5px;
+            display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .tile .verse{margin-top:7px;font-size:10.5px;padding:3px 8px}
   .tile.playing .tt{color:var(--accent)}
   .tile.playing .thumb{outline:2px solid var(--accent);outline-offset:-2px}
   .tile.playing .thumb img{filter:brightness(.5)}
@@ -171,6 +181,11 @@
   <div class="deck">
     <h2 id="title">—</h2>
     <p class="artist" id="sub">Jeremy Dixon</p>
+    <p class="note" id="note"></p>
+    <a class="verse" id="verse" href="#" target="_blank" rel="noopener">
+      <span id="verseRef"></span>
+      <svg viewBox="0 0 24 24"><path d="M14 3v2h3.6l-9.8 9.8 1.4 1.4L19 6.4V10h2V3h-7zM5 5h5V3H3v18h18v-7h-2v5H5V5z"/></svg>
+    </a>
     <div class="seekrow">
       <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
       <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
@@ -225,6 +240,7 @@ let idx = 0, shuffle = false, repeat = 'off', scrubbing = false, lyricsOn = true
 const fmt = s => (!isFinite(s) || s < 0) ? '0:00'
   : Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
 const abs = p => new URL(p, location.href).href;
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* Lyric times are stored against each song's true length. If the audio file that
    loads is a different length, scale so the words still land in the right place. */
@@ -242,6 +258,15 @@ function paint(){
   $('art').alt = s.title + ' cover';
   $('title').textContent = s.title;
   $('sub').textContent = ARTIST;
+  $('note').textContent = s.note || '';
+  $('note').style.display = s.note ? '' : 'none';
+  if(s.verse && s.verse.url){
+    $('verse').href = s.verse.url;
+    $('verseRef').textContent = s.verse.ref;
+    $('verse').style.display = '';
+  } else {
+    $('verse').style.display = 'none';
+  }
   document.title = s.title + ' — ' + ARTIST;
   buildFlow();
   buildFull();
@@ -286,14 +311,32 @@ function buildGrid(){
   g.innerHTML = '';
   $('libcount').textContent = SONGS.length + ' songs';
   SONGS.forEach((s,i)=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'tile' + (i === idx ? ' playing' : '') + (i === idx && audio.paused ? ' paused' : '');
+
     const b = document.createElement('button');
-    b.className = 'tile' + (i === idx ? ' playing' : '') + (i === idx && audio.paused ? ' paused' : '');
+    b.className = 'hit';
+    b.setAttribute('aria-label', 'Play ' + s.title);
     b.innerHTML = '<span class="thumb"><img src="' + s.art + '" alt="" loading="lazy">' +
       '<span class="bars"><i></i><i></i><i></i></span></span>' +
-      '<span class="tt">' + s.title + '</span>' +
-      '<span class="ts">' + fmt(s.duration) + '</span>';
+      '<span class="tt">' + esc(s.title) + '</span>' +
+      '<span class="ts">' + fmt(s.duration) + '</span>' +
+      (s.note ? '<span class="tn">' + esc(s.note) + '</span>' : '');
     b.addEventListener('click', ()=>select(i));
-    g.appendChild(b);
+    wrap.appendChild(b);
+
+    if(s.verse && s.verse.url){
+      const a = document.createElement('a');
+      a.className = 'verse';
+      a.href = s.verse.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.innerHTML = esc(s.verse.ref) +
+        '<svg viewBox="0 0 24 24"><path d="M14 3v2h3.6l-9.8 9.8 1.4 1.4L19 6.4V10h2V3h-7zM5 5h5V3H3v18h18v-7h-2v5H5V5z"/></svg>';
+      a.addEventListener('click', e=>e.stopPropagation());
+      wrap.appendChild(a);
+    }
+    g.appendChild(wrap);
   });
 }
 
