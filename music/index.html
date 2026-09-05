@@ -71,7 +71,7 @@
   .heart:hover{background:rgba(255,255,255,.12)}
   .heart.on{color:#FF4D6D;background:rgba(255,77,109,.14)}
   .heart.pop{transform:scale(1.22)}
-  .deck .artist{margin:3px 0 0;font-size:13px;color:var(--muted);font-weight:500}
+  .deck .artist{margin:4px 0 0;font-size:13px;color:var(--muted);font-weight:500;line-height:1.35}
   .deck .note{margin:8px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted);font-weight:400}
   .verse{display:inline-flex;align-items:center;gap:5px;margin-top:8px;
          font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;
@@ -315,7 +315,7 @@
 <script>
 const $ = id => document.getElementById(id);
 const audio = $('audio');
-let SONGS = [], ARTIST = 'Jeremy Dixon', ALBUM = 'Songs';
+let SONGS = [], ARTIST = 'Jeremy Dixon - The Inspiration Project', ALBUM = 'The Inspiration Project';
 let idx = 0, shuffle = false, repeat = 'off', scrubbing = false, lyricsOn = true, live = -1;
 
 const fmt = s => (!isFinite(s) || s < 0) ? '0:00'
@@ -388,7 +388,7 @@ function paint(){
   } else {
     $('verse').style.display = 'none';
   }
-  document.title = s.title + ' — ' + ARTIST;
+  document.title = s.title + ' — ' + ALBUM;
   buildFlow();
   buildFull();
   buildGrid();
