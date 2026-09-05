@@ -129,6 +129,22 @@
   #favFilter.on{color:#FF4D6D}
   .emptyfav{grid-column:1/-1;text-align:center;color:var(--dim);font-size:14px;
             line-height:1.6;padding:34px 16px}
+  #viewToggle{color:var(--muted);display:flex;align-items:center;padding:10px 4px}
+  #viewToggle svg{width:20px;height:20px;fill:currentColor}
+
+  /* list mode: one row per song */
+  .grid.list{display:block;padding:2px 14px 26px}
+  .grid.list .tile{flex-direction:row;align-items:center;gap:13px;padding:9px 6px;
+                   border-bottom:1px solid rgba(255,255,255,.06)}
+  .grid.list .tile:last-child{border-bottom:0}
+  .grid.list .hit{display:flex;align-items:center;gap:13px;flex:1 1 auto;min-width:0}
+  .grid.list .thumb{width:56px;height:56px;flex:0 0 auto}
+  .grid.list .rowmeta{min-width:0;flex:1 1 auto}
+  .grid.list .tt{margin-top:0;font-size:15px;-webkit-line-clamp:1}
+  .grid.list .tn{margin-top:2px;-webkit-line-clamp:2;font-size:12px}
+  .grid.list .ts{display:none}
+  .grid.list .tilefav{position:static;width:44px;height:44px;background:none;backdrop-filter:none}
+  .rowmeta{display:contents}
   .libhead button:hover{color:var(--text)}
   .grid{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
         display:grid;grid-template-columns:repeat(2,1fr);gap:18px 14px;padding:2px 20px 26px}
@@ -262,6 +278,7 @@
     <div class="libhead" id="libhead">
       <h3 id="libcount">All songs</h3>
       <div class="libtools">
+        <button id="viewToggle" aria-label="Switch view"></button>
         <button id="favFilter" aria-pressed="false"></button>
         <button id="shuffleAll">Shuffle all</button>
       </div>
@@ -331,12 +348,20 @@ function paintFav(){
   b.classList.toggle('on', on);
   b.setAttribute('aria-pressed', on);
   b.setAttribute('aria-label', on ? 'Remove from favourites' : 'Save to favourites');
+  const v = $('viewToggle');
+  v.innerHTML = listView ? ICON_GRID : ICON_LIST;
+  v.title = listView ? 'Show thumbnails' : 'Show list';
   const f = $('favFilter');
   f.innerHTML = (favOnly ? HEART_FULL : HEART_LINE) + '<span>' + (favs.size || '') + ' Favourites</span>';
   f.classList.toggle('on', favOnly);
   f.setAttribute('aria-pressed', favOnly);
 }
 let favOnly = false;
+const VIEW_KEY = 'revive.music.view.v1';
+let listView = false;
+try { listView = localStorage.getItem(VIEW_KEY) === 'list'; } catch(e){}
+const ICON_LIST = '<svg viewBox="0 0 24 24"><path d="M3 5h4v4H3V5zm6 1h12v2H9V6zM3 10h4v4H3v-4zm6 1h12v2H9v-2zM3 15h4v4H3v-4zm6 1h12v2H9v-2z"/></svg>';
+const ICON_GRID = '<svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>';
 
 /* Lyric times are stored against each song's true length. If the audio file that
    loads is a different length, scale so the words still land in the right place. */
@@ -422,6 +447,7 @@ function buildFull(){
 function buildGrid(){
   const g = $('grid');
   g.innerHTML = '';
+  g.classList.toggle('list', listView);
   const shown = SONGS.map((s,i)=>i).filter(i => !favOnly || isFav(SONGS[i]));
   $('libcount').textContent = favOnly
     ? shown.length + (shown.length === 1 ? ' favourite' : ' favourites')
@@ -438,21 +464,14 @@ function buildGrid(){
     const b = document.createElement('button');
     b.className = 'hit';
     b.setAttribute('aria-label', 'Play ' + s.title);
-    b.innerHTML = '<span class="thumb"><img src="' + s.art + '" alt="" loading="lazy">' +
-      '<span class="bars"><i></i><i></i><i></i></span></span>' +
-      '<span class="tt">' + esc(s.title) + '</span>' +
+    const thumb = '<span class="thumb"><img src="' + s.art + '" alt="" loading="lazy">' +
+      '<span class="bars"><i></i><i></i><i></i></span></span>';
+    const text = '<span class="tt">' + esc(s.title) + '</span>' +
       '<span class="ts">' + fmt(s.duration) + '</span>' +
       (s.note ? '<span class="tn">' + esc(s.note) + '</span>' : '');
+    b.innerHTML = listView ? thumb + '<span class="rowmeta">' + text + '</span>' : thumb + text;
     b.addEventListener('click', ()=>select(i));
     wrap.appendChild(b);
-
-    if(s.verse && s.verse.ref){
-      const a = document.createElement('button');
-      a.className = 'verse';
-      a.innerHTML = esc(s.verse.ref);
-      a.addEventListener('click', e=>{ e.stopPropagation(); openVerse(i); });
-      wrap.appendChild(a);
-    }
     const fb = document.createElement('button');
     fb.className = 'tilefav' + (isFav(s) ? ' on' : '');
     fb.innerHTML = isFav(s) ? HEART_FULL : HEART_LINE;
@@ -661,6 +680,13 @@ $('fav').addEventListener('click', ()=>{
   $('fav').classList.add('pop');
   setTimeout(()=>$('fav').classList.remove('pop'), 180);
   toggleFav(idx);
+});
+$('viewToggle').addEventListener('click', e=>{
+  e.stopPropagation();
+  listView = !listView;
+  try { localStorage.setItem(VIEW_KEY, listView ? 'list' : 'grid'); } catch(err){}
+  paintFav();
+  buildGrid();
 });
 $('favFilter').addEventListener('click', e=>{
   e.stopPropagation();

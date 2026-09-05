@@ -281,11 +281,6 @@
      "text": "Everyone can see"
     },
     {
-     "t": 207.92,
-     "text": "Outro",
-     "sect": true
-    },
-    {
      "t": 209.12,
      "text": "Clouds of glory"
     },
@@ -675,11 +670,6 @@
      "text": "oh my soul, oh my soul, it is well."
     },
     {
-     "t": 182.48,
-     "text": "Outro",
-     "sect": true
-    },
-    {
      "t": 183.68,
      "text": "Oh my soul (oh my soul),"
     },
@@ -705,12 +695,7 @@
    "lines": [
     {
      "t": 20.28,
-     "text": "Be Strong",
-     "sect": true
-    },
-    {
-     "t": 20.28,
-     "text": "VERSE 1",
+     "text": "Verse 1",
      "sect": true
     },
     {
@@ -739,7 +724,7 @@
     },
     {
      "t": 49.4,
-     "text": "PRE-CHORUS",
+     "text": "Pre-Chorus",
      "sect": true
     },
     {
@@ -760,7 +745,7 @@
     },
     {
      "t": 62.24,
-     "text": "CHORUS",
+     "text": "Chorus",
      "sect": true
     },
     {
@@ -797,7 +782,7 @@
     },
     {
      "t": 93.82,
-     "text": "VERSE 2",
+     "text": "Verse 2",
      "sect": true
     },
     {
@@ -826,7 +811,7 @@
     },
     {
      "t": 127.26,
-     "text": "BRIDGE",
+     "text": "Bridge",
      "sect": true
     },
     {
@@ -847,7 +832,7 @@
     },
     {
      "t": 150.46,
-     "text": "FINAL CHORUS",
+     "text": "Final Chorus",
      "sect": true
     },
     {
@@ -883,11 +868,6 @@
      "text": "We will serve the Lord."
     },
     {
-     "t": 177.28,
-     "text": "TAG",
-     "sect": true
-    },
-    {
      "t": 178.48,
      "text": "Be strong, be strong, be courageous,"
     },
@@ -919,11 +899,6 @@
    },
    "timing": "aligned",
    "lines": [
-    {
-     "t": 27.82,
-     "text": "Stand Still",
-     "sect": true
-    },
     {
      "t": 27.82,
      "text": "Verse 1",
@@ -1064,10 +1039,6 @@
      "text": "The song became the victory, the story still is told"
     },
     {
-     "t": 211.66,
-     "text": "[Key Change]"
-    },
-    {
      "t": 223.56,
      "text": "Final Chorus",
      "sect": true
@@ -1095,7 +1066,7 @@
    ]
   },
   {
-   "title": "Handing It Over (Remastered)",
+   "title": "Handing It Over",
    "src": "audio/06.mp3",
    "art": "art/06.jpg",
    "duration": 197.47,
@@ -1110,7 +1081,7 @@
    "lines": [
     {
      "t": 17.8,
-     "text": "Verse 1 (FEMALE",
+     "text": "Verse 1",
      "sect": true
     },
     {
@@ -1131,7 +1102,7 @@
     },
     {
      "t": 37.88,
-     "text": "Pre-Chorus (FEMALE",
+     "text": "Pre-Chorus",
      "sect": true
     },
     {
@@ -1144,7 +1115,7 @@
     },
     {
      "t": 46.94,
-     "text": "Chorus (FEMALE",
+     "text": "Chorus",
      "sect": true
     },
     {
@@ -1181,7 +1152,7 @@
     },
     {
      "t": 104.64,
-     "text": "Verse 2 (MALE",
+     "text": "Verse 2",
      "sect": true
     },
     {
@@ -1202,7 +1173,7 @@
     },
     {
      "t": 124.47,
-     "text": "Bridge (MALE",
+     "text": "Bridge",
      "sect": true
     },
     {
@@ -1215,7 +1186,7 @@
     },
     {
      "t": 133.38,
-     "text": "Final Chorus (MALE AND FEMALE DUET",
+     "text": "Final Chorus",
      "sect": true
     },
     {
