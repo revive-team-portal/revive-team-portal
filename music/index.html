@@ -35,20 +35,21 @@
        max-width:620px;margin:0 auto}
 
   /* ══════════ TOP: artwork with the lyrics running over it ══════════ */
-  .stage{position:relative;flex:0 0 auto;height:min(33vh,300px);overflow:hidden;background:#111}
+  .stage{position:relative;flex:0 0 auto;height:min(36vh,330px);overflow:hidden;background:#111}
   .stage img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.02)}
   .stage::after{content:"";position:absolute;inset:0;pointer-events:none;
     background:linear-gradient(180deg,rgba(6,6,8,.86) 0%,rgba(6,6,8,.5) 42%,rgba(6,6,8,.15) 66%,var(--bg) 100%)}
 
-  .flowwrap{position:absolute;top:0;left:0;right:0;height:64%;overflow:hidden;z-index:2;
-            pointer-events:none;
-            -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 18%,#000 72%,transparent 100%);
-            mask-image:linear-gradient(180deg,transparent 0,#000 18%,#000 72%,transparent 100%)}
+  .flowwrap{position:absolute;left:0;right:0;overflow:hidden;z-index:2;pointer-events:none;
+            top:calc(env(safe-area-inset-top, 0px) + 52px);
+            height:56%;
+            -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 74%,transparent 100%);
+            mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 74%,transparent 100%)}
   .flow{position:absolute;left:22px;right:22px;top:0;transition:transform .5s cubic-bezier(.25,.8,.3,1)}
-  .flow p{margin:0;padding:5px 0;font-size:16px;font-weight:600;line-height:1.32;
-          color:rgba(255,255,255,.32);transition:color .35s,transform .35s;
-          text-shadow:0 2px 14px rgba(0,0,0,.75)}
-  .flow p.live{color:#fff;transform:scale(1.02);transform-origin:left center}
+  .flow p{margin:0;padding:7px 0;font-size:20px;font-weight:600;line-height:1.34;
+          color:rgba(255,255,255,.34);transition:color .35s,transform .35s;
+          text-shadow:0 2px 16px rgba(0,0,0,.8)}
+  .flow p.live{color:#fff;transform:scale(1.03);transform-origin:left center}
   .flow.off{display:none}
 
   .stagebtns{position:absolute;right:12px;bottom:10px;z-index:3;display:flex;gap:8px}
@@ -171,7 +172,9 @@
 
   @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.06s !important}}
   @media (max-height:700px){
-    .stage{height:26vh}
+    .stage{height:30vh}
+    .flowwrap{top:calc(env(safe-area-inset-top, 0px) + 40px);height:58%}
+    .flow p{font-size:17px;padding:5px 0}
     .deck{padding-top:8px}
     .deck .note{display:none}
     .transport{padding-top:8px}
@@ -628,8 +631,9 @@ fetch('songs.json', {cache:'no-cache'})
     ARTIST = d.artist || ARTIST;
     ALBUM = d.album || ALBUM;
     if(!SONGS.length) throw new Error('no songs');
-    audio.src = SONGS[0].src;
-    $('dur').textContent = fmt(SONGS[0].duration);
+    idx = Math.floor(Math.random() * SONGS.length);
+    audio.src = SONGS[idx].src;
+    $('dur').textContent = fmt(SONGS[idx].duration);
     paint();
     requestAnimationFrame(measureLib);
   })
