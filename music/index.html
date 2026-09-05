@@ -61,8 +61,16 @@
 
   /* ══════════ MIDDLE: track meta + controls ══════════ */
   .deck{flex:0 0 auto;padding:14px 22px 12px}
+  .titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .titlerow .meta{min-width:0;flex:1 1 auto}
   .deck h2{margin:0;font-size:24px;font-weight:700;letter-spacing:-.015em;line-height:1.2;
            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .heart{flex:0 0 auto;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;
+         color:var(--muted);background:rgba(255,255,255,.06);transition:color .18s,transform .18s,background .18s}
+  .heart svg{width:27px;height:27px;fill:currentColor}
+  .heart:hover{background:rgba(255,255,255,.12)}
+  .heart.on{color:#FF4D6D;background:rgba(255,77,109,.14)}
+  .heart.pop{transform:scale(1.22)}
   .deck .artist{margin:3px 0 0;font-size:13px;color:var(--muted);font-weight:500}
   .deck .note{margin:8px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted);font-weight:400}
   .verse{display:inline-flex;align-items:center;gap:5px;margin-top:8px;
@@ -115,12 +123,24 @@
            padding:10px 20px 10px;cursor:pointer;touch-action:none}
   .libhead h3{margin:0;font-size:15px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
   .libhead button{font-size:14px;font-weight:600;color:var(--accent);padding:10px 4px}
+  .libtools{display:flex;align-items:center;gap:16px}
+  #favFilter{color:var(--muted);display:flex;align-items:center;gap:6px}
+  #favFilter svg{width:18px;height:18px;fill:currentColor}
+  #favFilter.on{color:#FF4D6D}
+  .emptyfav{grid-column:1/-1;text-align:center;color:var(--dim);font-size:14px;
+            line-height:1.6;padding:34px 16px}
   .libhead button:hover{color:var(--text)}
   .grid{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
         display:grid;grid-template-columns:repeat(2,1fr);gap:18px 14px;padding:2px 20px 26px}
   .library.expanded .grid{grid-template-columns:repeat(3,1fr)}
   @media (min-width:520px){.grid,.library.expanded .grid{grid-template-columns:repeat(4,1fr)}}
-  .tile{text-align:left;width:100%;display:flex;flex-direction:column;align-items:flex-start}
+  .tile{position:relative;text-align:left;width:100%;display:flex;flex-direction:column;align-items:flex-start}
+  .tilefav{position:absolute;top:4px;right:4px;z-index:3;width:38px;height:38px;border-radius:50%;
+           display:grid;place-items:center;color:rgba(255,255,255,.75);
+           background:rgba(8,8,10,.45);backdrop-filter:blur(4px);transition:color .18s,transform .18s}
+  .tilefav svg{width:20px;height:20px;fill:currentColor}
+  .tilefav.on{color:#FF4D6D}
+  .tilefav.pop{transform:scale(1.25)}
   .tile .hit{text-align:left;width:100%;display:block}
   .tile .thumb{position:relative;width:100%;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#222}
   .tile .thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s,filter .3s}
@@ -201,8 +221,13 @@
   </div>
 
   <div class="deck">
-    <h2 id="title">—</h2>
-    <p class="artist" id="sub">Jeremy Dixon</p>
+    <div class="titlerow">
+      <div class="meta">
+        <h2 id="title">—</h2>
+        <p class="artist" id="sub">Jeremy Dixon</p>
+      </div>
+      <button class="heart" id="fav" aria-label="Save to favourites"></button>
+    </div>
     <p class="note" id="note"></p>
     <button class="verse" id="verse">
       <span id="verseRef"></span>
@@ -236,7 +261,10 @@
     <div class="libgrip"></div>
     <div class="libhead" id="libhead">
       <h3 id="libcount">All songs</h3>
-      <button id="shuffleAll">Shuffle all</button>
+      <div class="libtools">
+        <button id="favFilter" aria-pressed="false"></button>
+        <button id="shuffleAll">Shuffle all</button>
+      </div>
     </div>
     <div class="grid" id="grid"></div>
   </div>
@@ -277,6 +305,39 @@ const fmt = s => (!isFinite(s) || s < 0) ? '0:00'
 const abs = p => new URL(p, location.href).href;
 const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+/* ─────────── favourites, kept in this browser ─────────── */
+const FAV_KEY = 'revive.music.favourites.v1';
+const HEART_FULL = '<svg viewBox="0 0 24 24"><path d="M12 21s-7.6-4.9-9.7-9.2C.7 8.4 2.6 4.8 6.1 4.2c2-.35 3.9.5 4.9 2 1-1.5 2.9-2.35 4.9-2 3.5.6 5.4 4.2 3.8 7.6C19.6 16.1 12 21 12 21z"/></svg>';
+const HEART_LINE = '<svg viewBox="0 0 24 24"><path d="M12 21s-7.6-4.9-9.7-9.2C.7 8.4 2.6 4.8 6.1 4.2c2-.35 3.9.5 4.9 2 1-1.5 2.9-2.35 4.9-2 3.5.6 5.4 4.2 3.8 7.6C19.6 16.1 12 21 12 21zm0-2.6c2-1.4 6.2-4.7 7.6-7.7 1-2.1-.1-4.2-2.2-4.6-1.6-.3-3 .6-3.5 2L12 10.6 10.1 8.1c-.5-1.4-1.9-2.3-3.5-2-2.1.4-3.2 2.5-2.2 4.6 1.4 3 5.6 6.3 7.6 7.7z"/></svg>';
+
+let favs = new Set();
+try { favs = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')); } catch(e){}
+function saveFavs(){
+  try { localStorage.setItem(FAV_KEY, JSON.stringify([...favs])); } catch(e){}
+}
+const isFav = s => s && favs.has(s.title);
+function toggleFav(i){
+  const s = SONGS[i];
+  if(!s) return;
+  if(favs.has(s.title)) favs.delete(s.title); else favs.add(s.title);
+  saveFavs();
+  paintFav();
+  buildGrid();
+}
+function paintFav(){
+  const s = SONGS[idx], on = isFav(s);
+  const b = $('fav');
+  b.innerHTML = on ? HEART_FULL : HEART_LINE;
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', on);
+  b.setAttribute('aria-label', on ? 'Remove from favourites' : 'Save to favourites');
+  const f = $('favFilter');
+  f.innerHTML = (favOnly ? HEART_FULL : HEART_LINE) + '<span>' + (favs.size || '') + ' Favourites</span>';
+  f.classList.toggle('on', favOnly);
+  f.setAttribute('aria-pressed', favOnly);
+}
+let favOnly = false;
+
 /* Lyric times are stored against each song's true length. If the audio file that
    loads is a different length, scale so the words still land in the right place. */
 function scale(){
@@ -305,6 +366,7 @@ function paint(){
   buildFlow();
   buildFull();
   buildGrid();
+  paintFav();
   mediaSession();
 }
 
@@ -360,8 +422,16 @@ function buildFull(){
 function buildGrid(){
   const g = $('grid');
   g.innerHTML = '';
-  $('libcount').textContent = SONGS.length + ' songs';
-  SONGS.forEach((s,i)=>{
+  const shown = SONGS.map((s,i)=>i).filter(i => !favOnly || isFav(SONGS[i]));
+  $('libcount').textContent = favOnly
+    ? shown.length + (shown.length === 1 ? ' favourite' : ' favourites')
+    : SONGS.length + ' songs';
+  if(!shown.length){
+    g.innerHTML = '<p class="emptyfav">No favourites yet.<br>Tap the heart on a song to keep it here.</p>';
+    return;
+  }
+  shown.forEach(i=>{
+    const s = SONGS[i];
     const wrap = document.createElement('div');
     wrap.className = 'tile' + (i === idx ? ' playing' : '') + (i === idx && audio.paused ? ' paused' : '');
 
@@ -383,6 +453,18 @@ function buildGrid(){
       a.addEventListener('click', e=>{ e.stopPropagation(); openVerse(i); });
       wrap.appendChild(a);
     }
+    const fb = document.createElement('button');
+    fb.className = 'tilefav' + (isFav(s) ? ' on' : '');
+    fb.innerHTML = isFav(s) ? HEART_FULL : HEART_LINE;
+    fb.setAttribute('aria-label', (isFav(s) ? 'Remove ' : 'Save ') + s.title);
+    fb.addEventListener('click', e=>{
+      e.stopPropagation();
+      fb.classList.add('pop');
+      setTimeout(()=>fb.classList.remove('pop'), 180);
+      toggleFav(i);
+    });
+    wrap.appendChild(fb);
+
     g.appendChild(wrap);
   });
 }
@@ -447,9 +529,11 @@ $('shuffle').addEventListener('click', e=>{
   e.currentTarget.setAttribute('aria-pressed', shuffle);
 });
 $('shuffleAll').addEventListener('click', ()=>{
+  const pool = SONGS.map((s,i)=>i).filter(i => !favOnly || isFav(SONGS[i]));
+  if(!pool.length) return;
   shuffle = true;
   $('shuffle').classList.add('on');
-  select(Math.floor(Math.random()*SONGS.length));
+  select(pool[Math.floor(Math.random()*pool.length)]);
 });
 $('repeat').addEventListener('click', e=>{
   repeat = repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off';
@@ -573,6 +657,19 @@ function openVerse(i){
 }
 $('verse').addEventListener('click', ()=>openVerse(idx));
 
+$('fav').addEventListener('click', ()=>{
+  $('fav').classList.add('pop');
+  setTimeout(()=>$('fav').classList.remove('pop'), 180);
+  toggleFav(idx);
+});
+$('favFilter').addEventListener('click', e=>{
+  e.stopPropagation();
+  favOnly = !favOnly;
+  paintFav();
+  buildGrid();
+  setLib(true);
+});
+
 /* ─────────── the song shelf: slides up to fill the screen ─────────── */
 const lib = $('library');
 let libOpen = false, restTop = 0;
@@ -597,7 +694,7 @@ window.addEventListener('resize', ()=>{
   parkFlow(live >= 0 ? live : 0);
 });
 $('libhead').addEventListener('click', e=>{
-  if(e.target.closest('#shuffleAll')) return;
+  if(e.target.closest('.libtools')) return;
   setLib(!libOpen);
 });
 /* scrolling the shelf lifts it; scrolling back to the top drops it */
