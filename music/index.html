@@ -41,8 +41,8 @@
     background:linear-gradient(180deg,rgba(6,6,8,.86) 0%,rgba(6,6,8,.5) 42%,rgba(6,6,8,.15) 66%,var(--bg) 100%)}
 
   .flowwrap{position:absolute;left:0;right:0;overflow:hidden;z-index:2;pointer-events:none;
-            top:calc(env(safe-area-inset-top, 0px) + 52px);
-            height:56%;
+            top:calc(env(safe-area-inset-top, 0px) + 34px);
+            height:60%;
             -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 74%,transparent 100%);
             mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 74%,transparent 100%)}
   .flow{position:absolute;left:22px;right:22px;top:0;transition:transform .5s cubic-bezier(.25,.8,.3,1)}
@@ -209,7 +209,7 @@
   @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.06s !important}}
   @media (max-height:700px){
     .stage{height:30vh}
-    .flowwrap{top:calc(env(safe-area-inset-top, 0px) + 40px);height:58%}
+    .flowwrap{top:calc(env(safe-area-inset-top, 0px) + 26px);height:62%}
     .flow p{font-size:17px;padding:5px 0}
     .deck{padding-top:8px}
     .deck .note{display:none}
