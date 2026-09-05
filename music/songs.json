@@ -7,1727 +7,1770 @@
    "src": "audio/01.mp3",
    "art": "art/01.jpg",
    "duration": 239.76,
+   "note": "The second coming — the sky opening and every eye lifting to watch.",
+   "verse": {
+    "ref": "Revelation 1:7",
+    "text": "Behold, He is coming with the clouds, and every eye will see Him—even those who pierced Him. And all the tribes of the earth will mourn because of Him. So shall it be! Amen.",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Revelation%201%3A7&version=NIV"
+   },
    "timing": "estimated",
    "lines": [
     {
-     "t": 13.19,
+     "t": 0,
      "text": "Verse 1",
      "sect": true
     },
     {
-     "t": 13.19,
+     "t": 0,
      "text": "The sky went still at dawn"
     },
     {
-     "t": 16.78,
+     "t": 0,
      "text": "Like it was holding breath"
     },
     {
-     "t": 20.37,
+     "t": 0,
      "text": "The hills wore out their color"
     },
     {
-     "t": 24.56,
+     "t": 0,
      "text": "Waiting on Your step"
     },
     {
-     "t": 27.55,
+     "t": 0,
      "text": "Old promises were ringing"
     },
     {
-     "t": 31.74,
+     "t": 0,
      "text": "Through the dust and bone"
     },
     {
-     "t": 34.73,
+     "t": 0,
      "text": "And every heart was leaning"
     },
     {
-     "t": 39.52,
+     "t": 0,
      "text": "Toward the coming throne"
     },
     {
-     "t": 45.62,
+     "t": 0,
      "text": "Pre-Chorus",
      "sect": true
     },
     {
-     "t": 45.62,
+     "t": 0,
      "text": "Lift up your eyes"
     },
     {
-     "t": 48.01,
+     "t": 0,
      "text": "Look to the light"
     },
     {
-     "t": 50.41,
+     "t": 0,
      "text": "Heaven is moving"
     },
     {
-     "t": 53.4,
+     "t": 0,
      "text": "Right before our sight"
     },
     {
-     "t": 58.9,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 58.9,
+     "t": 0,
      "text": "Jesus is coming"
     },
     {
-     "t": 61.9,
+     "t": 0,
      "text": "Riding on clouds"
     },
     {
-     "t": 64.29,
+     "t": 0,
      "text": "Jesus is coming"
     },
     {
-     "t": 67.28,
+     "t": 0,
      "text": "Every knee bows down"
     },
     {
-     "t": 70.87,
+     "t": 0,
      "text": "Power in His hands"
     },
     {
-     "t": 73.87,
+     "t": 0,
      "text": "Glory in His face"
     },
     {
-     "t": 76.86,
+     "t": 0,
      "text": "Everyone can see"
     },
     {
-     "t": 79.85,
+     "t": 0,
      "text": "Everyone can see"
     },
     {
-     "t": 85.35,
+     "t": 0,
      "text": "Verse 2",
      "sect": true
     },
     {
-     "t": 85.35,
+     "t": 0,
      "text": "The graves will hear Your voice"
     },
     {
-     "t": 89.54,
+     "t": 0,
      "text": "The dead will rise and stand"
     },
     {
-     "t": 93.13,
+     "t": 0,
      "text": "The proud will lose their crowns"
     },
     {
-     "t": 96.72,
+     "t": 0,
      "text": "Before the pierced hands"
     },
     {
-     "t": 100.31,
+     "t": 0,
      "text": "The lonely will be gathered"
     },
     {
-     "t": 105.7,
+     "t": 0,
      "text": "The tears will run dry"
     },
     {
-     "t": 108.69,
+     "t": 0,
      "text": "And every tongue will answer"
     },
     {
-     "t": 113.48,
+     "t": 0,
      "text": "When You fill the sky"
     },
     {
-     "t": 118.98,
+     "t": 0,
      "text": "Pre-Chorus",
      "sect": true
     },
     {
-     "t": 118.98,
+     "t": 0,
      "text": "Lift up your eyes"
     },
     {
-     "t": 121.38,
+     "t": 0,
      "text": "Look to the light"
     },
     {
-     "t": 123.77,
+     "t": 0,
      "text": "Heaven is moving"
     },
     {
-     "t": 126.76,
+     "t": 0,
      "text": "Right before our sight"
     },
     {
-     "t": 132.27,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 132.27,
+     "t": 0,
      "text": "Jesus is coming"
     },
     {
-     "t": 135.26,
+     "t": 0,
      "text": "Riding on clouds"
     },
     {
-     "t": 137.65,
+     "t": 0,
      "text": "Jesus is coming"
     },
     {
-     "t": 140.64,
+     "t": 0,
      "text": "Every knee bows down"
     },
     {
-     "t": 144.24,
+     "t": 0,
      "text": "Power in His hands"
     },
     {
-     "t": 147.23,
+     "t": 0,
      "text": "Glory in His face"
     },
     {
-     "t": 150.22,
+     "t": 0,
      "text": "Everyone can see"
     },
     {
-     "t": 153.21,
+     "t": 0,
      "text": "Everyone can see"
     },
     {
-     "t": 158.71,
+     "t": 0,
      "text": "Bridge",
      "sect": true
     },
     {
-     "t": 158.71,
+     "t": 0,
      "text": "Trumpets in the morning"
     },
     {
-     "t": 162.31,
+     "t": 0,
      "text": "Echo through the blue"
     },
     {
-     "t": 165.3,
+     "t": 0,
      "text": "Creation wakes and trembles"
     },
     {
-     "t": 169.49,
+     "t": 0,
      "text": "When You make all things new"
     },
     {
-     "t": 173.08,
+     "t": 0,
      "text": "The Lamb is on the throne now"
     },
     {
-     "t": 177.27,
+     "t": 0,
      "text": "Forever He will reign"
     },
     {
-     "t": 180.86,
+     "t": 0,
      "text": "Every tongue will sing it"
     },
     {
-     "t": 185.05,
+     "t": 0,
      "text": "Jesus comes again"
     },
     {
-     "t": 191.15,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 191.15,
+     "t": 0,
      "text": "Jesus is coming"
     },
     {
-     "t": 194.14,
+     "t": 0,
      "text": "Riding on clouds"
     },
     {
-     "t": 196.54,
+     "t": 0,
      "text": "Jesus is coming"
     },
     {
-     "t": 199.53,
+     "t": 0,
      "text": "Every knee bows down"
     },
     {
-     "t": 203.12,
+     "t": 0,
      "text": "Power in His hands"
     },
     {
-     "t": 206.11,
+     "t": 0,
      "text": "Glory in His face"
     },
     {
-     "t": 209.1,
+     "t": 0,
      "text": "Everyone can see"
     },
     {
-     "t": 212.1,
+     "t": 0,
      "text": "Everyone can see"
     },
     {
-     "t": 217.6,
+     "t": 0,
      "text": "Outro",
      "sect": true
     },
     {
-     "t": 217.6,
+     "t": 0,
      "text": "Clouds of glory"
     },
     {
-     "t": 219.99,
+     "t": 0,
      "text": "Cover the world"
     },
     {
-     "t": 222.39,
+     "t": 0,
      "text": "Clouds of glory"
     },
     {
-     "t": 224.78,
+     "t": 0,
      "text": "Jesus, You are Lord"
     }
-   ],
-   "note": "The second coming — the sky opening and every eye lifting to watch.",
-   "verse": {
-    "ref": "Revelation 1:7",
-    "url": "https://www.biblegateway.com/passage/?search=Revelation%201%3A7&version=NIV"
-   }
+   ]
   },
   {
    "title": "Faithful",
    "src": "audio/02.mp3",
    "art": "art/02.jpg",
    "duration": 293.12,
-   "timing": "estimated",
-   "lines": [
-    {
-     "t": 16.12,
-     "text": "Faithful (Song of Joseph)"
-    },
-    {
-     "t": 20.32,
-     "text": "Verse 1"
-    },
-    {
-     "t": 22.57,
-     "text": "They tore the colours off his back"
-    },
-    {
-     "t": 28.16,
-     "text": "And sold him where the road runs dry,"
-    },
-    {
-     "t": 33.75,
-     "text": "Seventeen and everything gone"
-    },
-    {
-     "t": 40.04,
-     "text": "But the God who heard him cry."
-    },
-    {
-     "t": 44.94,
-     "text": "He didn’t curse the caravan,"
-    },
-    {
-     "t": 50.53,
-     "text": "He didn’t waste away —"
-    },
-    {
-     "t": 54.72,
-     "text": "He served in a stranger’s house"
-    },
-    {
-     "t": 61.01,
-     "text": "Like it was the Father’s way."
-    },
-    {
-     "t": 66.6,
-     "text": "Chorus"
-    },
-    {
-     "t": 68.86,
-     "text": "Faithful in the pit, faithful on the throne,"
-    },
-    {
-     "t": 75.85,
-     "text": "Faithful when the dream is all he’s got to hold."
-    },
-    {
-     "t": 84.23,
-     "text": "Same heart in the shadow, same heart in the sun —"
-    },
-    {
-     "t": 91.92,
-     "text": "Lord, make me faithful when it’s not yet won."
-    },
-    {
-     "t": 99.61,
-     "text": "Verse 2"
-    },
-    {
-     "t": 101.86,
-     "text": "He walked away from an open door"
-    },
-    {
-     "t": 108.85,
-     "text": "And it cost him everything,"
-    },
-    {
-     "t": 114.44,
-     "text": "Two more years in a borrowed cell"
-    },
-    {
-     "t": 120.73,
-     "text": "With no one remembering."
-    },
-    {
-     "t": 125.63,
-     "text": "And when they came to hear their dreams"
-    },
-    {
-     "t": 131.22,
-     "text": "He gave the glory back:"
-    },
-    {
-     "t": 135.41,
-     "text": "“It isn’t me, it’s God who speaks” —"
-    },
-    {
-     "t": 141.7,
-     "text": "He never once looked back."
-    },
-    {
-     "t": 146.59,
-     "text": "(Chorus)"
-    },
-    {
-     "t": 148.85,
-     "text": "Bridge"
-    },
-    {
-     "t": 151.1,
-     "text": "Not the palace, not the ring,"
-    },
-    {
-     "t": 156.0,
-     "text": "Not the second-highest name —"
-    },
-    {
-     "t": 160.89,
-     "text": "Give me the man in the ordinary years"
-    },
-    {
-     "t": 168.58,
-     "text": "Who served the very same."
-    },
-    {
-     "t": 173.47,
-     "text": "When the promise is slow"
-    },
-    {
-     "t": 177.66,
-     "text": "And the pit is deep and wide,"
-    },
-    {
-     "t": 182.55,
-     "text": "Let me keep my hands clean"
-    },
-    {
-     "t": 186.75,
-     "text": "And keep my God beside."
-    },
-    {
-     "t": 190.94,
-     "text": "Verse 3"
-    },
-    {
-     "t": 193.2,
-     "text": "Face to face with the ones who sold him,"
-    },
-    {
-     "t": 200.19,
-     "text": "Bread in his open hand:"
-    },
-    {
-     "t": 204.38,
-     "text": "“You meant it for evil, but God meant good —"
-    },
-    {
-     "t": 211.37,
-     "text": "He brought me to this land.”"
-    },
-    {
-     "t": 215.56,
-     "text": "He wept on the necks of the men who broke him,"
-    },
-    {
-     "t": 223.25,
-     "text": "Held them to his chest."
-    },
-    {
-     "t": 226.74,
-     "text": "That’s the strength I’m asking for,"
-    },
-    {
-     "t": 233.03,
-     "text": "That’s the harder test."
-    },
-    {
-     "t": 237.23,
-     "text": "Final Chorus"
-    },
-    {
-     "t": 240.02,
-     "text": "Faithful in the pit, faithful on the throne,"
-    },
-    {
-     "t": 247.01,
-     "text": "Faithful in the famine and the seven years alone."
-    },
-    {
-     "t": 256.1,
-     "text": "Same heart in the shadow, same heart in the sun —"
-    },
-    {
-     "t": 263.79,
-     "text": "Lord, make me faithful,"
-    },
-    {
-     "t": 267.28,
-     "text": "Lord, make me faithful,"
-    },
-    {
-     "t": 270.78,
-     "text": "Lord, make me faithful when it’s not yet won."
-    }
-   ],
    "note": "Inspired by the story of Joseph — faithful in the pit long before the palace.",
    "verse": {
     "ref": "Genesis 50:20",
-    "url": "https://www.biblegateway.com/passage/?search=Genesis%2050%3A20&version=NIV"
-   }
+    "text": "As for you, what you intended against me for evil, God intended for good, in order to accomplish a day like this—to preserve the lives of many people.",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Genesis%2050%3A20&version=NIV"
+   },
+   "timing": "estimated",
+   "lines": [
+    {
+     "t": 0,
+     "text": "Verse 1",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "They tore the colours off his back"
+    },
+    {
+     "t": 0,
+     "text": "And sold him where the road runs dry,"
+    },
+    {
+     "t": 0,
+     "text": "Seventeen and everything gone"
+    },
+    {
+     "t": 0,
+     "text": "But the God who heard him cry."
+    },
+    {
+     "t": 0,
+     "text": "He didn’t curse the caravan,"
+    },
+    {
+     "t": 0,
+     "text": "He didn’t waste away —"
+    },
+    {
+     "t": 0,
+     "text": "He served in a stranger’s house"
+    },
+    {
+     "t": 0,
+     "text": "Like it was the Father’s way."
+    },
+    {
+     "t": 0,
+     "text": "Chorus",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Faithful in the pit, faithful on the throne,"
+    },
+    {
+     "t": 0,
+     "text": "Faithful when the dream is all he’s got to hold."
+    },
+    {
+     "t": 0,
+     "text": "Same heart in the shadow, same heart in the sun —"
+    },
+    {
+     "t": 0,
+     "text": "Lord, make me faithful when it’s not yet won."
+    },
+    {
+     "t": 0,
+     "text": "Verse 2",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "He walked away from an open door"
+    },
+    {
+     "t": 0,
+     "text": "And it cost him everything,"
+    },
+    {
+     "t": 0,
+     "text": "Two more years in a borrowed cell"
+    },
+    {
+     "t": 0,
+     "text": "With no one remembering."
+    },
+    {
+     "t": 0,
+     "text": "And when they came to hear their dreams"
+    },
+    {
+     "t": 0,
+     "text": "He gave the glory back:"
+    },
+    {
+     "t": 0,
+     "text": "“It isn’t me, it’s God who speaks” —"
+    },
+    {
+     "t": 0,
+     "text": "He never once looked back."
+    },
+    {
+     "t": 0,
+     "text": "Chorus",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Bridge",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Not the palace, not the ring,"
+    },
+    {
+     "t": 0,
+     "text": "Not the second-highest name —"
+    },
+    {
+     "t": 0,
+     "text": "Give me the man in the ordinary years"
+    },
+    {
+     "t": 0,
+     "text": "Who served the very same."
+    },
+    {
+     "t": 0,
+     "text": "When the promise is slow"
+    },
+    {
+     "t": 0,
+     "text": "And the pit is deep and wide,"
+    },
+    {
+     "t": 0,
+     "text": "Let me keep my hands clean"
+    },
+    {
+     "t": 0,
+     "text": "And keep my God beside."
+    },
+    {
+     "t": 0,
+     "text": "Verse 3",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Face to face with the ones who sold him,"
+    },
+    {
+     "t": 0,
+     "text": "Bread in his open hand:"
+    },
+    {
+     "t": 0,
+     "text": "“You meant it for evil, but God meant good —"
+    },
+    {
+     "t": 0,
+     "text": "He brought me to this land.”"
+    },
+    {
+     "t": 0,
+     "text": "He wept on the necks of the men who broke him,"
+    },
+    {
+     "t": 0,
+     "text": "Held them to his chest."
+    },
+    {
+     "t": 0,
+     "text": "That’s the strength I’m asking for,"
+    },
+    {
+     "t": 0,
+     "text": "That’s the harder test."
+    },
+    {
+     "t": 0,
+     "text": "Final Chorus",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Faithful in the pit, faithful on the throne,"
+    },
+    {
+     "t": 0,
+     "text": "Faithful in the famine and the seven years alone."
+    },
+    {
+     "t": 0,
+     "text": "Same heart in the shadow, same heart in the sun —"
+    },
+    {
+     "t": 0,
+     "text": "Lord, make me faithful,"
+    },
+    {
+     "t": 0,
+     "text": "Lord, make me faithful,"
+    },
+    {
+     "t": 0,
+     "text": "Lord, make me faithful when it’s not yet won."
+    }
+   ]
   },
   {
    "title": "Oh my soul",
    "src": "audio/03.mp3",
    "art": "art/03.jpg",
    "duration": 204.6,
+   "note": "Built on the old line “it is well with my soul” — peace that holds in the calm and the storm.",
+   "verse": {
+    "ref": "Psalm 42:5",
+    "text": "Why are you downcast, O my soul? Why the unease within me? Put your hope in God, for I will yet praise Him for the salvation of His presence.",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Psalm%2042%3A5&version=NIV"
+   },
    "timing": "estimated",
    "lines": [
     {
-     "t": 11.25,
+     "t": 0,
      "text": "Verse 1",
      "sect": true
     },
     {
-     "t": 11.25,
+     "t": 0,
      "text": "When the day comes easy and the river runs slow,"
     },
     {
-     "t": 19.24,
+     "t": 0,
      "text": "or the hard news lands like a stone,"
     },
     {
-     "t": 24.15,
+     "t": 0,
      "text": "whatever the weather, there’s one thing I know —"
     },
     {
-     "t": 31.52,
+     "t": 0,
      "text": "and my soul, oh my soul, it is well."
     },
     {
-     "t": 39.62,
+     "t": 0,
      "text": "Chorus 1",
      "sect": true
     },
     {
-     "t": 39.62,
+     "t": 0,
      "text": "Oh my soul, it is well,"
     },
     {
-     "t": 43.31,
+     "t": 0,
      "text": "oh my soul, it is well —"
     },
     {
-     "t": 46.99,
+     "t": 0,
      "text": "I don’t have to carry the whole world alone."
     },
     {
-     "t": 54.98,
+     "t": 0,
      "text": "Come the calm or the storm, come the wind or the cold,"
     },
     {
-     "t": 62.35,
+     "t": 0,
      "text": "oh my soul, oh my soul, it is well."
     },
     {
-     "t": 70.45,
+     "t": 0,
      "text": "Verse 2",
      "sect": true
     },
     {
-     "t": 70.45,
+     "t": 0,
      "text": "And oh, what a thought — every wrong thing I’ve done,"
     },
     {
-     "t": 78.43,
+     "t": 0,
      "text": "all of it, not just a part,"
     },
     {
-     "t": 82.73,
+     "t": 0,
      "text": "was left at the cross and it’s gone, it is gone,"
     },
     {
-     "t": 90.1,
+     "t": 0,
      "text": "and my soul, oh my soul, it is well."
     },
     {
-     "t": 98.21,
+     "t": 0,
      "text": "Chorus 2",
      "sect": true
     },
     {
-     "t": 98.21,
+     "t": 0,
      "text": "Oh my soul, it is well,"
     },
     {
-     "t": 101.89,
+     "t": 0,
      "text": "oh my soul, it is well —"
     },
     {
-     "t": 105.58,
+     "t": 0,
      "text": "nothing left to prove and nothing I owe."
     },
     {
-     "t": 111.72,
+     "t": 0,
      "text": "Come the calm or the storm, come whatever may go,"
     },
     {
-     "t": 119.09,
+     "t": 0,
      "text": "oh my soul, oh my soul, it is well."
     },
     {
-     "t": 127.19,
+     "t": 0,
      "text": "Bridge",
      "sect": true
     },
     {
-     "t": 127.19,
+     "t": 0,
      "text": "One day the sky’s gonna open up wide"
     },
     {
-     "t": 133.95,
+     "t": 0,
      "text": "and I’ll see with my eyes what I’ve held in the dark —"
     },
     {
-     "t": 142.54,
+     "t": 0,
      "text": "till then I’ll keep singing it low,"
     },
     {
-     "t": 148.07,
+     "t": 0,
      "text": "through the night, through the morning: my soul, it is well."
     },
     {
-     "t": 158.02,
+     "t": 0,
      "text": "Chorus 3",
      "sect": true
     },
     {
-     "t": 158.02,
+     "t": 0,
      "text": "Oh my soul, it is well,"
     },
     {
-     "t": 161.7,
+     "t": 0,
      "text": "oh my soul, it is well —"
     },
     {
-     "t": 165.39,
+     "t": 0,
      "text": "however it lands, however it goes."
     },
     {
-     "t": 171.53,
+     "t": 0,
      "text": "Come the calm or the storm, come the high or the low,"
     },
     {
-     "t": 178.9,
+     "t": 0,
      "text": "oh my soul, oh my soul, it is well."
     },
     {
-     "t": 187.0,
+     "t": 0,
      "text": "Outro",
      "sect": true
     },
     {
-     "t": 187.0,
+     "t": 0,
      "text": "Oh my soul (oh my soul),"
     },
     {
-     "t": 190.69,
+     "t": 0,
      "text": "it is well (it is well)…"
     }
-   ],
-   "note": "Built on the old line “it is well with my soul” — peace that holds in the calm and the storm.",
-   "verse": {
-    "ref": "Psalm 42:5",
-    "url": "https://www.biblegateway.com/passage/?search=Psalm%2042%3A5&version=NIV"
-   }
+   ]
   },
   {
    "title": "Be Strong",
    "src": "audio/04.mp3",
    "art": "art/04.jpg",
    "duration": 207.6,
-   "timing": "estimated",
-   "lines": [
-    {
-     "t": 11.42,
-     "text": "Title: Be Strong"
-    },
-    {
-     "t": 13.61,
-     "text": "VERSE 1"
-    },
-    {
-     "t": 15.37,
-     "text": "Forty years of circling sand,"
-    },
-    {
-     "t": 19.21,
-     "text": "Waiting on a promised land."
-    },
-    {
-     "t": 23.59,
-     "text": "Then the word came sharp and clear:"
-    },
-    {
-     "t": 27.42,
-     "text": "\"Rise up now and cross from here.\""
-    },
-    {
-     "t": 31.25,
-     "text": "Every place your foot will fall"
-    },
-    {
-     "t": 35.63,
-     "text": "I have given you — take it all."
-    },
-    {
-     "t": 40.01,
-     "text": "PRE-CHORUS"
-    },
-    {
-     "t": 41.78,
-     "text": "And the river's high, and the river's wide,"
-    },
-    {
-     "t": 47.25,
-     "text": "And it's flood-stage deep on the other side."
-    },
-    {
-     "t": 52.73,
-     "text": "But the ark goes first and the priests go in —"
-    },
-    {
-     "t": 58.2,
-     "text": "The water only breaks when the feet begin."
-    },
-    {
-     "t": 64.23,
-     "text": "CHORUS"
-    },
-    {
-     "t": 65.99,
-     "text": "Be strong, be courageous,"
-    },
-    {
-     "t": 69.28,
-     "text": "Do not be afraid."
-    },
-    {
-     "t": 72.02,
-     "text": "Wherever I have sent you"
-    },
-    {
-     "t": 75.85,
-     "text": "I have gone ahead."
-    },
-    {
-     "t": 78.59,
-     "text": "Have I not commanded you?"
-    },
-    {
-     "t": 82.42,
-     "text": "Do not be dismayed."
-    },
-    {
-     "t": 85.16,
-     "text": "The Lord your God is with you"
-    },
-    {
-     "t": 88.99,
-     "text": "Every step you take."
-    },
-    {
-     "t": 92.27,
-     "text": "VERSE 2"
-    },
-    {
-     "t": 94.04,
-     "text": "There's a wall in front of me I cannot climb,"
-    },
-    {
-     "t": 100.61,
-     "text": "So I walk it silent, one more time."
-    },
-    {
-     "t": 105.54,
-     "text": "No sword drawn, no clever plan,"
-    },
-    {
-     "t": 109.37,
-     "text": "Just the sound of feet and a sounding horn —"
-    },
-    {
-     "t": 114.85,
-     "text": "Not by my strength, not by my hand;"
-    },
-    {
-     "t": 119.23,
-     "text": "Seven days till the shout is born."
-    },
-    {
-     "t": 123.61,
-     "text": "BRIDGE"
-    },
-    {
-     "t": 125.37,
-     "text": "\"Are you for us, or for our enemies?\""
-    },
-    {
-     "t": 130.85,
-     "text": "He said, \"Neither — I am the Captain of the host.\""
-    },
-    {
-     "t": 137.42,
-     "text": "So I fall down, take the sandals off my feet,"
-    },
-    {
-     "t": 143.44,
-     "text": "This ground is holy, and the fight is not my own."
-    },
-    {
-     "t": 150.01,
-     "text": "FINAL CHORUS"
-    },
-    {
-     "t": 152.2,
-     "text": "Be strong, be courageous,"
-    },
-    {
-     "t": 155.49,
-     "text": "Do not be afraid."
-    },
-    {
-     "t": 158.22,
-     "text": "Not one word has failed you,"
-    },
-    {
-     "t": 162.06,
-     "text": "Not one promise frayed."
-    },
-    {
-     "t": 164.79,
-     "text": "Have I not commanded you?"
-    },
-    {
-     "t": 168.63,
-     "text": "Do not turn away —"
-    },
-    {
-     "t": 171.36,
-     "text": "As for me and this house, this heart, this day,"
-    },
-    {
-     "t": 176.84,
-     "text": "We will serve the Lord."
-    },
-    {
-     "t": 179.58,
-     "text": "TAG"
-    },
-    {
-     "t": 181.34,
-     "text": "Be strong, be strong, be courageous,"
-    },
-    {
-     "t": 185.72,
-     "text": "The Lord your God is with you."
-    },
-    {
-     "t": 189.55,
-     "text": "Be strong, be strong, be courageous,"
-    },
-    {
-     "t": 193.93,
-     "text": "Wherever you may go."
-    }
-   ],
    "note": "Joshua at the Jordan — the water only parts once the feet step in.",
    "verse": {
     "ref": "Joshua 1:9",
-    "url": "https://www.biblegateway.com/passage/?search=Joshua%201%3A9&version=NIV"
-   }
+    "text": "Have I not commanded you to be strong and courageous? Do not be afraid; do not be discouraged, for the LORD your God is with you wherever you go.”",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Joshua%201%3A9&version=NIV"
+   },
+   "timing": "estimated",
+   "lines": [
+    {
+     "t": 0,
+     "text": "Be Strong",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "VERSE 1",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Forty years of circling sand,"
+    },
+    {
+     "t": 0,
+     "text": "Waiting on a promised land."
+    },
+    {
+     "t": 0,
+     "text": "Then the word came sharp and clear:"
+    },
+    {
+     "t": 0,
+     "text": "\"Rise up now and cross from here.\""
+    },
+    {
+     "t": 0,
+     "text": "Every place your foot will fall"
+    },
+    {
+     "t": 0,
+     "text": "I have given you — take it all."
+    },
+    {
+     "t": 0,
+     "text": "PRE-CHORUS",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "And the river's high, and the river's wide,"
+    },
+    {
+     "t": 0,
+     "text": "And it's flood-stage deep on the other side."
+    },
+    {
+     "t": 0,
+     "text": "But the ark goes first and the priests go in —"
+    },
+    {
+     "t": 0,
+     "text": "The water only breaks when the feet begin."
+    },
+    {
+     "t": 0,
+     "text": "CHORUS",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Be strong, be courageous,"
+    },
+    {
+     "t": 0,
+     "text": "Do not be afraid."
+    },
+    {
+     "t": 0,
+     "text": "Wherever I have sent you"
+    },
+    {
+     "t": 0,
+     "text": "I have gone ahead."
+    },
+    {
+     "t": 0,
+     "text": "Have I not commanded you?"
+    },
+    {
+     "t": 0,
+     "text": "Do not be dismayed."
+    },
+    {
+     "t": 0,
+     "text": "The Lord your God is with you"
+    },
+    {
+     "t": 0,
+     "text": "Every step you take."
+    },
+    {
+     "t": 0,
+     "text": "VERSE 2",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "There's a wall in front of me I cannot climb,"
+    },
+    {
+     "t": 0,
+     "text": "So I walk it silent, one more time."
+    },
+    {
+     "t": 0,
+     "text": "No sword drawn, no clever plan,"
+    },
+    {
+     "t": 0,
+     "text": "Just the sound of feet and a sounding horn —"
+    },
+    {
+     "t": 0,
+     "text": "Not by my strength, not by my hand;"
+    },
+    {
+     "t": 0,
+     "text": "Seven days till the shout is born."
+    },
+    {
+     "t": 0,
+     "text": "BRIDGE",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "\"Are you for us, or for our enemies?\""
+    },
+    {
+     "t": 0,
+     "text": "He said, \"Neither — I am the Captain of the host.\""
+    },
+    {
+     "t": 0,
+     "text": "So I fall down, take the sandals off my feet,"
+    },
+    {
+     "t": 0,
+     "text": "This ground is holy, and the fight is not my own."
+    },
+    {
+     "t": 0,
+     "text": "FINAL CHORUS",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Be strong, be courageous,"
+    },
+    {
+     "t": 0,
+     "text": "Do not be afraid."
+    },
+    {
+     "t": 0,
+     "text": "Not one word has failed you,"
+    },
+    {
+     "t": 0,
+     "text": "Not one promise frayed."
+    },
+    {
+     "t": 0,
+     "text": "Have I not commanded you?"
+    },
+    {
+     "t": 0,
+     "text": "Do not turn away —"
+    },
+    {
+     "t": 0,
+     "text": "As for me and this house, this heart, this day,"
+    },
+    {
+     "t": 0,
+     "text": "We will serve the Lord."
+    },
+    {
+     "t": 0,
+     "text": "TAG",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Be strong, be strong, be courageous,"
+    },
+    {
+     "t": 0,
+     "text": "The Lord your God is with you."
+    },
+    {
+     "t": 0,
+     "text": "Be strong, be strong, be courageous,"
+    },
+    {
+     "t": 0,
+     "text": "Wherever you may go."
+    }
+   ]
   },
   {
    "title": "Stand Still and See",
    "src": "audio/05.mp3",
    "art": "art/05.jpg",
    "duration": 269.92,
+   "note": "Jehoshaphat facing an army he cannot beat, sending the singers out ahead of the soldiers.",
+   "verse": {
+    "ref": "2 Chronicles 20:17",
+    "text": "You need not fight this battle. Take up your positions, stand firm, and see the salvation of the LORD on your behalf, O Judah and Jerusalem. Do not be afraid or discouraged. Go out and face them tomorrow, for the LORD is with you.’”",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=2%20Chronicles%2020%3A17&version=NIV"
+   },
    "timing": "estimated",
    "lines": [
     {
-     "t": 14.85,
-     "text": "TITLE: Stand Still"
+     "t": 0,
+     "text": "Stand Still",
+     "sect": true
     },
     {
-     "t": 20.06,
+     "t": 0,
      "text": "Verse 1",
      "sect": true
     },
     {
-     "t": 20.06,
+     "t": 0,
      "text": "A shadow on the eastern hills, a thousand banners rise"
     },
     {
-     "t": 28.96,
+     "t": 0,
      "text": "The sound of coming armies, terror in our eyes"
     },
     {
-     "t": 36.6,
+     "t": 0,
      "text": "So we called upon the fast, and we gathered every one"
     },
     {
-     "t": 47.41,
+     "t": 0,
      "text": "Lord, we have no power here, but we look to You alone"
     },
     {
-     "t": 58.99,
+     "t": 0,
      "text": "Pre-Chorus",
      "sect": true
     },
     {
-     "t": 58.99,
+     "t": 0,
      "text": "We don't know what to do"
     },
     {
-     "t": 62.8,
+     "t": 0,
      "text": "But our eyes are fixed on You"
     },
     {
-     "t": 70.56,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 70.56,
+     "t": 0,
      "text": "Stand still and see, stand still and see"
     },
     {
-     "t": 75.65,
+     "t": 0,
      "text": "The battle is not ours to fight, it belongs to the King"
     },
     {
-     "t": 84.56,
+     "t": 0,
      "text": "Lay down the sword, lift up the song"
     },
     {
-     "t": 89.65,
+     "t": 0,
      "text": "Salvation of the Lord is marching strong"
     },
     {
-     "t": 96.01,
+     "t": 0,
      "text": "Stand still, stand still and see"
     },
     {
-     "t": 102.49,
+     "t": 0,
      "text": "Verse 2",
      "sect": true
     },
     {
-     "t": 102.49,
+     "t": 0,
      "text": "Then the Spirit fell at morning, on a voice within the crowd"
     },
     {
-     "t": 112.04,
+     "t": 0,
      "text": "Do not fear this multitude, go down and stand your ground"
     },
     {
-     "t": 120.31,
+     "t": 0,
      "text": "So we sent the singers first, before the shield and spear"
     },
     {
-     "t": 128.58,
+     "t": 0,
      "text": "Praise the Lord, His mercy stands, His love endures forever here"
     },
     {
-     "t": 141.42,
+     "t": 0,
      "text": "Pre-Chorus",
      "sect": true
     },
     {
-     "t": 141.42,
+     "t": 0,
      "text": "We don't know what to do"
     },
     {
-     "t": 145.24,
+     "t": 0,
      "text": "But our eyes are fixed on You"
     },
     {
-     "t": 153.0,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 153.0,
+     "t": 0,
      "text": "Stand still and see, stand still and see"
     },
     {
-     "t": 158.09,
+     "t": 0,
      "text": "The battle is not ours to fight, it belongs to the King"
     },
     {
-     "t": 166.99,
+     "t": 0,
      "text": "Lay down the sword, lift up the song"
     },
     {
-     "t": 172.08,
+     "t": 0,
      "text": "Salvation of the Lord is marching strong"
     },
     {
-     "t": 178.44,
+     "t": 0,
      "text": "Stand still, stand still and see"
     },
     {
-     "t": 184.93,
+     "t": 0,
      "text": "Bridge",
      "sect": true
     },
     {
-     "t": 184.93,
+     "t": 0,
      "text": "As the praise began to rise, the enemy was overthrown"
     },
     {
-     "t": 194.47,
+     "t": 0,
      "text": "In the Valley of Blessing, we bowed before the throne"
     },
     {
-     "t": 203.38,
+     "t": 0,
      "text": "For three days we gathered more than our hands could ever hold"
     },
     {
-     "t": 212.92,
+     "t": 0,
      "text": "The song became the victory, the story still is told"
     },
     {
-     "t": 224.49,
-     "text": "Key Change",
-     "sect": true
+     "t": 0,
+     "text": "[Key Change]"
     },
     {
-     "t": 227.16,
+     "t": 0,
      "text": "Final Chorus",
      "sect": true
     },
     {
-     "t": 227.16,
+     "t": 0,
      "text": "Stand still and see, stand still and see"
     },
     {
-     "t": 232.25,
+     "t": 0,
      "text": "The battle is not ours to fight, it belongs to the King"
     },
     {
-     "t": 241.16,
+     "t": 0,
      "text": "Lay down the sword, lift up the song"
     },
     {
-     "t": 246.25,
+     "t": 0,
      "text": "Salvation of the Lord is marching strong"
     },
     {
-     "t": 252.61,
+     "t": 0,
      "text": "Stand still, stand still and see"
     }
-   ],
-   "note": "Jehoshaphat facing an army he cannot beat, sending the singers out ahead of the soldiers.",
-   "verse": {
-    "ref": "2 Chronicles 20:17",
-    "url": "https://www.biblegateway.com/passage/?search=2%20Chronicles%2020%3A17&version=NIV"
-   }
+   ]
   },
   {
    "title": "Handing It Over (Remastered)",
    "src": "audio/06.mp3",
    "art": "art/06.jpg",
    "duration": 197.44,
-   "timing": "estimated",
-   "lines": [
-    {
-     "t": 10.86,
-     "text": "Verse 1 (FEMALE)"
-    },
-    {
-     "t": 13.04,
-     "text": "Monday took my courage, Tuesday brought the rain,"
-    },
-    {
-     "t": 19.05,
-     "text": "By Friday I was carrying more than I could sustain."
-    },
-    {
-     "t": 26.16,
-     "text": "I held on to my worries, afraid to let them go,"
-    },
-    {
-     "t": 33.26,
-     "text": "Then I heard Your quiet whisper, “You don’t have to walk alone.”"
-    },
-    {
-     "t": 41.45,
-     "text": "Pre-Chorus (FEMALE)"
-    },
-    {
-     "t": 44.73,
-     "text": "I’ve fought this battle long enough,"
-    },
-    {
-     "t": 49.65,
-     "text": "Lord, I’m giving up control."
-    },
-    {
-     "t": 54.02,
-     "text": "Chorus (FEMALE)"
-    },
-    {
-     "t": 56.75,
-     "text": "Handing it over, laying it down,"
-    },
-    {
-     "t": 61.12,
-     "text": "Laying every burden at Your feet."
-    },
-    {
-     "t": 66.04,
-     "text": "Handing it over, trusting you now"
-    },
-    {
-     "t": 70.95,
-     "text": "Finding perfect peace instead of fear."
-    },
-    {
-     "t": 75.87,
-     "text": "You were waiting all along,"
-    },
-    {
-     "t": 79.7,
-     "text": "To carry what I couldn’t hold."
-    },
-    {
-     "t": 84.07,
-     "text": "Handing it over, leaving it with you"
-    },
-    {
-     "t": 89.53,
-     "text": "Into Your hands, I’m letting go."
-    },
-    {
-     "t": 94.45,
-     "text": "Verse 2 (MALE)"
-    },
-    {
-     "t": 96.21,
-     "text": "Nothing’s really changed yet, the mountain’s standing tall,"
-    },
-    {
-     "t": 104.4,
-     "text": "But somehow in Your presence it doesn’t seem so small."
-    },
-    {
-     "t": 112.05,
-     "text": "I don’t need tomorrow when I know You’re here today;"
-    },
-    {
-     "t": 120.25,
-     "text": "Your peace is more than enough to light the narrow way."
-    },
-    {
-     "t": 127.35,
-     "text": "Bridge (MALE)"
-    },
-    {
-     "t": 129.11,
-     "text": "You never asked me to be strong enough,"
-    },
-    {
-     "t": 135.12,
-     "text": "Only faithful enough to trust Your love."
-    },
-    {
-     "t": 140.58,
-     "text": "Final Chorus (MALE AND FEMALE DUET)"
-    },
-    {
-     "t": 146.59,
-     "text": "Handing it over, resting in you,"
-    },
-    {
-     "t": 151.51,
-     "text": "Every fear and every hope."
-    },
-    {
-     "t": 156.43,
-     "text": "Handing it over, one prayer at a time,"
-    },
-    {
-     "t": 161.89,
-     "text": "You’re carrying the heavy load."
-    },
-    {
-     "t": 166.26,
-     "text": "When my heart wants to hold on tight,"
-    },
-    {
-     "t": 170.63,
-     "text": "Your love reminds me to let go."
-    },
-    {
-     "t": 175.0,
-     "text": "Handing it over, I'm letting go,"
-    },
-    {
-     "t": 179.92,
-     "text": "Lord, I’m finally ..."
-    },
-    {
-     "t": 183.2,
-     "text": "finally handing it over."
-    }
-   ],
    "note": "A week that got too heavy, and the decision to stop carrying it alone.",
    "verse": {
     "ref": "1 Peter 5:7",
-    "url": "https://www.biblegateway.com/passage/?search=1%20Peter%205%3A7&version=NIV"
-   }
+    "text": "Cast all your anxiety on Him, because He cares for you.",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=1%20Peter%205%3A7&version=NIV"
+   },
+   "timing": "estimated",
+   "lines": [
+    {
+     "t": 0,
+     "text": "Verse 1 (FEMALE",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Monday took my courage, Tuesday brought the rain,"
+    },
+    {
+     "t": 0,
+     "text": "By Friday I was carrying more than I could sustain."
+    },
+    {
+     "t": 0,
+     "text": "I held on to my worries, afraid to let them go,"
+    },
+    {
+     "t": 0,
+     "text": "Then I heard Your quiet whisper, “You don’t have to walk alone.”"
+    },
+    {
+     "t": 0,
+     "text": "Pre-Chorus (FEMALE",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "I’ve fought this battle long enough,"
+    },
+    {
+     "t": 0,
+     "text": "Lord, I’m giving up control."
+    },
+    {
+     "t": 0,
+     "text": "Chorus (FEMALE",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Handing it over, laying it down,"
+    },
+    {
+     "t": 0,
+     "text": "Laying every burden at Your feet."
+    },
+    {
+     "t": 0,
+     "text": "Handing it over, trusting you now"
+    },
+    {
+     "t": 0,
+     "text": "Finding perfect peace instead of fear."
+    },
+    {
+     "t": 0,
+     "text": "You were waiting all along,"
+    },
+    {
+     "t": 0,
+     "text": "To carry what I couldn’t hold."
+    },
+    {
+     "t": 0,
+     "text": "Handing it over, leaving it with you"
+    },
+    {
+     "t": 0,
+     "text": "Into Your hands, I’m letting go."
+    },
+    {
+     "t": 0,
+     "text": "Verse 2 (MALE",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Nothing’s really changed yet, the mountain’s standing tall,"
+    },
+    {
+     "t": 0,
+     "text": "But somehow in Your presence it doesn’t seem so small."
+    },
+    {
+     "t": 0,
+     "text": "I don’t need tomorrow when I know You’re here today;"
+    },
+    {
+     "t": 0,
+     "text": "Your peace is more than enough to light the narrow way."
+    },
+    {
+     "t": 0,
+     "text": "Bridge (MALE",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "You never asked me to be strong enough,"
+    },
+    {
+     "t": 0,
+     "text": "Only faithful enough to trust Your love."
+    },
+    {
+     "t": 0,
+     "text": "Final Chorus (MALE AND FEMALE DUET",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Handing it over, resting in you,"
+    },
+    {
+     "t": 0,
+     "text": "Every fear and every hope."
+    },
+    {
+     "t": 0,
+     "text": "Handing it over, one prayer at a time,"
+    },
+    {
+     "t": 0,
+     "text": "You’re carrying the heavy load."
+    },
+    {
+     "t": 0,
+     "text": "When my heart wants to hold on tight,"
+    },
+    {
+     "t": 0,
+     "text": "Your love reminds me to let go."
+    },
+    {
+     "t": 0,
+     "text": "Handing it over, I'm letting go,"
+    },
+    {
+     "t": 0,
+     "text": "Lord, I’m finally ..."
+    },
+    {
+     "t": 0,
+     "text": "finally handing it over."
+    }
+   ]
   },
   {
    "title": "Before the Day Begins",
    "src": "audio/07.mp3",
    "art": "art/07.jpg",
    "duration": 303.12,
+   "note": "Morning prayer in the quiet, before the phone starts ringing.",
+   "verse": {
+    "ref": "Psalm 143:8",
+    "text": "Let me hear Your loving devotion in the morning, for I have put my trust in You. Teach me the way I should walk, for to You I lift up my soul.",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Psalm%20143%3A8&version=NIV"
+   },
    "timing": "estimated",
    "lines": [
     {
-     "t": 16.67,
+     "t": 0,
      "text": "Verse 1",
      "sect": true
     },
     {
-     "t": 16.67,
+     "t": 0,
      "text": "Before the sun has climbed the window"
     },
     {
-     "t": 25.8,
+     "t": 0,
      "text": "Before the phone begins to ring"
     },
     {
-     "t": 33.09,
+     "t": 0,
      "text": "I am here in borrowed silence"
     },
     {
-     "t": 41.31,
+     "t": 0,
      "text": "Listening for the smallest thing"
     },
     {
-     "t": 52.43,
+     "t": 0,
      "text": "Pre-Chorus",
      "sect": true
     },
     {
-     "t": 52.43,
+     "t": 0,
      "text": "And all the mountains I have yet to climb"
     },
     {
-     "t": 61.55,
+     "t": 0,
      "text": "Grow small and quiet in the morning light"
     },
     {
-     "t": 73.59,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 73.59,
+     "t": 0,
      "text": "Hey now, hey now — I'm handing it over"
     },
     {
-     "t": 82.71,
+     "t": 0,
      "text": "Everything waiting, everything wide"
     },
     {
-     "t": 92.75,
+     "t": 0,
      "text": "Hey now, hey now — I'm not walking alone now"
     },
     {
-     "t": 102.79,
+     "t": 0,
      "text": "You go before me, You stay by my side"
     },
     {
-     "t": 115.74,
+     "t": 0,
      "text": "Verse 2",
      "sect": true
     },
     {
-     "t": 115.74,
+     "t": 0,
      "text": "Give me the courage of the sparrow"
     },
     {
-     "t": 123.95,
+     "t": 0,
      "text": "Who sings before the coming storm"
     },
     {
-     "t": 131.25,
+     "t": 0,
      "text": "Give me a heart that walks the valley"
     },
     {
-     "t": 139.46,
+     "t": 0,
      "text": "Trusting I am kept from harm"
     },
     {
-     "t": 149.67,
+     "t": 0,
      "text": "Pre-Chorus",
      "sect": true
     },
     {
-     "t": 149.67,
+     "t": 0,
      "text": "And all the questions I have learned to hold"
     },
     {
-     "t": 159.7,
+     "t": 0,
      "text": "Melt like the frost when the day turns gold"
     },
     {
-     "t": 171.74,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 171.74,
+     "t": 0,
      "text": "Hey now, hey now — I'm handing it over"
     },
     {
-     "t": 180.87,
+     "t": 0,
      "text": "Everything waiting, everything wide"
     },
     {
-     "t": 190.9,
+     "t": 0,
      "text": "Hey now, hey now — I'm not walking alone now"
     },
     {
-     "t": 200.94,
+     "t": 0,
      "text": "You go before me, You stay by my side"
     },
     {
-     "t": 213.89,
+     "t": 0,
      "text": "Bridge",
      "sect": true
     },
     {
-     "t": 213.89,
+     "t": 0,
      "text": "Let it come, let it come, the long day"
     },
     {
-     "t": 222.1,
+     "t": 0,
      "text": "Let it break like a wave on the shore"
     },
     {
-     "t": 230.31,
+     "t": 0,
      "text": "I have set my anchor deeper"
     },
     {
-     "t": 237.61,
+     "t": 0,
      "text": "I have been here in Your peace before"
     },
     {
-     "t": 249.65,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 249.65,
+     "t": 0,
      "text": "Hey now, hey now — I'm handing it over"
     },
     {
-     "t": 258.77,
+     "t": 0,
      "text": "Everything waiting, everything wide"
     },
     {
-     "t": 268.8,
+     "t": 0,
      "text": "Hey now, hey now — I'm not walking alone now"
     },
     {
-     "t": 278.84,
+     "t": 0,
      "text": "You go before me, You stay by my side"
     }
-   ],
-   "note": "Morning prayer in the quiet, before the phone starts ringing.",
-   "verse": {
-    "ref": "Psalm 143:8",
-    "url": "https://www.biblegateway.com/passage/?search=Psalm%20143%3A8&version=NIV"
-   }
+   ]
   },
   {
    "title": "Cast the Net of Mercy",
    "src": "audio/08.mp3",
    "art": "art/08.jpg",
    "duration": 238.32,
-   "timing": "estimated",
-   "lines": [
-    {
-     "t": 13.11,
-     "text": "Verse 1"
-    },
-    {
-     "t": 14.59,
-     "text": "By the waters of Galilee, in the breaking of the dawn,"
-    },
-    {
-     "t": 21.48,
-     "text": "Nets were heavy with the labor of a night that had gone on."
-    },
-    {
-     "t": 28.36,
-     "text": "Then a voice came through the silence, calling simple working men,"
-    },
-    {
-     "t": 35.25,
-     "text": "“Leave your nets and come and follow, I’ll make you fishers of men.”"
-    },
-    {
-     "t": 42.59,
-     "text": "Pre-Chorus"
-    },
-    {
-     "t": 44.08,
-     "text": "Not by power, not by riches,"
-    },
-    {
-     "t": 47.75,
-     "text": "Not by wisdom of our own,"
-    },
-    {
-     "t": 50.96,
-     "text": "But by grace that seeks the lost ones,"
-    },
-    {
-     "t": 55.09,
-     "text": "And by love that leads them home."
-    },
-    {
-     "t": 58.31,
-     "text": "Chorus"
-    },
-    {
-     "t": 59.79,
-     "text": "We will cast the net of mercy,"
-    },
-    {
-     "t": 63.46,
-     "text": "We will shine the Savior’s light,"
-    },
-    {
-     "t": 67.14,
-     "text": "Calling hearts from stormy waters,"
-    },
-    {
-     "t": 70.81,
-     "text": "Leading souls through darkest night."
-    },
-    {
-     "t": 74.02,
-     "text": "Jesus, guide us where You send us,"
-    },
-    {
-     "t": 77.69,
-     "text": "Till Your kingdom fills the land,"
-    },
-    {
-     "t": 80.91,
-     "text": "Making us Your faithful fishers,"
-    },
-    {
-     "t": 84.58,
-     "text": "Holding every life in hand."
-    },
-    {
-     "t": 88.25,
-     "text": "Verse 2"
-    },
-    {
-     "t": 89.74,
-     "text": "Through the towns and through the valleys, by the shore and on the sea,"
-    },
-    {
-     "t": 96.62,
-     "text": "Jesus walked among the broken, setting captives truly free."
-    },
-    {
-     "t": 104.43,
-     "text": "Every word a seed of heaven, every touch a healing flame,"
-    },
-    {
-     "t": 112.23,
-     "text": "And He calls His church to follow, bearing witness in His name."
-    },
-    {
-     "t": 119.12,
-     "text": "Pre-Chorus"
-    },
-    {
-     "t": 120.6,
-     "text": "For the harvest fields are waiting,"
-    },
-    {
-     "t": 124.27,
-     "text": "And the days are passing by,"
-    },
-    {
-     "t": 127.49,
-     "text": "May we hear the Master’s calling,"
-    },
-    {
-     "t": 131.62,
-     "text": "May we answer, “Here am I.”"
-    },
-    {
-     "t": 134.83,
-     "text": "Chorus"
-    },
-    {
-     "t": 136.31,
-     "text": "We will cast the net of mercy,"
-    },
-    {
-     "t": 139.99,
-     "text": "We will shine the Savior’s light,"
-    },
-    {
-     "t": 143.66,
-     "text": "Calling hearts from stormy waters,"
-    },
-    {
-     "t": 147.33,
-     "text": "Leading souls through darkest night."
-    },
-    {
-     "t": 150.55,
-     "text": "Jesus, guide us where You send us,"
-    },
-    {
-     "t": 154.22,
-     "text": "Till Your kingdom fills the land,"
-    },
-    {
-     "t": 157.43,
-     "text": "Making us Your faithful fishers,"
-    },
-    {
-     "t": 161.11,
-     "text": "Holding every life in hand."
-    },
-    {
-     "t": 164.78,
-     "text": "Bridge"
-    },
-    {
-     "t": 166.26,
-     "text": "Though the seas are rough around us,"
-    },
-    {
-     "t": 169.93,
-     "text": "Though the winds and waves may rise,"
-    },
-    {
-     "t": 173.61,
-     "text": "You are Lord above the waters,"
-    },
-    {
-     "t": 177.28,
-     "text": "You are strength when courage dies."
-    },
-    {
-     "t": 180.49,
-     "text": "Let the net be filled with nations,"
-    },
-    {
-     "t": 184.62,
-     "text": "Every tribe and tongue and shore,"
-    },
-    {
-     "t": 188.3,
-     "text": "Till the world has heard the story"
-    },
-    {
-     "t": 191.97,
-     "text": "Of the One we’re living for."
-    },
-    {
-     "t": 195.64,
-     "text": "Final Chorus"
-    },
-    {
-     "t": 197.48,
-     "text": "We will cast the net of mercy,"
-    },
-    {
-     "t": 201.15,
-     "text": "We will lift the cross on high,"
-    },
-    {
-     "t": 204.37,
-     "text": "Pointing every soul to Jesus,"
-    },
-    {
-     "t": 208.5,
-     "text": "Who was lifted up to die."
-    },
-    {
-     "t": 211.71,
-     "text": "And when all our work is finished,"
-    },
-    {
-     "t": 215.84,
-     "text": "At Your throne we’ll gladly stand,"
-    },
-    {
-     "t": 219.52,
-     "text": "Thankful that You chose and sent us,"
-    },
-    {
-     "t": 223.19,
-     "text": "As Your fishers of all men."
-    }
-   ],
    "note": "Dawn on the shore of Galilee — “leave your nets and follow me.”",
    "verse": {
     "ref": "Matthew 4:19",
-    "url": "https://www.biblegateway.com/passage/?search=Matthew%204%3A19&version=NIV"
-   }
+    "text": "“Come, follow Me,” Jesus said, “and I will make you fishers of men.”",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Matthew%204%3A19&version=NIV"
+   },
+   "timing": "estimated",
+   "lines": [
+    {
+     "t": 0,
+     "text": "Verse 1",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "By the waters of Galilee, in the breaking of the dawn,"
+    },
+    {
+     "t": 0,
+     "text": "Nets were heavy with the labor of a night that had gone on."
+    },
+    {
+     "t": 0,
+     "text": "Then a voice came through the silence, calling simple working men,"
+    },
+    {
+     "t": 0,
+     "text": "“Leave your nets and come and follow, I’ll make you fishers of men.”"
+    },
+    {
+     "t": 0,
+     "text": "Pre-Chorus",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Not by power, not by riches,"
+    },
+    {
+     "t": 0,
+     "text": "Not by wisdom of our own,"
+    },
+    {
+     "t": 0,
+     "text": "But by grace that seeks the lost ones,"
+    },
+    {
+     "t": 0,
+     "text": "And by love that leads them home."
+    },
+    {
+     "t": 0,
+     "text": "Chorus",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "We will cast the net of mercy,"
+    },
+    {
+     "t": 0,
+     "text": "We will shine the Savior’s light,"
+    },
+    {
+     "t": 0,
+     "text": "Calling hearts from stormy waters,"
+    },
+    {
+     "t": 0,
+     "text": "Leading souls through darkest night."
+    },
+    {
+     "t": 0,
+     "text": "Jesus, guide us where You send us,"
+    },
+    {
+     "t": 0,
+     "text": "Till Your kingdom fills the land,"
+    },
+    {
+     "t": 0,
+     "text": "Making us Your faithful fishers,"
+    },
+    {
+     "t": 0,
+     "text": "Holding every life in hand."
+    },
+    {
+     "t": 0,
+     "text": "Verse 2",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Through the towns and through the valleys, by the shore and on the sea,"
+    },
+    {
+     "t": 0,
+     "text": "Jesus walked among the broken, setting captives truly free."
+    },
+    {
+     "t": 0,
+     "text": "Every word a seed of heaven, every touch a healing flame,"
+    },
+    {
+     "t": 0,
+     "text": "And He calls His church to follow, bearing witness in His name."
+    },
+    {
+     "t": 0,
+     "text": "Pre-Chorus",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "For the harvest fields are waiting,"
+    },
+    {
+     "t": 0,
+     "text": "And the days are passing by,"
+    },
+    {
+     "t": 0,
+     "text": "May we hear the Master’s calling,"
+    },
+    {
+     "t": 0,
+     "text": "May we answer, “Here am I.”"
+    },
+    {
+     "t": 0,
+     "text": "Chorus",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "We will cast the net of mercy,"
+    },
+    {
+     "t": 0,
+     "text": "We will shine the Savior’s light,"
+    },
+    {
+     "t": 0,
+     "text": "Calling hearts from stormy waters,"
+    },
+    {
+     "t": 0,
+     "text": "Leading souls through darkest night."
+    },
+    {
+     "t": 0,
+     "text": "Jesus, guide us where You send us,"
+    },
+    {
+     "t": 0,
+     "text": "Till Your kingdom fills the land,"
+    },
+    {
+     "t": 0,
+     "text": "Making us Your faithful fishers,"
+    },
+    {
+     "t": 0,
+     "text": "Holding every life in hand."
+    },
+    {
+     "t": 0,
+     "text": "Bridge",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "Though the seas are rough around us,"
+    },
+    {
+     "t": 0,
+     "text": "Though the winds and waves may rise,"
+    },
+    {
+     "t": 0,
+     "text": "You are Lord above the waters,"
+    },
+    {
+     "t": 0,
+     "text": "You are strength when courage dies."
+    },
+    {
+     "t": 0,
+     "text": "Let the net be filled with nations,"
+    },
+    {
+     "t": 0,
+     "text": "Every tribe and tongue and shore,"
+    },
+    {
+     "t": 0,
+     "text": "Till the world has heard the story"
+    },
+    {
+     "t": 0,
+     "text": "Of the One we’re living for."
+    },
+    {
+     "t": 0,
+     "text": "Final Chorus",
+     "sect": true
+    },
+    {
+     "t": 0,
+     "text": "We will cast the net of mercy,"
+    },
+    {
+     "t": 0,
+     "text": "We will lift the cross on high,"
+    },
+    {
+     "t": 0,
+     "text": "Pointing every soul to Jesus,"
+    },
+    {
+     "t": 0,
+     "text": "Who was lifted up to die."
+    },
+    {
+     "t": 0,
+     "text": "And when all our work is finished,"
+    },
+    {
+     "t": 0,
+     "text": "At Your throne we’ll gladly stand,"
+    },
+    {
+     "t": 0,
+     "text": "Thankful that You chose and sent us,"
+    },
+    {
+     "t": 0,
+     "text": "As Your fishers of all men."
+    }
+   ]
   },
   {
    "title": "Shepherd of My Soul",
    "src": "audio/09.mp3",
    "art": "art/09.jpg",
    "duration": 117.64,
+   "note": "Psalm 23, almost line for line.",
+   "verse": {
+    "ref": "Psalm 23:1-6",
+    "text": "1 The LORD is my shepherd; I shall not want. 2 He makes me lie down in green pastures; He leads me beside quiet waters. 3 He restores my soul; He guides me in the paths of righteousness for the sake of His name. 4 Even though I walk through the valley of the shadow of death, I will fear no evil, for You are with me; Your rod and Your staff, they comfort me. 5 You prepare a table before me in the presence of my enemies. You anoint my head with oil; my cup overflows. 6 Surely goodness and mercy will follow me all the days of my life, and I will dwell in the house of the LORD forever.",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Psalm%2023%3A1-6&version=NIV"
+   },
    "timing": "estimated",
    "lines": [
     {
-     "t": 6.47,
+     "t": 0,
      "text": "Verse 1",
      "sect": true
     },
     {
-     "t": 6.47,
+     "t": 0,
      "text": "The Lord is my shepherd, I shall not want"
     },
     {
-     "t": 12.43,
+     "t": 0,
      "text": "He makes me lie down in pastures so green"
     },
     {
-     "t": 19.59,
+     "t": 0,
      "text": "He leads me beside the still, gentle streams"
     },
     {
-     "t": 25.55,
+     "t": 0,
      "text": "He restores my soul, He restores my soul"
     },
     {
-     "t": 35.21,
+     "t": 0,
      "text": "Chorus",
      "sect": true
     },
     {
-     "t": 35.21,
+     "t": 0,
      "text": "You are my shepherd, I will not fear"
     },
     {
-     "t": 40.57,
+     "t": 0,
      "text": "Valley of shadows, I know You are near"
     },
     {
-     "t": 46.53,
+     "t": 0,
      "text": "Goodness and mercy follow my days"
     },
     {
-     "t": 51.9,
+     "t": 0,
      "text": "Shepherd of my soul, I sing Your praise"
     },
     {
-     "t": 59.77,
+     "t": 0,
      "text": "Verse 2",
      "sect": true
     },
     {
-     "t": 59.77,
+     "t": 0,
      "text": "He guides me along the paths that are right"
     },
     {
-     "t": 66.33,
+     "t": 0,
      "text": "For the sake of His name I walk in His light"
     },
     {
-     "t": 72.89,
+     "t": 0,
      "text": "Though I walk through the dark, shadowed vale"
     },
     {
-     "t": 79.44,
+     "t": 0,
      "text": "You are with me there, You will never fail"
     },
     {
-     "t": 87.91,
+     "t": 0,
      "text": "Bridge",
      "sect": true
     },
     {
-     "t": 87.91,
+     "t": 0,
      "text": "Your rod and Your staff, they comfort me"
     },
     {
-     "t": 93.27,
+     "t": 0,
      "text": "You prepare a table where my foes can see"
     },
     {
-     "t": 99.83,
+     "t": 0,
      "text": "My cup overflows, Your love is my song"
     },
     {
-     "t": 105.8,
+     "t": 0,
      "text": "In Your house forever, I will belong"
     }
-   ],
-   "note": "Psalm 23, almost line for line.",
-   "verse": {
-    "ref": "Psalm 23:1-6",
-    "url": "https://www.biblegateway.com/passage/?search=Psalm%2023%3A1-6&version=NIV"
-   }
+   ]
   }
  ]
 }
