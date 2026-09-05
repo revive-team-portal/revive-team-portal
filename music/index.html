@@ -35,7 +35,7 @@
        max-width:620px;margin:0 auto}
 
   /* ══════════ TOP: artwork with the lyrics running over it ══════════ */
-  .stage{position:relative;flex:0 0 auto;height:min(38vh,340px);overflow:hidden;background:#111}
+  .stage{position:relative;flex:0 0 auto;height:min(33vh,300px);overflow:hidden;background:#111}
   .stage img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.02)}
   .stage::after{content:"";position:absolute;inset:0;pointer-events:none;
     background:linear-gradient(180deg,rgba(6,6,8,.86) 0%,rgba(6,6,8,.5) 42%,rgba(6,6,8,.15) 66%,var(--bg) 100%)}
@@ -51,50 +51,53 @@
   .flow p.live{color:#fff;transform:scale(1.02);transform-origin:left center}
   .flow.off{display:none}
 
-  .stagebtns{position:absolute;right:12px;bottom:10px;z-index:3;display:flex;gap:4px}
-  .stagebtns button{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;
-                    background:rgba(10,10,12,.55);backdrop-filter:blur(6px);color:#fff;opacity:.85}
+  .stagebtns{position:absolute;right:12px;bottom:10px;z-index:3;display:flex;gap:8px}
+  .stagebtns button{width:46px;height:46px;display:grid;place-items:center;border-radius:50%;
+                    background:rgba(10,10,12,.6);backdrop-filter:blur(6px);color:#fff;opacity:.9}
   .stagebtns button:hover{opacity:1}
   .stagebtns button.off{color:var(--dim)}
-  .stagebtns svg{width:17px;height:17px;fill:currentColor}
+  .stagebtns svg{width:23px;height:23px;fill:currentColor}
 
   /* ══════════ MIDDLE: track meta + controls ══════════ */
   .deck{flex:0 0 auto;padding:14px 22px 12px}
-  .deck h2{margin:0;font-size:21px;font-weight:700;letter-spacing:-.015em;line-height:1.2;
+  .deck h2{margin:0;font-size:24px;font-weight:700;letter-spacing:-.015em;line-height:1.2;
            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .deck .artist{margin:3px 0 0;font-size:13px;color:var(--muted);font-weight:500}
   .deck .note{margin:8px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted);font-weight:400}
   .verse{display:inline-flex;align-items:center;gap:5px;margin-top:8px;
-         font-size:11.5px;font-weight:600;color:var(--accent);text-decoration:none;
-         border:1px solid rgba(43,217,124,.35);border-radius:100px;padding:4px 10px;
+         font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;
+         border:1px solid rgba(43,217,124,.4);border-radius:100px;padding:8px 15px;
          transition:background .15s;cursor:pointer}
   .verse:hover{background:rgba(43,217,124,.12)}
   .verse svg{width:11px;height:11px;fill:currentColor;opacity:.8}
 
   .seekrow{margin-top:14px}
-  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;
                     background:transparent;display:block;margin:0;cursor:pointer}
-  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;
-    background:linear-gradient(to right,var(--accent) var(--pct,0%),rgba(255,255,255,.18) var(--pct,0%))}
-  input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:rgba(255,255,255,.18)}
-  input[type=range]::-moz-range-progress{height:4px;border-radius:4px;background:var(--accent)}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;
-    background:#fff;margin-top:-4px}
-  input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:#fff}
-  .times{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);
-         font-variant-numeric:tabular-nums;margin-top:-1px}
+  input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:8px;
+    background:linear-gradient(to right,var(--accent) var(--pct,0%),rgba(255,255,255,.2) var(--pct,0%))}
+  input[type=range]::-moz-range-track{height:8px;border-radius:8px;background:rgba(255,255,255,.2)}
+  input[type=range]::-moz-range-progress{height:8px;border-radius:8px;background:var(--accent)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+    background:#fff;margin-top:-7px;box-shadow:0 2px 8px rgba(0,0,0,.55)}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff}
+  .times{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);
+         font-variant-numeric:tabular-nums;margin-top:0}
 
-  .transport{display:flex;align-items:center;justify-content:space-between;padding:8px 6px 0}
-  .transport button{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;
-                    color:var(--text);opacity:.75;transition:opacity .15s,transform .15s}
-  .transport button:hover{opacity:1}
-  .transport button:active{transform:scale(.88)}
-  .transport button.on{color:var(--accent);opacity:1}
-  .transport svg{width:20px;height:20px;fill:currentColor}
-  #play{width:56px;height:56px;background:var(--accent);color:#06210F;opacity:1}
-  #play svg{width:24px;height:24px}
+  .transport{display:flex;align-items:center;justify-content:space-between;padding:12px 0 2px;gap:4px}
+  .transport button{display:grid;place-items:center;width:60px;height:60px;border-radius:50%;
+                    color:var(--text);opacity:.8;transition:opacity .15s,transform .15s,background .15s;
+                    background:rgba(255,255,255,.06)}
+  .transport button:hover{opacity:1;background:rgba(255,255,255,.12)}
+  .transport button:active{transform:scale(.9)}
+  .transport button.on{color:var(--accent);opacity:1;background:rgba(43,217,124,.16)}
+  .transport svg{width:30px;height:30px;fill:currentColor}
+  #prev svg,#next svg{width:34px;height:34px}
+  #play{width:82px;height:82px;background:var(--accent);color:#06210F;opacity:1}
+  #play:hover{background:#3ce68b}
+  #play svg{width:40px;height:40px}
   .rpt{position:relative}
-  .rpt .one{position:absolute;top:3px;right:4px;font-size:8px;font-weight:700;color:var(--accent);display:none}
+  .rpt .one{position:absolute;top:8px;right:9px;font-size:10px;font-weight:700;color:var(--accent);display:none}
   .rpt.one-on .one{display:block}
 
   /* ══════════ BOTTOM: tiles ══════════ */
@@ -109,8 +112,8 @@
   .library.expanded .libgrip{background:var(--accent);opacity:.7}
   .libhead{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
            padding:10px 20px 10px;cursor:pointer;touch-action:none}
-  .libhead h3{margin:0;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
-  .libhead button{font-size:12px;font-weight:600;color:var(--muted);padding:4px 2px}
+  .libhead h3{margin:0;font-size:15px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+  .libhead button{font-size:14px;font-weight:600;color:var(--accent);padding:10px 4px}
   .libhead button:hover{color:var(--text)}
   .grid{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
         display:grid;grid-template-columns:repeat(2,1fr);gap:18px 14px;padding:2px 20px 26px}
@@ -121,12 +124,12 @@
   .tile .thumb{position:relative;width:100%;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#222}
   .tile .thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s,filter .3s}
   .tile:hover .thumb img{transform:scale(1.05)}
-  .tile .tt{margin-top:7px;font-size:12.5px;font-weight:600;line-height:1.3;
+  .tile .tt{margin-top:8px;font-size:14px;font-weight:600;line-height:1.3;
             display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .tile .ts{font-size:11px;color:var(--dim);margin-top:2px;font-variant-numeric:tabular-nums}
+  .tile .ts{font-size:12px;color:var(--dim);margin-top:3px;font-variant-numeric:tabular-nums}
   .tile .tn{font-size:11.5px;line-height:1.4;color:var(--muted);margin-top:5px;
             display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-  .tile .verse{margin-top:7px;font-size:10.5px;padding:3px 8px}
+  .tile .verse{margin-top:9px;font-size:12px;padding:7px 13px}
   .tile.playing .tt{color:var(--accent)}
   .tile.playing .thumb{outline:2px solid var(--accent);outline-offset:-2px}
   .tile.playing .thumb img{filter:brightness(.5)}
@@ -167,10 +170,14 @@
                padding-bottom:2px}
 
   @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.06s !important}}
-  @media (max-height:660px){
-    .stage{height:32vh}
-    #play{width:50px;height:50px}
-    .deck{padding-top:10px}
+  @media (max-height:700px){
+    .stage{height:26vh}
+    .deck{padding-top:8px}
+    .deck .note{display:none}
+    .transport{padding-top:8px}
+    .transport button{width:54px;height:54px}
+    #play{width:70px;height:70px}
+    #play svg{width:34px;height:34px}
   }
 </style>
 </head>
