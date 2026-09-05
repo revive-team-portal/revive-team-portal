@@ -124,14 +124,20 @@
            padding:10px 20px 10px;cursor:pointer;touch-action:none}
   .libhead h3{margin:0;font-size:15px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
   .libhead button{font-size:14px;font-weight:600;color:var(--accent);padding:10px 4px}
+  .libleft{display:flex;align-items:center;gap:14px;min-width:0}
   .libtools{display:flex;align-items:center;gap:16px}
   #favFilter{color:var(--muted);display:flex;align-items:center;gap:6px}
   #favFilter svg{width:18px;height:18px;fill:currentColor}
   #favFilter.on{color:#FF4D6D}
   .emptyfav{grid-column:1/-1;text-align:center;color:var(--dim);font-size:14px;
             line-height:1.6;padding:34px 16px}
-  #askBtn{color:var(--accent);display:flex;align-items:center;gap:6px;padding:10px 4px;font-weight:600;font-size:14px}
+  #askBtn{color:var(--accent);display:flex;align-items:center;gap:6px;padding:10px 2px;
+          font-weight:600;font-size:14px;white-space:nowrap}
   #askBtn svg{width:17px;height:17px;fill:currentColor}
+  @media (max-width:380px){
+    .libleft{gap:10px}
+    #favFilter span{display:none}
+  }
   #viewToggle{color:var(--muted);display:flex;align-items:center;padding:10px 4px}
   #viewToggle svg{width:20px;height:20px;fill:currentColor}
 
@@ -301,9 +307,11 @@
   <div class="library" id="library">
     <div class="libgrip"></div>
     <div class="libhead" id="libhead">
-      <h3 id="libcount">All songs</h3>
+      <div class="libleft">
+        <h3 id="libcount">All songs</h3>
+        <button id="askBtn"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 00-9 9c0 1.6.42 3.1 1.16 4.4L3 21l4.7-1.13A8.96 8.96 0 0012 21a9 9 0 000-18zm0 2a7 7 0 110 14 6.9 6.9 0 01-3.6-1l-.35-.2-2.2.53.54-2.14-.22-.36A6.9 6.9 0 0112 5z"/></svg>Song Request</button>
+      </div>
       <div class="libtools">
-        <button id="askBtn"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 00-9 9c0 1.6.42 3.1 1.16 4.4L3 21l4.7-1.13A8.96 8.96 0 0012 21a9 9 0 000-18zm0 2a7 7 0 110 14 6.9 6.9 0 01-3.6-1l-.35-.2-2.2.53.54-2.14-.22-.36A6.9 6.9 0 0112 5z"/></svg>Request a song</button>
         <button id="viewToggle" aria-label="Switch view"></button>
         <button id="favFilter" aria-pressed="false"></button>
       </div>
