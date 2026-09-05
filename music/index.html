@@ -158,6 +158,9 @@
   .lyrics p.live{color:var(--paper)}
   .lyrics.static p{color:rgba(242,234,217,.78)}
   .lyrics p.blank{height:14px}
+  .lyrics p.sect{font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.14em;
+                 color:var(--gold);opacity:.55;margin:22px 0 8px;text-transform:lowercase}
+  .lyrics.static p.sect{color:var(--gold)}
   .empty{text-align:center;color:var(--muted);font-size:14px;padding:34px 10px 44px;line-height:1.6}
 
   @media (prefers-reduced-motion:reduce){
@@ -238,40 +241,16 @@
 
 <script>
 /* ------------------------------------------------------------------
-   TRACKS
-   Placeholder audio + art until the real Suno songs are loaded in.
-   `lyrics` is optional:
-     - array of {t, line}  -> karaoke, highlights in time with the song
-     - a plain string      -> shown as static text, no timing
-     - omitted             -> lyrics tab shows an empty state
-------------------------------------------------------------------- */
-const TRACKS = [
-  {
-    title:"First Light",
-    src:"audio/t1.mp3", art:"art/t1.jpg",
-    lyrics:[
-      {t:3.0,  line:"Amazing grace, how sweet the sound"},
-      {t:8.5,  line:"That saved a wretch like me"},
-      {t:14.0, line:"I once was lost, but now am found"},
-      {t:19.5, line:"Was blind, but now I see"},
-      {t:25.0, line:""},
-      {t:27.0, line:"’Twas grace that taught my heart to fear"},
-      {t:32.5, line:"And grace my fears relieved"},
-      {t:38.0, line:"How precious did that grace appear"},
-      {t:43.0, line:"The hour I first believed"}
-    ]
-  },
-  {
-    title:"Still Waters",
-    src:"audio/t2.mp3", art:"art/t2.jpg",
-    lyrics:"Sample of unsynced lyrics.\n\nWhen a song has no line timings,\nthe words simply sit here as text\nfor people to read while they listen.\n\nEverything else in the player works\nexactly the same way."
-  },
-  { title:"Evening Vigil", src:"audio/t3.mp3", art:"art/t3.jpg" },
-  { title:"Homeward",      src:"audio/t4.mp3", art:"art/t4.jpg" }
-];
+   Songs are defined in songs.json so the words and timings can be
+   updated without touching this file.
 
-const ALBUM = "Songs";
-const ARTIST = "Jeremy Dixon";
+   `lyrics` is either:
+     - a plain string      -> shown as text, no timing
+     - array of {t, line}  -> highlights line by line with the music
+------------------------------------------------------------------- */
+let TRACKS = [];
+let ALBUM = "Songs";
+let ARTIST = "Jeremy Dixon";
 
 /* ---------------- state ---------------- */
 const audio = document.getElementById('audio');
@@ -348,7 +327,10 @@ function buildLyrics(){
     d.className = 'lyrics static';
     t.lyrics.split('\n').forEach(line=>{
       const p = document.createElement('p');
-      if(line.trim()==='') p.className = 'blank'; else p.textContent = line;
+      const s = line.trim();
+      if(s === '') p.className = 'blank';
+      else if(/^\[.*\]$/.test(s)){ p.className = 'sect'; p.textContent = s.slice(1,-1); }
+      else p.textContent = s;
       d.appendChild(p);
     });
     body.appendChild(d);
@@ -525,8 +507,21 @@ document.querySelectorAll('.sheet').forEach(sh=>{
 });
 
 /* ---------------- go ---------------- */
-audio.src = TRACKS[0].src;
-paint();
+fetch('songs.json', {cache:'no-cache'})
+  .then(r => r.json())
+  .then(d => {
+    TRACKS = d.songs || [];
+    ARTIST = d.artist || ARTIST;
+    ALBUM  = d.album  || ALBUM;
+    if(!TRACKS.length) throw new Error('empty');
+    document.querySelector('header h1').textContent = ARTIST;
+    audio.src = TRACKS[0].src;
+    paint();
+  })
+  .catch(() => {
+    document.getElementById('title').textContent = 'Songs unavailable';
+    document.getElementById('sub').textContent = 'Reload the page to try again.';
+  });
 </script>
 </body>
 </html>
