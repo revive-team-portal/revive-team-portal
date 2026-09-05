@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Jeremy Dixon — Songs</title>
-<meta name="description" content="Songs by Jeremy Dixon.">
+<title>The Inspiration Project</title>
+<meta name="description" content="A collection of songs.">
 <meta name="theme-color" content="#0A0A0B">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Songs">
+<meta name="apple-mobile-web-app-title" content="The Inspiration Project">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -280,7 +280,6 @@
       <div class="libtools">
         <button id="viewToggle" aria-label="Switch view"></button>
         <button id="favFilter" aria-pressed="false"></button>
-        <button id="shuffleAll">Shuffle all</button>
       </div>
     </div>
     <div class="grid" id="grid"></div>
@@ -547,13 +546,6 @@ $('shuffle').addEventListener('click', e=>{
   e.currentTarget.classList.toggle('on', shuffle);
   e.currentTarget.setAttribute('aria-pressed', shuffle);
 });
-$('shuffleAll').addEventListener('click', ()=>{
-  const pool = SONGS.map((s,i)=>i).filter(i => !favOnly || isFav(SONGS[i]));
-  if(!pool.length) return;
-  shuffle = true;
-  $('shuffle').classList.add('on');
-  select(pool[Math.floor(Math.random()*pool.length)]);
-});
 $('repeat').addEventListener('click', e=>{
   repeat = repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off';
   e.currentTarget.classList.toggle('on', repeat !== 'off');
@@ -578,9 +570,21 @@ audio.addEventListener('pause', ()=>{
 });
 audio.addEventListener('ended', ()=>{
   if(repeat === 'one'){ audio.currentTime = 0; live = -1; audio.play(); return; }
-  if(!shuffle && repeat === 'off' && idx === SONGS.length - 1){ select(0, false); return; }
-  select(step(1));
+  select(step(1));               // wraps past the last song, so playback never stops
 });
+
+/* if a file fails to load or play, don't sit there silently — move on */
+let skips = 0;
+function skipBroken(){
+  if(skips >= SONGS.length) return;   // everything is failing; stop trying
+  skips++;
+  setTimeout(()=>select(step(1)), 600);
+}
+audio.addEventListener('error', skipBroken);
+audio.addEventListener('stalled', ()=>{
+  if(audio.readyState < 2 && !audio.paused) audio.load(), audio.play().catch(()=>{});
+});
+audio.addEventListener('playing', ()=>{ skips = 0; });
 audio.addEventListener('loadedmetadata', ()=>{ $('dur').textContent = fmt(SONGS[idx].duration); });
 audio.addEventListener('timeupdate', ()=>{
   if(!scrubbing && audio.duration){
