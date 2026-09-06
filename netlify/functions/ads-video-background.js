@@ -71,23 +71,28 @@ function ensureBins() {
 // kept in the ad-frames bucket as a fallback if the upstream host is down.
 async function ensureModel(name) {
   const local = BIN + '/ggml-' + name + '.bin';
-  if (fs.existsSync(local) && fs.statSync(local).size > 1000000) return { path: local, cached: true };
+  if (fs.existsSync(local) && fs.statSync(local).size > 1000000) return { path: local, from: 'tmp_cache' };
   const cacheKey = 'models/ggml-' + name + '.bin';
-  const cached = await getObject(cacheKey).catch(() => null);
-  if (cached && cached.length > 1000000) { fs.writeFileSync(local, cached); return { path: local, from: 'bucket' }; }
-  let lastErr = null;
+
+  // Upstream FIRST, deliberately. A long backfill is many cold starts and the
+  // weights are ~148 MB; pulling them from the Supabase bucket every time would
+  // burn several GB of a 5 GB monthly egress allowance. Hugging Face serves the
+  // same file at no cost to us. The bucket copy is the fallback for when it is
+  // unreachable, not the default path.
   for (const url of MODEL_URLS(name)) {
     try {
       const r = await fetch(url, { redirect: 'follow' });
-      if (!r.ok) { lastErr = 'HTTP ' + r.status; continue; }
+      if (!r.ok) continue;
       const buf = Buffer.from(await r.arrayBuffer());
-      if (buf.length < 1000000) { lastErr = 'too small'; continue; }
+      if (buf.length < 1000000) continue;
       fs.writeFileSync(local, buf);
-      putObject(cacheKey, buf, 'application/octet-stream').catch(() => {});
+      getObject(cacheKey).then(existing => { if (!existing) putObject(cacheKey, buf, 'application/octet-stream').catch(() => {}); }).catch(() => {});
       return { path: local, from: 'upstream', bytes: buf.length };
-    } catch (e) { lastErr = String(e.message || e).slice(0, 120); }
+    } catch (e) { /* fall through to the bucket */ }
   }
-  throw new Error('could not obtain whisper model: ' + lastErr);
+  const cached = await getObject(cacheKey).catch(() => null);
+  if (cached && cached.length > 1000000) { fs.writeFileSync(local, cached); return { path: local, from: 'bucket_fallback' }; }
+  throw new Error('could not obtain whisper model ' + name);
 }
 
 const rmrf = (p) => { try { fs.rmSync(p, { recursive: true, force: true }); } catch (e) {} };
