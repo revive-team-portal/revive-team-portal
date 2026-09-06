@@ -8,8 +8,8 @@
 // ads.probe, newest row.
 
 const { metaAccountTz } = require('./_metasync');
+const { authorizeRun } = require('./_adsauth');
 
-const GUARD = process.env.PORTAL_RUN_KEY;
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const TOKEN = process.env.META_ACCESS_TOKEN;
 const ACCT = process.env.META_AD_ACCOUNT || 'act_242089740673955';
@@ -246,11 +246,12 @@ async function writeProbe(result) {
 }
 
 exports.handler = async (event) => {
-  const qp = (event && event.queryStringParameters) || {};
-  if (!GUARD || qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  const auth = await authorizeRun(event);
+  if (!auth.ok) return { statusCode: 403, body: 'nope' };
   let result;
   try { result = await run(); }
   catch (e) { result = { probed_at: new Date().toISOString(), fatal: String((e && e.stack) || e).slice(0, 1500) }; }
+  result.authorized_via = auth.how;
   const w = await writeProbe(result).catch(e => ({ written: false, why: String(e.message || e) }));
   return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true, db: w }) };
 };
