@@ -34,20 +34,29 @@ async function graph(path, qs) {
   return { status: res.status, json: j };
 }
 
-// Walk an edge, collecting every page (bounded).
-async function graphAll(path, qs, maxPages) {
+// Walk an edge, collecting every page. Meta refuses calls whose per-page payload
+// is too large ("Please reduce the amount of data you're asking for") — that is a
+// function of fields x limit, so back the page size off and retry rather than fail.
+async function graphAll(path, qs, maxPages, startLimit) {
   if (!TOKEN) throw new Error('missing META_ACCESS_TOKEN');
-  let url = GRAPH + '/' + path + '?' + (qs || '') + '&access_token=' + encodeURIComponent(TOKEN);
-  const all = []; let pages = 0; let err = null;
-  for (let i = 0; i < (maxPages || 20) && url; i++) {
-    const res = await fetch(url);
-    const j = await res.json().catch(() => ({}));
-    if (j.error) { err = String(j.error.message || JSON.stringify(j.error)).slice(0, 300); break; }
-    (j.data || []).forEach(d => all.push(d));
-    pages++;
-    url = (j.paging && j.paging.next) ? j.paging.next : null;
+  const limits = [startLimit || 100, 50, 25, 10, 5];
+  let lastErr = null;
+  for (const lim of limits) {
+    let url = GRAPH + '/' + path + '?' + (qs || '') + '&limit=' + lim + '&access_token=' + encodeURIComponent(TOKEN);
+    const all = []; let pages = 0; let err = null;
+    for (let i = 0; i < (maxPages || 40) && url; i++) {
+      const res = await fetch(url);
+      const j = await res.json().catch(() => ({}));
+      if (j.error) { err = String(j.error.message || JSON.stringify(j.error)).slice(0, 300); break; }
+      (j.data || []).forEach(d => all.push(d));
+      pages++;
+      url = (j.paging && j.paging.next) ? j.paging.next : null;
+    }
+    if (!err) return { rows: all, pages, error: null, truncated: !!url, limit_used: lim };
+    lastErr = err;
+    if (!/reduce the amount of data/i.test(err)) return { rows: all, pages, error: err, truncated: !!url, limit_used: lim };
   }
-  return { rows: all, pages, error: err, truncated: !!url };
+  return { rows: [], pages: 0, error: lastErr, truncated: false, limit_used: null };
 }
 
 // A video id can hide in three places depending on how the ad was built.
@@ -126,52 +135,71 @@ async function run() {
   result.account_info = acct.json.error ? { error: String(acct.json.error.message || '').slice(0, 250) } : acct.json;
   try { result.account_tz_via_metasync = await metaAccountTz(); } catch (e) { result.account_tz_via_metasync = 'error: ' + String(e.message || e); }
 
-  // Q1 — does /ads return archived ads, and what creative fields come back?
-  const adFields = [
-    'id', 'name', 'status', 'effective_status', 'created_time', 'updated_time',
-    'adset_id', 'campaign_id', 'preview_shareable_link',
-    'adset{name}', 'campaign{name}',
-    'creative{id,name,video_id,thumbnail_url,image_url,object_type,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec,asset_feed_spec}',
-  ].join(',');
+  // Q1 — does /ads return archived ads?  Keep the listing call LIGHT: creative
+  // sub-objects blow past Meta's per-page payload ceiling once the status filter
+  // widens the result set. Creative detail is fetched per-ad below instead.
+  const LIGHT = 'id,name,status,effective_status,created_time,updated_time,adset_id,campaign_id';
+  const statusQs = 'fields=' + encodeURIComponent(LIGHT)
+    + '&effective_status=' + encodeURIComponent(JSON.stringify(ALL_STATUS));
+  const withArchived = await graphAll(ACCT + '/ads', statusQs, 40, 50);
 
-  const qs = 'fields=' + encodeURIComponent(adFields)
-    + '&effective_status=' + encodeURIComponent(JSON.stringify(ALL_STATUS))
-    + '&limit=100';
-  const withArchived = await graphAll(ACCT + '/ads', qs, 20);
+  // Control: the same call with no status filter, to prove the filter is what
+  // surfaces archived ads (and to see what Meta hands back by default).
+  const defaultCall = await graphAll(ACCT + '/ads', 'fields=id,effective_status,created_time', 40, 100);
 
-  // Control: same call without the status filter, to prove the filter is what surfaces archived.
-  const defaultCall = await graphAll(ACCT + '/ads', 'fields=id,effective_status&limit=100', 20);
+  // Belt and braces: ARCHIVED on its own, in case the 11-value filter is the problem.
+  const archivedOnly = await graphAll(ACCT + '/ads', 'fields=' + encodeURIComponent(LIGHT)
+    + '&effective_status=' + encodeURIComponent(JSON.stringify(['ARCHIVED'])), 40, 50);
 
   const tally = (rows) => rows.reduce((m, a) => { const k = a.effective_status || 'UNKNOWN'; m[k] = (m[k] || 0) + 1; return m; }, {});
   result.q1_ads_listing = {
-    with_status_filter: { total: withArchived.rows.length, pages: withArchived.pages, error: withArchived.error, truncated: withArchived.truncated, by_effective_status: tally(withArchived.rows) },
-    without_status_filter: { total: defaultCall.rows.length, pages: defaultCall.pages, error: defaultCall.error, by_effective_status: tally(defaultCall.rows) },
-    archived_returned: (tally(withArchived.rows).ARCHIVED || 0) > 0,
+    with_status_filter: { total: withArchived.rows.length, pages: withArchived.pages, limit_used: withArchived.limit_used, error: withArchived.error, truncated: withArchived.truncated, by_effective_status: tally(withArchived.rows) },
+    without_status_filter: { total: defaultCall.rows.length, pages: defaultCall.pages, limit_used: defaultCall.limit_used, error: defaultCall.error, by_effective_status: tally(defaultCall.rows) },
+    archived_only_filter: { total: archivedOnly.rows.length, pages: archivedOnly.pages, error: archivedOnly.error, by_effective_status: tally(archivedOnly.rows) },
+    archived_returned: (tally(withArchived.rows).ARCHIVED || 0) > 0 || archivedOnly.rows.length > 0,
   };
 
-  const ads = withArchived.rows.slice();
+  // Work from the widest listing that actually succeeded.
+  let ads = withArchived.rows.length ? withArchived.rows.slice() : defaultCall.rows.slice();
+  archivedOnly.rows.forEach(a => { if (!ads.some(x => x.id === a.id)) ads.push(a); });
   // Newest first so "the last ~10 ads" means what Jeremy expects.
   ads.sort((a, b) => String(b.created_time || '').localeCompare(String(a.created_time || '')));
+  result.ads_total_considered = ads.length;
+  result.newest_created_time = ads[0] && ads[0].created_time;
 
-  // What creative shape actually comes back — the union of keys seen.
+  // Now pull full creative detail for the newest 12, one ad at a time — this is
+  // exactly what the real backfill will do, so it doubles as a rehearsal.
+  const CREATIVE = 'id,name,status,effective_status,created_time,preview_shareable_link,'
+    + 'adset{name},campaign{name},'
+    + 'creative{id,name,video_id,thumbnail_url,image_url,object_type,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec,asset_feed_spec}';
+  const detailed = [];
+  for (const a of ads.slice(0, 12)) {
+    const d = await graph(a.id, 'fields=' + encodeURIComponent(CREATIVE));
+    if (d.json && !d.json.error) detailed.push(d.json);
+    else detailed.push({ id: a.id, effective_status: a.effective_status, created_time: a.created_time, _detail_error: d.json.error ? String(d.json.error.message || '').slice(0, 200) : 'unknown' });
+    await new Promise(r => setTimeout(r, 200));
+  }
+
   const creativeKeys = new Set(); const ossKeys = new Set(); const afsKeys = new Set();
-  ads.forEach(a => {
+  detailed.forEach(a => {
     const c = a.creative; if (!c) return;
     Object.keys(c).forEach(k => creativeKeys.add(k));
     if (c.object_story_spec) Object.keys(c.object_story_spec).forEach(k => ossKeys.add(k));
     if (c.asset_feed_spec) Object.keys(c.asset_feed_spec).forEach(k => afsKeys.add(k));
   });
-  const withVideo = ads.filter(a => videoIdsOf(a.creative).length);
+  const withVideo = detailed.filter(a => videoIdsOf(a.creative).length);
   result.q1_creative_shape = {
-    ads_with_creative: ads.filter(a => a.creative).length,
-    ads_with_a_video_id: withVideo.length,
-    ads_without_video_id: ads.length - withVideo.length,
+    sampled: detailed.length,
+    detail_errors: detailed.filter(a => a._detail_error).length,
+    with_creative: detailed.filter(a => a.creative).length,
+    with_a_video_id: withVideo.length,
+    without_video_id: detailed.length - withVideo.length,
     creative_fields_seen: [...creativeKeys].sort(),
     object_story_spec_keys_seen: [...ossKeys].sort(),
     asset_feed_spec_keys_seen: [...afsKeys].sort(),
-    ads_with_preview_shareable_link: ads.filter(a => a.preview_shareable_link).length,
+    with_preview_shareable_link: detailed.filter(a => a.preview_shareable_link).length,
   };
-  result.newest_10_ads = ads.slice(0, 10).map(a => ({
+  result.newest_ads = detailed.map(a => ({
     ad_id: a.id, name: a.name, effective_status: a.effective_status, created_time: a.created_time,
     campaign: a.campaign && a.campaign.name, adset: a.adset && a.adset.name,
     creative_id: a.creative && a.creative.id,
@@ -179,6 +207,7 @@ async function run() {
     object_type: a.creative && a.creative.object_type,
     thumb: a.creative ? redact(a.creative.thumbnail_url) : null,
     has_preview_link: !!a.preview_shareable_link,
+    detail_error: a._detail_error || null,
   }));
 
   // Pick up to 3 video ads to probe deeply — spread across statuses so we learn
