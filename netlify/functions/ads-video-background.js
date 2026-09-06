@@ -334,6 +334,8 @@ async function run(qp) {
       await upsert('ad_tags', [{
         ad_id: ad.ad_id, ...res.tags,
         scores: verdict.scores || null,
+        score_notes: verdict.score_notes || null,
+        observations: verdict.observations || null,
         recommendation: verdict.recommendation || null,
         raw: { ...res.tags.raw, verdict },
         model_tagging: cfg.model_tagging, model_analysis: cfg.model_analysis,
@@ -362,7 +364,8 @@ async function run(qp) {
         if (sibs.length) {
           await upsert('ad_tags', sibs.map(sb => ({
             ad_id: sb.ad_id, ...res.tags,
-            scores: verdict.scores || null, recommendation: verdict.recommendation || null,
+            scores: verdict.scores || null, score_notes: verdict.score_notes || null,
+            observations: verdict.observations || null, recommendation: verdict.recommendation || null,
             raw: { ...res.tags.raw, verdict, copied_from: ad.ad_id },
             model_tagging: cfg.model_tagging, model_analysis: cfg.model_analysis,
             taxonomy_version: TAXONOMY_VERSION, tagged_at: new Date().toISOString(),

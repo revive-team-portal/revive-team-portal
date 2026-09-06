@@ -113,6 +113,18 @@ Return ONLY JSON: {"text": "<corrected transcript>", "fixes": [{"from": "...", "
 }
 
 // --- the judgement call -----------------------------------------------------
+// Six dimensions, each with a fixed definition so scores mean the same thing
+// from ad to ad. Anything under 8 has to come with a specific fix — a low score
+// with no instruction attached is just an opinion.
+const SCORE_DEFS = {
+  hook: 'HOOK — the first 3 seconds. Does it stop the scroll? Judge the opening frame, the first words spoken or shown, and whether there is a reason to keep watching.',
+  clarity: 'CLARITY — is it obvious what is being sold and what the viewer should do? Judge how quickly a first-time viewer understands the product and the offer.',
+  product_visibility: 'PRODUCT — how clearly and how appetisingly the product itself appears on screen, and how early. Judge screen time, framing and whether it looks good.',
+  credibility: 'TRUST — does it feel true? Judge proof, specificity, real people, and whether claims are supported rather than asserted.',
+  craft: 'CRAFT — production quality. Judge framing, lighting, audio, pacing, edit rhythm, subtitle legibility.',
+  overall: 'OVERALL — would you put more money behind this ad as it stands? This is a judgement, not an average of the others.',
+};
+
 async function analyse(model, ad, tags, perf) {
   const content = [{ type: 'text', text:
 `Assess one advertisement for a New Zealand plant-based food brand (Revive Cafe).
@@ -134,17 +146,22 @@ ${JSON.stringify((tags.transcript || '').slice(0, 2500))}
 ON-SCREEN TEXT
 ${JSON.stringify((tags.onscreen_text || '').slice(0, 1200))}
 
-PERFORMANCE (purchases are split by attribution window; do not blend them)
+PERFORMANCE
+Hook rate is 3-second plays over impressions; hold rate is ThruPlays over 3-second
+plays. Purchases are split by attribution window — do not blend them. Low spend
+means low confidence: say so rather than over-reading a small sample.
 ${JSON.stringify(perf, null, 1).slice(0, 1200)}
 
-Score 0-10 on each dimension, judging the creative on its own merits — performance is context, and low spend means low confidence, so say so rather than over-reading it.
+SCORE DEFINITIONS (0-10, score against these and nothing else)
+${Object.values(SCORE_DEFS).join('\n')}
 
 Return ONLY JSON:
-{"scores": {"hook": n, "clarity": n, "product_visibility": n, "credibility": n, "craft": n, "overall": n},
- "recommendation": "<one or two sentences: what to do with this ad and why>",
- "strengths": ["..."], "weaknesses": ["..."],
+{"observations": ["<3-6 short, concrete things you actually observed in this ad — what happens on screen, what is said, what the numbers show. One fact each, no advice here, under 20 words each>"],
+ "scores": {"hook": n, "clarity": n, "product_visibility": n, "credibility": n, "craft": n, "overall": n},
+ "score_notes": {"<only dimensions scoring below 8>": "<one specific instruction to fix that dimension, under 15 words, an action not a restatement>"},
+ "recommendation": "<one or two sentences: what to do with this ad overall and why>",
  "confidence": "high|medium|low"}` }];
-  return parseJson(await claude(model, 'You are a direct-response creative strategist. You are specific, you cite what you actually saw, and you never pad.', content, 2000)) || {};
+  return parseJson(await claude(model, 'You are a direct-response creative strategist. You separate what you saw from what you advise. You are specific, you cite what is actually in the ad, and you never pad.', content, 2000)) || {};
 }
 
-module.exports = { claude, parseJson, tagOpening, tagTimeline, tagStill, fixTranscript, analyse };
+module.exports = { claude, parseJson, tagOpening, tagTimeline, tagStill, fixTranscript, analyse, SCORE_DEFS };
