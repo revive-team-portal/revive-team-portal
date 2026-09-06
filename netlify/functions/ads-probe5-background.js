@@ -90,7 +90,7 @@ async function run() {
       video_ids_seen: x.video_ids.length,
       body: x.body, headline: x.headline, description: x.description,
       body_variants: x.body_variants, headline_variants: x.headline_variants,
-      cta: x.cta, body_key: x.body_key, headline_key: x.headline_key,
+      cta: x.cta, link: x.link, body_key: x.body_key, headline_key: x.headline_key,
       detail_missing: !det.map[a.id],
     };
   });
@@ -140,8 +140,22 @@ async function run() {
   // --- the newest 20, as the list will actually render them ---
   out.newest_20 = rows.slice().sort((a, b) => String(b.created).localeCompare(String(a.created))).slice(0, 20)
     .map(r => ({ name: r.name, kind: r.kind, created: r.created, len: r.length_sec,
-      headline: r.headline, body: (r.body || '').slice(0, 120), cta: r.cta,
+      headline: r.headline, body: (r.body || '').slice(0, 120), cta: r.cta, link: r.link,
       body_shared: rows.filter(x => x.body_key && x.body_key === r.body_key).length }));
+
+  // --- landing pages ---
+  const strip = (u) => { try { const x = new URL(u); return { host: x.hostname.replace(/^www\./, ''), path: x.pathname.replace(/\/$/, '') || '/', utm: [x.searchParams.get('utm_source'), x.searchParams.get('utm_medium'), x.searchParams.get('utm_campaign')].filter(Boolean).join('|') || null }; } catch (e) { return null; } };
+  const lps = rows.map(r => r.link).filter(Boolean).map(strip).filter(Boolean);
+  const byPage = {}; lps.forEach(l => { const k = l.host + l.path; byPage[k] = (byPage[k] || 0) + 1; });
+  out.landing_pages = {
+    ads_with_a_landing_page: rows.filter(r => r.link).length,
+    unique_urls: new Set(rows.map(r => r.link).filter(Boolean)).size,
+    unique_pages_ignoring_query: Object.keys(byPage).length,
+    with_utm_tags: lps.filter(l => l.utm).length,
+    hosts: lps.reduce((m, l) => { m[l.host] = (m[l.host] || 0) + 1; return m; }, {}),
+    top_pages: Object.entries(byPage).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([page, count]) => ({ page, count })),
+    sample_full_urls: [...new Set(rows.map(r => r.link).filter(Boolean))].slice(0, 8),
+  };
 
   out.text_coverage = {
     ads_total: rows.length,
