@@ -46,3 +46,19 @@
 
 [functions."scheduled-nzpost-delays"]
   schedule = "10 * * * *"
+
+# --- Ads app -----------------------------------------------------------------
+# The video worker ships ffmpeg + whisper.cpp as committed binaries. The repo has
+# no package.json on purpose (adding one would change bundling for ~130 existing
+# functions), and child_process is a Node builtin, so a binary is a plain file
+# rather than a dependency. included_files scopes the 86 MB to this one function.
+[functions."ads-video-background"]
+  included_files = ["bin/**"]
+
+# Nightly: refresh ad metadata, copy and performance for every ad (no video work).
+[functions."ads-sync-background"]
+  schedule = "15 17 * * *"
+
+# Nightly, after the sync: tag any newly-seen videos. Self-limiting batch.
+[functions."ads-video-cron"]
+  schedule = "35 17 * * *"
