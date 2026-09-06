@@ -18,6 +18,10 @@
 [functions."eship-sync-background"]
   schedule = "50 18 * * *"
 
+# Daily wholesale sales sync from Xero into the Sales CRM
+[functions."sales-xero-sync-background"]
+  schedule = "45 18 * * *"
+
 [functions."pos-weekly"]
   schedule = "30 18 * * *"
 
