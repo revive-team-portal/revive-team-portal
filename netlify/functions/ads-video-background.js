@@ -346,6 +346,23 @@ async function run(qp) {
     await new Promise(r => setTimeout(r, 1500));
   }
   out.seconds = Math.round((Date.now() - started) / 1000);
+
+  // Opt-in chaining, for the one-off historical backfill. Each invocation gets
+  // 15 minutes; rather than risk being cut off mid-ad, hand the rest to a fresh
+  // invocation. Bounded, and never on by default — the nightly run stays a
+  // single batch so a bad day cannot spend all night retrying.
+  const chain = Number(qp.chain) || 0;
+  if (chain > 0 && out.done.length && !out.failed.length) {
+    const left = await db('ad?analysis_state=eq.pending&media_type=in.(video,image,carousel)&select=ad_id&limit=1').catch(() => []);
+    if (left && left.length) {
+      const key = [...require('crypto').randomBytes(24)].map(b => b.toString(16).padStart(2, '0')).join('');
+      await db('job', { method: 'POST', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify([{ kind: 'runkey', status: 'open', cursor: key, note: 'backfill chain ' + (chain - 1), started_at: new Date().toISOString() }]) }).catch(() => {});
+      const site = process.env.URL || 'https://team.revive.co.nz';
+      fetch(site + '/.netlify/functions/ads-video-background?k=' + key + '&limit=' + limit + '&chain=' + (chain - 1), { method: 'POST' }).catch(() => {});
+      out.chained = chain - 1;
+    }
+  }
   return out;
 }
 
