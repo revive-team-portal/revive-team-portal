@@ -295,10 +295,22 @@ async function run(qp) {
   const limit = Math.min(Number(qp.limit) || cfg.batch_size, 25);
   const out = { started_at: new Date().toISOString(), limit, bins: ensureBins(), done: [], failed: [] };
 
-  let sel;
-  if (qp.ad_id) sel = 'ad?ad_id=eq.' + encodeURIComponent(qp.ad_id) + '&select=*';
-  else sel = 'ad?analysis_state=eq.pending&media_type=in.(video,image,carousel)&order=created_time.desc&limit=' + limit + '&select=*';
-  const ads = await db(sel) || [];
+  let ads;
+  if (qp.ad_id) ads = await db('ad?ad_id=eq.' + encodeURIComponent(qp.ad_id) + '&select=*') || [];
+  else {
+    // The same film often runs as several ads across ad sets. Analyse one copy
+    // per creative and let the result propagate — it is the same video, and
+    // paying a vision model to watch it twice buys nothing.
+    const pool = await db('ad?analysis_state=eq.pending&media_type=in.(video,image,carousel)'
+      + '&order=created_time.desc&limit=' + (limit * 6) + '&select=*') || [];
+    const seen = new Set(); ads = [];
+    for (const a of pool) {
+      const key = a.readable_video_id || a.creative_code || a.thumb_url || a.ad_id;
+      if (seen.has(key)) continue;
+      seen.add(key); ads.push(a);
+      if (ads.length >= limit) break;
+    }
+  }
   out.queued = ads.length;
   if (!ads.length) { out.seconds = Math.round((Date.now() - started) / 1000); return out; }
 
@@ -338,7 +350,38 @@ async function run(qp) {
         body: JSON.stringify({ analysis_state: 'done', analysis_note: null, analysis_at: new Date().toISOString(),
           duration_sec: res.duration != null ? res.duration : ad.duration_sec }) });
 
-      out.done.push({ ad_id: ad.ad_id, name: ad.ad_name, kind: isVideo ? 'video' : 'still', seconds: Math.round((Date.now() - t0) / 1000), words: res.tags.spoken_words });
+      // Siblings are the same creative running elsewhere: identical video id,
+      // or (for stills) the identical image. Copy the analysis across rather
+      // than re-deriving it. Never matched on name alone — that is a guess.
+      let shared = 0;
+      const sibFilter = isVideo
+        ? (ad.readable_video_id ? 'readable_video_id=eq.' + encodeURIComponent(ad.readable_video_id) : null)
+        : (ad.thumb_url ? 'thumb_url=eq.' + encodeURIComponent(ad.thumb_url) : null);
+      if (sibFilter) {
+        const sibs = await db('ad?' + sibFilter + '&analysis_state=eq.pending&ad_id=neq.' + encodeURIComponent(ad.ad_id) + '&select=ad_id') || [];
+        if (sibs.length) {
+          await upsert('ad_tags', sibs.map(sb => ({
+            ad_id: sb.ad_id, ...res.tags,
+            scores: verdict.scores || null, recommendation: verdict.recommendation || null,
+            raw: { ...res.tags.raw, verdict, copied_from: ad.ad_id },
+            model_tagging: cfg.model_tagging, model_analysis: cfg.model_analysis,
+            taxonomy_version: TAXONOMY_VERSION, tagged_at: new Date().toISOString(),
+          })), 'ad_id');
+          for (const sb of sibs) {
+            await db('ad?ad_id=eq.' + encodeURIComponent(sb.ad_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' },
+              body: JSON.stringify({ analysis_state: 'done', analysis_at: new Date().toISOString(),
+                duration_sec: res.duration != null ? res.duration : null,
+                analysis_note: 'Same creative as ' + ad.ad_name + '; analysis shared.' }) }).catch(() => {});
+            if (res.frameRows.length) {
+              await db('ad_frame?ad_id=eq.' + encodeURIComponent(sb.ad_id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => {});
+              await db('ad_frame', { method: 'POST', headers: { Prefer: 'return=minimal' },
+                body: JSON.stringify(res.frameRows.map(f => ({ ...f, ad_id: sb.ad_id }))) }).catch(() => {});
+            }
+          }
+          shared = sibs.length;
+        }
+      }
+      out.done.push({ ad_id: ad.ad_id, name: ad.ad_name, kind: isVideo ? 'video' : 'still', seconds: Math.round((Date.now() - t0) / 1000), words: res.tags.spoken_words, shared_with: shared });
     } catch (e) {
       const msg = String((e && e.message) || e).slice(0, 300);
       out.failed.push({ ad_id: ad.ad_id, name: ad.ad_name, error: msg });
