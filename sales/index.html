@@ -266,18 +266,19 @@
             <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Orders</p><p class="text-lg font-bold text-stone-700">{{ curSales.orders }}</p></div>
             <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Last order</p><p class="text-lg font-bold text-stone-700">{{ salesDateLabel(curSales.last) }}</p></div>
             <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Usual gap</p><p class="text-lg font-bold text-stone-700">{{ curSales.gap!=null? '~'+curSales.gap+' days':'—' }}</p></div>
-            <div class="ml-auto text-[11px] text-emerald-700/70 text-right">Xero · last 24 months<span v-if="curSales.source==='foodstuffs'"><br>via Foodstuffs</span></div>
+            <div class="ml-auto text-[11px] text-emerald-700/70 text-right">Xero · last 24 months<span v-if="curSales.orgs&&curSales.orgs.size"><br>{{ [...curSales.orgs].map(orgShort).join(' + ') }}</span><span v-if="curSales.source==='foodstuffs'"> · via Foodstuffs</span></div>
           </div>
           <details class="mt-2">
             <summary class="text-xs text-emerald-800 cursor-pointer font-medium select-none">Individual orders ({{ curSales.list.length }})</summary>
             <div class="mt-2 max-h-56 overflow-y-auto bg-white rounded-lg border border-emerald-100">
               <table class="w-full text-xs">
-                <thead class="text-stone-400 sticky top-0 bg-white"><tr><th class="text-left py-1 px-2">Date</th><th class="text-left px-2">Invoice</th><th class="text-left px-2">Ref</th><th class="text-right px-2">Value</th></tr></thead>
+                <thead class="text-stone-400 sticky top-0 bg-white"><tr><th class="text-left py-1 px-2">Date</th><th class="text-left px-2">Invoice</th><th class="text-left px-2">Ref</th><th class="text-left px-2">Org</th><th class="text-right px-2">Value</th></tr></thead>
                 <tbody>
                   <tr v-for="o in curSales.list" :key="o.invoice_id||o.invoice_number" class="border-t border-emerald-50">
                     <td class="py-1 px-2 whitespace-nowrap">{{ salesDateLabel(o.order_date) }}</td>
                     <td class="px-2">{{ o.invoice_number }}</td>
                     <td class="px-2 text-stone-500">{{ o.reference }}</td>
+                    <td class="px-2 text-stone-400">{{ orgShort(o.org) }}</td>
                     <td class="px-2 text-right font-medium">{{ fmtMoney(o.total) }}</td>
                   </tr>
                 </tbody>
@@ -1068,6 +1069,7 @@
       function storeSales(s){ if(!s) return null; return salesByKey.value[salesKey(s.store_name)]||null; }
       function fmtMoney(n){ return '$'+Math.round(Number(n)||0).toLocaleString('en-NZ'); }
       function salesDateLabel(d){ if(!d) return '—'; const dt=new Date(d+'T12:00:00Z'); return dt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'2-digit'}); }
+      function orgShort(n){ n=String(n||''); if(/cafe/i.test(n)) return 'Cafes'; if(/revivealicious|foods/i.test(n)) return 'Foods'; return n.split(' ')[0]||n; }
       const settings=reactive({ai_master_prompt:'',ai_actions_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:'',sales_prompts:''});
       const promptsOpen=ref(true);
       const salesPrompts=reactive({features:'',retailer:'',objections:'',closing:''});
@@ -1358,9 +1360,9 @@
       }
 
       async function loadSales(){
-        const xo=await sb.from('xero_orders').select('invoice_id,store_key,store_name,order_date,total,invoice_number,reference,source').order('order_date',{ascending:false});
+        const xo=await sb.from('xero_orders').select('invoice_id,store_key,store_name,order_date,total,invoice_number,reference,source,org').order('order_date',{ascending:false});
         const map={};
-        (xo.data||[]).forEach(r=>{ const k=r.store_key; if(!k) return; let m=map[k]; if(!m){ m=map[k]={orders:0,total:0,last:null,first:null,name:r.store_name,source:r.source,list:[]}; } m.orders++; m.total+=Number(r.total)||0; const d=r.order_date; if(d){ if(!m.last||d>m.last)m.last=d; if(!m.first||d<m.first)m.first=d; } m.list.push(r); });
+        (xo.data||[]).forEach(r=>{ const k=r.store_key; if(!k) return; let m=map[k]; if(!m){ m=map[k]={orders:0,total:0,last:null,first:null,name:r.store_name,source:r.source,orgs:new Set(),list:[]}; } if(r.org) m.orgs.add(r.org); m.orders++; m.total+=Number(r.total)||0; const d=r.order_date; if(d){ if(!m.last||d>m.last)m.last=d; if(!m.first||d<m.first)m.first=d; } m.list.push(r); });
         Object.values(map).forEach(m=>{ const ds=[...new Set(m.list.map(r=>r.order_date).filter(Boolean))].sort(); m.gap = ds.length>=2 ? Math.round((new Date(ds[ds.length-1])-new Date(ds[0]))/86400000/(ds.length-1)) : null; });
         salesByKey.value=map;
         try{ const xs=await sb.from('xero_sync').select('*').eq('id',1).maybeSingle(); salesSync.value=(xs&&xs.data)||null; }catch(e){}
@@ -1739,7 +1741,7 @@
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         typeLabel,noteTypeLabel,salesPrompts,promptsOpen,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
         openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
-        storeSales,fmtMoney,salesDateLabel,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,
+        storeSales,fmtMoney,salesDateLabel,orgShort,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,
         toast };
     }
   }).mount('#app');

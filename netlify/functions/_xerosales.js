@@ -5,12 +5,17 @@
 // orders it has placed, the total value, the last order date and the usual gap between
 // orders.
 //
-// The wrinkle is Foodstuffs: every New World / Pak'nSave / Four Square order is billed
-// to a SINGLE Xero contact ("Foodstuffs North Island"), with the actual store named on a
-// $0 "deliver to" line item (e.g. item 423801 = "New World Porirua"). So for a Foodstuffs
+// Multi-org: the one Xero connection can see several organisations (Revivealicious Foods,
+// Revive Cafes, ...). We enumerate them from /connections at sync time and pull invoices
+// from each, tagging every order with the org it came from.
+//
+// The Foodstuffs wrinkle: every New World / Pak'nSave / Four Square order is billed to a
+// SINGLE Xero contact ("Foodstuffs North Island"), with the actual store named on a $0
+// "deliver to" line item (e.g. item 423801 = "New World Porirua"). So for a Foodstuffs
 // invoice we read that line to find the real store; every other contact is its own store.
-const { xeroGet } = require('./_xero');
+const X = require('./_xero');
 
+const API = 'https://api.xero.com';
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
 
@@ -25,10 +30,6 @@ async function salesDb(path, opts = {}) {
   return t ? JSON.parse(t) : null;
 }
 
-// Normalised match key -- lower-cased, alphanumerics only (spaces, dashes, apostrophes and
-// "&"->"and" folded away). Used identically on the browser to line an invoice up with a
-// CRM store row. "Four Square - Raumati Beach" and "Four Square Raumati Beach" collapse to
-// the same key; "FreshChoice Greytown " (trailing space) matches "FreshChoice Greytown".
 function salesKey(n) {
   return String(n || '')
     .toLowerCase()
@@ -54,12 +55,10 @@ function firstDescLine(desc) {
 
 const BANNER_RE = /new world|pak\s*'?\s*n\s*save|paknsave|four\s*square|fresh\s*choice|raeward|gilmours|trents/i;
 
-// Which store does this invoice belong to?
 function attribute(inv, imap) {
   const cname = (inv.Contact && inv.Contact.Name) || '';
   const lines = inv.LineItems || [];
   if (/foodstuffs/i.test(cname)) {
-    // The store sits on the $0 delivery line.
     let sl = lines.find(l => Number(l.LineAmount || 0) === 0 && (l.ItemCode || l.Description));
     let sname = '';
     if (sl) sname = (sl.ItemCode && imap[sl.ItemCode]) || firstDescLine(sl.Description) || '';
@@ -75,24 +74,40 @@ function attribute(inv, imap) {
   return { store_name: cname, source: 'direct' };
 }
 
-// code -> item name, so a Foodstuffs $0 line's ItemCode resolves to the store name.
-async function itemsMap() {
+// ---- Xero calls against a specific organisation (tenant) ----
+async function xeroGetT(path, params, token, tenantId) {
+  const url = API + path + (params ? '?' + new URLSearchParams(params).toString() : '');
+  const res = await fetch(url, {
+    headers: { Authorization: 'Bearer ' + token, 'xero-tenant-id': tenantId, Accept: 'application/json' },
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error('Xero ' + res.status + ': ' + text.slice(0, 200));
+  return text ? JSON.parse(text) : null;
+}
+
+async function connections(token) {
+  const res = await fetch(API + '/connections', {
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+  });
+  const arr = await res.json().catch(() => []);
+  return (Array.isArray(arr) ? arr : []).filter(c => c.tenantType === 'ORGANISATION');
+}
+
+async function itemsMap(token, tenantId) {
   const map = {};
   try {
-    const d = await xeroGet('/api.xro/2.0/Items');
+    const d = await xeroGetT('/api.xro/2.0/Items', null, token, tenantId);
     for (const it of (d && d.Items) || []) if (it.Code) map[it.Code] = it.Name || '';
-  } catch (e) { /* items read is best-effort; description parsing is the fallback */ }
+  } catch (e) { /* items read best-effort; description parsing is the fallback */ }
   return map;
 }
 
-// Page through ACCREC invoices dated on/after `fromYMD`. Xero returns 100 per page WITH
-// line items (needed for the Foodstuffs store line).
-async function fetchInvoices(fromYMD) {
+async function fetchInvoices(fromYMD, token, tenantId) {
   const [y, m, d] = fromYMD.split('-').map(Number);
   const where = 'Type=="ACCREC" AND Date>=DateTime(' + y + ',' + m + ',' + d + ')';
   const out = [];
   for (let page = 1; page <= 60; page++) {
-    const data = await xeroGet('/api.xro/2.0/Invoices', { where, page: String(page), order: 'Date' });
+    const data = await xeroGetT('/api.xro/2.0/Invoices', { where, page: String(page), order: 'Date' }, token, tenantId);
     const inv = (data && data.Invoices) || [];
     if (!inv.length) break;
     out.push(...inv);
@@ -116,32 +131,40 @@ async function runSync(opts = {}) {
     body: JSON.stringify({ status: 'running', updated_at: new Date().toISOString() }),
   }).catch(() => {});
 
-  const imap = await itemsMap();
-  const invoices = await fetchInvoices(fromYMD);
+  const token = await X.accessToken();               // throws clear message if not configured/connected
+  const orgs = await connections(token);
+  if (!orgs.length) throw new Error('Xero is connected but no organisation was granted. Reconnect in the Recon app.');
 
   const rows = [];
-  for (const inv of invoices) {
-    if (!KEEP.has(String(inv.Status || '').toUpperCase())) continue;
-    const date = xInvoiceDate(inv);
-    if (!date) continue;
-    const a = attribute(inv, imap);
-    rows.push({
-      invoice_id: inv.InvoiceID,
-      invoice_number: inv.InvoiceNumber || '',
-      reference: inv.Reference || '',
-      contact_id: (inv.Contact && inv.Contact.ContactID) || '',
-      contact_name: (inv.Contact && inv.Contact.Name) || '',
-      store_key: salesKey(a.store_name),
-      store_name: a.store_name,
-      source: a.source,
-      order_date: date,
-      total: Math.round((Number(inv.Total) || 0) * 100) / 100,
-      status: String(inv.Status || '').toUpperCase(),
-      synced_at: new Date().toISOString(),
-    });
+  const orgNames = [];
+  for (const org of orgs) {
+    orgNames.push(org.tenantName);
+    const imap = await itemsMap(token, org.tenantId);
+    const invoices = await fetchInvoices(fromYMD, token, org.tenantId);
+    for (const inv of invoices) {
+      if (!KEEP.has(String(inv.Status || '').toUpperCase())) continue;
+      const date = xInvoiceDate(inv);
+      if (!date) continue;
+      const a = attribute(inv, imap);
+      rows.push({
+        invoice_id: inv.InvoiceID,
+        invoice_number: inv.InvoiceNumber || '',
+        reference: inv.Reference || '',
+        contact_id: (inv.Contact && inv.Contact.ContactID) || '',
+        contact_name: (inv.Contact && inv.Contact.Name) || '',
+        store_key: salesKey(a.store_name),
+        store_name: a.store_name,
+        source: a.source,
+        org: org.tenantName,
+        tenant_id: org.tenantId,
+        order_date: date,
+        total: Math.round((Number(inv.Total) || 0) * 100) / 100,
+        status: String(inv.Status || '').toUpperCase(),
+        synced_at: new Date().toISOString(),
+      });
+    }
   }
 
-  // Upsert in chunks (merge on invoice_id).
   for (let i = 0; i < rows.length; i += 200) {
     const chunk = rows.slice(i, i + 200);
     await salesDb('xero_orders?on_conflict=invoice_id', {
@@ -151,7 +174,6 @@ async function runSync(opts = {}) {
     });
   }
 
-  // Totals for the status line.
   let orderCount = rows.length, storeCount = new Set(rows.map(r => r.store_key)).size;
   try {
     const all = await salesDb('xero_orders?select=store_key');
@@ -161,7 +183,7 @@ async function runSync(opts = {}) {
   const patch = {
     status: 'idle', last_run: new Date().toISOString(),
     order_count: orderCount, store_count: storeCount,
-    note: (full ? 'Full 24-month sync' : 'Daily refresh') + ' · ' + rows.length + ' invoices',
+    note: (full ? 'Full 24-month sync' : 'Daily refresh') + ' · ' + rows.length + ' invoices · ' + orgNames.join(' + '),
     updated_at: new Date().toISOString(),
   };
   if (full) patch.last_full = new Date().toISOString();
@@ -169,7 +191,7 @@ async function runSync(opts = {}) {
     method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch),
   }).catch(() => {});
 
-  return { upserted: rows.length, order_count: orderCount, store_count: storeCount, from: fromYMD, full };
+  return { upserted: rows.length, order_count: orderCount, store_count: storeCount, orgs: orgNames, from: fromYMD, full };
 }
 
 module.exports = { runSync, salesKey, salesDb };
