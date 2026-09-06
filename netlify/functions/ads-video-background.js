@@ -19,7 +19,23 @@ const { graph } = require('./_adsmeta');
 const { db, upsert, log, config, putObject, getObject } = require('./_adsdb');
 const ai = require('./_adsai');
 
-const BIN_SRC = path.join(__dirname, '..', '..', 'bin');
+// Where included_files land depends on how Netlify bundled the function, so
+// look in every plausible place rather than assuming one.
+function findBinSrc() {
+  const roots = [
+    process.env.LAMBDA_TASK_ROOT && path.join(process.env.LAMBDA_TASK_ROOT, 'bin'),
+    path.join(__dirname, 'bin'),
+    path.join(__dirname, '..', 'bin'),
+    path.join(__dirname, '..', '..', 'bin'),
+    path.join(__dirname, '..', '..', '..', 'bin'),
+    path.join(process.cwd(), 'bin'),
+    '/var/task/bin',
+  ].filter(Boolean);
+  for (const r of roots) {
+    try { if (fs.existsSync(path.join(r, 'ffmpeg'))) return r; } catch (e) {}
+  }
+  return null;
+}
 const BIN = '/tmp/adsbin';
 const WORK = '/tmp/adswork';
 const MODEL_URLS = (name) => ([
@@ -36,6 +52,9 @@ function ffmpeg(args) {
 }
 
 function ensureBins() {
+  if (fs.existsSync(BIN + '/ffmpeg') && fs.existsSync(BIN + '/whisper-cli')) return fs.readdirSync(BIN).length;
+  const BIN_SRC = findBinSrc();
+  if (!BIN_SRC) throw new Error('bundled binaries not found; looked for bin/ffmpeg near ' + __dirname);
   fs.mkdirSync(BIN, { recursive: true });
   const wanted = fs.readdirSync(BIN_SRC);
   for (const f of wanted) {
@@ -305,10 +324,9 @@ async function run(qp) {
       }], 'ad_id');
 
       if (res.frameRows.length) {
+        // ad_frame has a generated id, so replace the ad's rows rather than upsert.
         await db('ad_frame?ad_id=eq.' + encodeURIComponent(ad.ad_id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => {});
-        await upsert('ad_frame', res.frameRows, 'id').catch(async () => {
-          await db('ad_frame', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(res.frameRows) });
-        });
+        await db('ad_frame', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(res.frameRows) });
       }
 
       await db('ad?ad_id=eq.' + encodeURIComponent(ad.ad_id), { method: 'PATCH', headers: { Prefer: 'return=minimal' },
