@@ -76,9 +76,11 @@ async function nzToMetaOffsetDays() {
 
 // --- insights --------------------------------------------------------------
 
-const INSIGHT_FIELDS = ['ad_id', 'spend', 'impressions', 'reach', 'clicks', 'ctr', 'cpm', 'frequency',
+const INSIGHT_FIELDS = ['ad_id', 'spend', 'impressions', 'reach', 'clicks', 'ctr', 'cpm', 'cpc', 'frequency',
   'inline_link_clicks', 'actions', 'action_values', 'video_play_actions',
-  'video_thruplay_watched_actions', 'video_p25_watched_actions'].join(',');
+  'video_thruplay_watched_actions', 'video_avg_time_watched_actions',
+  'video_p25_watched_actions', 'video_p50_watched_actions', 'video_p75_watched_actions',
+  'video_p95_watched_actions', 'video_p100_watched_actions'].join(',');
 
 const ATTR = '1d_view,7d_click,1d_click';
 
@@ -96,12 +98,35 @@ function firstOf(actions, types, win) {
 
 const PURCHASE_TYPES = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase'];
 
+const firstArr = (v) => (Array.isArray(v) && v[0] ? Number(v[0].value) || 0 : 0);
+
 function shapePerf(row, win) {
   const acts = row.actions || [];
   const vals = row.action_values || [];
-  const plays = Number((row.video_play_actions || [])[0] ? row.video_play_actions[0].value : 0) || 0;
-  const thru = Number((row.video_thruplay_watched_actions || [])[0] ? row.video_thruplay_watched_actions[0].value : 0) || 0;
+  // video_play_actions counts an autoplay start, which on feed placements is
+  // ~86% of impressions — a measure of placement, not of stopping the scroll.
+  // The 3-second play (action_type `video_view`) is the honest hook numerator;
+  // where the account does not return it, 25%-watched is the next best thing
+  // and hook_rate_basis records which was used.
+  const plays = firstArr(row.video_play_actions);
+  const thru = firstArr(row.video_thruplay_watched_actions);
+  const p25 = firstArr(row.video_p25_watched_actions);
+  const p50 = firstArr(row.video_p50_watched_actions);
+  const p75 = firstArr(row.video_p75_watched_actions);
+  const p95 = firstArr(row.video_p95_watched_actions);
+  const p100 = firstArr(row.video_p100_watched_actions);
+  const avgWatch = firstArr(row.video_avg_time_watched_actions);
+  const v3s = actVal(acts, 'video_view');
   const impressions = Number(row.impressions) || 0;
+
+  const rate = (num, den) => (den ? Math.round(10000 * num / den) / 10000 : null);
+  const hookNum = v3s || p25;
+  const hookBasis = v3s ? '3s_plays' : (p25 ? 'p25_watched' : null);
+
+  const spend = Number(row.spend) || 0;
+  const purch7 = firstOf(acts, PURCHASE_TYPES, '7d_click');
+  const value7 = firstOf(vals, PURCHASE_TYPES, '7d_click');
+
   return {
     ad_id: row.ad_id, win,
     spend: Number(row.spend) || 0,
@@ -118,8 +143,18 @@ function shapePerf(row, win) {
     atc: firstOf(acts, ['omni_add_to_cart', 'add_to_cart']),
     ic: firstOf(acts, ['omni_initiated_checkout', 'initiate_checkout']),
     video_plays: plays, thruplays: thru,
-    hook_rate: impressions ? Math.round(10000 * plays / impressions) / 10000 : null,
-    hold_rate: plays ? Math.round(10000 * thru / plays) / 10000 : null,
+    video_3s: v3s || null, video_p25: p25 || null, video_p50: p50 || null,
+    video_p75: p75 || null, video_p95: p95 || null, video_p100: p100 || null,
+    avg_watch_sec: avgWatch || null,
+    // Hook: did the creative stop the scroll. Hold: did it keep them to a ThruPlay.
+    hook_rate: rate(hookNum, impressions),
+    hook_rate_basis: hookBasis,
+    hold_rate: rate(thru, hookNum || plays),
+    thruplay_rate: rate(thru, impressions),
+    completion_rate: rate(p100, impressions),
+    roas: spend ? Math.round(100 * value7 / spend) / 100 : null,
+    cpa: purch7 ? Math.round(100 * spend / purch7) / 100 : null,
+    cpc: Number(row.cpc) || null,
     updated_at: new Date().toISOString(),
   };
 }

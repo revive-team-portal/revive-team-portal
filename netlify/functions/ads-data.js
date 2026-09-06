@@ -7,10 +7,10 @@ const { db } = require('./_adsdb');
 async function payload() {
   const [ads, tags, perf, frames, cfg] = await Promise.all([
     db('ad?select=ad_id,ad_name,adset_name,campaign_name,status,effective_status,created_time,'
-      + 'media_type,object_type,brand,duration_sec,permalink,preview_url,thumb_url,image_url,'
+      + 'media_type,object_type,brand,creative_code,duration_sec,permalink,preview_url,thumb_url,image_url,'
       + 'body,headline,description_text,cta,landing_url,landing_page,utm,body_variants,headline_variants,'
       + 'body_key,headline_key,analysis_state,analysis_note,analysis_at,from_published_post,carousel_cards,'
-      + 'readable_video_id,first_seen,last_seen&order=created_time.desc'),
+      + 'readable_video_id,video_match_method,video_match_note,first_seen,last_seen&order=created_time.desc'),
     db('ad_tags?select=*'),
     db('ad_perf?select=*'),
     db('ad_frame?select=ad_id,kind,t_sec,public_url'),
@@ -44,8 +44,12 @@ async function payload() {
       purchases_7d_click: life.purchases_7d_click || 0,
       purchases_1d_view: life.purchases_1d_view || 0,
       value_7d_click: life.value_7d_click || 0,
-      ctr: life.ctr, cpm: life.cpm,
-      hook_rate: life.hook_rate, hold_rate: life.hold_rate,
+      ctr: life.ctr, cpm: life.cpm, cpc: life.cpc,
+      roas: life.roas, cpa: life.cpa,
+      hook_rate: life.hook_rate, hook_rate_basis: life.hook_rate_basis,
+      hold_rate: life.hold_rate, thruplay_rate: life.thruplay_rate,
+      completion_rate: life.completion_rate, avg_watch_sec: life.avg_watch_sec,
+      video_3s: life.video_3s, video_plays: life.video_plays, thruplays: life.thruplays,
       spend_7: l7.spend || 0, active_days_7: l7.active_days || 0,
       active_last_7: (l7.impressions || 0) > 0,
       tags: t ? {

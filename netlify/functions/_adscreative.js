@@ -127,6 +127,16 @@ function extractCreative(ad) {
   };
 }
 
+// The team numbers every creative ("102a", "165a", "S509") and reuses that
+// number wherever the creative runs, so it is the most reliable way to tell
+// that two ads are the same film in different ad sets.
+function codeOf(name) {
+  if (!name) return null;
+  const t = String(name).trim().split(/[\s_\-–—]+/)[0].replace(/\.(mov|mp4|m4v|avi)$/i, '');
+  const m = t.match(/^([A-Za-z]{0,3}\d{1,4}[A-Za-z]?)$/);
+  return m ? m[1].toUpperCase() : null;
+}
+
 // The field list to request for an ad so extractCreative has everything.
 const AD_FIELDS = [
   'id', 'name', 'status', 'effective_status', 'created_time', 'updated_time',
@@ -135,4 +145,4 @@ const AD_FIELDS = [
   + 'object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec,asset_feed_spec}',
 ].join(',');
 
-module.exports = { extractCreative, normText, textKey, AD_FIELDS };
+module.exports = { extractCreative, normText, textKey, codeOf, AD_FIELDS };

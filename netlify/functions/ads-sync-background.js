@@ -7,7 +7,7 @@
 // waiting for it, so the list is fully populated long before the tagging runs.
 
 const { authorizeRun } = require('./_adsauth');
-const { extractCreative } = require('./_adscreative');
+const { extractCreative, codeOf } = require('./_adscreative');
 const { graph, pageAll, multiGet, insights, shapePerf, nzToMetaOffsetDays, nzToday, ACCT } = require('./_adsmeta');
 const { db, upsert, log } = require('./_adsdb');
 
@@ -136,7 +136,7 @@ async function run(opts) {
       permalink: full.preview_shareable_link || null,
       preview_url: x.instagram_permalink || null,
       thumb_url: x.thumbnail_url || null, image_url: x.image_url || null,
-      brand: brandOf(full.name),
+      brand: brandOf(full.name), creative_code: codeOf(full.name),
       duration_sec: readable && libById[readable] ? libById[readable].length : null,
       body: x.body, headline: x.headline, description_text: x.description,
       bodies: x.bodies, headlines: x.headlines,
