@@ -118,3 +118,89 @@ each is one global value that a careless write silently truncates for everyone:
 After touching any of them, check the OTHER apps still work — not just yours.
 The green today bar is the fastest tell: it pulls from Shopify, Meta, POS,
 Support and Jobs, so a missing segment means that source is broken.
+
+---
+
+# Ads app (`/ads/`)
+
+Meta ad creative, tagged and scored next to what it actually did. Data lives in
+the `ads` schema on **Revive Apps** (`xcwrawjdfajlmbkdwlbm`); RLS is on with no
+policies, so every read goes through a gated function.
+
+## The one thing to know before touching it
+
+Every video ad carries **two** Meta video ids. The published Page post's copy is
+refused (`(#10) Application does not have permission`) because the token
+(`reviveadsbot`) holds only `ads_read` and has no Page access. The ad-account
+library copy — `creative.object_story_spec.video_data.video_id`, cross-checked
+against `/act_.../advideos` — returns a real `source` mp4. **Always join through
+the library.** Ads built from an already-published post have only the locked
+copy, so they cannot be analysed at all; they are stored with
+`media_type='video_locked'` and `analysis_state='unavailable'`.
+
+## Pieces
+
+| File | Does |
+|---|---|
+| `_adscreative.js` | Classifies media type and pulls copy/headline/landing page out of every creative shape (`object_story_spec` video/link/photo, `asset_feed_spec`, legacy flat fields) |
+| `_adsmeta.js` | Meta paging with page-size backoff, live NZ→account tz offset, insights split by attribution window |
+| `_adsdb.js` | `ads` schema access + `ad-frames` storage + runtime config |
+| `_adsai.js` | Claude calls: frame tagging, on-screen text, brand-glossary transcript pass, scoring |
+| `_adsauth.js` | Run-key guard (env `PORTAL_RUN_KEY`, or a single-use key in `ads.job`) |
+| `ads-sync-background.js` | All 383 ads: metadata, copy, landing page, performance. ~70s |
+| `ads-video-background.js` | One ad at a time: ffmpeg frames + audio, whisper transcript, tagging, scoring. Ships `bin/` |
+| `ads-data.js` / `ads-run.js` | The page's gated read and its run trigger |
+| `ads-export.js` | Key-guarded machine-readable corpus (below) |
+
+`ads-sync-cron` and `ads-video-cron` carry the schedules. **Do not put a
+`schedule` on a `-background` function** — Netlify then returns 403 to direct
+HTTP calls and the page can no longer run it on demand.
+
+## Binaries
+
+`bin/` holds a static x86_64 `ffmpeg` plus `whisper-cli` and its shared
+libraries. **Netlify functions are x86_64, glibc 2.34, Node 22, 1024 MB RAM,
+513 MB of `/tmp`** — build or download for that target, not for whatever your
+sandbox is. 86 MB unzipped, 31 MB zipped, scoped to the video function by
+`included_files` so the other ~130 functions are untouched. There is deliberately
+**no `package.json`**; `child_process` is a Node builtin, so a binary is a plain
+file rather than a dependency.
+
+The whisper weights (~148 MB) are too big to commit. They are fetched once per
+cold start into `/tmp`, cached in the `ad-frames` bucket, and **only fetched at
+all when the batch actually contains a video** — Supabase's free plan allows
+5 GB egress a month and the model would eat most of it otherwise.
+
+## Query it from Claude or another portal app
+
+```
+GET /.netlify/functions/ads-export?k=<PORTAL_RUN_KEY or a one-time ads.job runkey>
+    &state=done|pending|unavailable|all   (default all)
+    &media=video|image|carousel|video_locked
+    &brand=Wopples&since=YYYY-MM-DD
+    &limit=200&offset=0&fields=list|full
+```
+
+Returns `{ ok, total, offset, limit, returned, counts, media, generated_at, ads: [...] }`.
+Each ad carries identity (`ad_id`, `ad_name`, `campaign_name`, `adset_name`,
+`brand`, `created_time`, `permalink`), creative (`media_type`, `thumb`, `frames[]`,
+`duration_sec`), copy (`body`, `headline`, `landing_page`, `body_shared`,
+`headline_shared` — how many ads reuse that exact text), performance
+(`spend`, `purchases_1d_click` / `purchases_7d_click` / `purchases_1d_view` kept
+**separate, never blended**, `hook_rate`, `hold_rate`, `active_last_7`), and
+`tags` (`format`, `lighting`, `shoot_type`, `total_cuts`, `time_to_first_cut`,
+`first_product_at`, `visible_claims`, `hook_words`, `transcript`,
+`onscreen_text`, `scores`, `recommendation`).
+
+## Gotchas already paid for
+
+- The Meta account runs on `Etc/GMT+12`, one day behind NZ. Derive the offset
+  live; never hardcode it.
+- The `/ads` edge 500s ("reduce the amount of data", or a bare "unknown error")
+  once fields × page size gets fat. List light, then fill creative in via
+  `?ids=` multi-get. `_adsmeta.pageAll` backs the page size off automatically.
+- Adding a schema to `pgrst.db_schemas` is not enough on its own — PostgREST
+  also needs `notify pgrst, 'reload schema'` or every read 404s with `PGRST205`.
+- `PORTAL_RUN_KEY` is **not currently set** in Netlify, so `ads-audit.js` and
+  `meta-config.js` return 403 to everything. The ads functions work around it
+  with single-use keys minted into `ads.job`.
