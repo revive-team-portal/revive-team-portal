@@ -192,6 +192,39 @@ Each ad carries identity (`ad_id`, `ad_name`, `campaign_name`, `adset_name`,
 `first_product_at`, `visible_claims`, `hook_words`, `transcript`,
 `onscreen_text`, `scores`, `recommendation`).
 
+## Metric definitions (do not "simplify" these)
+
+- **Hook rate = 3-second plays ÷ impressions.** The 3-second count is the
+  `video_view` entry in the `actions` array. `video_play_actions` is an *autoplay
+  start* and runs at 85-87% of impressions on this account — it looks like a
+  brilliant hook rate and means nothing. `video_3_sec_watched_actions` is not a
+  valid field on v21. `hook_rate_basis` records which numerator was used.
+- **Hold rate = ThruPlays ÷ 3-second plays.** `thruplay_rate` (ThruPlays ÷
+  impressions) is stored separately for when you want the Ads Manager figure.
+- **ROAS = 7-day-click purchase value ÷ spend. CPA = spend ÷ 7-day-click
+  purchases.** Both use the click window deliberately; blending in view-through
+  flatters everything.
+- Grouped tiles re-derive rates from summed numerators and denominators, never
+  by averaging per-ad percentages.
+
+## The 84 ads we cannot analyse
+
+Four routes were tried and all are dead ends with the current token:
+
+| Route | Result |
+|---|---|
+| `/{video_id}?fields=source` | `(#10)` — app has no permission on Page-owned videos |
+| `/{post_id}?fields=attachments` | `(#100)` Missing permissions |
+| `/{ad_id}/previews` iframe | Renders, but client-side; no `<video>` element to scrape |
+| Ad number ↔ library video title | Only 2 of 84 — most predate the numbering |
+| Thumbnail image fingerprint (`ads-recover-background`) | 22% top-1 accuracy against a labelled set of ads whose answer is known. Refuses to write below 85% |
+
+`ads-recover-background` self-validates before it writes anything, so it is safe
+to re-run — it will start applying matches by itself if accuracy ever clears the
+bar. **The actual fix is a permission**, not more code: a token with Page access
+(`pages_read_engagement`) for the Revive Cafe Page would make
+`/{video_id}?fields=source` work for these too.
+
 ## Gotchas already paid for
 
 - The Meta account runs on `Etc/GMT+12`, one day behind NZ. Derive the offset
