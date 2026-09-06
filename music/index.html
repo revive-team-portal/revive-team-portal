@@ -378,6 +378,9 @@ const $ = id => document.getElementById(id);
 const audio = $('audio');
 let SONGS = [], ARTIST = 'Jeremy Dixon - The Inspiration Project', ALBUM = 'The Inspiration Project';
 let idx = 0, shuffle = false, repeat = 'off', scrubbing = false, lyricsOn = true, live = -1;
+/* true whenever the listener wants sound. A phone call pauses the element without
+   clearing this, which is how we know to pick things back up afterwards. */
+let wantPlaying = false;
 
 const fmt = s => (!isFinite(s) || s < 0) ? '0:00'
   : Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
@@ -583,12 +586,11 @@ function runLyrics(){
 
 /* ─────────── playback ─────────── */
 function select(i, autoplay = true){
-  setLib(false);
   idx = i;
   audio.src = SONGS[idx].src;
   live = -1;
   paint();
-  if(autoplay) audio.play().catch(()=>{});
+  if(autoplay){ wantPlaying = true; audio.play().catch(()=>{}); }
 }
 function step(d){
   if(shuffle && SONGS.length > 1){
@@ -598,7 +600,10 @@ function step(d){
   return (idx + d + SONGS.length) % SONGS.length;
 }
 
-$('play').addEventListener('click', ()=> audio.paused ? audio.play() : audio.pause());
+$('play').addEventListener('click', ()=>{
+  if(audio.paused){ wantPlaying = true; audio.play().catch(()=>{}); }
+  else { wantPlaying = false; audio.pause(); }
+});
 $('next').addEventListener('click', ()=> select(step(1)));
 $('prev').addEventListener('click', ()=>{
   if(audio.currentTime > 3){ audio.currentTime = 0; live = -1; return; }
@@ -632,7 +637,7 @@ audio.addEventListener('pause', ()=>{
   buildGrid();
 });
 audio.addEventListener('ended', ()=>{
-  if(repeat === 'one'){ audio.currentTime = 0; live = -1; audio.play(); return; }
+  if(repeat === 'one'){ audio.currentTime = 0; live = -1; wantPlaying = true; audio.play().catch(()=>{}); return; }
   select(step(1));               // wraps past the last song, so playback never stops
 });
 
@@ -680,14 +685,14 @@ function mediaSession(){
     artwork: [96,192,256,384,512,1024].map(n=>({src: abs(s.art), sizes:n+'x'+n, type:'image/jpeg'}))
   });
   const set = (a, fn) => { try { navigator.mediaSession.setActionHandler(a, fn); } catch(e){} };
-  set('play', ()=>audio.play());
-  set('pause', ()=>audio.pause());
+  set('play', ()=>{ wantPlaying = true; audio.play().catch(()=>{}); });
+  set('pause', ()=>{ wantPlaying = false; audio.pause(); });
   set('previoustrack', ()=>{ if(audio.currentTime>3){ audio.currentTime=0; live=-1; } else select(step(-1)); });
   set('nexttrack', ()=>select(step(1)));
   set('seekbackward', d=>{ audio.currentTime = Math.max(0, audio.currentTime-((d&&d.seekOffset)||10)); live=-1; });
   set('seekforward', d=>{ audio.currentTime = Math.min(audio.duration, audio.currentTime+((d&&d.seekOffset)||10)); live=-1; });
   set('seekto', d=>{ audio.currentTime = d.seekTime; live=-1; });
-  set('stop', ()=>{ audio.pause(); audio.currentTime = 0; });
+  set('stop', ()=>{ wantPlaying = false; audio.pause(); audio.currentTime = 0; });
 }
 function position(){
   if(!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
@@ -812,6 +817,22 @@ $('grid').addEventListener('scroll', ()=>{
     y0 = null;
   });
 })();
+
+/* ─────────── recover from calls, alarms and other interruptions ───────────
+   iOS pauses the audio element for an incoming call and does not always resume.
+   Whenever the page is in front of the listener again, quietly try to carry on
+   from where the call cut in — but only if they hadn't paused it themselves. */
+function tryResume(){
+  if(!wantPlaying || !audio.paused) return;
+  if(document.visibilityState !== 'visible') return;
+  audio.play().catch(()=>{});
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) setTimeout(tryResume, 350); });
+window.addEventListener('focus',   ()=> setTimeout(tryResume, 350));
+window.addEventListener('pageshow', ()=> setTimeout(tryResume, 350));
+audio.addEventListener('canplay',  ()=> setTimeout(tryResume, 100));
+/* a slow backstop for the times no event fires at all */
+setInterval(tryResume, 4000);
 
 /* ─────────── song requests ─────────── */
 function openAsk(){
