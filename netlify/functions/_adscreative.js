@@ -83,7 +83,10 @@ function extractCreative(ad) {
 
   const carouselCards = ld && Array.isArray(ld.child_attachments) ? ld.child_attachments.length : 0;
   const hasVideo = videoIds.length > 0;
-  const hasImage = !!(c.image_hash || c.image_url || pd || (ld && !ld.child_attachments) || (afs.images || []).length);
+  // A still is a still whether it arrived as a photo post, a link ad, a boosted
+  // status, or nothing but a creative thumbnail — if there are pixels, we can tag it.
+  const hasImage = !!(c.image_hash || c.image_url || c.thumbnail_url || pd
+    || (ld && !ld.child_attachments) || (afs.images || []).length || images.length);
 
   // --- media type. object_type is Meta's own label but it lies often enough
   //     (SHARE covers both a boosted photo post and a boosted video post), so
@@ -92,7 +95,7 @@ function extractCreative(ad) {
   if (hasVideo) media_type = 'video';
   else if (carouselCards > 1) media_type = 'carousel';
   else if (c.object_type === 'VIDEO') media_type = 'video_unresolved';
-  else if (hasImage || c.object_type === 'PHOTO' || c.object_type === 'SHARE') media_type = 'image';
+  else if (hasImage || ['PHOTO', 'SHARE', 'STATUS'].includes(c.object_type)) media_type = 'image';
   else media_type = 'unknown';
 
   const body = bodies[0] || null;
