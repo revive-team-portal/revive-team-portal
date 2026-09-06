@@ -131,7 +131,7 @@
       <!-- list -->
       <section class="space-y-2">
         <article v-for="g in groups" :key="g.key" class="bg-white rounded-xl border border-stone-200 p-2.5">
-          <div class="flex gap-3">
+          <div class="flex flex-col md:flex-row gap-3">
 
             <!-- creative -->
             <div class="shrink-0 w-[72px]">
@@ -141,10 +141,10 @@
                  class="block text-center text-[10px] text-emerald-800 underline mt-1">See ad</a>
             </div>
 
-            <!-- LEFT: identity, numbers, copy -->
-            <div class="min-w-0 flex-1 md:max-w-[58%]">
+            <!-- LEFT: identity, numbers, scores -->
+            <div class="min-w-0 flex-1 md:w-1/2">
               <div class="flex flex-wrap items-center gap-1.5">
-                <h3 class="font-semibold text-[13px] truncate max-w-[280px]">{{ g.title }}</h3>
+                <h3 class="font-semibold text-[13px] truncate max-w-[260px]">{{ g.title }}</h3>
                 <span class="chip" :class="mediaChip(g.lead)">{{ mediaLabel(g.lead) }}</span>
                 <span v-if="g.copies.length > 1" class="chip bg-violet-100 text-violet-800 cursor-pointer" @click="toggle(g.key+':copies')">
                   {{ g.copies.length }} copies · {{ g.adsets.length }} ad set{{ g.adsets.length>1?'s':'' }}
@@ -161,13 +161,12 @@
                 <span v-if="g.lead.duration_sec"><span class="text-stone-300">·</span> {{ Math.round(g.lead.duration_sec) }}s</span>
               </div>
 
-              <!-- copies breakdown -->
               <div v-if="open[g.key+':copies']" class="mt-1.5 border border-stone-200 rounded-lg overflow-hidden">
                 <div v-for="c in g.copies" :key="c.ad_id" class="flex items-center gap-2 px-2 py-1 text-[10.5px] border-b border-stone-100 last:border-0">
                   <span class="truncate flex-1">{{ c.adset_name || '—' }}</span>
-                  <span class="text-stone-400 truncate max-w-[140px]">{{ c.campaign_name }}</span>
+                  <span class="text-stone-400 truncate max-w-[130px]">{{ c.campaign_name }}</span>
                   <span class="num w-16">{{ money(c.spend) }}</span>
-                  <span class="num w-10">{{ n(c.purchases_7d_click) }}</span>
+                  <span class="num w-8">{{ n(c.purchases_7d_click) }}</span>
                   <span class="chip" :class="c.active_last_7 ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-500'">{{ c.active_last_7 ? 'live' : 'off' }}</span>
                 </div>
               </div>
@@ -185,36 +184,54 @@
                 <div class="stat"><b>{{ pct(g.ctr/100) }}</b><span>CTR</span></div>
               </div>
 
-              <!-- copy -->
-              <div class="mt-1.5 text-[11.5px] leading-snug">
-                <div class="clamp1"><span class="text-stone-400">Headline</span> {{ g.lead.headline || '—' }}
-                  <span v-if="g.lead.headline_shared > 1" class="chip bg-amber-100 text-amber-800">×{{ g.lead.headline_shared }}</span></div>
-                <div :class="open[g.key+':body'] ? '' : 'clamp2'" class="text-stone-700 whitespace-pre-line mt-0.5">{{ g.lead.body || '—' }}</div>
-                <div class="flex items-center gap-2 mt-0.5">
-                  <button v-if="(g.lead.body||'').length > 120" class="text-[10.5px] text-emerald-800 underline" @click="toggle(g.key+':body')">
-                    {{ open[g.key+':body'] ? 'less' : 'more' }}</button>
-                  <span v-if="g.lead.body_shared > 1" class="chip bg-amber-100 text-amber-800">same copy on {{ g.lead.body_shared }} ads</span>
-                  <a v-if="g.lead.landing_url" :href="g.lead.landing_url" target="_blank" rel="noopener" class="text-[10.5px] text-emerald-800 underline truncate max-w-[240px]">{{ g.lead.landing_page }}</a>
-                </div>
-              </div>
-
-              <!-- scores -->
-              <div v-if="g.tags && g.tags.scores" class="grid grid-cols-3 md:grid-cols-6 gap-x-2 gap-y-1 mt-2">
-                <div v-for="(v,k) in g.tags.scores" :key="k">
-                  <div class="flex justify-between text-[9.5px] text-stone-500 leading-tight"><span class="truncate">{{ shortScore(k) }}</span><b class="num">{{ v }}</b></div>
-                  <div class="sbar" :class="band(v)"><i :style="{width: (Math.max(0,Math.min(10,Number(v)))*10)+'%'}"></i></div>
+              <!-- scores: what each one covers, and the fix when it falls short -->
+              <div v-if="g.tags && g.tags.scores" class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
+                <div v-for="k in SCORE_ORDER" :key="k" v-show="g.tags.scores[k] != null">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <span class="text-[10.5px] font-semibold text-stone-700">{{ SCORE_LABEL[k] }}</span>
+                    <b class="num text-[11px]" :class="textBand(g.tags.scores[k])">{{ g.tags.scores[k] }}/10</b>
+                  </div>
+                  <div class="sbar" :class="band(g.tags.scores[k])"><i :style="{width: (Math.max(0,Math.min(10,Number(g.tags.scores[k])))*10)+'%'}"></i></div>
+                  <div class="text-[9.5px] text-stone-400 leading-tight mt-0.5">{{ SCORE_WHAT[k] }}</div>
+                  <div v-if="noteFor(g,k)" class="text-[10px] text-amber-800 leading-snug mt-0.5">→ {{ noteFor(g,k) }}</div>
                 </div>
               </div>
             </div>
 
-            <!-- RIGHT: recommendation + wordage -->
-            <div class="hidden md:block w-[38%] shrink-0 border-l border-stone-100 pl-3">
+            <!-- RIGHT: the words — copy, what we saw, what to do, what was said -->
+            <div class="min-w-0 md:w-1/2 md:border-l md:border-stone-100 md:pl-3 mt-2 md:mt-0">
+
+              <div class="text-[11.5px] leading-snug">
+                <div class="text-[9.5px] uppercase tracking-wide text-stone-400">Headline
+                  <span v-if="g.lead.headline_shared > 1" class="chip bg-amber-100 text-amber-800">on {{ g.lead.headline_shared }} ads</span>
+                  <span v-if="g.lead.headline_variants > 1" class="chip bg-stone-100 text-stone-600">{{ g.lead.headline_variants }} variants</span>
+                </div>
+                <div class="font-medium clamp1">{{ g.lead.headline || '—' }}</div>
+
+                <div class="text-[9.5px] uppercase tracking-wide text-stone-400 mt-1">Key text
+                  <span v-if="g.lead.body_shared > 1" class="chip bg-amber-100 text-amber-800">on {{ g.lead.body_shared }} ads</span>
+                </div>
+                <div :class="open[g.key+':body'] ? '' : 'clamp2'" class="text-stone-700 whitespace-pre-line">{{ g.lead.body || '—' }}</div>
+                <div class="flex items-center gap-2">
+                  <button v-if="(g.lead.body||'').length > 110" class="text-[10.5px] text-emerald-800 underline" @click="toggle(g.key+':body')">
+                    {{ open[g.key+':body'] ? 'less' : 'more' }}</button>
+                  <a v-if="g.lead.landing_url" :href="g.lead.landing_url" target="_blank" rel="noopener" class="text-[10.5px] text-emerald-800 underline truncate max-w-[220px]">{{ g.lead.landing_page }}</a>
+                </div>
+              </div>
+
               <template v-if="g.tags">
-                <div v-if="g.tags.recommendation">
-                  <div class="text-[9.5px] uppercase tracking-wide text-stone-400">Recommendation
-                    <span v-if="g.tags.verdict && g.tags.verdict.confidence" class="chip bg-stone-100 text-stone-600">{{ g.tags.verdict.confidence }}</span>
+                <div v-if="(g.tags.observations||[]).length" class="mt-2">
+                  <div class="text-[9.5px] uppercase tracking-wide text-stone-400">What we saw</div>
+                  <ul class="text-[11px] leading-snug text-stone-700 list-disc pl-4 space-y-0.5">
+                    <li v-for="(o,i) in g.tags.observations" :key="i">{{ o }}</li>
+                  </ul>
+                </div>
+
+                <div v-if="g.tags.recommendation" class="mt-2 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-1.5">
+                  <div class="text-[9.5px] uppercase tracking-wide text-emerald-800">Recommendation
+                    <span v-if="g.tags.verdict && g.tags.verdict.confidence" class="chip bg-white text-stone-600 border border-stone-200">{{ g.tags.verdict.confidence }}</span>
                   </div>
-                  <p class="text-[11.5px] leading-snug text-stone-800" :class="open[g.key+':rec'] ? '' : 'clamp4'">{{ g.tags.recommendation }}</p>
+                  <p class="text-[11.5px] leading-snug text-stone-800" :class="open[g.key+':rec'] ? '' : 'clamp3'">{{ g.tags.recommendation }}</p>
                   <button class="text-[10.5px] text-emerald-800 underline" @click="toggle(g.key+':rec')">{{ open[g.key+':rec'] ? 'less' : 'more' }}</button>
                 </div>
 
@@ -224,7 +241,7 @@
                     <span v-if="g.tags.first_product_at != null" class="chip bg-stone-100 text-stone-600">product @ {{ g.tags.first_product_at }}s</span>
                     <span v-if="g.tags.lighting" class="chip bg-stone-100 text-stone-600">{{ g.tags.lighting }}</span>
                   </div>
-                  <p class="text-[11px] leading-snug text-stone-600" :class="open[g.key+':tr'] ? '' : 'clamp3'">{{ g.tags.transcript }}</p>
+                  <p class="text-[11px] leading-snug text-stone-600" :class="open[g.key+':tr'] ? '' : 'clamp2'">{{ g.tags.transcript }}</p>
                   <button class="text-[10.5px] text-emerald-800 underline" @click="toggle(g.key+':tr')">{{ open[g.key+':tr'] ? 'less' : 'all words' }}</button>
                 </div>
 
@@ -236,14 +253,12 @@
               </template>
 
               <template v-else>
-                <p v-if="g.state === 'pending'" class="text-[11.5px] text-stone-400 italic">
-                  {{ g.lead.media_type === 'video' ? 'Video' : 'Image' }} analysis pending — numbers and copy on the left are live.
+                <p v-if="g.state === 'pending'" class="text-[11.5px] text-stone-400 italic mt-2">
+                  {{ g.lead.media_type === 'video' ? 'Video' : 'Image' }} analysis pending — numbers and copy are live.
                 </p>
-                <p v-else-if="g.state === 'unavailable'" class="text-[11px] text-amber-700 clamp4">
-                  Video unavailable. {{ g.lead.analysis_note }}
-                </p>
-                <p v-else-if="g.state === 'error'" class="text-[11px] text-red-700 clamp3">Analysis failed. {{ g.lead.analysis_note }}</p>
-                <p v-else class="text-[11.5px] text-stone-400 italic">No creative to analyse.</p>
+                <p v-else-if="g.state === 'unavailable'" class="text-[11px] text-amber-700 clamp3 mt-2">Video unavailable. {{ g.lead.analysis_note }}</p>
+                <p v-else-if="g.state === 'error'" class="text-[11px] text-red-700 clamp2 mt-2">Analysis failed. {{ g.lead.analysis_note }}</p>
+                <p v-else class="text-[11.5px] text-stone-400 italic mt-2">No creative to analyse.</p>
               </template>
             </div>
 
@@ -283,9 +298,27 @@ createApp({
     function n(v){ return (Number(v)||0).toLocaleString('en-NZ'); }
     function pct(v){ if(v==null||isNaN(v)) return '—'; return (Number(v)*100).toFixed(1)+'%'; }
     function pretty(s){ return String(s||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); }
-    const SHORT={hook:'Hook',clarity:'Clarity',product_visibility:'Product',credibility:'Trust',craft:'Craft',overall:'Overall'};
-    function shortScore(k){ return SHORT[k] || pretty(k); }
+    // The six dimensions, in a fixed order, each with what it actually covers.
+    const SCORE_ORDER=['hook','clarity','product_visibility','credibility','craft','overall'];
+    const SCORE_LABEL={hook:'Hook',clarity:'Clarity',product_visibility:'Product',credibility:'Trust',craft:'Craft',overall:'Overall'};
+    const SCORE_WHAT={
+      hook:'First 3 seconds — does it stop the scroll?',
+      clarity:'Is it obvious what is sold, and what to do?',
+      product_visibility:'How clearly and how early the product appears.',
+      credibility:'Does it feel true — proof, real people, supported claims.',
+      craft:'Framing, lighting, audio, pacing, subtitles.',
+      overall:'Would you put more money behind it as it stands?',
+    };
+    const SHORT=SCORE_LABEL;
+    function shortScore(k){ return SCORE_LABEL[k] || pretty(k); }
     function band(v){ const n=Number(v); return n>=8 ? 's-hi' : (n>=6 ? 's-mid' : 's-lo'); }
+    function textBand(v){ const n=Number(v); return n>=8 ? 'text-green-700' : (n>=6 ? 'text-amber-600' : 'text-red-600'); }
+    // Only show a fix where the score actually falls short.
+    function noteFor(g,k){
+      if(!g.tags || Number(g.tags.scores[k]) >= 8) return null;
+      const nt=g.tags.score_notes;
+      return (nt && nt[k]) ? nt[k] : null;
+    }
     function toggle(k){ open[k]=!open[k]; }
 
     function mediaLabel(a){
@@ -431,7 +464,8 @@ createApp({
 
     return { ready,gateError,busy,msg,msgBad,all,counts,brands,campaigns,generatedAt,
       q,brand,media,campaign,onlyActive7,onlySpend,onlyAnalysed,grouped,sort,open,
-      rows,groups,totalSpend,dateNz,money,n,pct,pretty,shortScore,band,toggle,mediaLabel,mediaChip,run };
+      rows,groups,totalSpend,dateNz,money,n,pct,pretty,shortScore,band,textBand,noteFor,
+      SCORE_ORDER,SCORE_LABEL,SCORE_WHAT,toggle,mediaLabel,mediaChip,run };
   }
 }).mount('#app');
 </script>
