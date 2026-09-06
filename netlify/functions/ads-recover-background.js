@@ -82,27 +82,54 @@ async function grab(url) {
 }
 
 // --- phase 1: fingerprint the library --------------------------------------
-async function fingerprintLibrary(out) {
-  const have = await db('video_fp?select=video_id,dhash').catch(() => []);
-  const haveSet = new Set((have || []).filter(r => r.dhash).map(r => r.video_id));
-  const lib = await pageAll(ACCT + '/advideos', 'fields=id,title,length,created_time,picture', 50, 60);
+// An ad hands us exactly one thumbnail — whichever frame was chosen as the
+// poster. A library video exposes several auto-generated thumbnails from across
+// its timeline. Hashing all of them means a match no longer depends on both
+// sides having picked the same moment, which is what sank the first attempt.
+async function fingerprintLibrary(out, force) {
+  const have = await db('video_fp?select=video_id,hashes').catch(() => []);
+  const haveSet = new Set((have || []).filter(r => r.hashes && r.hashes.length).map(r => r.video_id));
+  const lib = await pageAll(ACCT + '/advideos',
+    'fields=' + encodeURIComponent('id,title,length,created_time,picture,thumbnails{uri,is_preferred}'), 25, 60);
   out.library_total = (lib.rows || []).length;
-  const todo = (lib.rows || []).filter(v => !haveSet.has(String(v.id)));
+  const todo = (lib.rows || []).filter(v => force || !haveSet.has(String(v.id)));
   out.library_to_fingerprint = todo.length;
 
-  const rows = [];
+  let rows = [];
+  let images = 0;
   for (const v of todo) {
-    const buf = await grab(v.picture);
-    const h = buf ? dhash(buf) : null;
+    const urls = [];
+    if (v.picture) urls.push(v.picture);
+    const th = (v.thumbnails && v.thumbnails.data) || [];
+    th.slice(0, 10).forEach(t => { if (t.uri) urls.push(t.uri); });
+    const hs = [];
+    for (const u of [...new Set(urls)].slice(0, 10)) {
+      const buf = await grab(u);
+      const h = buf ? dhash(buf) : null;
+      if (h && !hs.includes(h)) hs.push(h);
+      images++;
+    }
     rows.push({ video_id: String(v.id), title: v.title || null, length_sec: v.length || null,
-      created_time: v.created_time || null, dhash: h, picture_url: v.picture || null, updated_at: new Date().toISOString() });
-    if (rows.length >= 60) { await upsert('video_fp', rows.splice(0), 'video_id'); }
+      created_time: v.created_time || null, dhash: hs[0] || null, hashes: hs,
+      picture_url: v.picture || null, updated_at: new Date().toISOString() });
+    if (rows.length >= 40) { await upsert('video_fp', rows, 'video_id'); rows = []; }
   }
   if (rows.length) await upsert('video_fp', rows, 'video_id');
+  out.thumbnails_hashed = images;
 
-  const fps = await db('video_fp?select=video_id,title,length_sec,dhash&dhash=not.is.null') || [];
-  out.library_fingerprinted = fps.length;
-  return fps;
+  const fps = await db('video_fp?select=video_id,title,length_sec,dhash,hashes') || [];
+  const usable = fps.filter(f => (f.hashes && f.hashes.length) || f.dhash)
+    .map(f => ({ ...f, hashes: (f.hashes && f.hashes.length) ? f.hashes : [f.dhash] }));
+  out.library_fingerprinted = usable.length;
+  out.avg_hashes_per_video = usable.length ? Math.round(10 * usable.reduce((n, f) => n + f.hashes.length, 0) / usable.length) / 10 : 0;
+  return usable;
+}
+
+// Distance to the closest frame we hold for that video.
+function bestDistance(h, fp) {
+  let best = 64;
+  for (const x of fp.hashes) { const d = hamming(h, x); if (d < best) best = d; }
+  return best;
 }
 
 // --- phase 2: how good is this, on ads whose answer we already know? --------
@@ -117,7 +144,7 @@ async function validate(fps, out, sampleSize) {
     const h = buf ? dhash(buf) : null;
     if (!h) continue;
     tested++;
-    const ranked = fps.map(f => ({ id: f.video_id, title: f.title, d: hamming(h, f.dhash) })).sort((x, y) => x.d - y.d);
+    const ranked = fps.map(f => ({ id: f.video_id, title: f.title, d: bestDistance(h, f) })).sort((x, y) => x.d - y.d);
     const best = ranked[0];
     const correct = ranked.find(r => r.id === String(a.readable_video_id));
     if (best && best.id === String(a.readable_video_id)) { hit++; dists.push(best.d); }
@@ -149,7 +176,7 @@ async function recover(fps, out, apply, maxDist, limit) {
     const buf = await grab(a.thumb_url || a.image_url);
     const h = buf ? dhash(buf) : null;
     if (!h) { results.push({ ad_id: a.ad_id, ad_name: a.ad_name, matched: false, why: 'no usable thumbnail' }); continue; }
-    const ranked = fps.map(f => ({ id: f.video_id, title: f.title, len: f.length_sec, d: hamming(h, f.dhash) })).sort((x, y) => x.d - y.d);
+    const ranked = fps.map(f => ({ id: f.video_id, title: f.title, len: f.length_sec, d: bestDistance(h, f) })).sort((x, y) => x.d - y.d);
     const best = ranked[0], second = ranked[1];
     // Require both a close match AND clear separation from the runner-up, so a
     // generic frame (a plain plate shot, say) cannot be confidently mis-assigned.
@@ -183,7 +210,7 @@ exports.handler = async (event) => {
   let ok = true;
   try {
     ensureFfmpeg();
-    const fps = await fingerprintLibrary(out);
+    const fps = await fingerprintLibrary(out, !!qp.refingerprint);
     const v = await validate(fps, out, Number(qp.validate) || 40);
     // Only write anything if the method demonstrably works on the labelled set.
     const allowed = v.accuracy_pct != null && v.accuracy_pct >= 85;
