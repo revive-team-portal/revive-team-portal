@@ -470,7 +470,16 @@
               <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">Ad text for Facebook &amp; job boards</h3>
               <p class="text-xs text-gray-500">Plain text with the apply link &mdash; copy and paste it straight in.</p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <a v-if="selectedJob.code" :href="applyUrl(selectedJob)" target="_blank" rel="noopener"
+                class="font-mono text-xs text-brand hover:underline" :title="applyUrl(selectedJob)">
+                {{ applyUrl(selectedJob) }}
+              </a>
+              <button v-if="selectedJob.code" @click="copyApplyUrl"
+                class="border border-gray-200 hover:border-brand text-gray-500 hover:text-brand px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+                title="Copy just the link">
+                {{ linkCopied ? '\u2713' : 'Copy link' }}
+              </button>
               <button @click="generateAdText(true)" :disabled="adTextLoading"
                 class="border border-gray-200 hover:border-brand text-gray-600 hover:text-brand px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50">
                 {{ adText ? 'Rewrite' : 'Write the ad' }}
@@ -1415,6 +1424,7 @@ const app = createApp({
     const adTextLoading = ref(false);
     const adTextError = ref('');
     const adCopied = ref(false);
+    const linkCopied = ref(false);
     const loadingPreviews = ref(false);
     const ticked = ref({});
     const showDeleted = ref(false);
@@ -2686,6 +2696,33 @@ const app = createApp({
       }
     }
 
+    function applyUrl(job) {
+      if (!job) return '';
+      return job.code
+        ? `${BASE_URL}/${job.code}`
+        : `${BASE_URL}/job.html?id=${job.id}`;
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        // Clipboard API needs a secure context and can be refused; fall back.
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e2) {}
+        document.body.removeChild(ta);
+      }
+    }
+
+    async function copyApplyUrl() {
+      await copyToClipboard(applyUrl(selectedJob.value));
+      linkCopied.value = true;
+      setTimeout(() => { linkCopied.value = false; }, 2000);
+    }
+
     async function copyAdText() {
       try {
         await navigator.clipboard.writeText(adText.value);
@@ -3497,7 +3534,8 @@ const app = createApp({
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
       keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews,
-      adText, adTextLoading, adTextError, adCopied, generateAdText, copyAdText, analysing, analyseApplication, applicationAnswers, shortQuestion,
+      adText, adTextLoading, adTextError, adCopied, generateAdText, copyAdText,
+      applyUrl, copyApplyUrl, linkCopied, analysing, analyseApplication, applicationAnswers, shortQuestion,
       coverText, coverIsUploaded, cvText, cvBlurb, docsPending, cvHighlight, oneLine,
       countryList, isApplicationForm, appointmentTime,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
