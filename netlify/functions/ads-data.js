@@ -45,7 +45,11 @@ async function payload() {
       purchases_1d_view: life.purchases_1d_view || 0,
       value_7d_click: life.value_7d_click || 0,
       ctr: life.ctr, cpm: life.cpm, cpc: life.cpc,
-      roas: life.roas, cpa: life.cpa,
+      // Primary pair matches Ads Manager; the *_click pair is the strict read.
+      roas: life.roas_meta, cpa: life.cpa_meta,
+      purchases_meta: life.purchases_meta || 0, value_meta: life.value_meta || 0,
+      value_1d_view: life.value_1d_view || 0,
+      roas_click: life.roas, cpa_click: life.cpa,
       hook_rate: life.hook_rate, hook_rate_basis: life.hook_rate_basis,
       hold_rate: life.hold_rate, thruplay_rate: life.thruplay_rate,
       completion_rate: life.completion_rate, avg_watch_sec: life.avg_watch_sec,

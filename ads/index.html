@@ -19,6 +19,8 @@
     .stat{border:1px solid #e7e5e4;border-radius:.5rem;padding:.3rem .45rem;background:#fafaf9;min-width:64px}
     .stat b{display:block;font-size:13px;line-height:1.15;font-variant-numeric:tabular-nums}
     .stat span{display:block;font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;color:#78716c;line-height:1.2}
+    /* Secondary, click-only reading of the same metric. */
+    .stat i{display:block;font-style:normal;font-size:9.5px;color:#a8a29e;line-height:1.25;font-variant-numeric:tabular-nums;margin-top:1px}
     .stat.good{background:#ecfdf5;border-color:#a7f3d0}
     .stat.bad{background:#fef2f2;border-color:#fecaca}
     /* Score bars: thick enough to read at a glance, coloured by band. */
@@ -122,7 +124,7 @@
         <select v-model="sort" class="border border-stone-300 rounded-lg px-2 py-1.5 text-sm ml-auto">
           <option value="latest">Newest first</option>
           <option value="spend">Highest spend</option>
-          <option value="purch">Most purchases (7d click)</option>
+          <option value="purch">Most purchases</option>
           <option value="score">Best overall score</option>
         </select>
         <span class="text-xs text-stone-500">{{ groups.length }} {{ grouped ? 'creatives' : 'ads' }}<span v-if="grouped && rows.length !== groups.length"> · {{ rows.length }} ads</span></span>
@@ -174,11 +176,12 @@
               <!-- numbers -->
               <div class="flex flex-wrap gap-1.5 mt-2">
                 <div class="stat"><b>{{ money(g.spend) }}</b><span>Spend</span></div>
-                <div class="stat"><b>{{ n(g.purch7) }}</b><span>Purch 7d clk</span></div>
-                <div class="stat"><b>{{ n(g.purch1c) }}</b><span>1d clk</span></div>
-                <div class="stat"><b>{{ n(g.purch1v) }}</b><span>1d view</span></div>
-                <div class="stat" :class="g.roas>=2 ? 'good' : (g.roas!=null && g.roas<1 ? 'bad' : '')"><b>{{ g.roas==null ? '—' : g.roas.toFixed(2)+'×' }}</b><span>ROAS</span></div>
-                <div class="stat"><b>{{ g.cpa==null ? '—' : money(g.cpa) }}</b><span>CPA</span></div>
+                <div class="stat"><b>{{ n(g.purchMeta) }}</b><span>Purchases</span>
+                  <i class="sub">{{ n(g.purch7) }} clk · {{ n(g.purch1v) }} view</i></div>
+                <div class="stat" :class="g.roas>=2 ? 'good' : (g.roas!=null && g.roas<1 ? 'bad' : '')"><b>{{ g.roas==null ? '—' : g.roas.toFixed(2)+'×' }}</b><span>ROAS</span>
+                  <i class="sub">{{ g.roasClick==null ? '—' : g.roasClick.toFixed(2)+'×' }} clk</i></div>
+                <div class="stat"><b>{{ g.cpa==null ? '—' : money(g.cpa) }}</b><span>CPA</span>
+                  <i class="sub">{{ g.cpaClick==null ? '—' : money(g.cpaClick) }} clk</i></div>
                 <div class="stat"><b>{{ pct(g.hook) }}</b><span>Hook</span></div>
                 <div class="stat"><b>{{ pct(g.hold) }}</b><span>Hold</span></div>
                 <div class="stat"><b>{{ pct(g.ctr/100) }}</b><span>CTR</span></div>
@@ -269,8 +272,10 @@
       </section>
 
       <p class="text-center text-[11px] text-stone-400 pb-6">
+        Purchases, ROAS and CPA headline on Meta's own setting (7-day click + 1-day view), matching Ads Manager.
+        The grey figure under each is 7-day click only — the same ads judged on people who actually clicked.
         Hook = 3-second plays ÷ impressions (not autoplay starts). Hold = ThruPlays ÷ 3-second plays.
-        Purchases are split by attribution window, never blended. Meta's account clock runs a day behind New Zealand.
+        Meta's account clock runs a day behind New Zealand.
         Data generated {{ generatedAt }}.
       </p>
     </main>
@@ -374,7 +379,7 @@ createApp({
       const s=sort.value;
       return out.sort((x,y)=>{
         if(s==='spend') return y.spend-x.spend;
-        if(s==='purch') return y.purch7-x.purch7;
+        if(s==='purch') return y.purchMeta-x.purchMeta;
         if(s==='score') return (scoreOf(y)-scoreOf(x));
         return String(y.created||'').localeCompare(String(x.created||''));
       });
@@ -391,6 +396,7 @@ createApp({
       const sum=(f)=>copies.reduce((s,a)=>s+(Number(a[f])||0),0);
       const spend=sum('spend'), imp=sum('impressions');
       const purch7=sum('purchases_7d_click'), value7=sum('value_7d_click');
+      const purchMeta=sum('purchases_meta'), valueMeta=sum('value_meta');
       const v3=sum('video_3s'), thru=sum('thruplays');
       const withTags=copies.find(a=>a.tags);
       const adsets=[...new Set(copies.map(a=>a.adset_name).filter(Boolean))];
@@ -404,9 +410,12 @@ createApp({
         active: copies.some(a=>a.active_last_7),
         spend, impressions: imp,
         purch7, purch1c: sum('purchases_1d_click'), purch1v: sum('purchases_1d_view'),
-        value7,
-        roas: spend ? value7/spend : null,
-        cpa: purch7 ? spend/purch7 : null,
+        purchMeta, value7, valueMeta,
+        // Headline pair matches Ads Manager; the click pair is the strict read.
+        roas: spend ? valueMeta/spend : null,
+        cpa: purchMeta ? spend/purchMeta : null,
+        roasClick: spend ? value7/spend : null,
+        cpaClick: purch7 ? spend/purch7 : null,
         ctr: imp ? (clicks/imp)*100 : 0,
         hook: imp && v3 ? v3/imp : (lead.hook_rate!=null?lead.hook_rate:null),
         hold: v3 && thru ? thru/v3 : (lead.hold_rate!=null?lead.hold_rate:null),

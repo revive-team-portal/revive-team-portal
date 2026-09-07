@@ -126,6 +126,13 @@ function shapePerf(row, win) {
   const spend = Number(row.spend) || 0;
   const purch7 = firstOf(acts, PURCHASE_TYPES, '7d_click');
   const value7 = firstOf(vals, PURCHASE_TYPES, '7d_click');
+  const purch1v = firstOf(acts, PURCHASE_TYPES, '1d_view');
+  const value1v = firstOf(vals, PURCHASE_TYPES, '1d_view');
+  // Ads Manager's default headline: 7-day click PLUS 1-day view. Reported as
+  // the primary figure so the app agrees with the screen Jeremy actually looks
+  // at; the click-only pair sits beside it as the conservative read.
+  const purchMeta = purch7 + purch1v;
+  const valueMeta = value7 + value1v;
 
   return {
     ad_id: row.ad_id, win,
@@ -139,7 +146,12 @@ function shapePerf(row, win) {
     purchases_1d_click: firstOf(acts, PURCHASE_TYPES, '1d_click'),
     purchases_7d_click: firstOf(acts, PURCHASE_TYPES, '7d_click'),
     purchases_1d_view: firstOf(acts, PURCHASE_TYPES, '1d_view'),
-    value_7d_click: firstOf(vals, PURCHASE_TYPES, '7d_click'),
+    value_7d_click: value7,
+    value_1d_view: value1v,
+    purchases_meta: purchMeta,
+    value_meta: valueMeta,
+    cpa_meta: purchMeta ? Math.round(100 * spend / purchMeta) / 100 : null,
+    roas_meta: spend ? Math.round(100 * valueMeta / spend) / 100 : null,
     atc: firstOf(acts, ['omni_add_to_cart', 'add_to_cart']),
     ic: firstOf(acts, ['omni_initiated_checkout', 'initiate_checkout']),
     video_plays: plays, thruplays: thru,

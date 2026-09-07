@@ -328,7 +328,7 @@ async function run(qp) {
       const res = isVideo ? await doVideo(ad, cfg, modelPath) : await doStill(ad, cfg);
 
       // Judgement call, with performance as context.
-      const perf = await db('ad_perf?ad_id=eq.' + encodeURIComponent(ad.ad_id) + '&select=win,spend,impressions,purchases_1d_click,purchases_7d_click,purchases_1d_view,value_7d_click,ctr,hook_rate,hold_rate,active_days').catch(() => []);
+      const perf = await db('ad_perf?ad_id=eq.' + encodeURIComponent(ad.ad_id) + '&select=win,spend,impressions,purchases_1d_click,purchases_7d_click,purchases_1d_view,purchases_meta,value_7d_click,value_meta,cpa_meta,cpa,roas_meta,roas,ctr,hook_rate,hold_rate,active_days').catch(() => []);
       const verdict = await ai.analyse(cfg.model_analysis, ad, res.tags, perf).catch(e => ({ error: String(e.message || e).slice(0, 150) }));
 
       await upsert('ad_tags', [{
