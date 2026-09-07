@@ -402,8 +402,12 @@ async function run(qp) {
   // 15 minutes; rather than risk being cut off mid-ad, hand the rest to a fresh
   // invocation. Bounded, and never on by default — the nightly run stays a
   // single batch so a bad day cannot spend all night retrying.
+  // Keep going as long as the batch made progress. Stopping the whole backfill
+  // because one ad had no usable image wastes the other 250 — failures are
+  // already recorded, retried twice, then parked as 'error', so the queue still
+  // drains rather than looping.
   const chain = Number(qp.chain) || 0;
-  if (chain > 0 && out.done.length && !out.failed.length) {
+  if (chain > 0 && (out.done.length || out.failed.length)) {
     const left = await db('ad?analysis_state=eq.pending&media_type=in.(video,image,carousel)&select=ad_id&limit=1').catch(() => []);
     if (left && left.length) {
       const key = [...require('crypto').randomBytes(24)].map(b => b.toString(16).padStart(2, '0')).join('');
