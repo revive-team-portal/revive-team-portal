@@ -10,7 +10,7 @@ async function payload() {
       + 'media_type,object_type,brand,creative_code,duration_sec,permalink,preview_url,thumb_url,image_url,'
       + 'body,headline,description_text,cta,landing_url,landing_page,utm,body_variants,headline_variants,'
       + 'body_key,headline_key,analysis_state,analysis_note,analysis_at,from_published_post,carousel_cards,'
-      + 'readable_video_id,video_match_method,video_match_note,first_seen,last_seen&order=created_time.desc'),
+      + 'readable_video_id,video_match_method,video_match_note,post_id,first_seen,last_seen&order=created_time.desc'),
     db('ad_tags?select=*'),
     db('ad_perf?select=*'),
     db('ad_frame?select=ad_id,kind,t_sec,public_url'),

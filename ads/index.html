@@ -141,6 +141,8 @@
               <div v-else class="thumb rounded-lg border border-stone-200 flex items-center justify-center text-[9px] text-stone-400 text-center px-1">no image</div>
               <a v-if="g.lead.permalink" :href="g.lead.permalink" target="_blank" rel="noopener"
                  class="block text-center text-[10px] text-emerald-800 underline mt-1">See ad</a>
+              <button v-if="embedUrl(g.lead)" class="block w-full text-center text-[10px] text-emerald-800 underline"
+                      @click="toggle(g.key+':play')">{{ open[g.key+':play'] ? 'Hide' : 'Play here' }}</button>
             </div>
 
             <!-- LEFT: identity, numbers, scores -->
@@ -152,6 +154,7 @@
                   {{ g.copies.length }} copies · {{ g.adsets.length }} ad set{{ g.adsets.length>1?'s':'' }}
                 </span>
                 <span v-if="g.active" class="chip bg-emerald-100 text-emerald-800">Live</span>
+                <span v-if="g.tags && g.tags.analysis_scope === 'thumbnail_only'" class="chip bg-amber-100 text-amber-800" title="Meta will not release this video, so only the poster frame and copy were assessed">poster frame only</span>
                 <span class="chip bg-stone-100 text-stone-600">{{ g.lead.brand }}</span>
               </div>
 
@@ -223,6 +226,9 @@
               </div>
 
               <template v-if="g.tags">
+                <p v-if="g.tags.analysis_scope === 'thumbnail_only'" class="text-[10.5px] text-amber-800 bg-amber-50 border border-amber-100 rounded px-1.5 py-1 mt-2">
+                  Video not available from Meta — assessed on the poster frame and the copy only. No transcript or pacing.
+                </p>
                 <div v-if="(g.tags.observations||[]).length" class="mt-2">
                   <div class="text-[9.5px] uppercase tracking-wide text-stone-400">What we saw</div>
                   <ul class="text-[11px] leading-snug text-stone-700 list-disc pl-4 space-y-0.5">
@@ -265,6 +271,11 @@
               </template>
             </div>
 
+          </div>
+          <div v-if="open[g.key+':play'] && embedUrl(g.lead)" class="mt-2 border-t border-stone-100 pt-2">
+            <iframe :src="embedUrl(g.lead)" class="w-full max-w-[340px] mx-auto block rounded-lg border border-stone-200"
+                    height="600" style="border:none;overflow:hidden" scrolling="no" frameborder="0"
+                    allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"></iframe>
           </div>
         </article>
 
@@ -325,6 +336,16 @@ createApp({
       return (nt && nt[k]) ? nt[k] : null;
     }
     function toggle(k){ open[k]=!open[k]; }
+
+    // Facebook's own video embed. It is the one surface that still renders a
+    // Page-owned ad video we are not allowed to download.
+    function embedUrl(a){
+      if(!a || !a.post_id) return null;
+      const parts=String(a.post_id).split('_');
+      if(parts.length!==2) return null;
+      const href='https://www.facebook.com/'+parts[0]+'/posts/'+parts[1];
+      return 'https://www.facebook.com/plugins/video.php?href='+encodeURIComponent(href)+'&show_text=false&width=340';
+    }
 
     function mediaLabel(a){
       if(a.media_type==='video') return 'Video';
@@ -474,7 +495,7 @@ createApp({
     return { ready,gateError,busy,msg,msgBad,all,counts,brands,campaigns,generatedAt,
       q,brand,media,campaign,onlyActive7,onlySpend,onlyAnalysed,grouped,sort,open,
       rows,groups,totalSpend,dateNz,money,n,pct,pretty,shortScore,band,textBand,noteFor,
-      SCORE_ORDER,SCORE_LABEL,SCORE_WHAT,toggle,mediaLabel,mediaChip,run };
+      SCORE_ORDER,SCORE_LABEL,SCORE_WHAT,toggle,mediaLabel,mediaChip,embedUrl,run };
   }
 }).mount('#app');
 </script>
