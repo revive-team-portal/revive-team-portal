@@ -134,6 +134,7 @@
             class="px-4 py-1.5 rounded-md text-sm font-semibold transition-colors capitalize"
             :class="jobFilter === f ? 'bg-brand text-white' : 'text-gray-600 hover:bg-gray-100'">
             {{ f }}
+            <span class="ml-1 font-bold" :class="jobFilter === f ? 'opacity-80' : 'text-gray-400'">{{ jobCounts[f] }}</span>
           </button>
         </div>
 
@@ -1512,8 +1513,22 @@ const app = createApp({
     ];
 
     // Computed
+    // Counts beside each filter, so the dashboard says how many are in each state.
+    const jobCounts = computed(() => {
+      const c = { all: jobs.value.length, active: 0, draft: 0, closed: 0 };
+      jobs.value.forEach(j => {
+        // 'expired' is the retired name for 'closed'; count it there.
+        const k = j.status === 'expired' ? 'closed' : j.status;
+        if (c[k] !== undefined) c[k]++;
+      });
+      return c;
+    });
+
     const filteredJobs = computed(() => {
       if (jobFilter.value === 'all') return jobs.value;
+      if (jobFilter.value === 'closed') {
+        return jobs.value.filter(j => j.status === 'closed' || j.status === 'expired');
+      }
       return jobs.value.filter(j => j.status === jobFilter.value);
     });
 
@@ -3545,7 +3560,7 @@ const app = createApp({
       fileInputRefs,
       resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
       noteText, settingsForm, newSlotTime, jobSaveError, jobSaved,
-      filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes, interviewAnswerCount,
+      filteredJobs, jobCounts, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes, interviewAnswerCount,
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
       showDeleted, deletedCount, restoreApplication,
       showInvitePreview, inviteErrors, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
