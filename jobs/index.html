@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Portal — Revive Cafe Jobs</title>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
   <link rel="stylesheet" href="/chrome.css">
   <style>
     /* Quill overrides */
@@ -1342,7 +1342,7 @@
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script>
 const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
@@ -3308,9 +3308,45 @@ const app = createApp({
     const editorFailed = ref(false);
     const cloningFrom = ref('');
 
+    // The editor is a CDN script. If it hasn't loaded by the time it's needed,
+    // fetch it before giving up — a blocked or slow CDN used to leave the
+    // description with no input at all.
+    let quillLoader = null;
+    function ensureQuill() {
+      if (window.Quill) return Promise.resolve(true);
+      if (!quillLoader) {
+        const sources = [
+          'https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js',
+          'https://unpkg.com/quill@1.3.7/dist/quill.min.js',
+          'https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js'
+        ];
+        quillLoader = new Promise(resolve => {
+          let i = 0;
+          const tryNext = () => {
+            if (window.Quill) return resolve(true);
+            if (i >= sources.length) return resolve(false);
+            const sc = document.createElement('script');
+            sc.src = sources[i++];
+            sc.onload = () => resolve(!!window.Quill);
+            sc.onerror = tryNext;
+            document.head.appendChild(sc);
+          };
+          tryNext();
+        });
+      }
+      return quillLoader;
+    }
+
     watch(() => view.value, async (newView) => {
       if (newView === 'edit-job') {
         await nextTick();
+        const ready = await ensureQuill();
+        if (!ready) {
+          console.error('Quill could not be loaded from any CDN');
+          quillInstance = null;
+          editorFailed.value = true;
+          return;
+        }
         // Destroy previous instance if any
         const el = document.getElementById('job-description-editor');
         if (el) el.innerHTML = '';
