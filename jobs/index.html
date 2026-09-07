@@ -462,49 +462,6 @@
         </div>
       </div>
 
-      <!-- Shareable ad text -->
-      <div v-if="view==='job-detail'" class="px-6 pb-6">
-        <p v-if="jobSaved" class="mb-3 text-sm font-semibold px-3 py-2 rounded-lg bg-brand-pale border border-brand-light" style="color:#2f9e29">
-          &#10003; Changes saved
-        </p>
-        <div class="bg-white rounded-xl border border-gray-200 p-4">
-          <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
-            <div>
-              <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">Ad text for Facebook &amp; job boards</h3>
-              <p class="text-xs text-gray-500">Plain text with the apply link &mdash; copy and paste it straight in.</p>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <a v-if="selectedJob.code" :href="applyUrl(selectedJob)" target="_blank" rel="noopener"
-                class="font-mono text-xs text-brand hover:underline" :title="applyUrl(selectedJob)">
-                {{ applyUrl(selectedJob) }}
-              </a>
-              <button v-if="selectedJob.code" @click="copyApplyUrl"
-                class="border border-gray-200 hover:border-brand text-gray-500 hover:text-brand px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-                title="Copy just the link">
-                {{ linkCopied ? '\u2713' : 'Copy link' }}
-              </button>
-              <button @click="generateAdText(true)" :disabled="adTextLoading"
-                class="border border-gray-200 hover:border-brand text-gray-600 hover:text-brand px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50">
-                {{ adText ? 'Rewrite' : 'Write the ad' }}
-              </button>
-              <button v-if="adText" @click="copyAdText"
-                class="bg-brand hover:bg-brand-dark text-white px-4 py-1.5 rounded-lg text-xs font-bold">
-                {{ adCopied ? '\u2713 Copied' : 'Copy' }}
-              </button>
-            </div>
-          </div>
-
-          <p v-if="adTextLoading" class="text-sm text-gray-500 py-4">Writing the ad&#8230;</p>
-          <p v-else-if="adTextError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{{ adTextError }}</p>
-          <textarea v-else-if="adText" v-model="adText" rows="18"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 leading-relaxed focus:outline-none focus:ring-1 focus:border-brand"></textarea>
-          <p v-else class="text-sm text-gray-400 py-4">
-            Click <strong>Write the ad</strong> to generate copy from this job's description.
-          </p>
-          <p v-if="adText" class="text-xs text-gray-400 mt-1.5">Edit it here before copying &mdash; changes aren't saved.</p>
-        </div>
-      </div>
-
       <!-- ===== APPLICANT DETAIL ===== -->
       <div v-if="view==='applicant-detail' && selectedApplicant" class="p-6">
         <button @click="view='job-detail'" class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand mb-4 transition-colors">
@@ -873,6 +830,49 @@
               </button>
             </div>
 
+          </div>
+
+          <!-- Shareable ad text -->
+          <div v-if="editingJob.id" class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="flex items-start justify-between flex-wrap gap-2 mb-2">
+              <div>
+                <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">Ad text for Facebook &amp; job boards</h3>
+                <p class="text-xs text-gray-500">
+                  Saved with the job, so every copy is identical.
+                  <span v-if="adTextGeneratedAt"> Written {{ formatFullDate(adTextGeneratedAt) }}.</span>
+                </p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <a v-if="editingJob.code" :href="applyUrl(editingJob)" target="_blank" rel="noopener"
+                  class="font-mono text-xs text-brand hover:underline">{{ applyUrl(editingJob) }}</a>
+                <button type="button" @click="copyApplyUrl(editingJob)"
+                  v-if="editingJob.code"
+                  class="border border-gray-200 hover:border-brand text-gray-500 hover:text-brand px-2.5 py-1.5 rounded-lg text-xs font-semibold">
+                  {{ linkCopied ? '\u2713' : 'Copy link' }}
+                </button>
+                <button type="button" @click="generateAdText(true)" :disabled="adTextLoading"
+                  class="border border-gray-200 hover:border-brand text-gray-600 hover:text-brand px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50">
+                  {{ adTextLoading ? 'Writing\u2026' : (adText ? 'Regenerate' : 'Write the ad') }}
+                </button>
+                <button type="button" v-if="adText" @click="copyAdText"
+                  class="bg-brand hover:bg-brand-dark text-white px-4 py-1.5 rounded-lg text-xs font-bold">
+                  {{ adCopied ? '\u2713 Copied' : 'Copy' }}
+                </button>
+              </div>
+            </div>
+
+            <p v-if="adTextError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{{ adTextError }}</p>
+            <textarea v-if="adText" :value="adText" @input="adText = $event.target.value; adTextDirty = true" rows="16"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 leading-relaxed focus:outline-none focus:ring-1 focus:border-brand"></textarea>
+            <p v-else-if="!adTextLoading" class="text-sm text-gray-400 py-3">
+              Click <strong>Write the ad</strong> to generate it from this job's details.
+            </p>
+            <div v-if="adText" class="flex items-center gap-3 mt-1.5">
+              <button type="button" v-if="adTextDirty" @click="saveAdText"
+                class="text-xs font-semibold text-brand hover:underline">Save my edits</button>
+              <span v-if="adTextSaved" class="text-xs" style="color:#40d134">&#10003; Saved</span>
+              <span class="text-xs text-gray-400">Only the opening two sentences are written for you &mdash; the rest is your job description and company details, word for word.</span>
+            </div>
           </div>
 
           <div v-if="jobSaveError" class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">{{ jobSaveError }}</div>
@@ -1428,6 +1428,9 @@ const app = createApp({
     const adTextError = ref('');
     const adCopied = ref(false);
     const linkCopied = ref(false);
+    const adTextDirty = ref(false);
+    const adTextSaved = ref(false);
+    const adTextGeneratedAt = ref(null);
     const loadingPreviews = ref(false);
     const ticked = ref({});
     const showDeleted = ref(false);
@@ -1733,12 +1736,20 @@ const app = createApp({
 
     function startNewJob() {
       cloningFrom.value = '';
+      adText.value = '';
+      adTextGeneratedAt.value = null;
+      adTextError.value = '';
+      adTextDirty.value = false;
       editingJob.value = { title: '', type: 'full_time', status: 'draft', description: '', employer_name: '', employer_email: '', expiry_date: '', start_date: '', hourly_rate: '', min_hours: '', questions: [] };
       view.value = 'edit-job';
     }
 
     function editJob(job) {
       cloningFrom.value = '';
+      adText.value = job.ad_text || '';
+      adTextGeneratedAt.value = job.ad_text_generated_at || null;
+      adTextError.value = '';
+      adTextDirty.value = false;
       editingJob.value = { ...job, questions: job.questions ? [...job.questions] : [] };
       selectedJob.value = job;
       view.value = 'edit-job';
@@ -1813,9 +1824,6 @@ const app = createApp({
         const fresh = jobs.value.find(j => j.id === editingJob.value.id);
         if (fresh) selectedJob.value = fresh;
 
-        // The ad copy was written from the old wording.
-        adText.value = '';
-        adTextError.value = '';
         cloningFrom.value = '';
 
         jobSaved.value = true;
@@ -2697,7 +2705,8 @@ const app = createApp({
 
     // Plain-text advert for social posts and job boards.
     async function generateAdText(force) {
-      if (!selectedJob.value) return;
+      const job = editingJob.value.id ? editingJob.value : selectedJob.value;
+      if (!job || !job.id) return;
       if (adText.value && !force) return;
       adTextLoading.value = true;
       adTextError.value = '';
@@ -2705,16 +2714,28 @@ const app = createApp({
         const res = await fetch('https://jobs.revive.co.nz/.netlify/functions/job-ad-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ job_id: selectedJob.value.id })
+          body: JSON.stringify({ job_id: job.id })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.text) throw new Error(data.error || 'Could not generate the ad text');
         adText.value = data.text;
+        adTextDirty.value = false;
+        adTextGeneratedAt.value = new Date().toISOString();
       } catch (e) {
         adTextError.value = e.message || String(e);
       } finally {
         adTextLoading.value = false;
       }
+    }
+
+    async function saveAdText() {
+      if (!editingJob.value.id) return;
+      const { error } = await sb.from('jobs')
+        .update({ ad_text: adText.value || null }).eq('id', editingJob.value.id);
+      if (error) { adTextError.value = 'Could not save: ' + error.message; return; }
+      adTextDirty.value = false;
+      adTextSaved.value = true;
+      setTimeout(() => { adTextSaved.value = false; }, 2500);
     }
 
     function applyUrl(job) {
@@ -2738,8 +2759,8 @@ const app = createApp({
       }
     }
 
-    async function copyApplyUrl() {
-      await copyToClipboard(applyUrl(selectedJob.value));
+    async function copyApplyUrl(job) {
+      await copyToClipboard(applyUrl(job || selectedJob.value));
       linkCopied.value = true;
       setTimeout(() => { linkCopied.value = false; }, 2000);
     }
@@ -3556,7 +3577,7 @@ const app = createApp({
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
       keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews,
       adText, adTextLoading, adTextError, adCopied, generateAdText, copyAdText,
-      applyUrl, copyApplyUrl, linkCopied, analysing, analyseApplication, applicationAnswers, shortQuestion,
+      applyUrl, copyApplyUrl, linkCopied, adTextDirty, adTextSaved, adTextGeneratedAt, saveAdText, analysing, analyseApplication, applicationAnswers, shortQuestion,
       coverText, coverIsUploaded, cvText, cvBlurb, docsPending, cvHighlight, oneLine,
       countryList, isApplicationForm, appointmentTime,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
