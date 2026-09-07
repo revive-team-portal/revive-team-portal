@@ -59,6 +59,9 @@
 [functions."ads-recover-background"]
   included_files = ["bin/ffmpeg"]
 
+[functions."ads-probe7-background"]
+  included_files = ["bin/ffmpeg"]
+
 # Nightly: refresh ad metadata, copy and performance for every ad (no video work).
 # The schedule sits on a thin trigger because Netlify returns 403 to direct HTTP
 # calls on a scheduled function, and the page needs to be able to run this on demand.
