@@ -16,7 +16,7 @@ const API = 'https://api.xero.com';
 
 // accounting.reports.read is what the BankStatement report needs; settings gets the
 // bank account list; transactions is the cross-check against entered transactions.
-const SCOPES = 'openid profile email offline_access accounting.settings.read accounting.reports.read accounting.transactions.read';
+const SCOPES = 'openid profile email offline_access accounting.transactions.read accounting.contacts.read accounting.settings.read accounting.reports.read accounting.journals.read accounting.attachments.read';
 
 let _access = null; // { token, exp } cached in warm-container scope only
 
@@ -47,7 +47,8 @@ function authorizeUrl(state) {
   const p = new URLSearchParams({
     response_type: 'code', client_id: CID, redirect_uri: REDIRECT, scope: SCOPES, state,
   });
-  return AUTHORIZE + '?' + p.toString();
+  // Xero rejects '+'-encoded spaces in the scope param as invalid_scope; it wants %20.
+  return AUTHORIZE + '?' + p.toString().replace(/\+/g, '%20');
 }
 
 async function exchangeCode(code) {
