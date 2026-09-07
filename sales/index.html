@@ -1064,9 +1064,12 @@
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), templates=ref([]), documents=ref([]);
       // ---- Xero wholesale sales (roll-up shown next to each store) ----
-      const salesByKey=ref({}), salesSync=ref(null), salesBusy=ref(false);
+      const salesByStoreId=ref({}), salesUnmatched=ref([]), salesSync=ref(null), salesBusy=ref(false);
       function salesKey(n){ return String(n||'').toLowerCase().replace(/&/g,' and ').replace(/['’.]/g,'').replace(/[^a-z0-9]+/g,'').trim(); }
-      function storeSales(s){ if(!s) return null; return salesByKey.value[salesKey(s.store_name)]||null; }
+      const SALES_GENERIC=new Set(['organics','organic','natural','naturals','wholefoods','wholefood','foods','food','health','store','shop','retail','supermarket','market','grocer','grocery','ltd','limited','co','company','nz','newzealand','the','and']);
+      function sigTokens(n){ return String(n||'').toLowerCase().replace(/\(.*?\)/g,' ').replace(/&/g,' and ').replace(/['’.]/g,'').split(/[^a-z0-9]+/).filter(t=>t.length>2 && !SALES_GENERIC.has(t)); }
+      function tokensMatch(storeToks, unitToks){ if(!storeToks.length) return false; const us=new Set(unitToks); for(const t of storeToks){ if(!us.has(t)) return false; } return storeToks.length>=2 || storeToks.length===unitToks.length; }
+      function storeSales(s){ if(!s) return null; return salesByStoreId.value[s.id]||null; }
       function fmtMoney(n){ return '$'+Math.round(Number(n)||0).toLocaleString('en-NZ'); }
       function salesDateLabel(d){ if(!d) return '—'; const dt=new Date(d+'T12:00:00Z'); return dt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'2-digit'}); }
       function orgShort(n){ n=String(n||''); if(/cafe/i.test(n)) return 'Cafes'; if(/revivealicious|foods/i.test(n)) return 'Foods'; return n.split(' ')[0]||n; }
@@ -1359,12 +1362,33 @@
         loading.value=false;
       }
 
+      function finalizeAgg(list, source, orgs){
+        list=list.slice().sort((a,b)=> (a.order_date<b.order_date?1:(a.order_date>b.order_date?-1:0)));
+        let total=0,last=null,first=null; list.forEach(r=>{ total+=Number(r.total)||0; const d=r.order_date; if(d){ if(!last||d>last)last=d; if(!first||d<first)first=d; } });
+        const ds=[...new Set(list.map(r=>r.order_date).filter(Boolean))].sort();
+        const gap= ds.length>=2 ? Math.round((new Date(ds[ds.length-1])-new Date(ds[0]))/86400000/(ds.length-1)) : null;
+        return { orders:list.length, total:Math.round(total*100)/100, last, first, gap, source:source||'direct', orgs, list };
+      }
+      function mergeUnits(hits){
+        const list=[]; let source=null; const orgs=new Set();
+        hits.forEach(u=>{ u.list.forEach(x=>list.push(x)); if(u.source==='foodstuffs') source='foodstuffs'; u.orgs.forEach(o=>orgs.add(o)); });
+        return finalizeAgg(list, source, orgs);
+      }
       async function loadSales(){
         const xo=await sb.from('xero_orders').select('invoice_id,store_key,store_name,order_date,total,invoice_number,reference,source,org').order('order_date',{ascending:false});
-        const map={};
-        (xo.data||[]).forEach(r=>{ const k=r.store_key; if(!k) return; let m=map[k]; if(!m){ m=map[k]={orders:0,total:0,last:null,first:null,name:r.store_name,source:r.source,orgs:new Set(),list:[]}; } if(r.org) m.orgs.add(r.org); m.orders++; m.total+=Number(r.total)||0; const d=r.order_date; if(d){ if(!m.last||d>m.last)m.last=d; if(!m.first||d<m.first)m.first=d; } m.list.push(r); });
-        Object.values(map).forEach(m=>{ const ds=[...new Set(m.list.map(r=>r.order_date).filter(Boolean))].sort(); m.gap = ds.length>=2 ? Math.round((new Date(ds[ds.length-1])-new Date(ds[0]))/86400000/(ds.length-1)) : null; });
-        salesByKey.value=map;
+        const units={};
+        (xo.data||[]).forEach(r=>{ const k=r.store_key; if(!k) return; let m=units[k]; if(!m){ m=units[k]={key:k,name:r.store_name,source:r.source,orgs:new Set(),toks:sigTokens(r.store_name),list:[]}; } if(r.org) m.orgs.add(r.org); m.list.push(r); });
+        const unitArr=Object.values(units);
+        const byStore={}; const matched=new Set();
+        for(const s of stores.value){
+          const sk=salesKey(s.store_name), stoks=sigTokens(s.store_name);
+          const hits=unitArr.filter(u=> u.key===sk || tokensMatch(stoks,u.toks));
+          if(!hits.length) continue;
+          hits.forEach(u=>matched.add(u.key));
+          byStore[s.id]=mergeUnits(hits);
+        }
+        salesByStoreId.value=byStore;
+        salesUnmatched.value=unitArr.filter(u=>!matched.has(u.key)).map(u=>finalizeAgg(u.list,u.source,u.orgs)).sort((a,b)=>b.total-a.total);
         try{ const xs=await sb.from('xero_sync').select('*').eq('id',1).maybeSingle(); salesSync.value=(xs&&xs.data)||null; }catch(e){}
         refreshOrder();
       }
@@ -1741,7 +1765,7 @@
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         typeLabel,noteTypeLabel,salesPrompts,promptsOpen,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
         openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
-        storeSales,fmtMoney,salesDateLabel,orgShort,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,
+        storeSales,fmtMoney,salesDateLabel,orgShort,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,salesUnmatched,
         toast };
     }
   }).mount('#app');
