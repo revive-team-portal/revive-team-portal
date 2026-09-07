@@ -464,6 +464,9 @@
 
       <!-- Shareable ad text -->
       <div v-if="view==='job-detail'" class="px-6 pb-6">
+        <p v-if="jobSaved" class="mb-3 text-sm font-semibold px-3 py-2 rounded-lg bg-brand-pale border border-brand-light" style="color:#2f9e29">
+          &#10003; Changes saved
+        </p>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
             <div>
@@ -1495,6 +1498,7 @@ const app = createApp({
     const defaultsSaved = ref(false);
     const interviewDefaults = ref({ gap: 30, locationType: 'in_person', locationDetail: '24 Wyndham St, Auckland CBD', meetingLink: '' });
     const jobSaveError = ref('');
+    const jobSaved = ref(false);
 
     const settingsTabs = [
       { key: 'company', label: 'Company Info' },
@@ -1790,8 +1794,13 @@ const app = createApp({
         };
 
         if (editingJob.value.id) {
-          const { error } = await sb.from('jobs').update(payload).eq('id', editingJob.value.id);
+          // Return the saved row so the screen shows what was actually stored —
+          // previously selectedJob kept the pre-edit values and the save looked
+          // like it had not worked.
+          const { data, error } = await sb.from('jobs').update(payload)
+            .eq('id', editingJob.value.id).select().single();
           if (error) throw error;
+          if (data) selectedJob.value = data;
         } else {
           const { data, error } = await sb.from('jobs').insert(payload).select().single();
           if (error) throw error;
@@ -1800,6 +1809,18 @@ const app = createApp({
         }
 
         await loadDashboard();
+        // loadDashboard replaces the jobs array, so re-point at the fresh object.
+        const fresh = jobs.value.find(j => j.id === editingJob.value.id);
+        if (fresh) selectedJob.value = fresh;
+
+        // The ad copy was written from the old wording.
+        adText.value = '';
+        adTextError.value = '';
+        cloningFrom.value = '';
+
+        jobSaved.value = true;
+        setTimeout(() => { jobSaved.value = false; }, 2500);
+
         view.value = 'job-detail';
         await loadApplicants(editingJob.value.id);
       } catch (err) {
@@ -3513,7 +3534,7 @@ const app = createApp({
       addFile, addFileInput, pickAddFile, onAddFileChosen, clearAddFile,
       fileInputRefs,
       resumePreviewHtml, loadingResume, resumeModalContent, resumeModalType, resumeModalFilename,
-      noteText, settingsForm, newSlotTime, jobSaveError,
+      noteText, settingsForm, newSlotTime, jobSaveError, jobSaved,
       filteredJobs, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes, interviewAnswerCount,
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
       showDeleted, deletedCount, restoreApplication,
