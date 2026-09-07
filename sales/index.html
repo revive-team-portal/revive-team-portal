@@ -266,6 +266,7 @@
             <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Total sales</p><p class="text-xl font-extrabold text-emerald-800">{{ fmtMoney(curSales.total) }}</p></div>
             <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Orders</p><p class="text-lg font-bold text-stone-700">{{ curSales.orders }}</p></div>
             <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Last order</p><p class="text-lg font-bold text-stone-700">{{ salesDateLabel(curSales.last) }}</p></div>
+            <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Since last order</p><p class="text-lg font-bold" :class="(curSales.gap!=null && daysSinceOrder(curSales.last) > curSales.gap*1.5)?'text-red-600':'text-stone-700'">{{ daysSinceOrder(curSales.last)!=null? daysSinceOrder(curSales.last)+' days':'—' }}</p></div>
             <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Usual gap</p><p class="text-lg font-bold text-stone-700">{{ curSales.gap!=null? '~'+curSales.gap+' days':'—' }}</p></div>
             <div class="ml-auto text-[11px] text-emerald-700/70 text-right">Xero · last 24 months<span v-if="curSales.orgs&&curSales.orgs.size"><br>{{ [...curSales.orgs].map(orgShort).join(' + ') }}</span><span v-if="curSales.source && curSales.source!=='direct'"> · via {{ curSales.source==='foodstuffs'?'Foodstuffs':'Farro' }}</span></div>
           </div>
@@ -275,8 +276,8 @@
               <table class="w-full text-xs">
                 <thead class="text-stone-400 sticky top-0 bg-white"><tr><th class="text-left py-1 px-2">Date</th><th class="text-left px-2">Invoice</th><th class="text-left px-2">Ref</th><th class="text-left px-2">Org</th><th class="text-right px-2">Value</th></tr></thead>
                 <tbody>
-                  <tr v-for="o in curSales.list" :key="o.invoice_id||o.invoice_number" class="border-t border-emerald-50">
-                    <td class="py-1 px-2 whitespace-nowrap">{{ salesDateLabel(o.order_date) }}</td>
+                  <tr v-for="(o,i) in curSales.list" :key="o.invoice_id||o.invoice_number" class="border-t border-emerald-50">
+                    <td class="py-1 px-2 whitespace-nowrap">{{ salesDateLabel(o.order_date) }}<span v-if="i < curSales.list.length-1" class="text-emerald-600/70"> (+{{ daysBetween(curSales.list[i+1].order_date, o.order_date) }}d)</span></td>
                     <td class="px-2">{{ o.invoice_number }}</td>
                     <td class="px-2 text-stone-500">{{ o.reference }}</td>
                     <td class="px-2 text-stone-400">{{ orgShort(o.org) }}</td>
@@ -1073,6 +1074,8 @@
       function storeSales(s){ if(!s) return null; return salesByStoreId.value[s.id]||null; }
       function fmtMoney(n){ return '$'+Math.round(Number(n)||0).toLocaleString('en-NZ'); }
       function salesDateLabel(d){ if(!d) return '—'; const dt=new Date(d+'T12:00:00Z'); return dt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'2-digit'}); }
+      function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/86400000); }
+      function daysSinceOrder(d){ if(!d) return null; const today=new Date().toLocaleDateString('en-CA',{timeZone:'Pacific/Auckland'}); return daysBetween(d,today); }
       function orgShort(n){ n=String(n||''); if(/cafe/i.test(n)) return 'Cafes'; if(/revivealicious|foods/i.test(n)) return 'Foods'; return n.split(' ')[0]||n; }
       const settings=reactive({ai_master_prompt:'',ai_actions_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:'',sales_prompts:''});
       const promptsOpen=ref(true);
@@ -1766,7 +1769,7 @@
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         typeLabel,noteTypeLabel,salesPrompts,promptsOpen,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
         openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
-        storeSales,fmtMoney,salesDateLabel,orgShort,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,salesUnmatched,
+        storeSales,fmtMoney,salesDateLabel,daysBetween,daysSinceOrder,orgShort,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,salesUnmatched,
         toast };
     }
   }).mount('#app');
