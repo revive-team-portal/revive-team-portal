@@ -463,257 +463,6 @@
         </div>
       </div>
 
-      <!-- ===== APPLICANT DETAIL ===== -->
-      <div v-if="view==='applicant-detail' && selectedApplicant" class="p-6">
-        <button @click="view='job-detail'" class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand mb-4 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-          Back to Applicants
-        </button>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          <!-- Left column -->
-          <div class="lg:col-span-2 space-y-3">
-
-            <!-- Header -->
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-              <div class="flex items-start justify-between flex-wrap gap-3">
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2.5 flex-wrap">
-                    <h1 class="text-xl font-extrabold text-gray-900">{{ selectedApplicant.full_name }}</h1>
-                    <span v-if="selectedApplicant.suitability_score" class="score-badge" :style="scoreStyle(selectedApplicant.suitability_score)"
-                      title="Role fit — CV match to job">{{ selectedApplicant.suitability_score }}</span>
-                    <span v-if="selectedApplicant.ai_score" class="score-badge" :style="aiScoreStyle(selectedApplicant.ai_score)"
-                      title="Human writing — 10 = fully human">{{ selectedApplicant.ai_score }}</span>
-                    <span class="text-xs text-gray-400">Fit / Human</span>
-                  </div>
-                  <div class="flex flex-wrap gap-3 mt-1.5 text-sm text-gray-600">
-                    <span>📧 {{ selectedApplicant.email }}</span>
-                    <span v-if="selectedApplicant.phone">📱 {{ selectedApplicant.phone }}</span>
-                    <span v-if="selectedApplicant.location">📍 {{ selectedApplicant.location }}</span>
-                  </div>
-                  <div class="flex gap-2 mt-1.5 flex-wrap">
-                    <span v-if="selectedApplicant.on_visa" class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-semibold">
-                      🌍 {{ selectedApplicant.visa_type }} — expires {{ selectedApplicant.visa_expiry || 'unknown' }}
-                    </span>
-                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                      via {{ formatReferral(selectedApplicant.referral_source) }}
-                    </span>
-                    <span v-if="selectedApplicant.previous_apply_count > 1" class="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded-full font-semibold">
-                      Applied {{ selectedApplicant.previous_apply_count }}x
-                    </span>
-                  </div>
-                </div>
-                <select v-model="selectedApplicant.status" @change="updateStatus(selectedApplicant)"
-                  class="border-2 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:border-transparent shrink-0"
-                  :class="statusSelectClass(selectedApplicant.status)">
-                  <option value="new">New</option>
-                  <option value="not_suitable">Not Suitable</option>
-                  <option value="shortlist_a">Shortlist A</option>
-                  <option value="shortlist_b">Shortlist B</option>
-                  <option value="interview">Interview</option>
-                  <option value="hired">Hired</option>
-                  <option value="not_hired">Not Hired</option>
-                  <option value="deleted" disabled>Deleted</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Analysis note (scores now sit in the header) -->
-            <p v-if="selectedApplicant.ai_analysis_notes" class="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-              {{ selectedApplicant.ai_analysis_notes }}
-            </p>
-
-            <!-- Work history from the CV -->
-            <div v-if="recentJobs(selectedApplicant).length || realValue(selectedApplicant.countries_worked)" class="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Work History <span class="text-gray-400 font-normal normal-case text-xs">(from CV)</span></h3>
-              <p v-if="realValue(selectedApplicant.countries_worked)" class="text-sm text-gray-600 mb-3">
-                <span class="text-gray-400">Worked in:</span> {{ selectedApplicant.countries_worked }}
-              </p>
-              <div v-for="(j, ji) in recentJobs(selectedApplicant)" :key="ji" class="mb-2">
-                <p class="text-sm text-gray-800 font-medium">{{ jobLine(j) }}</p>
-                <p v-if="jobMeta(j)" class="text-xs text-gray-400">{{ jobMeta(j) }}</p>
-              </div>
-            </div>
-
-            <!-- Previous employers -->
-            <div v-if="selectedApplicant.previous_employers" class="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Previous Employers <span class="text-gray-400 font-normal normal-case text-xs">(AI extracted)</span></h3>
-              <p class="text-sm text-gray-700 leading-relaxed">{{ selectedApplicant.previous_employers }}</p>
-            </div>
-
-            <!-- Right to work -->
-            <div v-if="selectedApplicant.work_rights" class="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Right to Work in NZ</h3>
-              <p class="text-sm text-gray-700">{{ formatWorkRights(selectedApplicant.work_rights) }}</p>
-              <p v-if="selectedApplicant.work_rights_detail" class="text-sm text-gray-600 mt-1">{{ selectedApplicant.work_rights_detail }}</p>
-            </div>
-
-            <!-- Attachments, previewed inline -->
-            <div v-if="docsFor(selectedApplicant).length" class="bg-white rounded-xl border border-gray-200 p-4">
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">
-                  Documents <span class="text-gray-400 font-normal normal-case">({{ docsFor(selectedApplicant).length }})</span>
-                </h3>
-                <span v-if="loadingPreviews" class="text-xs text-gray-400">Loading&#8230;</span>
-              </div>
-
-              <div class="space-y-3">
-                <div v-for="(doc, di) in docPreviews" :key="di" class="border border-gray-200 rounded-lg overflow-hidden">
-                  <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200">
-                    <span class="text-sm font-semibold text-gray-700 truncate flex-1">{{ doc.filename }}</span>
-                    <span class="text-xs text-gray-400 uppercase shrink-0">{{ doc.kind || 'document' }}</span>
-                    <a :href="doc.url" target="_blank" rel="noopener"
-                      class="text-xs font-semibold text-brand hover:underline shrink-0">Open</a>
-                  </div>
-
-                  <iframe v-if="doc.viewer === 'pdf'" :src="doc.url + '#view=FitH'" class="w-full bg-gray-100"
-                    style="height:520px;border:0"></iframe>
-
-                  <img v-else-if="doc.viewer === 'image'" :src="doc.url" :alt="doc.filename"
-                    class="w-full bg-gray-100" style="max-height:620px;object-fit:contain">
-
-                  <div v-else class="px-3 py-4 text-sm text-gray-500">
-                    {{ doc.filename.split('.').pop().toUpperCase() }} files can't be previewed here &mdash;
-                    <a :href="doc.url" target="_blank" rel="noopener" class="text-brand font-semibold hover:underline">open it in a new tab</a>.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Cover Letter -->
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">
-                Cover Letter<span v-if="coverIsUploaded(selectedApplicant)" class="text-gray-400 font-normal normal-case tracking-normal text-xs"> (from uploaded file)</span>
-              </h3>
-              <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ coverText(selectedApplicant) || 'No cover letter provided.' }}</p>
-            </div>
-
-            <!-- Resume -->
-            <div v-if="selectedApplicant.resume_url" class="bg-white rounded-xl border border-gray-200 p-4">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">Resume / CV</h3>
-                <button @click="viewResume(selectedApplicant)"
-                  class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                  View Full Resume ↗
-                </button>
-              </div>
-              <!-- Inline DOCX preview -->
-              <div v-if="resumePreviewHtml" class="prose-sm border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto text-sm" v-html="resumePreviewHtml"></div>
-              <div v-else-if="loadingResume" class="text-center py-8 text-gray-500 text-sm">Loading preview...</div>
-              <div v-else class="text-center py-8">
-                <p class="text-gray-500 text-sm mb-3">{{ selectedApplicant.resume_filename }}</p>
-                <button @click="loadResumePreview(selectedApplicant)" class="text-brand hover:underline text-sm font-semibold">Load Preview</button>
-              </div>
-            </div>
-
-            <!-- Visa Details -->
-            <div v-if="selectedApplicant.on_visa" class="bg-blue-50 rounded-xl border border-blue-200 p-5">
-              <h3 class="font-bold text-blue-800 mb-3 text-sm uppercase tracking-wider">Visa Information</h3>
-              <div class="grid grid-cols-2 gap-3 text-sm">
-                <div><span class="text-blue-600 font-semibold">Type:</span> {{ selectedApplicant.visa_type }}</div>
-                <div><span class="text-blue-600 font-semibold">Country:</span> {{ selectedApplicant.visa_country }}</div>
-                <div><span class="text-blue-600 font-semibold">Expiry:</span> {{ selectedApplicant.visa_expiry }}</div>
-                <div><span class="text-blue-600 font-semibold">Conditions:</span> {{ selectedApplicant.visa_conditions || 'None' }}</div>
-              </div>
-            </div>
-
-            <!-- Answers to the questions set on the job ad -->
-            <div v-if="applicationAnswers(selectedApplicant).length" class="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Application Questions</h3>
-              <div class="space-y-4">
-                <div v-for="(qa, qi) in applicationAnswers(selectedApplicant)" :key="qi">
-                  <p class="font-semibold text-gray-700 text-sm">{{ qa.question }}</p>
-                  <p class="text-sm mt-1 whitespace-pre-line" :class="qa.answer ? 'text-gray-600' : 'text-gray-300 italic'">
-                    {{ qa.answer || 'No answer given' }}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Extended form answers -->
-            <div v-if="selectedApplicant.extended_form_completed" class="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Interview Form Answers</h3>
-              <p v-if="interviewAnswerCount === 0" class="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
-                This form was submitted with every question left blank.
-              </p>
-              <div v-if="parsedInterviewNotes" class="space-y-4">
-                <div v-for="item in parsedInterviewNotes" :key="item.key">
-                  <p class="font-semibold text-gray-700 text-sm">{{ item.question }}</p>
-                  <p class="text-sm mt-1" :class="item.answer ? 'text-gray-600' : 'text-gray-300 italic'">
-                    {{ item.answer || 'No answer provided' }}
-                  </p>
-                </div>
-              </div>
-              <div class="mt-3 text-xs text-green-700 bg-green-50 rounded px-3 py-1.5 inline-block font-semibold">
-                ✓ Declarations agreed
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Right sidebar -->
-          <div class="space-y-4">
-
-            <!-- Interview Status -->
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Interview</h3>
-              <div v-if="selectedApplicant.interview_slot_id">
-                <div class="bg-brand-pale rounded-lg p-3 border border-brand-light mb-3">
-                  <p class="text-xs font-semibold text-gray-600 mb-1">Scheduled:</p>
-                  <p class="font-bold text-sm" style="color:#40d134;">{{ getSlotTime(selectedApplicant.interview_slot_id) }}</p>
-                </div>
-              </div>
-              <div class="space-y-2">
-                <div class="flex items-center gap-2 text-xs">
-                  <span :class="selectedApplicant.interview_invite_sent ? 'text-green-600' : 'text-gray-400'">
-                    {{ selectedApplicant.interview_invite_sent ? '✓' : '○' }}
-                  </span>
-                  <span :class="selectedApplicant.interview_invite_sent ? 'text-green-700 font-semibold' : 'text-gray-500'">
-                    Invite sent{{ selectedApplicant.interview_invite_sent_at ? ' ' + timeAgo(selectedApplicant.interview_invite_sent_at) : '' }}
-                  </span>
-                </div>
-                <div class="flex items-center gap-2 text-xs">
-                  <span :class="selectedApplicant.extended_form_completed ? 'text-green-600' : 'text-gray-400'">
-                    {{ selectedApplicant.extended_form_completed ? '✓' : '○' }}
-                  </span>
-                  <span :class="selectedApplicant.extended_form_completed ? 'text-green-700 font-semibold' : 'text-gray-500'">Form completed</span>
-                </div>
-                <div class="flex items-center gap-2 text-xs">
-                  <span :class="selectedApplicant.interview_slot_id ? 'text-green-600' : 'text-gray-400'">
-                    {{ selectedApplicant.interview_slot_id ? '✓' : '○' }}
-                  </span>
-                  <span :class="selectedApplicant.interview_slot_id ? 'text-green-700 font-semibold' : 'text-gray-500'">Time confirmed</span>
-                </div>
-              </div>
-              <button v-if="!selectedApplicant.interview_invite_sent"
-                @click="sendSingleInterviewInvite(selectedApplicant)"
-                class="mt-3 w-full bg-brand hover:bg-brand-dark text-white py-2 rounded-lg text-sm font-semibold transition-colors">
-                Send Interview Invite
-              </button>
-            </div>
-
-            <!-- Notes -->
-            <div class="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Employer Notes</h3>
-              <textarea v-model="noteText" rows="5" placeholder="Add notes about this applicant..."
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
-              <button @click="saveNote" :disabled="savingNote"
-                class="mt-2 w-full disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold transition-colors"
-                :class="noteSaved ? 'bg-brand' : 'bg-gray-800 hover:bg-gray-900'">
-                {{ savingNote ? 'Saving...' : (noteSaved ? '\u2713 Saved' : 'Save Notes') }}
-              </button>
-            </div>
-
-            <!-- Applied at -->
-            <div class="bg-white rounded-xl border border-gray-200 p-5 text-xs text-gray-500">
-              <p>Received: {{ formatReceived(selectedApplicant.created_at) }}</p>
-              <p v-if="selectedApplicant.rejection_sent" class="mt-1 text-red-500">Rejection email sent {{ formatFullDate(selectedApplicant.rejection_sent_at) }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- ===== EDIT JOB ===== -->
       <div v-if="view==='edit-job'" class="p-6">
         <button @click="view = editingJob.id ? 'job-detail' : 'dashboard'" class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand mb-4 transition-colors">
@@ -1097,6 +846,274 @@
     </main>
   </div>
 
+  <!-- ===== APPLICANT DETAIL (overlay — keeps your place in the list) ===== -->
+  <div v-if="showApplicant && selectedApplicant" class="modal-overlay" @click.self="closeApplicant">
+    <div class="bg-gray-50 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-200 bg-white rounded-t-2xl shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <button @click="stepApplicant(-1)" :disabled="applicantIndex <= 0" title="Previous applicant"
+            class="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-brand hover:border-brand disabled:opacity-30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button @click="stepApplicant(1)" :disabled="applicantIndex >= filteredApplicants.length - 1" title="Next applicant"
+            class="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-brand hover:border-brand disabled:opacity-30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+          <span class="text-xs text-gray-500 ml-1 truncate">
+            {{ applicantIndex + 1 }} of {{ filteredApplicants.length }}
+          </span>
+        </div>
+        <button @click="closeApplicant" class="text-gray-400 hover:text-gray-700 text-2xl leading-none px-1">&times;</button>
+      </div>
+
+      <div class="overflow-y-auto p-5">
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Left column -->
+          <div class="lg:col-span-2 space-y-3">
+
+            <!-- Header -->
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+              <div class="flex items-start justify-between flex-wrap gap-3">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2.5 flex-wrap">
+                    <h1 class="text-xl font-extrabold text-gray-900">{{ selectedApplicant.full_name }}</h1>
+                    <span v-if="selectedApplicant.suitability_score" class="score-badge" :style="scoreStyle(selectedApplicant.suitability_score)"
+                      title="Role fit — CV match to job">{{ selectedApplicant.suitability_score }}</span>
+                    <span v-if="selectedApplicant.ai_score" class="score-badge" :style="aiScoreStyle(selectedApplicant.ai_score)"
+                      title="Human writing — 10 = fully human">{{ selectedApplicant.ai_score }}</span>
+                    <span class="text-xs text-gray-400">Fit / Human</span>
+                  </div>
+                  <div class="flex flex-wrap gap-3 mt-1.5 text-sm text-gray-600">
+                    <span>📧 {{ selectedApplicant.email }}</span>
+                    <span v-if="selectedApplicant.phone">📱 {{ selectedApplicant.phone }}</span>
+                    <span v-if="selectedApplicant.location">📍 {{ selectedApplicant.location }}</span>
+                  </div>
+                  <div class="flex gap-2 mt-1.5 flex-wrap">
+                    <span v-if="selectedApplicant.on_visa" class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-semibold">
+                      🌍 {{ selectedApplicant.visa_type }} — expires {{ selectedApplicant.visa_expiry || 'unknown' }}
+                    </span>
+                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                      via {{ formatReferral(selectedApplicant.referral_source) }}
+                    </span>
+                    <span v-if="selectedApplicant.previous_apply_count > 1" class="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded-full font-semibold">
+                      Applied {{ selectedApplicant.previous_apply_count }}x
+                    </span>
+                  </div>
+                </div>
+                <select v-model="selectedApplicant.status" @change="updateStatus(selectedApplicant)"
+                  class="border-2 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:border-transparent shrink-0"
+                  :class="statusSelectClass(selectedApplicant.status)">
+                  <option value="new">New</option>
+                  <option value="not_suitable">Not Suitable</option>
+                  <option value="shortlist_a">Shortlist A</option>
+                  <option value="shortlist_b">Shortlist B</option>
+                  <option value="interview">Interview</option>
+                  <option value="hired">Hired</option>
+                  <option value="not_hired">Not Hired</option>
+                  <option value="deleted" disabled>Deleted</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Analysis note (scores now sit in the header) -->
+            <p v-if="selectedApplicant.ai_analysis_notes" class="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+              {{ selectedApplicant.ai_analysis_notes }}
+            </p>
+
+            <!-- Work history from the CV -->
+            <div v-if="recentJobs(selectedApplicant).length || realValue(selectedApplicant.countries_worked)" class="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Work History <span class="text-gray-400 font-normal normal-case text-xs">(from CV)</span></h3>
+              <p v-if="realValue(selectedApplicant.countries_worked)" class="text-sm text-gray-600 mb-3">
+                <span class="text-gray-400">Worked in:</span> {{ selectedApplicant.countries_worked }}
+              </p>
+              <div v-for="(j, ji) in recentJobs(selectedApplicant)" :key="ji" class="mb-2">
+                <p class="text-sm text-gray-800 font-medium">{{ jobLine(j) }}</p>
+                <p v-if="jobMeta(j)" class="text-xs text-gray-400">{{ jobMeta(j) }}</p>
+              </div>
+            </div>
+
+            <!-- Previous employers -->
+            <div v-if="selectedApplicant.previous_employers" class="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Previous Employers <span class="text-gray-400 font-normal normal-case text-xs">(AI extracted)</span></h3>
+              <p class="text-sm text-gray-700 leading-relaxed">{{ selectedApplicant.previous_employers }}</p>
+            </div>
+
+            <!-- Right to work -->
+            <div v-if="selectedApplicant.work_rights" class="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Right to Work in NZ</h3>
+              <p class="text-sm text-gray-700">{{ formatWorkRights(selectedApplicant.work_rights) }}</p>
+              <p v-if="selectedApplicant.work_rights_detail" class="text-sm text-gray-600 mt-1">{{ selectedApplicant.work_rights_detail }}</p>
+            </div>
+
+            <!-- Attachments, previewed inline -->
+            <div v-if="docsFor(selectedApplicant).length" class="bg-white rounded-xl border border-gray-200 p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">
+                  Documents <span class="text-gray-400 font-normal normal-case">({{ docsFor(selectedApplicant).length }})</span>
+                </h3>
+                <span v-if="loadingPreviews" class="text-xs text-gray-400">Loading&#8230;</span>
+              </div>
+
+              <div class="space-y-3">
+                <div v-for="(doc, di) in docPreviews" :key="di" class="border border-gray-200 rounded-lg overflow-hidden">
+                  <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200">
+                    <span class="text-sm font-semibold text-gray-700 truncate flex-1">{{ doc.filename }}</span>
+                    <span class="text-xs text-gray-400 uppercase shrink-0">{{ doc.kind || 'document' }}</span>
+                    <a :href="doc.url" target="_blank" rel="noopener"
+                      class="text-xs font-semibold text-brand hover:underline shrink-0">Open</a>
+                  </div>
+
+                  <iframe v-if="doc.viewer === 'pdf'" :src="doc.url + '#view=FitH'" class="w-full bg-gray-100"
+                    style="height:520px;border:0"></iframe>
+
+                  <img v-else-if="doc.viewer === 'image'" :src="doc.url" :alt="doc.filename"
+                    class="w-full bg-gray-100" style="max-height:620px;object-fit:contain">
+
+                  <div v-else class="px-3 py-4 text-sm text-gray-500">
+                    {{ doc.filename.split('.').pop().toUpperCase() }} files can't be previewed here &mdash;
+                    <a :href="doc.url" target="_blank" rel="noopener" class="text-brand font-semibold hover:underline">open it in a new tab</a>.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cover Letter -->
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">
+                Cover Letter<span v-if="coverIsUploaded(selectedApplicant)" class="text-gray-400 font-normal normal-case tracking-normal text-xs"> (from uploaded file)</span>
+              </h3>
+              <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ coverText(selectedApplicant) || 'No cover letter provided.' }}</p>
+            </div>
+
+            <!-- Resume -->
+            <div v-if="selectedApplicant.resume_url" class="bg-white rounded-xl border border-gray-200 p-4">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">Resume / CV</h3>
+                <button @click="viewResume(selectedApplicant)"
+                  class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                  View Full Resume ↗
+                </button>
+              </div>
+              <!-- Inline DOCX preview -->
+              <div v-if="resumePreviewHtml" class="prose-sm border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto text-sm" v-html="resumePreviewHtml"></div>
+              <div v-else-if="loadingResume" class="text-center py-8 text-gray-500 text-sm">Loading preview...</div>
+              <div v-else class="text-center py-8">
+                <p class="text-gray-500 text-sm mb-3">{{ selectedApplicant.resume_filename }}</p>
+                <button @click="loadResumePreview(selectedApplicant)" class="text-brand hover:underline text-sm font-semibold">Load Preview</button>
+              </div>
+            </div>
+
+            <!-- Visa Details -->
+            <div v-if="selectedApplicant.on_visa" class="bg-blue-50 rounded-xl border border-blue-200 p-5">
+              <h3 class="font-bold text-blue-800 mb-3 text-sm uppercase tracking-wider">Visa Information</h3>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div><span class="text-blue-600 font-semibold">Type:</span> {{ selectedApplicant.visa_type }}</div>
+                <div><span class="text-blue-600 font-semibold">Country:</span> {{ selectedApplicant.visa_country }}</div>
+                <div><span class="text-blue-600 font-semibold">Expiry:</span> {{ selectedApplicant.visa_expiry }}</div>
+                <div><span class="text-blue-600 font-semibold">Conditions:</span> {{ selectedApplicant.visa_conditions || 'None' }}</div>
+              </div>
+            </div>
+
+            <!-- Answers to the questions set on the job ad -->
+            <div v-if="applicationAnswers(selectedApplicant).length" class="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Application Questions</h3>
+              <div class="space-y-4">
+                <div v-for="(qa, qi) in applicationAnswers(selectedApplicant)" :key="qi">
+                  <p class="font-semibold text-gray-700 text-sm">{{ qa.question }}</p>
+                  <p class="text-sm mt-1 whitespace-pre-line" :class="qa.answer ? 'text-gray-600' : 'text-gray-300 italic'">
+                    {{ qa.answer || 'No answer given' }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Extended form answers -->
+            <div v-if="selectedApplicant.extended_form_completed" class="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Interview Form Answers</h3>
+              <p v-if="interviewAnswerCount === 0" class="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+                This form was submitted with every question left blank.
+              </p>
+              <div v-if="parsedInterviewNotes" class="space-y-4">
+                <div v-for="item in parsedInterviewNotes" :key="item.key">
+                  <p class="font-semibold text-gray-700 text-sm">{{ item.question }}</p>
+                  <p class="text-sm mt-1" :class="item.answer ? 'text-gray-600' : 'text-gray-300 italic'">
+                    {{ item.answer || 'No answer provided' }}
+                  </p>
+                </div>
+              </div>
+              <div class="mt-3 text-xs text-green-700 bg-green-50 rounded px-3 py-1.5 inline-block font-semibold">
+                ✓ Declarations agreed
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right sidebar -->
+          <div class="space-y-4">
+
+            <!-- Interview Status -->
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Interview</h3>
+              <div v-if="selectedApplicant.interview_slot_id">
+                <div class="bg-brand-pale rounded-lg p-3 border border-brand-light mb-3">
+                  <p class="text-xs font-semibold text-gray-600 mb-1">Scheduled:</p>
+                  <p class="font-bold text-sm" style="color:#40d134;">{{ getSlotTime(selectedApplicant.interview_slot_id) }}</p>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <div class="flex items-center gap-2 text-xs">
+                  <span :class="selectedApplicant.interview_invite_sent ? 'text-green-600' : 'text-gray-400'">
+                    {{ selectedApplicant.interview_invite_sent ? '✓' : '○' }}
+                  </span>
+                  <span :class="selectedApplicant.interview_invite_sent ? 'text-green-700 font-semibold' : 'text-gray-500'">
+                    Invite sent{{ selectedApplicant.interview_invite_sent_at ? ' ' + timeAgo(selectedApplicant.interview_invite_sent_at) : '' }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                  <span :class="selectedApplicant.extended_form_completed ? 'text-green-600' : 'text-gray-400'">
+                    {{ selectedApplicant.extended_form_completed ? '✓' : '○' }}
+                  </span>
+                  <span :class="selectedApplicant.extended_form_completed ? 'text-green-700 font-semibold' : 'text-gray-500'">Form completed</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                  <span :class="selectedApplicant.interview_slot_id ? 'text-green-600' : 'text-gray-400'">
+                    {{ selectedApplicant.interview_slot_id ? '✓' : '○' }}
+                  </span>
+                  <span :class="selectedApplicant.interview_slot_id ? 'text-green-700 font-semibold' : 'text-gray-500'">Time confirmed</span>
+                </div>
+              </div>
+              <button v-if="!selectedApplicant.interview_invite_sent"
+                @click="sendSingleInterviewInvite(selectedApplicant)"
+                class="mt-3 w-full bg-brand hover:bg-brand-dark text-white py-2 rounded-lg text-sm font-semibold transition-colors">
+                Send Interview Invite
+              </button>
+            </div>
+
+            <!-- Notes -->
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 class="font-bold text-gray-800 mb-2 text-sm uppercase tracking-wider">Employer Notes</h3>
+              <textarea v-model="noteText" rows="5" placeholder="Add notes about this applicant..."
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"></textarea>
+              <button @click="saveNote" :disabled="savingNote"
+                class="mt-2 w-full disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold transition-colors"
+                :class="noteSaved ? 'bg-brand' : 'bg-gray-800 hover:bg-gray-900'">
+                {{ savingNote ? 'Saving...' : (noteSaved ? '\u2713 Saved' : 'Save Notes') }}
+              </button>
+            </div>
+
+            <!-- Applied at -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5 text-xs text-gray-500">
+              <p>Received: {{ formatReceived(selectedApplicant.created_at) }}</p>
+              <p v-if="selectedApplicant.rejection_sent" class="mt-1 text-red-500">Rejection email sent {{ formatFullDate(selectedApplicant.rejection_sent_at) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== INTERVIEW SLOTS MODAL ===== -->
   <div v-if="showSlotsModal" class="modal-overlay" @click.self="showSlotsModal = false">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
@@ -1467,6 +1484,7 @@ const app = createApp({
 
     // Modals
     const showSlotsModal = ref(false);
+    const showApplicant = ref(false);
     const showResumeModal = ref(false);
 
     // Resume preview
@@ -1843,12 +1861,31 @@ const app = createApp({
     }
 
     // ============ APPLICANT MANAGEMENT ============
+    // Opened as an overlay so the applicant list keeps its scroll position.
     function openApplicant(app) {
       selectedApplicant.value = { ...app };
       noteText.value = app.interview_notes_employer || '';
       resumePreviewHtml.value = null;
-      view.value = 'applicant-detail';
+      showApplicant.value = true;
       loadDocPreviews(selectedApplicant.value);
+    }
+
+    function closeApplicant() {
+      showApplicant.value = false;
+      docPreviews.value = [];
+    }
+
+    const applicantIndex = computed(() => {
+      if (!selectedApplicant.value) return -1;
+      return filteredApplicants.value.findIndex(a => a.id === selectedApplicant.value.id);
+    });
+
+    // Move through the list without closing — the reason for going back was
+    // usually just to open the next person.
+    function stepApplicant(delta) {
+      const i = applicantIndex.value;
+      const next = filteredApplicants.value[i + delta];
+      if (next) openApplicant(next);
     }
 
     async function updateStatus(app) {
@@ -3416,6 +3453,12 @@ const app = createApp({
       return map[status] || '';
     }
 
+    onMounted(() => {
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && showApplicant.value) closeApplicant();
+      });
+    });
+
     onMounted(async () => {
       // The portal opens /jobs/ as a plain relative link with no ?pt= token, so the
       // portal session is read straight from this origin. ?pt= is still honoured for
@@ -3570,7 +3613,8 @@ const app = createApp({
       openConnections, addToConnections, startNewConnection, submitConnection,
       pickConnFile, onConnFileChosen, clearConnFile, saveConnectionNote, deleteConnection,
       login, logout, openJob, editJob, cloneJob, startNewJob, saveJob, deleteJob, editorFailed, cloningFrom,
-      openApplicant, updateStatus, saveNote, noteSaved, viewResume, loadResumePreview,
+      openApplicant, closeApplicant, showApplicant, applicantIndex, stepApplicant,
+      updateStatus, saveNote, noteSaved, viewResume, loadResumePreview,
       sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection, confirmBulkRejection,
       openInterviewSlots, addSlot, deleteSlot, getSlotTime,
       saveSettings, saveAllEmailTemplates,
