@@ -49,6 +49,7 @@
     .jobs-subbar .signout:hover { color: #dc2626; background: #fef2f2; }
     @media (max-width: 640px) { .jobs-subbar { padding: 0 12px; height: 44px; } }
     .score-badge { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; font-weight:700; font-size:13px; }
+    .score-chip { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:20px; padding:0 5px; border-radius:5px; font-weight:800; font-size:12px; }
     .prose-sm h1,.prose-sm h2,.prose-sm h3 { font-weight:700; color:#111; margin-top:1em; margin-bottom:0.5em; }
     .prose-sm h2 { font-size:1.1rem; }
     .prose-sm p { margin-bottom:0.75em; color:#555; line-height:1.6; font-size:14px; }
@@ -318,6 +319,18 @@
                   <option value="deleted" disabled>Deleted</option>
                 </select>
 
+                <!-- Scores, one line, beside the status -->
+                <div v-if="app.suitability_score || app.ai_score"
+                  class="inline-flex items-center gap-2 border border-gray-200 rounded-lg px-2 py-1 mb-2">
+                  <span class="text-xs text-gray-400 font-semibold">Fit</span>
+                  <span v-if="app.suitability_score" class="score-chip" :style="scoreStyle(app.suitability_score)">{{ app.suitability_score }}</span>
+                  <span v-else class="text-gray-300 text-xs">&mdash;</span>
+                  <span class="text-gray-200">|</span>
+                  <span class="text-xs text-gray-400 font-semibold">Human</span>
+                  <span v-if="app.ai_score" class="score-chip" :style="aiScoreStyle(app.ai_score)">{{ app.ai_score }}</span>
+                  <span v-else class="text-gray-300 text-xs">&mdash;</span>
+                </div>
+
                 <div class="cursor-pointer" @click="openApplicant(app)">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-bold text-gray-900 text-base">{{ app.full_name }}</span>
@@ -387,16 +400,6 @@
               <!-- ========== RIGHT: scores + appointment + notes + documents ========== -->
               <div class="md:col-span-3 min-w-0 md:border-l md:border-gray-100 md:pl-4 flex flex-col">
                 <div class="flex items-start gap-4">
-                  <div class="text-center shrink-0">
-                    <div class="text-xs text-gray-400 mb-0.5">Fit</div>
-                    <span v-if="app.suitability_score" class="score-badge" :style="scoreStyle(app.suitability_score)">{{ app.suitability_score }}</span>
-                    <span v-else class="text-gray-300 text-xs">&mdash;</span>
-                  </div>
-                  <div class="text-center shrink-0">
-                    <div class="text-xs text-gray-400 mb-0.5">Human</div>
-                    <span v-if="app.ai_score" class="score-badge" :style="aiScoreStyle(app.ai_score)">{{ app.ai_score }}</span>
-                    <span v-else class="text-gray-300 text-xs">&mdash;</span>
-                  </div>
                   <div v-if="appointmentTime(app)" class="min-w-0">
                     <div class="text-xs text-gray-400 mb-0.5">Appointment</div>
                     <div class="text-xs font-bold leading-snug" style="color:#40d134">{{ appointmentTime(app) }}</div>
