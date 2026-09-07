@@ -268,6 +268,16 @@ function lastEvents(t){
   return evs.slice(0,3);
 }
 function courierBadge(s){ if(!s) return ''; const S=String(s); const cls=/deliver/i.test(S)?'bg-green-100 text-green-700':/transit|out for|dispatch|onboard|board/i.test(S)?'bg-sky-100 text-sky-700':/fail|exception|delay|lost|attempt|hold/i.test(S)?'bg-red-100 text-red-700':'bg-stone-100 text-stone-600'; return '<span class="inline-block text-[11px] '+cls+' rounded px-1.5 py-0.5 whitespace-nowrap">'+esc(S.toUpperCase())+'</span>'; }
+function money0(a){ if(a==null) return ''; return '$'+Math.round(Number(a)||0).toLocaleString('en-NZ'); }
+function custBox(c){
+  const bits=[];
+  const oc=(c.orders_count!=null)?Number(c.orders_count):null;
+  if(oc!=null) bits.push('<b>'+oc+'</b> order'+(oc===1?'':'s'));
+  if(c.lifetime_value!=null && Number(c.lifetime_value)>0) bits.push(money0(c.lifetime_value)+' lifetime');
+  if(c.city) bits.push(esc(c.city));
+  if(!bits.length) return '';
+  return '<div class="inline-block text-left rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800 leading-tight mb-1">'+bits.map(b=>'<div class="whitespace-nowrap">'+b+'</div>').join('')+'</div>';
+}
 function ticketRow(t){
   const c=t.customer||{};
   const _lastMsg=(t.messages||[]).reduce((mx,m)=>(m.sent_at&&(!mx||new Date(m.sent_at)>new Date(mx)))?m.sent_at:mx,null);
@@ -283,7 +293,7 @@ function ticketRow(t){
     +'<div class="min-w-0 flex-1"><div class="flex justify-between gap-2"><span class="text-sm font-medium text-stone-800 truncate"><span class="mr-1" title="'+(t.ticket_type||'')+'">'+tm.i+'</span>'+esc(c.name||c.email||'(unknown)')+ratingHtml(c.orders_count)+(t.source==='manual'?' <span class="text-[10px] text-stone-400">(manual)</span>':'')+'</span><span class="text-xs text-stone-400 shrink-0">'+when+'</span></div>'
     +'<div class="text-sm text-stone-600 truncate">'+esc(t.subject||'(no subject)')+'</div>'
     +(t.snippet?'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div>':'')+'</div>'
-    +'<div class="shrink-0 self-start text-right min-w-[120px]"><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span>'
+    +'<div class="shrink-0 self-start text-right min-w-[120px]">'+custBox(c)+'<div><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span></div>'
     +'<div class="mt-1 flex items-center justify-end gap-1">'+tick+' '+matched+'</div>'
     +'<div id="cs_'+t.id+'" class="mt-1">'+courierBadge(t.courier_status)+'</div>'+evHtml+'</div></div>';
 }

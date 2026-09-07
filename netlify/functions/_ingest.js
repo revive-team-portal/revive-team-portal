@@ -39,14 +39,17 @@ async function gapi(token, path){ const r=await fetch('https://gmail.googleapis.
 
 const infoCache={};
 async function customerOrderInfo(email){
-  if(!email || email.endsWith('@no-email.local')) return { known:false, latestOrder:null, count:null };
+  if(!email || email.endsWith('@no-email.local')) return { known:false, latestOrder:null, count:null, spent:null, city:null };
   if(email in infoCache) return infoCache[email];
-  let info={ known:false, latestOrder:null, count:null };
+  let info={ known:false, latestOrder:null, count:null, spent:null, city:null };
   try{
-    const d=await gql('query($q:String!){ orders(first:1, query:$q, sortKey:CREATED_AT, reverse:true){ edges { node { name } } } customers(first:1, query:$q){ edges { node { id numberOfOrders } } } }', { q:'email:'+email });
+    const d=await gql('query($q:String!){ orders(first:1, query:$q, sortKey:CREATED_AT, reverse:true){ edges { node { name } } } customers(first:1, query:$q){ edges { node { id numberOfOrders amountSpent { amount } defaultAddress { city province } } } } }', { q:'email:'+email });
     const on=(d.orders&&d.orders.edges&&d.orders.edges[0]&&d.orders.edges[0].node.name)||null;
     const cnode=(d.customers&&d.customers.edges&&d.customers.edges[0]&&d.customers.edges[0].node)||null;
-    info={ known: !!cnode || !!on, latestOrder: on, count: cnode ? Number(cnode.numberOfOrders||0) : null };
+    const addr=(cnode&&cnode.defaultAddress)||null;
+    info={ known: !!cnode || !!on, latestOrder: on, count: cnode ? Number(cnode.numberOfOrders||0) : null,
+           spent: cnode&&cnode.amountSpent ? Number(cnode.amountSpent.amount||0) : null,
+           city: addr ? (addr.city||addr.province||null) : null };
   }catch(e){}
   infoCache[email]=info; return info;
 }
@@ -76,7 +79,7 @@ async function processThread(token, tid){
   const snippet=((firstInbound&&firstInbound.bodyText)||'').replace(/\s+/g,' ').trim().slice(0,180);
   const info=await customerOrderInfo(custEmail);
   const matchedOrder=matchOrderRef(blob)||info.latestOrder||null;
-  if(customerId&&info.count!=null){ try{ await rest('customers?id=eq.'+customerId,{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({ orders_count:info.count }) }); }catch(e){} }
+  if(customerId&&(info.count!=null||info.spent!=null||info.city)){ try{ const patch={}; if(info.count!=null)patch.orders_count=info.count; if(info.spent!=null)patch.lifetime_value=info.spent; if(info.city)patch.city=info.city; await rest('customers?id=eq.'+customerId,{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify(patch) }); }catch(e){} }
   const existing=await rest('tickets?gmail_thread_id=eq.'+encodeURIComponent(tid)+'&select=id&limit=1');
   let ticketId, created=false, triage='order';
   if(existing&&existing.length){
