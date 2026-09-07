@@ -719,7 +719,11 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
           {{ editingJob.id ? 'Cancel Editing' : 'Cancel' }}
         </button>
-        <h1 class="text-2xl font-extrabold text-gray-900 mb-6">{{ editingJob.id ? 'Edit Job' : 'Post New Job' }}</h1>
+        <h1 class="text-2xl font-extrabold text-gray-900 mb-1">{{ editingJob.id ? 'Edit Job' : (cloningFrom ? 'Clone Job' : 'Post New Job') }}</h1>
+        <p v-if="cloningFrom && !editingJob.id" class="text-sm text-gray-500 mb-5">
+          Copied from <strong>{{ cloningFrom }}</strong>. Everything below is editable — change the title and details, then Save.
+        </p>
+        <div v-else class="mb-5"></div>
 
         <form @submit.prevent="saveJob" class="max-w-3xl space-y-5">
           <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
@@ -792,7 +796,13 @@
 
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Job Description <span class="text-red-500">*</span></label>
-              <div id="job-description-editor"></div>
+              <div v-show="!editorFailed" id="job-description-editor"></div>
+              <textarea v-if="editorFailed" v-model="editingJob.description" rows="12"
+                class="w-full border border-amber-300 bg-amber-50 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                placeholder="Write the job description here…"></textarea>
+              <p v-if="editorFailed" class="text-xs text-amber-700 mt-1">
+                The rich-text editor didn't load, so this is a plain text box. Your description still saves normally.
+              </p>
               <input type="hidden" v-model="editingJob.description" required>
             </div>
 
@@ -1671,36 +1681,46 @@ const app = createApp({
     }
 
     function startNewJob() {
+      cloningFrom.value = '';
       editingJob.value = { title: '', type: 'full_time', status: 'draft', description: '', employer_name: '', employer_email: '', expiry_date: '', start_date: '', hourly_rate: '', min_hours: '', questions: [] };
       view.value = 'edit-job';
     }
 
     function editJob(job) {
+      cloningFrom.value = '';
       editingJob.value = { ...job, questions: job.questions ? [...job.questions] : [] };
       selectedJob.value = job;
       view.value = 'edit-job';
     }
 
-    async function cloneJob(job) {
+    function cloneJob(job) {
       editingJob.value = {
         title: job.title + ' (Copy)',
         type: job.type,
         status: 'draft',
-        description: job.description,
+        description: job.description || '',
         employer_name: job.employer_name,
         employer_email: job.employer_email,
         expiry_date: '',
         start_date: job.start_date || '',
         hourly_rate: job.hourly_rate || '',
         min_hours: job.min_hours || '',
-        questions: job.questions ? [...job.questions] : []
+        questions: job.questions ? [...job.questions] : [],
+        // Interview setup was being dropped on clone, so a cloned job silently
+        // lost its format, address and slot spacing.
+        interview_gap_minutes: job.interview_gap_minutes || 30,
+        interview_location_type: job.interview_location_type || 'in_person',
+        interview_location_detail: job.interview_location_detail || '',
+        interview_meeting_link: job.interview_meeting_link || ''
       };
+      cloningFrom.value = job.title;
+      selectedJob.value = null;
       view.value = 'edit-job';
     }
 
     async function saveJob() {
       // Sync latest content from Quill
-      if (quillInstance) editingJob.value.description = quillInstance.root.innerHTML;
+      if (quillInstance && !editorFailed.value) editingJob.value.description = quillInstance.root.innerHTML;
       savingJob.value = true;
       jobSaveError.value = '';
       try {
@@ -1715,7 +1735,11 @@ const app = createApp({
           start_date: editingJob.value.start_date || null,
           hourly_rate: editingJob.value.hourly_rate || null,
           min_hours: editingJob.value.min_hours || null,
-          questions: editingJob.value.questions || []
+          questions: editingJob.value.questions || [],
+          interview_gap_minutes: editingJob.value.interview_gap_minutes || 30,
+          interview_location_type: editingJob.value.interview_location_type || 'in_person',
+          interview_location_detail: editingJob.value.interview_location_detail || null,
+          interview_meeting_link: editingJob.value.interview_meeting_link || null
         };
 
         if (editingJob.value.id) {
@@ -3281,6 +3305,8 @@ const app = createApp({
 
     // ============ QUILL EDITOR ============
     let quillInstance = null;
+    const editorFailed = ref(false);
+    const cloningFrom = ref('');
 
     watch(() => view.value, async (newView) => {
       if (newView === 'edit-job') {
@@ -3288,6 +3314,7 @@ const app = createApp({
         // Destroy previous instance if any
         const el = document.getElementById('job-description-editor');
         if (el) el.innerHTML = '';
+        try {
         quillInstance = new Quill('#job-description-editor', {
           theme: 'snow',
           modules: {
@@ -3306,6 +3333,13 @@ const app = createApp({
         quillInstance.on('text-change', () => {
           editingJob.value.description = quillInstance.root.innerHTML;
         });
+        editorFailed.value = false;
+        } catch (e) {
+          // Never leave the user with nowhere to type the job description.
+          console.error('Rich text editor failed to load', e);
+          quillInstance = null;
+          editorFailed.value = true;
+        }
       }
     });
 
@@ -3342,7 +3376,7 @@ const app = createApp({
       showAddConnection, savingConnection, connError, connForm, connFile, connFileInput,
       openConnections, addToConnections, startNewConnection, submitConnection,
       pickConnFile, onConnFileChosen, clearConnFile, saveConnectionNote, deleteConnection,
-      login, logout, openJob, editJob, cloneJob, startNewJob, saveJob, deleteJob,
+      login, logout, openJob, editJob, cloneJob, startNewJob, saveJob, deleteJob, editorFailed, cloningFrom,
       openApplicant, updateStatus, saveNote, noteSaved, viewResume, loadResumePreview,
       sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection, confirmBulkRejection,
       openInterviewSlots, addSlot, deleteSlot, getSlotTime,
