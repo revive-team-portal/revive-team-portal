@@ -130,7 +130,7 @@
 
         <!-- Filter tabs -->
         <div class="flex gap-1 mb-6 bg-white border border-gray-200 rounded-lg p-1 inline-flex">
-          <button v-for="f in ['all','active','draft','expired']" :key="f" @click="jobFilter = f"
+          <button v-for="f in ['all','active','draft','closed']" :key="f" @click="jobFilter = f"
             class="px-4 py-1.5 rounded-md text-sm font-semibold transition-colors capitalize"
             :class="jobFilter === f ? 'bg-brand text-white' : 'text-gray-600 hover:bg-gray-100'">
             {{ f }}
@@ -751,15 +751,10 @@
                   class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
                   <option value="draft">Draft</option>
                   <option value="active">Active</option>
-                  <option value="expired">Expired</option>
+                  <option value="closed">Closed</option>
                 </select>
               </div>
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Expiry Date</label>
-                <input v-model="editingJob.expiry_date" type="date"
-                  class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
-                <p class="text-xs text-gray-400 mt-1">Job auto-moves to Expired on this date</p>
-              </div>
+
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1.5">Employer Name</label>
                 <input v-model="editingJob.employer_name" type="text" placeholder="e.g. Jeremy Dixon"
@@ -1674,10 +1669,6 @@ const app = createApp({
         });
       }
 
-      // Auto-expire jobs past their expiry date
-      const now = new Date().toISOString().split('T')[0];
-      await sb.from('jobs').update({ status: 'expired' })
-        .eq('status', 'active').lt('expiry_date', now).not('expiry_date', 'is', null);
     }
 
     // ============ JOB MANAGEMENT ============
@@ -1740,7 +1731,7 @@ const app = createApp({
       adTextGeneratedAt.value = null;
       adTextError.value = '';
       adTextDirty.value = false;
-      editingJob.value = { title: '', type: 'full_time', status: 'draft', description: '', employer_name: '', employer_email: '', expiry_date: '', start_date: '', hourly_rate: '', min_hours: '', questions: [] };
+      editingJob.value = { title: '', type: 'full_time', status: 'draft', description: '', employer_name: '', employer_email: '', start_date: '', hourly_rate: '', min_hours: '', questions: [] };
       view.value = 'edit-job';
     }
 
@@ -1763,7 +1754,6 @@ const app = createApp({
         description: job.description || '',
         employer_name: job.employer_name,
         employer_email: job.employer_email,
-        expiry_date: '',
         start_date: job.start_date || '',
         hourly_rate: job.hourly_rate || '',
         min_hours: job.min_hours || '',
@@ -1793,7 +1783,6 @@ const app = createApp({
           description: editingJob.value.description,
           employer_name: editingJob.value.employer_name,
           employer_email: editingJob.value.employer_email,
-          expiry_date: editingJob.value.expiry_date || null,
           start_date: editingJob.value.start_date || null,
           hourly_rate: editingJob.value.hourly_rate || null,
           min_hours: editingJob.value.min_hours || null,
