@@ -410,8 +410,15 @@ async function run(qp) {
       await db('job', { method: 'POST', headers: { Prefer: 'return=minimal' },
         body: JSON.stringify([{ kind: 'runkey', status: 'open', cursor: key, note: 'backfill chain ' + (chain - 1), started_at: new Date().toISOString() }]) }).catch(() => {});
       const site = process.env.URL || 'https://team.revive.co.nz';
-      fetch(site + '/.netlify/functions/ads-video-background?k=' + key + '&limit=' + limit + '&chain=' + (chain - 1), { method: 'POST' }).catch(() => {});
-      out.chained = chain - 1;
+      // Await it. Lambda freezes the container the moment the handler returns,
+      // which silently drops any request still in flight — the first attempt at
+      // chaining looked like it worked (the kick was logged) and went nowhere.
+      // A background function answers 202 straight away, so this costs nothing.
+      try {
+        const r = await fetch(site + '/.netlify/functions/ads-video-background?k=' + key + '&limit=' + limit + '&chain=' + (chain - 1), { method: 'POST' });
+        out.chained = chain - 1;
+        out.chain_http = r.status;
+      } catch (e) { out.chain_error = String(e.message || e).slice(0, 150); }
     }
   }
   return out;
