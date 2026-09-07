@@ -75,9 +75,11 @@ Return ONLY JSON:
 }
 
 // --- a still ad -------------------------------------------------------------
-async function tagStill(model, frame) {
+async function tagStill(model, frame, isVideoFrame) {
   const content = [{ type: 'text', text:
-`This is a single still image ad.
+`${isVideoFrame
+  ? 'This is the poster frame of a VIDEO ad. You are seeing one frame only — the rest of the video is not available. Judge only what this frame shows and do not speculate about what happens later in the video.'
+  : 'This is a single still image ad.'}
 ${TAXONOMY}
 
 Return ONLY JSON:

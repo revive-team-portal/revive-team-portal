@@ -247,6 +247,7 @@ async function doVideo(ad, cfg, modelPath) {
     spoken_words: fixed.text ? fixed.text.split(/\s+/).filter(Boolean).length : 0,
     brand_fixes: fixed.fixes || [],
     still_analysis: false,
+    analysis_scope: 'full',
     raw: { open: openTags, timeline: timeTags, whisper_segments: (tr.segments || []).slice(0, 200), note, summary: timeTags.summary || null },
   };
 
@@ -254,7 +255,7 @@ async function doVideo(ad, cfg, modelPath) {
   return { tags, frameRows, duration };
 }
 
-async function doStill(ad, cfg) {
+async function doStill(ad, cfg, isVideoFrame) {
   rmrf(WORK); fs.mkdirSync(WORK, { recursive: true });
   const url = ad.image_url || ad.thumb_url;
   if (!url) throw new Error('no image url');
@@ -264,7 +265,7 @@ async function doStill(ad, cfg) {
   const f = WORK + '/still.jpg';
   fs.writeFileSync(f, buf);
 
-  const t = await ai.tagStill(cfg.model_tagging, buf.toString('base64')).catch(e => ({ error: String(e.message || e).slice(0, 150) }));
+  const t = await ai.tagStill(cfg.model_tagging, buf.toString('base64'), !!isVideoFrame).catch(e => ({ error: String(e.message || e).slice(0, 150) }));
   const frameRows = [];
   try {
     const up = await putObject('ads/' + ad.ad_id + '/opening.jpg', buf, 'image/jpeg');
@@ -281,7 +282,9 @@ async function doStill(ad, cfg) {
     transcript: null, transcript_source: 'not_applicable',
     onscreen_text: t.onscreen_text || null, onscreen_text_source: 'vision_ocr',
     spoken_words: 0, brand_fixes: [], still_analysis: true,
-    raw: { still: t, summary: t.summary || null },
+    analysis_scope: isVideoFrame ? 'thumbnail_only' : 'full',
+    transcript_source: isVideoFrame ? 'unavailable' : 'not_applicable',
+    raw: { still: t, summary: t.summary || null, thumbnail_only: !!isVideoFrame },
   };
   rmrf(WORK);
   return { tags, frameRows, duration: null };
@@ -301,7 +304,7 @@ async function run(qp) {
     // The same film often runs as several ads across ad sets. Analyse one copy
     // per creative and let the result propagate — it is the same video, and
     // paying a vision model to watch it twice buys nothing.
-    const pool = await db('ad?analysis_state=eq.pending&media_type=in.(video,image,carousel)'
+    const pool = await db('ad?analysis_state=eq.pending&media_type=in.(video,image,carousel,video_locked)'
       + '&order=created_time.desc&limit=' + (limit * 6) + '&select=*') || [];
     const seen = new Set(); ads = [];
     for (const a of pool) {
@@ -325,7 +328,10 @@ async function run(qp) {
     const t0 = Date.now();
     try {
       const isVideo = ad.media_type === 'video' && ad.readable_video_id;
-      const res = isVideo ? await doVideo(ad, cfg, modelPath) : await doStill(ad, cfg);
+      // A locked ad still has a poster frame and its copy. Judging it on those
+      // is worth more than a blank tile, as long as the tile says so.
+      const thumbOnly = ad.media_type === 'video_locked';
+      const res = isVideo ? await doVideo(ad, cfg, modelPath) : await doStill(ad, cfg, thumbOnly);
 
       // Judgement call, with performance as context.
       const perf = await db('ad_perf?ad_id=eq.' + encodeURIComponent(ad.ad_id) + '&select=win,spend,impressions,purchases_1d_click,purchases_7d_click,purchases_1d_view,purchases_meta,value_7d_click,value_meta,cpa_meta,cpa,roas_meta,roas,ctr,hook_rate,hold_rate,active_days').catch(() => []);

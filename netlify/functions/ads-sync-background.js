@@ -125,8 +125,11 @@ async function run(opts) {
     // Analysis state: only ever move an ad forward.
     let analysis_state, analysis_note = null;
     if (prev && prev.analysis_state === 'done') analysis_state = 'done';
-    else if (media_type === 'video_locked') { analysis_state = 'unavailable';
-      analysis_note = 'Ad points at an already-published Facebook post, so Meta will not release the video to an ads_read token.'; }
+    else if (media_type === 'video_locked') {
+      // The video itself is out of reach, but the poster frame and copy are not,
+      // so these are queued for a thumbnail-only pass rather than written off.
+      analysis_state = (prev && prev.analysis_state === 'unavailable') ? 'pending' : (prev ? prev.analysis_state : 'pending');
+      analysis_note = 'Video not released by Meta; judged from the poster frame and copy.'; }
     else if (media_type === 'video' || media_type === 'image' || media_type === 'carousel') analysis_state = 'pending';
     else { analysis_state = 'not_applicable'; analysis_note = 'No image or video creative found on this ad.'; }
 

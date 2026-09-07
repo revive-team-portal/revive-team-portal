@@ -64,6 +64,7 @@ async function payload() {
         visible_claims: t.visible_claims, subtitles_present: t.subtitles_present,
         hook_words: t.hook_words, transcript: t.transcript, transcript_source: t.transcript_source,
         onscreen_text: t.onscreen_text, spoken_words: t.spoken_words, still_analysis: t.still_analysis,
+        analysis_scope: t.analysis_scope,
         scores: t.scores, score_notes: t.score_notes, observations: t.observations,
         recommendation: t.recommendation,
         summary: (t.raw && t.raw.summary) || null,
