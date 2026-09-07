@@ -79,7 +79,7 @@ function attribute(inv, imap) {
   if (/farro/i.test(cname)) {
     const sl = lines.find(l => !l.ItemCode && (l.Description || '').trim());
     const raw = firstDescLine(sl ? sl.Description : (lines[0] || {}).Description);
-    const loc = raw.replace(/^farro\s+/i, '').trim();
+    const loc = raw.replace(/^farro(?:\s+fresh)?\s+/i, '').trim();
     if (!loc || /wopples/i.test(loc)) return { store_name: cname, source: 'farro' };
     return { store_name: 'Farro ' + titleCase(loc), source: 'farro' };
   }
