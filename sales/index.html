@@ -208,12 +208,13 @@
               </td>
               <td class="px-3 py-2.5 align-top"><span class="text-sm font-semibold text-stone-700">{{ eventCount(s.id) }}</span></td>
               <td class="px-3 py-2.5 align-top"><span class="text-sm" :class="(daysSinceEvent(s.id)!==null && daysSinceEvent(s.id)>=30)?'text-amber-600 font-semibold':'text-stone-500'">{{ daysEventLabel(s.id) }}</span></td>
-              <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs cursor-pointer" @click="openStore(s)">
-                <template v-if="storeSales(s)">
-                  <p class="font-bold text-emerald-700 text-sm leading-tight">{{ fmtMoney(storeSales(s).total) }}</p>
-                  <p class="text-stone-500 leading-tight">{{ storeSales(s).orders }} order{{ storeSales(s).orders===1?'':'s' }}</p>
-                  <p class="text-stone-400 leading-tight">last {{ salesDateLabel(storeSales(s).last) }}<span v-if="storeSales(s).gap!=null"> · ~{{ storeSales(s).gap }}d</span></p>
-                </template>
+              <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs cursor-pointer whitespace-nowrap" @click="openStore(s)" style="width:1%">
+                <div v-if="storeSales(s)" class="inline-block rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 leading-snug">
+                  <div class="font-bold text-emerald-700 text-sm">{{ fmtMoney(storeSales(s).total) }}</div>
+                  <div class="text-stone-500">{{ storeSales(s).orders }} order{{ storeSales(s).orders===1?'':'s' }}</div>
+                  <div class="text-stone-400">Last: {{ salesDateLabel(storeSales(s).last) }}</div>
+                  <div v-if="storeSales(s).gap!=null" class="text-stone-400">Every ~{{ storeSales(s).gap }} days</div>
+                </div>
                 <span v-else class="text-stone-300">—</span>
               </td>
               <td class="px-3 py-2.5 hidden xl:table-cell align-top text-xs">
