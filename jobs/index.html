@@ -462,6 +462,37 @@
         </div>
       </div>
 
+      <!-- Shareable ad text -->
+      <div v-if="view==='job-detail'" class="px-6 pb-6">
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <div>
+              <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wider">Ad text for Facebook &amp; job boards</h3>
+              <p class="text-xs text-gray-500">Plain text with the apply link &mdash; copy and paste it straight in.</p>
+            </div>
+            <div class="flex gap-2">
+              <button @click="generateAdText(true)" :disabled="adTextLoading"
+                class="border border-gray-200 hover:border-brand text-gray-600 hover:text-brand px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50">
+                {{ adText ? 'Rewrite' : 'Write the ad' }}
+              </button>
+              <button v-if="adText" @click="copyAdText"
+                class="bg-brand hover:bg-brand-dark text-white px-4 py-1.5 rounded-lg text-xs font-bold">
+                {{ adCopied ? '\u2713 Copied' : 'Copy' }}
+              </button>
+            </div>
+          </div>
+
+          <p v-if="adTextLoading" class="text-sm text-gray-500 py-4">Writing the ad&#8230;</p>
+          <p v-else-if="adTextError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{{ adTextError }}</p>
+          <textarea v-else-if="adText" v-model="adText" rows="18"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 leading-relaxed focus:outline-none focus:ring-1 focus:border-brand"></textarea>
+          <p v-else class="text-sm text-gray-400 py-4">
+            Click <strong>Write the ad</strong> to generate copy from this job's description.
+          </p>
+          <p v-if="adText" class="text-xs text-gray-400 mt-1.5">Edit it here before copying &mdash; changes aren't saved.</p>
+        </div>
+      </div>
+
       <!-- ===== APPLICANT DETAIL ===== -->
       <div v-if="view==='applicant-detail' && selectedApplicant" class="p-6">
         <button @click="view='job-detail'" class="flex items-center gap-1 text-sm text-gray-500 hover:text-brand mb-4 transition-colors">
@@ -1380,6 +1411,10 @@ const app = createApp({
     const galleryPhotos = ref([]);
     const analysing = ref({});
     const docPreviews = ref([]);
+    const adText = ref('');
+    const adTextLoading = ref(false);
+    const adTextError = ref('');
+    const adCopied = ref(false);
     const loadingPreviews = ref(false);
     const ticked = ref({});
     const showDeleted = ref(false);
@@ -1630,6 +1665,8 @@ const app = createApp({
 
     // ============ JOB MANAGEMENT ============
     async function openJob(job) {
+      adText.value = '';
+      adTextError.value = '';
       selectedJob.value = job;
       view.value = 'job-detail';
       loadApplicants(job.id);
@@ -2627,6 +2664,43 @@ const app = createApp({
       openApplicant(app);
     }
 
+    // Plain-text advert for social posts and job boards.
+    async function generateAdText(force) {
+      if (!selectedJob.value) return;
+      if (adText.value && !force) return;
+      adTextLoading.value = true;
+      adTextError.value = '';
+      try {
+        const res = await fetch('https://jobs.revive.co.nz/.netlify/functions/job-ad-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job_id: selectedJob.value.id })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.text) throw new Error(data.error || 'Could not generate the ad text');
+        adText.value = data.text;
+      } catch (e) {
+        adTextError.value = e.message || String(e);
+      } finally {
+        adTextLoading.value = false;
+      }
+    }
+
+    async function copyAdText() {
+      try {
+        await navigator.clipboard.writeText(adText.value);
+      } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = adText.value;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e2) {}
+        document.body.removeChild(ta);
+      }
+      adCopied.value = true;
+      setTimeout(() => { adCopied.value = false; }, 2000);
+    }
+
     async function openInterviewSlots() {
       const j = selectedJob.value || {};
       interviewDefaults.value = {
@@ -3422,7 +3496,8 @@ const app = createApp({
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatReceived, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
-      keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews, analysing, analyseApplication, applicationAnswers, shortQuestion,
+      keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews,
+      adText, adTextLoading, adTextError, adCopied, generateAdText, copyAdText, analysing, analyseApplication, applicationAnswers, shortQuestion,
       coverText, coverIsUploaded, cvText, cvBlurb, docsPending, cvHighlight, oneLine,
       countryList, isApplicationForm, appointmentTime,
       deleteApplication, uploadDocForApp, handleDocUpload, submitAddApplicant,
