@@ -16,7 +16,7 @@ const API = 'https://api.xero.com';
 
 // accounting.reports.read is what the BankStatement report needs; settings gets the
 // bank account list; transactions is the cross-check against entered transactions.
-const SCOPES = 'openid profile email offline_access accounting.transactions.read accounting.contacts.read accounting.settings.read accounting.reports.read accounting.journals.read accounting.attachments.read';
+const SCOPES = 'openid profile email offline_access accounting.transactions.read accounting.contacts.read accounting.settings.read accounting.reports.read';
 
 let _access = null; // { token, exp } cached in warm-container scope only
 
