@@ -71,6 +71,14 @@ async function run(opts) {
   ]);
   out.insights = { lifetime: life.rows.length, last7_daily: last7d.rows.length, last28: last28.rows.length,
     errors: [life.error, last7d.error, last28.error].filter(Boolean) };
+  // A window that came back empty because Meta refused is not the same as a
+  // window with no data — say so loudly rather than writing partial numbers
+  // and calling the run a success.
+  out.incomplete_windows = [
+    life.error ? 'lifetime: ' + life.error : null,
+    last7d.error ? 'last7: ' + last7d.error : null,
+    last28.error ? 'last28: ' + last28.error : null,
+  ].filter(Boolean);
 
   // Roll the daily 7-day rows up per ad, counting the days that actually ran.
   const last7 = {};
@@ -175,6 +183,7 @@ exports.handler = async (event) => {
   let out, ok = true;
   try { out = await run({}); }
   catch (e) { ok = false; out = { error: String((e && e.message) || e).slice(0, 500), stack: String((e && e.stack) || '').slice(0, 800) }; }
+  if (ok && out.incomplete_windows && out.incomplete_windows.length) ok = false;
   await log('ads-sync', ok, out);
   return { statusCode: ok ? 200 : 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out) };
 };

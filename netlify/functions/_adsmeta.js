@@ -21,23 +21,37 @@ async function graph(path, qs) {
   return { http: res.status, json: j, err: j.error ? String(j.error.message || '').slice(0, 220) : null };
 }
 
-// Page an edge, backing the page size off when Meta complains the payload is
-// too big (a function of fields x limit, not of the total result set).
+// Page an edge. Two different failures need two different answers:
+//   * "reduce the amount of data" is about payload size — back the page size off.
+//   * "Service temporarily unavailable" / rate limiting is about timing — wait
+//     and try the same call again. Shrinking the page there just makes more
+//     calls into an API that is already asking us to slow down. The lifetime
+//     insights call was silently lost to this while the backfill was running.
+const TRANSIENT = /temporarily unavailable|rate limit|please reduce the number|user request limit|too many calls|\(#17\)|\(#4\)|\(#341\)|an unexpected error/i;
+const OVERSIZED = /reduce the amount of data|an unknown error occurred/i;
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 async function pageAll(path, qs, startLimit, maxPages) {
   const limits = [startLimit || 50, 25, 10, 5];
   let lastErr = null;
   for (const lim of limits) {
-    let url = GRAPH + '/' + path + '?' + qs + '&limit=' + lim + '&access_token=' + encodeURIComponent(TOKEN);
-    const all = []; let err = null; let pages = 0;
-    for (let i = 0; i < (maxPages || 120) && url; i++) {
-      const r = await fetch(url); const j = await r.json().catch(() => ({}));
-      if (j.error) { err = String(j.error.message || '').slice(0, 220); break; }
-      (j.data || []).forEach(d => all.push(d)); pages++;
-      url = (j.paging && j.paging.next) ? j.paging.next : null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (attempt) await sleep(attempt * 8000);
+      let url = GRAPH + '/' + path + '?' + qs + '&limit=' + lim + '&access_token=' + encodeURIComponent(TOKEN);
+      const all = []; let err = null; let pages = 0;
+      for (let i = 0; i < (maxPages || 120) && url; i++) {
+        const r = await fetch(url);
+        const j = await r.json().catch(() => ({}));
+        if (j.error) { err = String(j.error.message || '').slice(0, 220); break; }
+        (j.data || []).forEach(d => all.push(d)); pages++;
+        url = (j.paging && j.paging.next) ? j.paging.next : null;
+      }
+      if (!err) return { rows: all, pages, error: null, limit_used: lim, attempts: attempt + 1 };
+      lastErr = err;
+      if (TRANSIENT.test(err)) continue;          // same page size, just wait
+      if (OVERSIZED.test(err)) break;             // smaller page size
+      return { rows: all, pages, error: err, limit_used: lim };
     }
-    if (!err) return { rows: all, pages, error: null, limit_used: lim };
-    lastErr = err;
-    if (!/reduce the amount of data|unknown error/i.test(err)) return { rows: all, pages, error: err, limit_used: lim };
   }
   return { rows: [], pages: 0, error: lastErr, limit_used: null };
 }
