@@ -201,9 +201,14 @@ Each ad carries identity (`ad_id`, `ad_name`, `campaign_name`, `adset_name`,
   valid field on v21. `hook_rate_basis` records which numerator was used.
 - **Hold rate = ThruPlays ÷ 3-second plays.** `thruplay_rate` (ThruPlays ÷
   impressions) is stored separately for when you want the Ads Manager figure.
-- **ROAS = 7-day-click purchase value ÷ spend. CPA = spend ÷ 7-day-click
-  purchases.** Both use the click window deliberately; blending in view-through
-  flatters everything.
+- **Purchases, CPA and ROAS headline on Meta's own default: 7-day click + 1-day
+  view** (`purchases_meta`, `cpa_meta`, `roas_meta`), so the app agrees with the
+  Ads Manager screen. The click-only pair (`purchases_7d_click`, `cpa`, `roas`)
+  is stored alongside and shown as the grey second line on every tile — the same
+  ads judged on people who actually clicked. Keep both; they answer different
+  questions, and the gap between them is itself a signal. On the 164x set the
+  view-through share ranges from 38% (164d) to 64% (164c), which flips 164c from
+  the worst CPA of the four to the best.
 - Grouped tiles re-derive rates from summed numerators and denominators, never
   by averaging per-ad percentages.
 
@@ -229,6 +234,11 @@ bar. **The actual fix is a permission**, not more code: a token with Page access
 
 - The Meta account runs on `Etc/GMT+12`, one day behind NZ. Derive the offset
   live; never hardcode it.
+- Meta throws two different kinds of error and they need opposite responses.
+  "reduce the amount of data" is about payload size — shrink the page. "Service
+  temporarily unavailable" and rate-limit errors are about timing — wait and
+  retry the same call. `_adsmeta.pageAll` does both. Getting this wrong silently
+  dropped a whole insights window mid-backfill and still logged success.
 - The `/ads` edge 500s ("reduce the amount of data", or a bare "unknown error")
   once fields × page size gets fat. List light, then fill creative in via
   `?ids=` multi-get. `_adsmeta.pageAll` backs the page size off automatically.
