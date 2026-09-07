@@ -138,7 +138,7 @@ async function run(qp) {
       const t = await r.text();
       out.embed_test.push({ ad: a.ad_name, http: r.status, bytes: t.length,
         has_video_tag: /<video/i.test(t), mentions_login: /log in|login|checkpoint/i.test(t.slice(0, 3000)),
-        has_mp4_url: /https:\\/\\/[^"']*\\.mp4/i.test(t), permalink: a.permalink });
+        has_mp4_url: /\.mp4/i.test(t), permalink: a.permalink });
     } catch (e) { out.embed_test.push({ ad: a.ad_name, error: String(e.message || e).slice(0, 120) }); }
     await new Promise(r => setTimeout(r, 400));
   }
