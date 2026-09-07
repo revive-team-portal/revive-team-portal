@@ -55,6 +55,11 @@ function firstDescLine(desc) {
 
 const BANNER_RE = /new world|pak\s*'?\s*n\s*save|paknsave|four\s*square|fresh\s*choice|raeward|gilmours|trents/i;
 
+function titleCase(s){ return String(s||'').toLowerCase().split(/\s+/).filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '); }
+
+function isBookLine(l){ return String(l.AccountCode||'')==='200' || /cookbook|cook:?\s*30|isbn|revive cafe cookbook/i.test(l.Description||''); }
+function productTotal(inv){ let t=0; for(const l of (inv.LineItems||[])){ if(isBookLine(l)) continue; const net=Number(l.LineAmount)||0, tax=Number(l.TaxAmount)||0; t+=net+tax; } return Math.round(t*100)/100; }
+
 function attribute(inv, imap) {
   const cname = (inv.Contact && inv.Contact.Name) || '';
   const lines = inv.LineItems || [];
@@ -70,6 +75,13 @@ function attribute(inv, imap) {
     }
     if (!sname) sname = firstDescLine((lines[0] || {}).Description);
     return { store_name: sname || cname, source: 'foodstuffs' };
+  }
+  if (/farro/i.test(cname)) {
+    const sl = lines.find(l => !l.ItemCode && (l.Description || '').trim());
+    const raw = firstDescLine(sl ? sl.Description : (lines[0] || {}).Description);
+    const loc = raw.replace(/^farro\s+/i, '').trim();
+    if (!loc || /wopples/i.test(loc)) return { store_name: cname, source: 'farro' };
+    return { store_name: 'Farro ' + titleCase(loc), source: 'farro' };
   }
   return { store_name: cname, source: 'direct' };
 }
@@ -145,6 +157,8 @@ async function runSync(opts = {}) {
       if (!KEEP.has(String(inv.Status || '').toUpperCase())) continue;
       const date = xInvoiceDate(inv);
       if (!date) continue;
+      const pt = productTotal(inv);
+      if (pt <= 0) continue;                 // cookbook-only / no Wopples value -> excluded
       const a = attribute(inv, imap);
       rows.push({
         invoice_id: inv.InvoiceID,
@@ -158,7 +172,7 @@ async function runSync(opts = {}) {
         org: org.tenantName,
         tenant_id: org.tenantId,
         order_date: date,
-        total: Math.round((Number(inv.Total) || 0) * 100) / 100,
+        total: pt,
         status: String(inv.Status || '').toUpperCase(),
         synced_at: new Date().toISOString(),
       });
