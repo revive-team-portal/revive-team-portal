@@ -104,7 +104,7 @@ function panelHTML(id){
     const sbtn=(k,l)=>'<button onclick="setSort(\''+k+'\')" class="text-xs px-2 py-0.5 rounded border '+(so===k?'bg-stone-700 text-white border-stone-700':'bg-white text-stone-600 border-stone-300 hover:bg-stone-50')+'">'+l+'</button>';
     return '<div id="trackingBar" class="mb-3">'+(window.TRACKING_HTML||'<div class="text-stone-400 text-xs">Loading 14-day tracking…</div>')+'</div>'+'<div id="analyticsBar" class="mb-3">'+(window.ANALYTICS_HTML||'<div class="text-stone-400 text-xs">Loading analytics…</div>')+'</div>'+'<div class="flex items-center justify-between mb-3 flex-wrap gap-2"><h2 class="text-xl font-bold">Inbox</h2><div class="flex gap-2"><button onclick="openNewTicket()" class="text-xs bg-stone-800 hover:bg-stone-900 text-white px-3 py-1.5 rounded-lg">＋ New ticket</button><button onclick="syncInbox(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">⟳ Sync</button><button onclick="queueCourier(window.LAST_TICKETS,true)" class="text-xs border border-stone-300 text-stone-600 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ NZ Post</button></div></div>'
       + '<div id="fulfilReport" class="mb-4">'+(window.FULFIL_HTML||'<div class="text-stone-400 text-xs">Loading fulfilment report…</div>')+'</div>'
-      + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+'<button onclick="setFilter(\'escalate\')" class="text-xs px-2.5 py-1 rounded-full border '+(f==='escalate'?'bg-red-600 text-white border-red-600':'bg-white text-red-600 border-red-300 hover:bg-red-50')+'">🚑 Escalate<span id="escCount">'+(window.ESC_COUNT?(' '+window.ESC_COUNT):'')+'</span></button>'+btn('done','✓ Done')+'</div>'
+      + '<div class="flex flex-wrap gap-2 mb-2">'+btn('open','All open')+btn('order','📦 Order')+btn('enquiry','💬 Enquiry')+btn('misc','🗂️ Misc')+btn('unknown','❓ Unsure')+'<button onclick="setFilter(\'overdue\')" class="text-xs px-2.5 py-1 rounded-full border '+(f==='overdue'?'bg-orange-600 text-white border-orange-600':'bg-white text-orange-700 border-orange-300 hover:bg-orange-50')+'">⏰ Overdue<span id="odCount">'+(window.OD_COUNT?(' '+window.OD_COUNT):'')+'</span></button>'+'<button onclick="setFilter(\'escalate\')" class="text-xs px-2.5 py-1 rounded-full border '+(f==='escalate'?'bg-red-600 text-white border-red-600':'bg-white text-red-600 border-red-300 hover:bg-red-50')+'">🚑 Escalate<span id="escCount">'+(window.ESC_COUNT?(' '+window.ESC_COUNT):'')+'</span></button>'+btn('done','✓ Done')+'</div>'
       + '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs text-stone-400">Sort:</span>'+sbtn('date','Date')+sbtn('stars','★ Stars')+sbtn('order','Order #')+'<span id="syncMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + '<div id="bulkBar" class="mb-2"></div>'
       + '<div id="ticketList"><div class="text-stone-400 text-sm">Loading…</div></div>';
@@ -164,7 +164,15 @@ function panelHTML(id){
   if(id==='settings'){
     return '<h2 class="text-xl font-bold mb-1">Settings</h2><p class="text-stone-500 text-sm mb-4">Best-answer library, reason codes, SLA thresholds, tags, connections, roles.</p>'
       + card('AI reply tone — editable (steers every ✨ draft)', '<textarea id="setTone" rows="6" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')
-      + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')      + card('Analytics targets', '<div class="grid grid-cols-2 gap-2 text-xs"><label>Resolved / day<input id="anaResolved" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Outstanding max<input id="anaOutstanding" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Fulfilled / day<input id="anaFulfilled" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Resends / day<input id="anaResends" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>1st response hours<input id="anaResponse" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label></div>')
+      + card('Reply footer — editable (appended to every reply)', '<textarea id="setFooter" rows="4" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>')      + card('Auto holding reply for overdue tickets — editable', '<p class="text-xs text-stone-500 mb-2">If a ticket is still waiting on us past the SLA, this email is sent back automatically in the same thread, the ticket gets a \u23F3 tag and it shows as \u23F0 OVERDUE in the Inbox. Sent once per ticket only, never on a Saturday or Sunday, and weekend hours are not counted towards the clock.</p>'
+        + '<div class="flex flex-wrap gap-3 items-end mb-2 text-xs">'
+        + '<label class="flex items-center gap-1"><input type="checkbox" id="hrEnabled" class="accent-teal-600"> enabled</label>'
+        + '<label>Business hours before sending<input id="hrHours" type="number" min="1" max="200" class="w-full border border-stone-300 rounded px-2 py-1"></label>'
+        + '<label>Send only between (NZ, 24h)<input id="hrWindow" placeholder="8-18" class="w-full border border-stone-300 rounded px-2 py-1"></label>'
+        + '</div>'
+        + '<textarea id="hrBody" rows="10" class="w-full border border-stone-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">Loading…</textarea>'
+        + '<p class="text-[11px] text-stone-400 mt-1">Use {{first_name}} for the customer\u2019s first name (falls back to \u201Cthere\u201D). The reply footer above is appended automatically.</p>'
+        + '<div class="flex flex-wrap gap-2 mt-2 items-center"><button onclick="previewHolding(this)" class="text-xs border border-stone-300 px-3 py-1.5 rounded-lg hover:bg-stone-50">\uD83D\uDC41 Preview who is due</button><button onclick="runHolding(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">\u25B6 Run now</button><span id="hrMsg" class="text-xs text-stone-500"></span></div>')      + card('Analytics targets', '<div class="grid grid-cols-2 gap-2 text-xs"><label>Resolved / day<input id="anaResolved" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Outstanding max<input id="anaOutstanding" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Fulfilled / day<input id="anaFulfilled" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>Resends / day<input id="anaResends" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label><label>1st response hours<input id="anaResponse" type="number" class="w-full border border-stone-300 rounded px-2 py-1"></label></div>')
       + '<div class="mb-4"><button onclick="saveSettings(this)" class="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save settings</button> <span id="setMsg" class="text-xs text-stone-500 ml-2"></span></div>'
       + card('Reason codes (seeded)', '<ul class="list-disc pl-5 text-sm text-stone-600 space-y-1"><li>Delivery — late / lost / damaged / wrong address</li><li>Product — quality / GF-allergen / missing / wrong item</li><li>Order — changed / cancelled / duplicate</li><li>Payment / refund</li><li>Subscription</li><li>Wholesale / enquiry</li><li>General enquiry (no fault)</li></ul>')
       + card('Spam rescue', '<p class="text-xs text-stone-500 mb-2">Legitimate emails caught in Spam are auto-rescued to the inbox every hour. Rescued emails become tickets on the next sync.</p><button onclick="spamModal()" class="text-xs bg-stone-700 hover:bg-stone-800 text-white px-3 py-1.5 rounded-lg mr-1">View spam folder</button><button onclick="checkSpam(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">Auto-rescue now</button> <span id="spamMsg" class="text-xs text-stone-500 ml-2"></span>')
@@ -250,14 +258,16 @@ async function loadTickets(){
   const f=window.FILTER||'open';
   let req;
   if(f==='done') req={status:'Resolved'};
+  else if(f==='overdue') req={excludeResolved:true};
   else if(f==='escalate') req={escalated:true, excludeResolved:true};
   else if(f==='open') req={excludeResolved:true, escalated:false};
   else req={type:f, excludeResolved:true, escalated:false};
   const r=await apiPost('support-tickets',req);
   if(!r.ok){ el.innerHTML='<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">'+esc((r.data&&r.data.error)||'Could not load tickets.')+'</div>'; return; }
-  const ts=sortTickets(r.data.tickets||[]);
-  if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">Nothing here — '+(f==='open'?'inbox is clear 🎉':'no tickets in this filter.')+'</div>'; window.LAST_TICKETS=ts; return; }
-  el.innerHTML=ts.map(ticketRow).join(''); window.LAST_TICKETS=ts; queueCourier(ts,false); refreshEscalateCount(); renderBulkBar();
+  let ts=sortTickets(r.data.tickets||[]);
+  if(f==='overdue') ts=ts.filter(isOverdue);
+  if(!ts.length){ el.innerHTML='<div class="text-stone-400 text-sm">Nothing here — '+(f==='open'?'inbox is clear 🎉':(f==='overdue'?'nothing is overdue 🎉':'no tickets in this filter.'))+'</div>'; window.LAST_TICKETS=ts; refreshEscalateCount(); refreshOverdueCount(); return; }
+  el.innerHTML=ts.map(ticketRow).join(''); window.LAST_TICKETS=ts; queueCourier(ts,false); refreshEscalateCount(); refreshOverdueCount(); renderBulkBar();
 }
 function setFilter(k){ window.FILTER=k; const panel=document.getElementById('panel'); if(panel) panel.innerHTML=panelHTML('dashboard'); loadTickets(); }
 function lastEvents(t){
@@ -295,7 +305,7 @@ function ticketRow(t){
     +(t.snippet?'<div class="text-xs text-stone-400 truncate">'+esc(t.snippet)+'</div>':'')+'</div>'
     +'<div class="shrink-0 self-start text-right min-w-[120px]">'+custBox(c)+'<div><span class="text-xs '+sc+' rounded-full px-2 py-0.5">'+esc(t.status||'')+'</span></div>'
     +'<div class="mt-1 flex items-center justify-end gap-1">'+tick+' '+matched+'</div>'
-    +'<div id="cs_'+t.id+'" class="mt-1">'+courierBadge(t.courier_status)+'</div>'+evHtml+'</div></div>';
+    +'<div id="cs_'+t.id+'" class="mt-1">'+courierBadge(t.courier_status)+'</div>'+overdueBadges(t)+evHtml+'</div></div>';
 }
 async function syncInbox(btn){
   const msg=document.getElementById('syncMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Syncing…';
@@ -332,7 +342,9 @@ async function openTicket(id){
   }
   panel.innerHTML='<a onclick="show(\'dashboard\')" class="text-teal-700 text-sm cursor-pointer">← Back to tickets</a>'
     +'<h2 class="text-xl font-bold mt-2 mb-1">'+esc(t.subject||'(no subject)')+'</h2>'
-    +'<p class="text-stone-500 text-sm mb-2">'+esc(c.name||'')+ratingHtml(c.orders_count)+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span></p>'
+    +'<p class="text-stone-500 text-sm mb-2">'+esc(c.name||'')+ratingHtml(c.orders_count)+' · '+esc(c.email||'')+' · <span class="bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 text-xs">'+esc(t.status||'')+'</span>'
+      +(isOverdue(Object.assign({},t,{messages:msgs}))?' <span class="bg-orange-100 text-orange-800 border border-orange-300 rounded px-1.5 py-0.5 text-xs">⏰ overdue '+Math.round(overdueHours(Object.assign({},t,{messages:msgs})))+'h</span>':'')
+      +(t.holding_reply_sent_at?' <span class="bg-violet-100 text-violet-800 border border-violet-300 rounded px-1.5 py-0.5 text-xs" title="'+esc(new Date(t.holding_reply_sent_at).toLocaleString('en-NZ'))+'">⏳ holding reply sent</span>':'')+'</p>'
     +'<div class="mb-4 flex items-center gap-2 flex-wrap">'+'<button onclick="resolveTicket(this)" class="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg">✓ Resolve &amp; archive</button>'+'<button onclick="replaceHeader()" class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-1.5 rounded-lg">↩ Replace order (free)</button>'+'<button onclick="forwardTicket()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg">➡ Forward</button>'+'<button onclick="historyModal()" class="text-xs bg-stone-600 hover:bg-stone-700 text-white font-semibold px-3 py-1.5 rounded-lg">📜 Past emails</button>'+'<button onclick="escalateTicket('+(t.escalated?'false':'true')+')" class="text-xs '+(t.escalated?'bg-stone-500 hover:bg-stone-600':'bg-red-600 hover:bg-red-700')+' text-white font-semibold px-3 py-1.5 rounded-lg">'+(t.escalated?'↩ Un-escalate':'🚑 Escalate')+'</button>'+'<span class="text-xs text-stone-400 ml-1">Type:</span>'+typeSelect(t.ticket_type)+'</div>'
     +'<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2"><div id="testiBox"></div>'+card('Conversation', thread)+replyBox()+'</div><div><div id="ticketOrders" class="text-stone-400 text-sm">Loading orders…</div>'+activityCard()+'</div></div>';
   loadActivity(); detectTestimonial(); applyFrames(); loadAttachmentImages();
@@ -510,12 +522,24 @@ async function addNote(){
 async function loadSettings(){
   const r=await apiPost('support-settings',{}); if(!r.ok) return; const st=r.data.settings||{};
   const tone=document.getElementById('setTone'), foot=document.getElementById('setFooter');
+  window.SUP_SETTINGS=st;
+  const hb=document.getElementById('hrBody'); if(hb) hb.value=st.holding_reply_body||'';
+  const he=document.getElementById('hrEnabled'); if(he) he.checked = String(st.holding_reply_enabled||'1')!=='0';
+  const hh=document.getElementById('hrHours'); if(hh) hh.value=st.holding_reply_hours||'24';
+  const hw=document.getElementById('hrWindow'); if(hw) hw.value=st.holding_reply_window||'8-18';
   if(tone) tone.value=st.ai_tone_prompt||''; if(foot) foot.value=st.reply_footer||''; const per=document.getElementById('setPerish'); if(per) per.value=st.perishable_keywords||''; try{ const tg=JSON.parse(st.analytics_targets||'{}'); const sv=(id,v)=>{ const e=document.getElementById(id); if(e&&v!=null) e.value=v; }; sv('anaResolved',tg.resolved_per_day); sv('anaOutstanding',tg.outstanding_max); sv('anaFulfilled',tg.fulfilled_per_day); sv('anaResends',tg.resends_per_day); sv('anaResponse',tg.response_hours); }catch(e){}
 }
 async function saveSettings(btn){
   const tone=(document.getElementById('setTone')||{}).value||''; const footer=(document.getElementById('setFooter')||{}).value||''; const perish=(document.getElementById('setPerish')||{}).value||''; const msg=document.getElementById('setMsg');
   if(btn) btn.disabled=true; if(msg) msg.textContent='Saving…';
-  const gv=(id)=>{ const e=document.getElementById(id); return e&&e.value!==''?Number(e.value):undefined; }; const targets=JSON.stringify({resolved_per_day:gv('anaResolved'),outstanding_max:gv('anaOutstanding'),fulfilled_per_day:gv('anaFulfilled'),resends_per_day:gv('anaResends'),response_hours:gv('anaResponse')}); const r=await apiPost('support-settings',{updates:{ai_tone_prompt:tone, reply_footer:footer, perishable_keywords:perish, analytics_targets:targets}}); window.ANALYTICS_HTML=null;
+  const gv=(id)=>{ const e=document.getElementById(id); return e&&e.value!==''?Number(e.value):undefined; }; const targets=JSON.stringify({resolved_per_day:gv('anaResolved'),outstanding_max:gv('anaOutstanding'),fulfilled_per_day:gv('anaFulfilled'),resends_per_day:gv('anaResends'),response_hours:gv('anaResponse')}); const gs=(id)=>{ const e=document.getElementById(id); return e?e.value:undefined; };
+  const upd={ai_tone_prompt:tone, reply_footer:footer, perishable_keywords:perish, analytics_targets:targets};
+  const hbE=document.getElementById('hrBody'); if(hbE) upd.holding_reply_body=hbE.value||'';
+  const heE=document.getElementById('hrEnabled'); if(heE) upd.holding_reply_enabled=heE.checked?'1':'0';
+  if(gs('hrHours')!==undefined) upd.holding_reply_hours=String(Number(gs('hrHours'))||24);
+  if(gs('hrWindow')!==undefined) upd.holding_reply_window=gs('hrWindow')||'8-18';
+  const r=await apiPost('support-settings',{updates:upd}); window.ANALYTICS_HTML=null;
+  if(r.ok&&r.data.settings) window.SUP_SETTINGS=r.data.settings;
   if(r.ok) window.PERISH_KW=perish.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
   if(btn) btn.disabled=false; if(msg) msg.textContent = r.ok ? 'Saved ✓' : ((r.data&&r.data.error)||'Save failed');
 }
@@ -526,8 +550,25 @@ function inspoNext(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=(IN
 function inspoPrev(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=(INSPO_I-1+n)%n; inspoRender(); }
 function inspoInit(){ const n=(window.SUPPORT_QUOTES||[]).length||1; INSPO_I=Math.floor(Date.now()/3600000)%n; inspoRender(); }
 async function loadPerishKw(){
-  const r=await apiPost('support-settings',{}); const kw=(r.ok&&r.data.settings&&r.data.settings.perishable_keywords)||'perishable,chilled,frozen,cold,fresh';
+  const r=await apiPost('support-settings',{}); const st=(r.ok&&r.data.settings)||{}; window.SUP_SETTINGS=st;
+  const kw=st.perishable_keywords||'perishable,chilled,frozen,cold,fresh';
   window.PERISH_KW = kw.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+  if(window.FILTER==='overdue'||document.getElementById('odCount')) refreshOverdueCount();
+}
+async function previewHolding(btn){
+  const msg=document.getElementById('hrMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Checking…';
+  const r=await apiPost('support-holding-reply',{dryRun:true, force:true}); if(btn) btn.disabled=false;
+  if(!r.ok){ if(msg) msg.textContent=(r.data&&r.data.error)||'Failed'; return; }
+  const list=(r.data.tickets||[]).map(t=>t.email+' — '+(t.subject||'(no subject)')).slice(0,20).join('\n');
+  if(msg) msg.textContent=(r.data.due||0)+' ticket(s) currently past the SLA.';
+  if(r.data.due) alert((r.data.due)+' ticket(s) are due a holding reply:\n\n'+list);
+}
+async function runHolding(btn){
+  if(!confirm('Send the holding reply now to every ticket that is past the SLA?')) return;
+  const msg=document.getElementById('hrMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Sending…';
+  const r=await apiPost('support-holding-reply',{force:true}); if(btn) btn.disabled=false;
+  if(!r.ok){ if(msg) msg.textContent=(r.data&&r.data.error)||'Failed'; return; }
+  if(msg) msg.textContent='Due '+(r.data.due||0)+' · sent '+(r.data.sent||0)+((r.data.errors&&r.data.errors.length)?(' · '+r.data.errors.length+' failed'):'')+(r.data.reason?(' ('+r.data.reason+')'):'');
 }
 async function checkSpam(btn){ const msg=document.getElementById('spamMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Checking spam…'; const r=await apiPost('support-spam-check',{}); if(btn) btn.disabled=false; if(!r.ok){ if(msg) msg.textContent=(r.data&&r.data.error)||'Failed'; return; } if(msg) msg.textContent='Checked '+(r.data.checked||0)+', rescued '+(r.data.rescued||0)+'.'; }
 async function purgeAutoreplies(btn){ const msg=document.getElementById('arMsg'); if(btn) btn.disabled=true; if(msg) msg.textContent='Purging…'; const r=await apiPost('support-autoreply-purge',{}); if(btn) btn.disabled=false; if(!r.ok){ if(msg) msg.textContent=(r.data&&r.data.error)||'Failed'; return; } if(msg) msg.textContent='Scanned '+(r.data.scanned||0)+' · '+(r.data.candidates||0)+' auto-replies · deleted '+(r.data.trashed||0)+'.'; loadTickets(); }
@@ -635,6 +676,47 @@ function ratingHtml(n){ n=Number(n)||0; if(!n) return ''; const s=orderStars(n);
 
 function ticketDateVal(t){ const lm=(t.messages||[]).reduce((mx,m)=>(m.sent_at&&(!mx||new Date(m.sent_at)>new Date(mx)))?m.sent_at:mx,null); return lm||t.created_at||t.updated_at||0; }
 function ordNum(x){ const m=(x||'').match(/\d+/); return m?parseInt(m[0],10):-1; }
+
+// ---- Overdue / holding-reply (NZ business hours, weekends excluded) ----------
+const NZTZ='Pacific/Auckland';
+function nzPartsL(d){ const p=new Intl.DateTimeFormat('en-CA',{timeZone:NZTZ,year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'}).formatToParts(d); const g=t=>p.find(x=>x.type===t).value; return {y:+g('year'),m:+g('month'),d:+g('day'),dow:g('weekday')}; }
+function nzMidL(y,m,d){ const guess=new Date(Date.UTC(y,m-1,d,0,0,0)); const asNZ=new Date(guess.toLocaleString('en-US',{timeZone:NZTZ})); return new Date(guess.getTime()-(asNZ.getTime()-guess.getTime())); }
+function midOfL(ms){ const p=nzPartsL(new Date(ms)); return +nzMidL(p.y,p.m,p.d); }
+function isWeekendL(ms){ const d=nzPartsL(new Date(ms)).dow; return d==='Sat'||d==='Sun'; }
+function bizHours(startMs, nowMs){
+  if(!startMs||startMs>=nowMs) return 0;
+  if(nowMs-startMs > 60*86400000) return (nowMs-startMs)/3600000;
+  let total=0, cur=startMs, guard=0;
+  while(cur<nowMs && guard++<90){
+    const dayStart=midOfL(cur); const next=midOfL(dayStart+36*3600000); const segEnd=Math.min(next,nowMs);
+    if(!isWeekendL(dayStart+12*3600000)) total+=segEnd-cur;
+    cur=segEnd;
+  }
+  return total/3600000;
+}
+// ms the ticket has been waiting on US (null if we replied last / it's resolved)
+function waitingSinceL(t){
+  if(t.status==='Resolved') return null;
+  const ms=(t.messages||[]).slice().sort((a,b)=>new Date(a.sent_at)-new Date(b.sent_at));
+  const last=ms[ms.length-1];
+  if(!last) return t.created_at?+new Date(t.created_at):null;
+  if(last.direction==='outbound') return null;
+  return +new Date(last.sent_at);
+}
+function slaHours(){ const v=Number((window.SUP_SETTINGS||{}).holding_reply_hours); return v>0?v:24; }
+function overdueHours(t){ const w=waitingSinceL(t); if(!w) return 0; return bizHours(w, Date.now()); }
+function isOverdue(t){ return overdueHours(t) >= slaHours(); }
+function overdueBadges(t){
+  let h='';
+  const oh=overdueHours(t);
+  if(oh>=slaHours()) h+='<span class="inline-block text-[11px] bg-orange-100 text-orange-800 border border-orange-300 rounded px-1.5 py-0.5 whitespace-nowrap" title="Waiting '+Math.round(oh)+' business hours (weekends not counted)">\u23F0 OVERDUE '+Math.round(oh)+'h</span>';
+  if(t.holding_reply_sent_at) h+=' <span class="inline-block text-[11px] bg-violet-100 text-violet-800 border border-violet-300 rounded px-1.5 py-0.5 whitespace-nowrap" title="Holding reply auto-sent '+esc(new Date(t.holding_reply_sent_at).toLocaleString('en-NZ'))+'">\u23F3 holding sent</span>';
+  return h?'<div class="mt-1">'+h+'</div>':'';
+}
+async function refreshOverdueCount(){
+  const r=await apiPost('support-tickets',{excludeResolved:true});
+  if(r.ok){ window.OD_COUNT=(r.data.tickets||[]).filter(isOverdue).length; const e=document.getElementById('odCount'); if(e) e.textContent=window.OD_COUNT?(' '+window.OD_COUNT):''; }
+}
 function sortTickets(ts){ const k=window.SORT||'date'; const arr=(ts||[]).slice();
   if(k==='stars') arr.sort((a,b)=>(((b.customer&&b.customer.orders_count)||0)-((a.customer&&a.customer.orders_count)||0)));
   else if(k==='order') arr.sort((a,b)=>ordNum(b.matched_order)-ordNum(a.matched_order));

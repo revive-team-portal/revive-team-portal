@@ -41,6 +41,11 @@
 [functions."scheduled-spam-check"]
   schedule = "0 * * * *"
 
+# Hourly: "we're a bit busy" holding reply for tickets unanswered past the SLA.
+# The engine skips weekends and the configured out-of-hours window itself.
+[functions."scheduled-holding-reply"]
+  schedule = "10 * * * *"
+
 [functions."scheduled-nzpost-alert"]
   schedule = "5 * * * *"
 
