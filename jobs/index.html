@@ -851,7 +851,7 @@
 
   <!-- ===== APPLICANT DETAIL (overlay — keeps your place in the list) ===== -->
   <div v-if="showApplicant && selectedApplicant" class="modal-overlay" @click.self="closeApplicant">
-    <div class="bg-gray-50 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
+    <div class="bg-gray-50 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col">
       <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-200 bg-white rounded-t-2xl shrink-0">
         <div class="flex items-center gap-2 min-w-0">
           <button @click="stepApplicant(-1)" :disabled="applicantIndex <= 0" title="Previous applicant"
@@ -968,11 +968,15 @@
                       class="text-xs font-semibold text-brand hover:underline shrink-0">Open</a>
                   </div>
 
-                  <iframe v-if="doc.viewer === 'pdf'" :src="doc.url + '#view=FitH'" class="w-full bg-gray-100"
-                    style="height:520px;border:0"></iframe>
+                  <!-- 'Fit' shows the whole page rather than fitting the width and
+                       cutting the bottom off. The A4 aspect ratio means the frame is
+                       already the right shape, so nothing scrolls inside it. -->
+                  <iframe v-if="doc.viewer === 'pdf'" :src="doc.url + '#view=Fit&toolbar=1'"
+                    class="w-full bg-gray-100"
+                    :style="{ border: 0, height: pdfHeight + 'px' }"></iframe>
 
                   <img v-else-if="doc.viewer === 'image'" :src="doc.url" :alt="doc.filename"
-                    class="w-full bg-gray-100" style="max-height:620px;object-fit:contain">
+                    class="w-full bg-gray-100" :style="{ maxHeight: pdfHeight + 'px', objectFit: 'contain' }">
 
                   <div v-else class="px-3 py-4 text-sm text-gray-500">
                     {{ doc.filename.split('.').pop().toUpperCase() }} files can't be previewed here &mdash;
@@ -1448,6 +1452,18 @@ const app = createApp({
     const adTextSaved = ref(false);
     const adTextGeneratedAt = ref(null);
     const loadingPreviews = ref(false);
+    const viewportH = ref(typeof window !== 'undefined' ? window.innerHeight : 900);
+    const viewportW = ref(typeof window !== 'undefined' ? window.innerWidth : 1400);
+
+    // Height that shows a full A4 page without an inner scrollbar: match the
+    // page's own proportions, but never taller than the space the overlay has.
+    const pdfHeight = computed(() => {
+      const overlayW = Math.min(viewportW.value * 0.95, 1280);   // max-w-7xl
+      const frameW = Math.max(320, overlayW - 90);               // padding + borders
+      const a4 = Math.round(frameW * 1.414);                     // A4 is 1:1.414
+      const room = Math.round(viewportH.value * 0.95) - 150;     // header + chrome
+      return Math.max(420, Math.min(a4, room));
+    });
     const ticked = ref({});
     const showDeleted = ref(false);
     const connections = ref([]);
@@ -3460,6 +3476,10 @@ const app = createApp({
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && showApplicant.value) closeApplicant();
       });
+      window.addEventListener('resize', () => {
+        viewportH.value = window.innerHeight;
+        viewportW.value = window.innerWidth;
+      });
     });
 
     onMounted(async () => {
@@ -3626,7 +3646,7 @@ const app = createApp({
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatReceived, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
-      keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews,
+      keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews, pdfHeight,
       adText, adTextLoading, adTextError, adCopied, generateAdText, copyAdText,
       applyUrl, copyApplyUrl, linkCopied, adTextDirty, adTextSaved, adTextGeneratedAt, saveAdText, analysing, analyseApplication, applicationAnswers, shortQuestion,
       coverText, coverIsUploaded, cvText, cvBlurb, docsPending, cvHighlight, oneLine,
