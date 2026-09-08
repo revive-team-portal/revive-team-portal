@@ -69,14 +69,14 @@
       out += cell(box('Shopify', P.shopify != null ? money0(P.shopify) + (P.shopifyOrders != null ? ' · ' + Number(P.shopifyOrders).toLocaleString() : '') : '—', P.shopifyF));
       out += cell(box('Meta', metaVal(P.metaSpend, P.metaPct, P.metaAcq, P.metaCpa), P.metaF));
       out += cell(box('Fulfilled', P.fulfilled != null ? Number(P.fulfilled).toLocaleString() : '—', P.fulfilledF));
-      out += cell(box('New jobs', P.newjobs != null ? Number(P.newjobs).toLocaleString() : '—', P.newjobsF));
+      out += P.skipNewjobs ? cell('') : cell(box('New jobs', P.newjobs != null ? Number(P.newjobs).toLocaleString() : '—', P.newjobsF));
       return out;
     }
     if (store.sales == null && store.shopify_today == null && store.meta_today == null && store.new_job_apps == null) return;
     var today = { sales: store.sales, salesF: 'sales', covers: store.covers, coversF: 'covers', shopify: store.shopify_today, shopifyOrders: store.shopify_today_orders, shopifyF: 'shopify_today', metaSpend: store.meta_today, metaPct: store.meta_today_pct, metaAcq: store.meta_acq_today, metaCpa: store.meta_cpa_today, metaF: 'meta_today', fulfilled: store.orders_fulfilled_today, fulfilledF: 'orders_fulfilled_today', newjobs: store.new_job_apps, newjobsF: 'new_job_apps' };
     var yPct = (store.meta_yest != null && store.shopify_yest > 0) ? Math.round(store.meta_yest / store.shopify_yest * 100) : null;
-    var yest = { sales: store.cafe_sales_y, covers: store.cafe_covers_y, shopify: store.shopify_yest, shopifyOrders: store.shopify_yest_orders, metaSpend: store.meta_yest, metaPct: yPct, metaAcq: store.meta_acq_yest, metaCpa: store.meta_cpa_yest, fulfilled: store.orders_fulfilled_yest, newjobs: store.new_job_apps_yest };
-    var week = { sales: store.cafe_sales_w, covers: store.cafe_covers_w, shopify: store.shopify_week, shopifyOrders: store.shopify_week_orders, metaSpend: store.meta_week, metaPct: store.meta_week_pct, metaAcq: store.meta_acq_week, metaCpa: store.meta_cpa_week, fulfilled: store.orders_fulfilled_week, newjobs: store.new_job_apps_week };
+    var yest = { skipNewjobs: true, sales: store.cafe_sales_y, covers: store.cafe_covers_y, shopify: store.shopify_yest, shopifyOrders: store.shopify_yest_orders, metaSpend: store.meta_yest, metaPct: yPct, metaAcq: store.meta_acq_yest, metaCpa: store.meta_cpa_yest, fulfilled: store.orders_fulfilled_yest, newjobs: store.new_job_apps_yest };
+    var week = { skipNewjobs: true, sales: store.cafe_sales_w, covers: store.cafe_covers_w, shopify: store.shopify_week, shopifyOrders: store.shopify_week_orders, metaSpend: store.meta_week, metaPct: store.meta_week_pct, metaAcq: store.meta_acq_week, metaCpa: store.meta_cpa_week, fulfilled: store.orders_fulfilled_week, newjobs: store.new_job_apps_week };
     var proj = (nzMin() >= HALF_MIN && store.sales_1245 > 0);
     var extra = box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : ' ', proj ? 'sales' : null);
     if (store.orders_to_fulfil != null) extra += box('To fulfil', (store.orders_to_fulfil || 0).toLocaleString(), 'orders_to_fulfil');

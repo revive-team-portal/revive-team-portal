@@ -10,11 +10,35 @@ function nzOffMin() { try { const p = new Intl.DateTimeFormat('en-US', { timeZon
 
 async function orderCounts() {
   try {
-    const { today, weekStart } = todayAndWeekStart();
-    const y = nzYesterdayStr();
-    const d = await gql('{ a: ordersCount(query:"fulfillment_status:unfulfilled status:open"){ count } b: ordersCount(query:"fulfillment_status:fulfilled updated_at:>=' + today + '"){ count } c: ordersCount(query:"fulfillment_status:fulfilled updated_at:>=' + y + ' updated_at:<' + today + '"){ count } e: ordersCount(query:"fulfillment_status:fulfilled updated_at:>=' + weekStart + '"){ count } }');
-    return { orders_to_fulfil: d && d.a ? d.a.count : null, orders_fulfilled_today: d && d.b ? d.b.count : null, orders_fulfilled_yest: d && d.c ? d.c.count : null, orders_fulfilled_week: d && d.e ? d.e.count : null };
-  } catch (e) { return { orders_to_fulfil: null, orders_fulfilled_today: null, orders_fulfilled_yest: null, orders_fulfilled_week: null }; }
+    const d = await gql('{ a: ordersCount(query:"fulfillment_status:unfulfilled status:open"){ count } }');
+    return { orders_to_fulfil: d && d.a ? d.a.count : null };
+  } catch (e) { return { orders_to_fulfil: null }; }
+}
+// Orders actually FULFILLED per period, bucketed by the real fulfillment date (NZ),
+// not updated_at (which is unreliable for past days). Each order counts on the day of
+// its earliest fulfillment, so today+yesterday+earlier-this-week add up to week-to-date.
+async function fulfilledCounts() {
+  try {
+    const today = nzToday();
+    const yest = nzYesterdayStr();
+    const { weekStart } = todayAndWeekStart();
+    const floor = yest < weekStart ? yest : weekStart;
+    const Q = 'query($q:String!,$after:String){ orders(first:100, query:$q, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ fulfillments(first:10){ createdAt } } } }';
+    let after = null, tD = 0, tY = 0, tW = 0;
+    for (let g = 0; g < 40; g++) {
+      const r = await gql(Q, { q: 'fulfillment_status:fulfilled updated_at:>=' + floor, after });
+      const o = r && r.orders; if (!o) break;
+      for (const n of o.nodes) {
+        const fs = ((n && n.fulfillments) || []).map(x => x && x.createdAt).filter(Boolean);
+        if (!fs.length) continue;
+        const day = fs.map(c => NZ.format(new Date(c))).sort()[0];
+        if (day === today) tD++; else if (day === yest) tY++;
+        if (day >= weekStart && day <= today) tW++;
+      }
+      if (!o.pageInfo.hasNextPage) break; after = o.pageInfo.endCursor;
+    }
+    return { orders_fulfilled_today: tD, orders_fulfilled_yest: tY, orders_fulfilled_week: tW };
+  } catch (e) { return { orders_fulfilled_today: null, orders_fulfilled_yest: null, orders_fulfilled_week: null }; }
 }
 function todayAndWeekStart() {
   const today = nzToday();
@@ -78,22 +102,9 @@ async function outstandingTickets() {
   catch (e) { return { outstanding_tickets: null }; }
 }
 async function newJobApps() {
-  const H = { 'Accept-Profile': 'jobs', 'Content-Profile': 'jobs' };
-  const out = { new_job_apps: null, new_job_apps_yest: null, new_job_apps_week: null };
-  try { const rows = await rest('applications?status=eq.new&select=id&limit=2000', { headers: H }); out.new_job_apps = Array.isArray(rows) ? rows.length : null; } catch (e) {}
-  try {
-    const { today, weekStart } = todayAndWeekStart();
-    const y = nzYesterdayStr();
-    const off = nzOffMin();
-    const toUTC = (ymd) => new Date(Date.parse(ymd + 'T00:00:00Z') - off * 60000).toISOString();
-    const [yr, wr] = await Promise.all([
-      rest('applications?created_at=gte.' + encodeURIComponent(toUTC(y)) + '&created_at=lt.' + encodeURIComponent(toUTC(today)) + '&select=id&limit=5000', { headers: H }),
-      rest('applications?created_at=gte.' + encodeURIComponent(toUTC(weekStart)) + '&select=id&limit=5000', { headers: H }),
-    ]);
-    out.new_job_apps_yest = Array.isArray(yr) ? yr.length : null;
-    out.new_job_apps_week = Array.isArray(wr) ? wr.length : null;
-  } catch (e) {}
-  return out;
+  // Point-in-time: applications still to be actioned (status 'new').
+  try { const rows = await rest('applications?status=eq.new&select=id&limit=2000', { headers: { 'Accept-Profile': 'jobs', 'Content-Profile': 'jobs' } }); return { new_job_apps: Array.isArray(rows) ? rows.length : null }; }
+  catch (e) { return { new_job_apps: null }; }
 }
 const RESP_H = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
 const send = (o) => ({ statusCode: 200, headers: RESP_H, body: JSON.stringify(o) });
@@ -103,18 +114,18 @@ exports.handler = async (event) => {
   try {
     // Per-source endpoints so the loading bar can tick each independently.
     if (only === 'pos') { if (qp.refresh) { await queueJob('cafe-today', TODAY_SQL).catch(() => {}); await queueJob('cafe-yesterday', YESTERDAY_SQL).catch(() => {}); await queueJob('cafe-week', WEEK_TD_SQL).catch(() => {}); } const rows = await db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at,sales_y,covers_y,sales_w,covers_w'); const t = (rows && rows[0]) || {}; return send({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at, cafe_sales_y: t.sales_y, cafe_covers_y: t.covers_y, cafe_sales_w: t.sales_w, cafe_covers_w: t.covers_w }); }
-    if (only === 'shopify') { const [ss, oc] = await Promise.all([shopifySums(), orderCounts()]); return send({ ...ss, ...oc }); }
+    if (only === 'shopify') { const [ss, oc, fc] = await Promise.all([shopifySums(), orderCounts(), fulfilledCounts()]); return send({ ...ss, ...oc, ...fc }); }
     if (only === 'meta') { const ms = await metaSpend(); return send(ms); }
     if (only === 'support') { const tk = await outstandingTickets(); return send(tk); }
     if (only === 'jobs') { const jb = await newJobApps(); return send(jb); }
     if (qp.refresh) await queueJob('cafe-today', TODAY_SQL).catch(() => {});
-    const [rows, oc, ss, tk, ms, jb] = await Promise.all([db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at,sales_y,covers_y,sales_w,covers_w'), orderCounts(), shopifySums(), outstandingTickets(), metaSpend(), newJobApps()]);
+    const [rows, oc, ss, tk, ms, jb, fc] = await Promise.all([db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at,sales_y,covers_y,sales_w,covers_w'), orderCounts(), shopifySums(), outstandingTickets(), metaSpend(), newJobApps(), fulfilledCounts()]);
     const pct = (spend, sales) => (spend != null && sales != null && sales > 0) ? Math.round(spend / sales * 100) : null;
     const t = (rows && rows[0]) || {};
     return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at, cafe_sales_y: t.sales_y, cafe_covers_y: t.covers_y, cafe_sales_w: t.sales_w, cafe_covers_w: t.covers_w,
         shopify_today: ss.shopify_today, shopify_week: ss.shopify_week, shopify_yest: ss.shopify_yest, shopify_today_orders: ss.shopify_today_orders, shopify_week_orders: ss.shopify_week_orders, shopify_yest_orders: ss.shopify_yest_orders,
-        orders_to_fulfil: oc.orders_to_fulfil, orders_fulfilled_today: oc.orders_fulfilled_today, orders_fulfilled_yest: oc.orders_fulfilled_yest, orders_fulfilled_week: oc.orders_fulfilled_week, outstanding_tickets: tk.outstanding_tickets, new_job_apps: jb.new_job_apps, new_job_apps_yest: jb.new_job_apps_yest, new_job_apps_week: jb.new_job_apps_week,
+        orders_to_fulfil: oc.orders_to_fulfil, orders_fulfilled_today: fc.orders_fulfilled_today, orders_fulfilled_yest: fc.orders_fulfilled_yest, orders_fulfilled_week: fc.orders_fulfilled_week, outstanding_tickets: tk.outstanding_tickets, new_job_apps: jb.new_job_apps,
         meta_today: ms.meta_today, meta_week: ms.meta_week, meta_yest: ms.meta_yest, meta_acq_yest: ms.meta_acq_yest, meta_cpa_yest: ms.meta_cpa_yest, meta_acq_today: ms.meta_acq_today, meta_cpa_today: ms.meta_cpa_today, meta_acq_week: ms.meta_acq_week, meta_cpa_week: ms.meta_cpa_week, meta_today_pct: pct(ms.meta_today, ss.shopify_today), meta_week_pct: pct(ms.meta_week, ss.shopify_week) }) };
   } catch (e) { return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: String(e.message || e) }) }; }
 };
