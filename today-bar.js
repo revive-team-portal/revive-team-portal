@@ -13,7 +13,7 @@
 
   var css = '.rtb-bar{background:#16543f;color:#fff;padding:6px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;flex-direction:column;align-items:stretch;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
     + '.rtb-hidden{display:none!important}'
-    + '.rtb-seg{background:rgba(255,255,255,.14);border-radius:9px;padding:5px 13px;display:flex;flex-direction:column;line-height:1.12;min-width:58px}'
+    + '.rtb-seg{background:rgba(255,255,255,.14);border-radius:9px;padding:5px 13px;display:flex;flex-direction:column;justify-content:center;line-height:1.12;min-width:58px;min-height:42px;box-sizing:border-box;white-space:nowrap}'
     + '.rtb-seg.rtb-stale{opacity:.5}'
     + '.rtb-lab{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.9;font-weight:600}'
     + '.rtb-seg b{font-size:17px;font-weight:800;letter-spacing:-.01em;color:#fff}'
@@ -25,7 +25,9 @@
     + '.rtb-flexwrap{display:flex;align-items:flex-start;justify-content:center;gap:12px;flex-wrap:wrap;width:100%}'
     + '.rtb-tbl{display:table;border-collapse:separate;border-spacing:6px 4px}'
     + '.rtb-trow{display:table-row}.rtb-cell{display:table-cell;vertical-align:middle}'
-    + '.rtb-rlab{display:table-cell;vertical-align:middle;text-align:right;padding-right:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;opacity:.85;white-space:nowrap}'
+    + '.rtb-rlab{display:table-cell;vertical-align:middle;text-align:right;padding-right:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;opacity:.85;white-space:nowrap;position:sticky;left:0;z-index:2;background:#16543f;box-shadow:6px 0 0 #16543f}'
+    + '.rtb-scroll{flex:1 1 100%;width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}.rtb-scroll::-webkit-scrollbar{display:none}'
+    + '.rtb-wrap{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:6px;width:100%}'
     + '.rtb-bar:not(.rtb-open) .rtb-exprow{display:none}'
     + '.rtb-extra{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-top:2px}'
     + '.rtb-plus{cursor:pointer;color:#fff;background:rgba(255,255,255,.14);border:none;border-radius:8px;width:24px;height:24px;font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center}.rtb-plus:hover{background:rgba(255,255,255,.24)}';
@@ -61,15 +63,15 @@
     function box(lab, val, f) { var c = caut(f); return '<span class="rtb-seg' + (c ? ' rtb-stale' : '') + '"' + (c ? ' title="Not updating"' : '') + '><span class="rtb-lab">' + lab + (c ? ' ⚠️' : '') + '</span><b>' + val + '</b></span>'; }
     function cell(inner) { return '<span class="rtb-cell">' + inner + '</span>'; }
     function metaVal(spend, pctv, acq, cpa) { return spend != null ? money0(spend) + (pctv != null ? ' · ' + pctv + '%' : '') + ' · ' + (acq != null ? Number(acq).toLocaleString() : '—') + ' / ' + (cpa != null ? money0(cpa) : '—') : '—'; }
-    function periodCells(P) {
-      var out = '';
-      out += cell(box('Cafe $', P.sales != null ? money0(P.sales) : '—', P.salesF));
+    function periodCells(P, w) {
+      w = w || cell; var out = '';
+      out += w(box('Cafe $', P.sales != null ? money0(P.sales) : '—', P.salesF));
       var cov = Number(P.covers) || 0, avg = (cov > 0 && P.sales != null) ? (P.sales / cov) : null;
-      out += cell(box('Covers/avg', P.covers != null ? (Math.round(cov).toLocaleString() + (avg != null ? ' · $' + avg.toFixed(2) : '')) : '—', P.coversF));
-      out += cell(box('Shopify', P.shopify != null ? money0(P.shopify) + (P.shopifyOrders != null ? ' · ' + Number(P.shopifyOrders).toLocaleString() : '') : '—', P.shopifyF));
-      out += cell(box('Meta', metaVal(P.metaSpend, P.metaPct, P.metaAcq, P.metaCpa), P.metaF));
-      out += cell(box('Fulfilled', P.fulfilled != null ? Number(P.fulfilled).toLocaleString() : '—', P.fulfilledF));
-      out += P.skipNewjobs ? cell('') : cell(box('New jobs', P.newjobs != null ? Number(P.newjobs).toLocaleString() : '—', P.newjobsF));
+      out += w(box('Covers/avg', P.covers != null ? (Math.round(cov).toLocaleString() + (avg != null ? ' · $' + avg.toFixed(2) : '')) : '—', P.coversF));
+      out += w(box('Shopify', P.shopify != null ? money0(P.shopify) + (P.shopifyOrders != null ? ' · ' + Number(P.shopifyOrders).toLocaleString() : '') : '—', P.shopifyF));
+      out += w(box('Meta', metaVal(P.metaSpend, P.metaPct, P.metaAcq, P.metaCpa), P.metaF));
+      out += w(box('Fulfilled', P.fulfilled != null ? Number(P.fulfilled).toLocaleString() : '—', P.fulfilledF));
+      out += P.skipNewjobs ? w('') : w(box('New jobs', P.newjobs != null ? Number(P.newjobs).toLocaleString() : '—', P.newjobsF));
       return out;
     }
     if (store.sales == null && store.shopify_today == null && store.meta_today == null && store.new_job_apps == null) return;
@@ -81,17 +83,22 @@
     var extra = box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : ' ', proj ? 'sales' : null);
     if (store.orders_to_fulfil != null) extra += box('To fulfil', (store.orders_to_fulfil || 0).toLocaleString(), 'orders_to_fulfil');
     if (store.outstanding_tickets != null) extra += box('Tickets', (store.outstanding_tickets || 0).toLocaleString(), 'outstanding_tickets');
-    var tbl = '<div class="rtb-tbl">'
-      + '<div class="rtb-trow"><span class="rtb-rlab">Today</span>' + periodCells(today) + '</div>'
-      + '<div class="rtb-trow rtb-exprow"><span class="rtb-rlab">Yesterday</span>' + periodCells(yest) + '</div>'
-      + '<div class="rtb-trow rtb-exprow"><span class="rtb-rlab">Week to date</span>' + periodCells(week) + '</div>'
-      + '</div>';
-    var ctrl = '<div class="rtb-extra">' + extra + '<span class="rtb-tstamp">as at ' + hm(now) + '</span><a class="rtb-rf" title="Refresh">↻</a><button class="rtb-plus" title="Yesterday & week to date">' + (isOpen() ? '−' : '+') + '</button></div>';
+    var open = isOpen(), tbl;
+    if (open) {
+      tbl = '<div class="rtb-scroll"><div class="rtb-tbl">'
+        + '<div class="rtb-trow"><span class="rtb-rlab">Today</span>' + periodCells(today) + '</div>'
+        + '<div class="rtb-trow"><span class="rtb-rlab">Yesterday</span>' + periodCells(yest) + '</div>'
+        + '<div class="rtb-trow"><span class="rtb-rlab">Week to date</span>' + periodCells(week) + '</div>'
+        + '</div></div>';
+    } else {
+      tbl = '<div class="rtb-wrap">' + periodCells(today, function (x) { return x; }) + '</div>';
+    }
+    var ctrl = '<div class="rtb-extra">' + extra + '<span class="rtb-tstamp">as at ' + hm(now) + '</span><a class="rtb-rf" title="Refresh">↻</a><button class="rtb-plus" title="Yesterday & week to date">' + (open ? '−' : '+') + '</button></div>';
     bar.innerHTML = '<div class="rtb-flexwrap">' + tbl + ctrl + '</div>';
-    bar.classList.toggle('rtb-open', isOpen());
+    bar.classList.toggle('rtb-open', open);
     bar.classList.remove('rtb-hidden'); shown = true;
     var rf = bar.querySelector('.rtb-rf'); if (rf) rf.onclick = function () { refreshAll(true); };
-    var pl = bar.querySelector('.rtb-plus'); if (pl) pl.onclick = function () { var v = !isOpen(); setOpen(v); bar.classList.toggle('rtb-open', v); pl.textContent = v ? '−' : '+'; };
+    var pl = bar.querySelector('.rtb-plus'); if (pl) pl.onclick = function () { setOpen(!isOpen()); render(); };
   }
   function allTicked() { return SRC.every(function (a) { return tick[a[0]]; }); }
   function loadSource(k) {
