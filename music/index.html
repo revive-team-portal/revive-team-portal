@@ -767,20 +767,66 @@ $('grid').addEventListener('scroll', ()=>{
 })();
 
 /* ─────────── recover from calls, alarms and other interruptions ───────────
-   iOS pauses the audio element for an incoming call and does not always resume.
-   Whenever the page is in front of the listener again, quietly try to carry on
-   from where the call cut in — but only if they hadn't paused it themselves. */
+   iOS pauses the audio element for an incoming call and does not resume it.
+   The old version only retried while the page was visible, so a call taken with
+   the phone locked left the music stopped. Now: the moment something pauses us
+   without the listener asking, we keep quietly retrying (backing off) until it
+   takes — visible or not — and we put the playhead back where the call cut in. */
+let chaseTimer = null, chaseStep = 0, chaseUntil = 0, lastPos = 0;
+const CHASE_DELAYS = [200, 500, 1000, 2000, 3000, 5000, 8000, 12000];
+
+audio.addEventListener('timeupdate', ()=>{ if(!audio.paused) lastPos = audio.currentTime; });
+
+/* returns true when there is nothing left to chase */
 function tryResume(){
-  if(!wantPlaying || !audio.paused) return;
-  if(document.visibilityState !== 'visible') return;
-  audio.play().catch(()=>{});
+  if(!wantPlaying) return true;
+  if(!audio.paused) return true;
+  if(audio.ended) return true;                 // 'ended' handler moves to the next song
+
+  /* iOS sometimes tears the media resource down during a long call */
+  if(audio.readyState === 0 && audio.src){
+    try { audio.load(); } catch(e){}
+    audio.addEventListener('loadedmetadata', ()=>{
+      if(lastPos > 1 && audio.currentTime < 1){ try { audio.currentTime = lastPos; } catch(e){} }
+    }, {once:true});
+  } else if(lastPos > 1 && audio.currentTime < 0.5){
+    try { audio.currentTime = lastPos; } catch(e){}
+  }
+
+  const p = audio.play();
+  if(p && p.then) p.then(stopChasing).catch(()=>{});
+  return false;
 }
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) setTimeout(tryResume, 350); });
-window.addEventListener('focus',   ()=> setTimeout(tryResume, 350));
-window.addEventListener('pageshow', ()=> setTimeout(tryResume, 350));
-audio.addEventListener('canplay',  ()=> setTimeout(tryResume, 100));
+function chase(){
+  clearTimeout(chaseTimer); chaseTimer = null;
+  if(tryResume()){ chaseStep = 0; return; }
+  if(Date.now() > chaseUntil){ chaseStep = 0; return; }
+  chaseTimer = setTimeout(chase, CHASE_DELAYS[Math.min(chaseStep++, CHASE_DELAYS.length - 1)]);
+}
+function startChasing(){
+  chaseStep = 0;
+  chaseUntil = Date.now() + 10 * 60 * 1000;    // give up after ten minutes
+  clearTimeout(chaseTimer);
+  chaseTimer = setTimeout(chase, 150);
+}
+function stopChasing(){
+  chaseStep = 0; clearTimeout(chaseTimer); chaseTimer = null;
+  if('mediaSession' in navigator){
+    navigator.mediaSession.playbackState = 'playing';
+    mediaSession(); position();                // lock screen forgets us after a call
+  }
+}
+
+/* anything that pauses us while the listener still wants sound is an interruption */
+audio.addEventListener('pause', ()=>{ if(wantPlaying && !audio.ended) startChasing(); });
+audio.addEventListener('play',  stopChasing);
+
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) startChasing(); });
+window.addEventListener('focus',   startChasing);
+window.addEventListener('pageshow', startChasing);
+audio.addEventListener('canplay',  ()=> setTimeout(()=>{ if(wantPlaying && audio.paused) startChasing(); }, 100));
 /* a slow backstop for the times no event fires at all */
-setInterval(tryResume, 4000);
+setInterval(()=>{ if(wantPlaying && audio.paused && !audio.ended && !chaseTimer) startChasing(); }, 4000);
 
 /* ─────────── boot ─────────── */
 fetch('songs.json', {cache:'no-cache'})
