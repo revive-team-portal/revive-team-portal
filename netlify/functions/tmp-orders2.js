@@ -10,7 +10,7 @@ const F = `
   customerJourneySummary{ momentsCount{ count } daysToConversion customerOrderIndex
     firstVisit{ source sourceType utmParameters{ source medium campaign } }
     lastVisit{ source sourceType utmParameters{ source medium campaign } }
-    moments{ ... on CustomerVisit { occurredAt source sourceType utmParameters{ source medium campaign } } } }`;
+    moments(first: 25){ nodes{ occurredAt ... on CustomerVisit { source sourceType utmParameters{ source medium campaign } } } } }`;
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
   if (qp.k !== KEY) return { statusCode: 403, body: 'nope' };
