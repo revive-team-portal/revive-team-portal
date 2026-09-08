@@ -114,9 +114,24 @@ const PURCHASE_TYPES = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixe
 
 const firstArr = (v) => (Array.isArray(v) && v[0] ? Number(v[0].value) || 0 : 0);
 
+// Rate fields (ctr / cpc / cpm / frequency) come straight from Meta on an
+// aggregated insights row. A row we assembled ourselves by summing daily rows
+// has none of them, and `Number(undefined) || 0` used to write a confident 0 —
+// which is worse than a gap, because nothing downstream can tell it apart from
+// a genuinely zero CTR. Derive what is derivable from the sums, and leave
+// frequency null, since unique reach cannot be recovered by adding up days.
 function shapePerf(row, win) {
   const acts = row.actions || [];
   const vals = row.action_values || [];
+  const num = (v) => (v == null || v === '' ? null : (Number.isFinite(Number(v)) ? Number(v) : null));
+  const _imp = Number(row.impressions) || 0;
+  const _clk = Number(row.clicks) || 0;
+  const _spd = Number(row.spend) || 0;
+  const r2 = (v) => (v == null ? null : Math.round(v * 1000000) / 1000000);
+  const ctrOut = num(row.ctr) != null ? num(row.ctr) : (_imp ? r2(100 * _clk / _imp) : null);
+  const cpcOut = num(row.cpc) != null ? num(row.cpc) : (_clk ? r2(_spd / _clk) : null);
+  const cpmOut = num(row.cpm) != null ? num(row.cpm) : (_imp ? r2(1000 * _spd / _imp) : null);
+  const freqOut = num(row.frequency);
   // video_play_actions counts an autoplay start, which on feed placements is
   // ~86% of impressions — a measure of placement, not of stopping the scroll.
   // The 3-second play (action_type `video_view`) is the honest hook numerator;
@@ -153,8 +168,8 @@ function shapePerf(row, win) {
     spend: Number(row.spend) || 0,
     impressions, reach: Number(row.reach) || 0,
     clicks: Number(row.clicks) || 0,
-    ctr: Number(row.ctr) || 0, cpm: Number(row.cpm) || 0,
-    frequency: Number(row.frequency) || 0,
+    ctr: ctrOut, cpm: cpmOut,
+    frequency: freqOut,
     link_clicks: Number(row.inline_link_clicks) || 0,
     // Split by window, never the blended default.
     purchases_1d_click: firstOf(acts, PURCHASE_TYPES, '1d_click'),
@@ -180,7 +195,7 @@ function shapePerf(row, win) {
     completion_rate: rate(p100, impressions),
     roas: spend ? Math.round(100 * value7 / spend) / 100 : null,
     cpa: purch7 ? Math.round(100 * spend / purch7) / 100 : null,
-    cpc: Number(row.cpc) || null,
+    cpc: cpcOut,
     updated_at: new Date().toISOString(),
   };
 }

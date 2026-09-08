@@ -64,19 +64,27 @@ async function run(opts) {
 
   // 4. Performance, three windows. time_increment=1 on the 7-day window gives
   //    us active_days for free.
-  const [life, last7d, last28] = await Promise.all([
+  //    The daily 7-day pull is ONLY for active_days. Every other 7-day number
+  //    comes from the aggregated call, because rates cannot be summed: adding
+  //    up daily reach double-counts anyone who saw the ad on two days, so a
+  //    frequency derived from it would be wrong, and CTR/CPC/CPM are simply
+  //    absent from a row we built ourselves.
+  const [life, last7d, last7agg, last28] = await Promise.all([
     insights('maximum', null),
     insights('last_7d', 1),
+    insights('last_7d', null),
     insights('last_28d', null),
   ]);
-  out.insights = { lifetime: life.rows.length, last7_daily: last7d.rows.length, last28: last28.rows.length,
-    errors: [life.error, last7d.error, last28.error].filter(Boolean) };
+  out.insights = { lifetime: life.rows.length, last7_daily: last7d.rows.length,
+    last7_agg: last7agg.rows.length, last28: last28.rows.length,
+    errors: [life.error, last7d.error, last7agg.error, last28.error].filter(Boolean) };
   // A window that came back empty because Meta refused is not the same as a
   // window with no data — say so loudly rather than writing partial numbers
   // and calling the run a success.
   out.incomplete_windows = [
     life.error ? 'lifetime: ' + life.error : null,
-    last7d.error ? 'last7: ' + last7d.error : null,
+    last7d.error ? 'last7 daily: ' + last7d.error : null,
+    last7agg.error ? 'last7 aggregate: ' + last7agg.error : null,
     last28.error ? 'last28: ' + last28.error : null,
   ].filter(Boolean);
 
@@ -104,7 +112,7 @@ async function run(opts) {
   }
 
   const perfBy = (rows) => { const m = {}; rows.forEach(r => { m[r.ad_id] = r; }); return m; };
-  const lifeBy = perfBy(life.rows), l28By = perfBy(last28.rows);
+  const lifeBy = perfBy(life.rows), l28By = perfBy(last28.rows), l7aggBy = perfBy(last7agg.rows);
 
   // 5. What is already analysed — never downgrade a finished ad back to pending.
   const existing = await db('ad?select=ad_id,analysis_state,analysis_attempts').catch(() => []);
@@ -159,7 +167,11 @@ async function run(opts) {
     });
 
     if (lifeBy[a.id]) perfRows.push({ ...shapePerf(lifeBy[a.id], 'lifetime'), active_days: null });
-    if (l7) perfRows.push({ ...shapePerf(l7, 'last7'), active_days: l7._days });
+    // Aggregated row wins; fall back to the summed daily row only if Meta gave
+    // us no aggregate for this ad, in which case shapePerf derives what it can
+    // and leaves frequency null rather than pretending it is zero.
+    const l7src = l7aggBy[a.id] || l7;
+    if (l7src) perfRows.push({ ...shapePerf(l7src, 'last7'), active_days: l7 ? l7._days : null });
     if (l28By[a.id]) perfRows.push({ ...shapePerf(l28By[a.id], 'last28'), active_days: null });
   }
 
