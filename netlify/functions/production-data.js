@@ -156,14 +156,14 @@ exports.handler = async (event) => {
     }
 
     if (action === 'save_recipe_version') {
-      const { base_recipe_id, sku, flavour, short_code, version_label, change_note, cook_sec, blend_min, viscosity_sec, g_per_waffle, ingredients } = body;
+      const { base_recipe_id, sku, flavour, short_code, version_label, change_note, cook_sec, blend_min, viscosity_sec, g_per_waffle, moisture_pct, ingredients } = body;
       if (!version_label || !change_note) return json(400, { error: 'Version label and change note are required.' });
       if (!Array.isArray(ingredients) || !ingredients.length) return json(400, { error: 'At least one ingredient is required.' });
       const created = await appsDb('recipe', {
         method: 'POST', headers: { Prefer: 'return=representation' },
         body: JSON.stringify({ sku, flavour, short_code: short_code || null, version_label, is_current: true, active: true,
           cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null,
-          g_per_waffle: g_per_waffle || 70, change_note }),
+          g_per_waffle: g_per_waffle || 70, moisture_pct: (moisture_pct == null || moisture_pct === '') ? 40 : Number(moisture_pct), change_note }),
       });
       const newId = created[0].id;
       const rows = ingredients
@@ -178,12 +178,12 @@ exports.handler = async (event) => {
     }
 
     if (action === 'update_recipe_inplace') {
-      const { recipe_id, flavour, short_code, version_label, cook_sec, blend_min, viscosity_sec, g_per_waffle, ingredients } = body;
+      const { recipe_id, flavour, short_code, version_label, cook_sec, blend_min, viscosity_sec, g_per_waffle, moisture_pct, ingredients } = body;
       if (!recipe_id) return json(400, { error: 'recipe_id required.' });
       await appsDb('recipe?id=eq.' + encodeURIComponent(recipe_id), {
         method: 'PATCH', headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({ flavour, short_code: short_code || null, version_label,
-          cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null, g_per_waffle: g_per_waffle || 70 }) });
+          cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null, g_per_waffle: g_per_waffle || 70, moisture_pct: (moisture_pct == null || moisture_pct === '') ? 40 : Number(moisture_pct) }) });
       await appsDb('recipe_ingredient?recipe_id=eq.' + encodeURIComponent(recipe_id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
       const rows = (ingredients || []).filter(i => i.ingredient && i.batch_g)
         .map((i, idx) => ({ recipe_id, ingredient: String(i.ingredient).trim(), batch_g: Math.round(Number(i.batch_g)), sort: idx + 1 }));
