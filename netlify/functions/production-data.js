@@ -61,6 +61,16 @@ exports.handler = async (event) => {
       return json(200, { ingredients, rates, nutrition });
     }
 
+    if (action === 'save_moisture') {
+      const { id, moisture_pct } = body;
+      if (!id) return json(400, { error: 'id required.' });
+      await appsDb('recipe?id=eq.' + encodeURIComponent(id), {
+        method: 'PATCH', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ moisture_pct: (moisture_pct === '' || moisture_pct == null) ? 40 : Number(moisture_pct) }),
+      });
+      return json(200, { ok: true });
+    }
+
     if (action === 'save_nutrition') {
       const { ingredient } = body;
       if (!ingredient) return json(400, { error: 'Missing ingredient.' });
