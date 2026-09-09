@@ -27,7 +27,7 @@ function troubleReason(hay){
   if(/return to sender|returned|\brts\b/i.test(hay)) return 'Returned to sender';
   if(/refus/i.test(hay)) return 'Refused';
   if(/uncollected|not collected|abandon/i.test(hay)) return 'Uncollected';
-  if(/undeliver|unable to deliver|not delivered|delivery failed|failed delivery|attempted|card (to call|left)/i.test(hay)) return 'Delivery failed';
+  if(/undeliver|unable to deliver|not delivered|delivery (failed|unsuccessful)|failed delivery|unsuccessful|attempted|card (to call|left)|no access|address (issue|incorrect|insufficient|problem)|incorrect address|redeliver/i.test(hay)) return 'Delivery failed';
   if(/seiz|held|detained/i.test(hay)) return 'Held';
   if(/delayed|being assessed|assessing|assessment/i.test(hay)) return 'Delayed';
   if(/exception|problem|error/i.test(hay)) return 'Exception';
@@ -74,7 +74,7 @@ async function runScan(opts={}){
   const q = 'created_at:>='+daysAgoISO(days)+' -fulfillment_status:unfulfilled';
   await rest('naughty_scan?id=eq.1',{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({ status:'running', updated_at:new Date().toISOString() }) }).catch(()=>{});
 
-  const statuses={}; const samples=[]; let scanned=0, tracked=0, flagged=0;
+  const statuses={}; const eventStatuses={}; const samples=[]; let scanned=0, tracked=0, flagged=0;
   let after=null, pages=0;
   while(pages<8){
     const d=await gql(ORDER_Q, { q, after });
@@ -91,6 +91,7 @@ async function runScan(opts={}){
       const t=await track({ trackingNumber: tn });
       const rawStatus = t.ok ? (t.status||'Unknown') : 'lookup failed';
       statuses[rawStatus]=(statuses[rawStatus]||0)+1;
+      (t.events||[]).forEach(ev=>{ const es=((ev.status||'')+(ev.detail?(' — '+ev.detail):'')).trim(); if(es) eventStatuses[es]=(eventStatuses[es]||0)+1; });
       const eventsText=(t.events||[]).map(ev=>(ev.status||'')+' '+(ev.detail||'')).join(' | ');
       // The top-level status is often 'Unknown'; the latest event carries the real story.
       const latestEvent=(t.events&&t.events[0])?((t.events[0].detail||t.events[0].status||'').trim()):'';
@@ -128,9 +129,48 @@ async function runScan(opts={}){
   const topStatuses=Object.entries(statuses).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({status:k,count:v}));
   await rest('naughty_scan?id=eq.1',{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({
     status:'idle', last_run:new Date().toISOString(), scanned, tracked, flagged,
-    summary:{ statuses:topStatuses, samples }, updated_at:new Date().toISOString() }) }).catch(()=>{});
+    summary:{ statuses:topStatuses, event_statuses:Object.entries(eventStatuses).sort((a,b)=>b[1]-a[1]).slice(0,40).map(([k,v])=>({status:k,count:v})), samples }, updated_at:new Date().toISOString() }) }).catch(()=>{});
   return { scanned, tracked, flagged, statuses:topStatuses };
 }
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
-module.exports = { runScan };
+
+// Zero-value orders in the window are (mostly) resends of destroyed meals; each usually has an
+// earlier paid order for the same items — the order that was destroyed. Flag those originals.
+async function runResendScan(days){
+  const since=daysAgoISO(Number(days)||35);
+  const RS_Q = `query($q:String!,$after:String){ orders(first:40, query:$q, after:$after){ pageInfo{hasNextPage endCursor} edges{ node{ name createdAt totalPriceSet{ shopMoney{ amount } } customer{ email firstName lastName } lineItems(first:15){ edges{ node{ title sku } } } } } } }`;
+  const resends=[]; let after=null, pages=0;
+  while(pages<10){
+    const d=await gql(RS_Q, { q:'created_at:>='+since, after });
+    const conn=d.orders; const edges=(conn&&conn.edges)||[];
+    for(const e of edges){ const o=e.node; const total=Number((o.totalPriceSet&&o.totalPriceSet.shopMoney&&o.totalPriceSet.shopMoney.amount)||0); if(total===0 && ((o.customer&&o.customer.email))) resends.push(o); }
+    pages++; if(!conn||!conn.pageInfo||!conn.pageInfo.hasNextPage) break; after=conn.pageInfo.endCursor;
+  }
+  let flagged=0; const pairs=[];
+  const ORIG_Q = `query($q:String!){ orders(first:25, query:$q, sortKey:CREATED_AT, reverse:true){ edges{ node{ name createdAt totalPriceSet{ shopMoney{ amount } } customer{ email firstName lastName } shippingAddress{ name city address2 } tags lineItems(first:15){ edges{ node{ title sku product{ productType } } } } fulfillments(first:5){ createdAt trackingInfo{ number } } } } } }`;
+  for(const rs of resends){
+    const email=rs.customer.email;
+    const rsKeys=new Set(lineNodes(rs).map(li=>(li.sku||li.title||'').toLowerCase()).filter(Boolean));
+    let orig=null;
+    try{
+      const d=await gql(ORIG_Q, { q:'email:'+email });
+      const cands=((d.orders&&d.orders.edges)||[]).map(x=>x.node).filter(n=> n.name!==rs.name && new Date(n.createdAt)<new Date(rs.createdAt) && Number((n.totalPriceSet&&n.totalPriceSet.shopMoney&&n.totalPriceSet.shopMoney.amount)||0)>0);
+      orig = cands.find(n=>{ const s=new Set(lineNodes(n).map(li=>(li.sku||li.title||'').toLowerCase())); for(const k of rsKeys){ if(k&&s.has(k)) return true; } return false; }) || cands[0] || null;
+    }catch(e){}
+    if(!orig) continue;
+    let tn='', desp='';
+    for(const f of (orig.fulfillments||[])){ const ti=(f.trackingInfo||[]).find(x=>x.number); if(ti){ tn=ti.number; desp=f.createdAt; break; } }
+    const name=(orig.shippingAddress&&orig.shippingAddress.name)||[orig.customer.firstName,orig.customer.lastName].filter(Boolean).join(' ');
+    const suburb=(orig.shippingAddress&&(orig.shippingAddress.address2||orig.shippingAddress.city))||'';
+    const value=Number((orig.totalPriceSet&&orig.totalPriceSet.shopMoney&&orig.totalPriceSet.shopMoney.amount))||null;
+    await upsertNaughty({ order_name:orig.name, tracking_number:tn||null, customer_name:name, customer_email:email, value,
+      flag_reason:'Destroyed / resent', source:'resend-pair', courier_status:null, courier_detail:'Resent as '+rs.name,
+      despatch_date: desp? desp.slice(0,10) : (orig.createdAt? orig.createdAt.slice(0,10):null),
+      product_types: productTypes(orig), suburb, service_type: serviceType(orig,null), resend_order: rs.name, status:'open' });
+    flagged++; if(pairs.length<25) pairs.push({ original:orig.name, resend:rs.name });
+  }
+  return { resends: resends.length, flagged, pairs };
+}
+
+module.exports = { runScan, runResendScan };
