@@ -34,19 +34,42 @@ exports.handler = async (event) => {
   const auth = await validatePortalUser(event, 'production');
   if (!auth.ok) return json(auth.status || 403, { error: auth.error });
   let body; try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Bad request.' }); }
-  if (body.action !== 'compute') return json(400, { error: 'Unknown action.' });
   try {
-    const [costs, nuts] = await Promise.all([
-      db('ingredient_cost?select=ingredient,cost_per_kg,derived_from,derived_ratio'),
-      db('ingredient_nutrition?select=*') ]);
-    const cm = {}; costs.forEach(c => cm[c.ingredient] = c);
-    const nm = {}; nuts.forEach(n => nm[n.ingredient] = n);
-    const moisture = body.moisture_pct != null ? body.moisture_pct : 40;
-    const out = { new: computeOne(body.ingredients, cm, nm, moisture) };
-    if (body.source_recipe_id) {
-      const src = await db('recipe_ingredient?select=ingredient,batch_g&recipe_id=eq.' + encodeURIComponent(body.source_recipe_id));
-      out.starting = computeOne(src, cm, nm, moisture);
+    if (body.action === 'compute') {
+      const [costs, nuts] = await Promise.all([
+        db('ingredient_cost?select=ingredient,cost_per_kg,derived_from,derived_ratio'),
+        db('ingredient_nutrition?select=*') ]);
+      const cm = {}; costs.forEach(c => cm[c.ingredient] = c);
+      const nm = {}; nuts.forEach(n => nm[n.ingredient] = n);
+      const moisture = body.moisture_pct != null ? body.moisture_pct : 40;
+      const out = { new: computeOne(body.ingredients, cm, nm, moisture) };
+      if (body.source_recipe_id) {
+        const src = await db('recipe_ingredient?select=ingredient,batch_g&recipe_id=eq.' + encodeURIComponent(body.source_recipe_id));
+        out.starting = computeOne(src, cm, nm, moisture);
+      }
+      return json(200, out);
     }
-    return json(200, out);
+    if (body.action === 'recipe_nips') {
+      const [recs, ings, nuts, rates] = await Promise.all([
+        db('recipe?select=id,sku,flavour,version_label&active=eq.true&is_current=eq.true&order=sku'),
+        db('recipe_ingredient?select=recipe_id,ingredient,batch_g'),
+        db('ingredient_nutrition?select=*'),
+        db('rate_setting?select=key,value') ]);
+      const nm = {}; nuts.forEach(n => nm[n.ingredient] = n);
+      const rk = {}; rates.forEach(r => rk[r.key] = Number(r.value));
+      const moisture = rk.moisture_pct != null ? rk.moisture_pct : 40;
+      const serving = rk.serving_size_g != null ? rk.serving_size_g : 40;
+      const serves = rk.serves_per_pack != null ? rk.serves_per_pack : 2;
+      const f = serving / 100;
+      const rnd = (v, k) => +(v * f).toFixed((k === 'energy_kj' || k === 'sodium_mg') ? 0 : 1);
+      const out = recs.map(r => {
+        const lines = ings.filter(i => i.recipe_id === r.id).map(i => ({ ingredient: i.ingredient, grams: Number(i.batch_g) }));
+        const c = computeOne(lines, {}, nm, moisture);
+        const perServe = {}; NKEYS.forEach(k => perServe[k] = rnd(c.nip[k], k));
+        return { id: r.id, sku: r.sku, flavour: r.flavour, version_label: r.version_label, per100: c.nip, perServe };
+      });
+      return json(200, { recipes: out, serving_size_g: serving, serves_per_pack: serves, moisture_pct: moisture });
+    }
+    return json(400, { error: 'Unknown action.' });
   } catch (e) { return json(502, { error: String(e.message || e).slice(0, 200) }); }
 };
