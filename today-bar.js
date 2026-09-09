@@ -30,7 +30,8 @@
     + '.rtb-wrap{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:6px;width:100%}'
     + '.rtb-bar:not(.rtb-open) .rtb-exprow{display:none}'
     + '.rtb-extra{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-top:2px}'
-    + '.rtb-plus{cursor:pointer;color:#fff;background:rgba(255,255,255,.14);border:none;border-radius:8px;width:24px;height:24px;font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center}.rtb-plus:hover{background:rgba(255,255,255,.24)}';
+    + '.rtb-plus{cursor:pointer;color:#fff;background:rgba(255,255,255,.14);border:none;border-radius:8px;width:24px;height:24px;font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center}.rtb-plus:hover{background:rgba(255,255,255,.24)}'
+    + '@media(min-width:1000px){.rtb-flexwrap{flex-wrap:nowrap;overflow-x:auto}.rtb-scroll{flex:0 1 auto;width:auto;overflow:visible}.rtb-wrap{flex:0 0 auto;width:auto;flex-wrap:nowrap}}';
   var s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
   var bar = null;
   function isOpen() { try { return localStorage.getItem('rtbOpen') === '1'; } catch (e) { return false; } }
@@ -59,7 +60,7 @@
   }
   function render() {
     var now = Date.now();
-    function caut(f) { return f ? (!stamp[f] || (now - stamp[f] > STALE)) : false; }
+    function caut(f) { return (f && stamp[f]) ? (now - stamp[f] > STALE) : false; }
     function box(lab, val, f) { var c = caut(f); return '<span class="rtb-seg' + (c ? ' rtb-stale' : '') + '"' + (c ? ' title="Not updating"' : '') + '><span class="rtb-lab">' + lab + (c ? ' ⚠️' : '') + '</span><b>' + val + '</b></span>'; }
     function cell(inner) { return '<span class="rtb-cell">' + inner + '</span>'; }
     function metaVal(spend, pctv, acq, cpa) { return spend != null ? money0(spend) + (pctv != null ? ' · ' + pctv + '%' : '') + ' · ' + (acq != null ? Number(acq).toLocaleString() : '—') + ' / ' + (cpa != null ? money0(cpa) : '—') : '—'; }
@@ -74,15 +75,14 @@
       out += P.skipNewjobs ? w('') : w(box('New jobs', P.newjobs != null ? Number(P.newjobs).toLocaleString() : '—', P.newjobsF));
       return out;
     }
-    if (store.sales == null && store.shopify_today == null && store.meta_today == null && store.new_job_apps == null) return;
     var today = { sales: store.sales, salesF: 'sales', covers: store.covers, coversF: 'covers', shopify: store.shopify_today, shopifyOrders: store.shopify_today_orders, shopifyF: 'shopify_today', metaSpend: store.meta_today, metaPct: store.meta_today_pct, metaAcq: store.meta_acq_today, metaCpa: store.meta_cpa_today, metaF: 'meta_today', fulfilled: store.orders_fulfilled_today, fulfilledF: 'orders_fulfilled_today', newjobs: store.new_job_apps, newjobsF: 'new_job_apps' };
     var yPct = (store.meta_yest != null && store.shopify_yest > 0) ? Math.round(store.meta_yest / store.shopify_yest * 100) : null;
     var yest = { skipNewjobs: true, sales: store.cafe_sales_y, covers: store.cafe_covers_y, shopify: store.shopify_yest, shopifyOrders: store.shopify_yest_orders, metaSpend: store.meta_yest, metaPct: yPct, metaAcq: store.meta_acq_yest, metaCpa: store.meta_cpa_yest, fulfilled: store.orders_fulfilled_yest, newjobs: store.new_job_apps_yest };
     var week = { skipNewjobs: true, sales: store.cafe_sales_w, covers: store.cafe_covers_w, shopify: store.shopify_week, shopifyOrders: store.shopify_week_orders, metaSpend: store.meta_week, metaPct: store.meta_week_pct, metaAcq: store.meta_acq_week, metaCpa: store.meta_cpa_week, fulfilled: store.orders_fulfilled_week, newjobs: store.new_job_apps_week };
     var proj = (nzMin() >= HALF_MIN && store.sales_1245 > 0);
     var extra = box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : '\u00a0', proj ? 'sales' : null);
-    if (store.orders_to_fulfil != null) extra += box('To fulfil', (store.orders_to_fulfil || 0).toLocaleString(), 'orders_to_fulfil');
-    if (store.outstanding_tickets != null) extra += box('Tickets', (store.outstanding_tickets || 0).toLocaleString(), 'outstanding_tickets');
+    extra += box('To fulfil', store.orders_to_fulfil != null ? (store.orders_to_fulfil || 0).toLocaleString() : '—', 'orders_to_fulfil');
+    extra += box('Tickets', store.outstanding_tickets != null ? (store.outstanding_tickets || 0).toLocaleString() : '—', 'outstanding_tickets');
     var open = isOpen(), tbl;
     if (open) {
       tbl = '<div class="rtb-scroll"><div class="rtb-tbl">'
@@ -109,12 +109,12 @@
         if (fresh) return; return new Promise(function (r) { setTimeout(r, 7000); }).then(function () { return get('pos', false).then(ingest).catch(function () {}); });
       });
     } else { p = get(k, false).then(ingest); }
-    return p.catch(function () {}).then(function () { tick[k] = true; if (!shown) { placeholder(); if (allTicked()) { pct(); render(); } } });
+    return p.catch(function () {}).then(function () { tick[k] = true; pct(); render(); });
   }
   function init() {
-    SRC.forEach(function (a) { tick[a[0]] = false; }); placeholder();
+    SRC.forEach(function (a) { tick[a[0]] = false; });
+    render();
     SRC.forEach(function (a) { loadSource(a[0]); });
-    setTimeout(function () { if (!shown) { pct(); render(); } }, 13000);
   }
   function refreshAll(refresh) {
     Promise.all([get('shopify', false), get('meta', false), get('pos', refresh), get('support', false), get('jobs', false)])
