@@ -80,7 +80,7 @@
     var yest = { skipNewjobs: true, sales: store.cafe_sales_y, covers: store.cafe_covers_y, shopify: store.shopify_yest, shopifyOrders: store.shopify_yest_orders, metaSpend: store.meta_yest, metaPct: yPct, metaAcq: store.meta_acq_yest, metaCpa: store.meta_cpa_yest, fulfilled: store.orders_fulfilled_yest, newjobs: store.new_job_apps_yest };
     var week = { skipNewjobs: true, sales: store.cafe_sales_w, covers: store.cafe_covers_w, shopify: store.shopify_week, shopifyOrders: store.shopify_week_orders, metaSpend: store.meta_week, metaPct: store.meta_week_pct, metaAcq: store.meta_acq_week, metaCpa: store.meta_cpa_week, fulfilled: store.orders_fulfilled_week, newjobs: store.new_job_apps_week };
     var proj = (nzMin() >= HALF_MIN && store.sales_1245 > 0);
-    var extra = box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : ' ', proj ? 'sales' : null);
+    var extra = box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : '\u00a0', proj ? 'sales' : null);
     if (store.orders_to_fulfil != null) extra += box('To fulfil', (store.orders_to_fulfil || 0).toLocaleString(), 'orders_to_fulfil');
     if (store.outstanding_tickets != null) extra += box('Tickets', (store.outstanding_tickets || 0).toLocaleString(), 'outstanding_tickets');
     var open = isOpen(), tbl;

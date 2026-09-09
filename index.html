@@ -16,7 +16,7 @@
   html,body{margin:0;padding:0}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    background:var(--cream); color:var(--ink); -webkit-font-smoothing:antialiased;
+    background:#000; color:var(--ink); -webkit-font-smoothing:antialiased;
     min-height:100vh;
   }
   button{font-family:inherit;cursor:pointer}
@@ -72,6 +72,8 @@
   .topbar .right{display:flex;align-items:center;gap:10px}
   .who{font-size:13px;color:var(--muted);margin-right:4px}
   .wrap{max-width:980px;margin:0 auto;padding:30px 22px 60px}
+  #adminView .page-head h2{color:#fff}
+  #adminView .sub{color:rgba(255,255,255,.7)}
   .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
   .page-head h2{font-size:23px;margin:0}
   .sub{color:var(--muted);font-size:14px;margin:0 0 26px}
@@ -223,8 +225,6 @@
 
   <!-- DASHBOARD -->
   <div class="wrap" id="dashboardView">
-    <div class="page-head"><h2>Your apps</h2></div>
-    <p class="sub" id="dashSub">Choose an app to get started.</p>
     <div class="tiles" id="tiles"></div>
   </div>
 
