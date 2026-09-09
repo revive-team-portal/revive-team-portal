@@ -628,21 +628,64 @@ async function raiseClaim(orderName, value){
   alert('🔁 Logged as resend — see Naughty Orders.');
 }
 function openNewTicket(){
+  window.NT={name:'',email:'',order:''}; window.NT_TYPE=''; window.NT_RESULTS={customers:[],orders:[]};
   const m=document.createElement('div'); m.id='ntModal'; m.className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'; m.onclick=closeNewTicket;
-  m.innerHTML='<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()"><h3 class="font-bold text-lg mb-3">New ticket (phone / walk-in)</h3>'
-    +'<input id="ntName" placeholder="Customer name" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-2">'
-    +'<input id="ntEmail" placeholder="Email (optional — links their orders)" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-2">'
-    +'<input id="ntOrder" placeholder="Order # (optional)" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-2">'
-    +'<select id="ntType" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-2"><option value="enquiry">💬 Enquiry</option><option value="order">📦 Order</option><option value="misc">🗂️ Misc</option></select>'
-    +'<textarea id="ntNote" rows="3" placeholder="Note — what was the call/enquiry about?" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-3"></textarea>'
-    +'<div class="flex justify-end gap-2"><button onclick="closeNewTicket()" class="text-sm px-3 py-1.5 rounded border border-stone-300">Cancel</button><button onclick="submitNewTicket(this)" class="text-sm px-3 py-1.5 rounded bg-teal-700 text-white font-semibold">Create ticket</button></div></div>';
+  m.innerHTML='<div class="bg-white rounded-xl p-5 w-full max-w-lg" onclick="event.stopPropagation()">'
+    +'<h3 class="font-bold text-lg mb-1">New ticket</h3>'
+    +'<p class="text-xs text-stone-500 mb-3">Search an order #, name or email to link an order — or just fill in what you know.</p>'
+    +'<div class="relative mb-2">'
+    +'<input id="ntSearch" autocomplete="off" oninput="ntSearchDo()" placeholder="🔍 Order #, name or email…" class="w-full border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">'
+    +'<div id="ntResults" class="absolute z-10 left-0 right-0 bg-white border border-stone-200 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto hidden"></div>'
+    +'</div>'
+    +'<div id="ntLinked" class="hidden mb-2"></div>'
+    +'<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">'
+    +'<input id="ntName" placeholder="Name" class="border border-stone-300 rounded px-2 py-1.5 text-sm">'
+    +'<input id="ntEmail" placeholder="Email" class="border border-stone-300 rounded px-2 py-1.5 text-sm">'
+    +'<input id="ntOrder" placeholder="Order #" class="border border-stone-300 rounded px-2 py-1.5 text-sm">'
+    +'</div>'
+    +'<div class="mb-3"><div class="text-xs text-stone-500 mb-1">Type of issue <span class="text-stone-400">(optional)</span></div><div id="ntTypeChips" class="flex flex-wrap gap-1.5">'
+    + ['order','enquiry','misc'].map(k=>'<button type="button" onclick="ntSetType(\''+k+'\')" data-k="'+k+'" class="nt-chip text-xs px-2.5 py-1 rounded-full border border-stone-300 text-stone-600 hover:bg-stone-50">'+TYPE_META[k].i+' '+k.charAt(0).toUpperCase()+k.slice(1)+'</button>').join('')
+    +'</div></div>'
+    +'<textarea id="ntNote" rows="3" placeholder="Note — what was the call / enquiry about?" class="w-full border border-stone-300 rounded px-2 py-1.5 text-sm mb-3"></textarea>'
+    +'<div class="flex justify-end gap-2"><button onclick="closeNewTicket()" class="text-sm px-3 py-1.5 rounded border border-stone-300 hover:bg-stone-50">Cancel</button><button onclick="submitNewTicket(this)" class="text-sm px-3 py-1.5 rounded bg-teal-700 hover:bg-teal-800 text-white font-semibold">Create ticket</button></div></div>';
   document.body.appendChild(m);
+  setTimeout(()=>{ const el=document.getElementById('ntSearch'); if(el) el.focus(); },50);
 }
 function closeNewTicket(){ const m=document.getElementById('ntModal'); if(m) m.remove(); }
 function ntVal(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
+function ntSetType(k){ window.NT_TYPE = (window.NT_TYPE===k)?'':k; document.querySelectorAll('#ntTypeChips .nt-chip').forEach(b=>{ const on=b.dataset.k===window.NT_TYPE; b.className='nt-chip text-xs px-2.5 py-1 rounded-full border '+(on?'bg-teal-600 text-white border-teal-600':'border-stone-300 text-stone-600 hover:bg-stone-50'); }); }
+function ntSearchDo(){
+  const q=ntVal('ntSearch'); const box=document.getElementById('ntResults');
+  clearTimeout(window.NT_T);
+  if(q.length<2){ if(box){ box.classList.add('hidden'); box.innerHTML=''; } return; }
+  window.NT_T=setTimeout(async ()=>{
+    if(box){ box.classList.remove('hidden'); box.innerHTML='<div class="px-3 py-2 text-xs text-stone-400">Searching…</div>'; }
+    const r=await apiPost('support-shopify',{query:q});
+    if(!box) return;
+    if(!r.ok){ box.innerHTML='<div class="px-3 py-2 text-xs text-amber-600">'+esc((r.data&&r.data.error)||'Search failed')+'</div>'; return; }
+    const cs=(r.data&&r.data.customers)||[]; const os=(r.data&&r.data.orders)||[];
+    window.NT_RESULTS={customers:cs,orders:os};
+    let html='';
+    if(cs.length){ html+='<div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-stone-400">Customers</div>';
+      html+=cs.slice(0,4).map((c,i)=>'<div onclick="ntPickCustomer('+i+')" class="px-3 py-1.5 hover:bg-teal-50 cursor-pointer text-sm border-t border-stone-100"><span class="font-medium">'+esc(c.name||'(no name)')+'</span> <span class="text-xs text-stone-400">'+esc(c.email||'')+(c.orders!=null?(' · '+c.orders+' orders'):'')+'</span></div>').join(''); }
+    if(os.length){ html+='<div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-stone-400">Orders (recent first)</div>';
+      html+=os.slice(0,12).map((o,i)=>{ const who=(o.customer&&o.customer.name)|| (o.shipTo&&o.shipTo.name)||''; const city=(o.shipTo&&o.shipTo.city)||'';
+        return '<div onclick="ntPickOrder('+i+')" class="px-3 py-1.5 hover:bg-teal-50 cursor-pointer text-sm border-t border-stone-100 flex justify-between gap-2"><span class="truncate"><span class="font-medium">'+esc(o.name||'')+'</span> <span class="text-xs text-stone-500">'+esc(who)+(city?(' · '+esc(city)):'')+'</span></span><span class="text-xs text-stone-400 shrink-0 whitespace-nowrap">'+(o.createdAt?new Date(o.createdAt).toLocaleDateString('en-NZ',{day:'numeric',month:'short'}):'')+' · '+money(o.total,o.currency)+'</span></div>'; }).join(''); }
+    if(!html) html='<div class="px-3 py-2 text-xs text-stone-400">No matches — type the details in manually below.</div>';
+    box.innerHTML=html;
+  },300);
+}
+function ntFill(name,email,order){ const n=document.getElementById('ntName'),e=document.getElementById('ntEmail'),o=document.getElementById('ntOrder');
+  if(n&&name!=null) n.value=name; if(e&&email!=null) e.value=email; if(o&&order!=null) o.value=order; }
+function ntHideResults(){ const b=document.getElementById('ntResults'); if(b){ b.classList.add('hidden'); } const s=document.getElementById('ntSearch'); if(s) s.value=''; }
+function ntShowLinked(txt){ const l=document.getElementById('ntLinked'); if(l){ l.classList.remove('hidden'); l.innerHTML='<div class="inline-flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-2.5 py-1 text-xs text-teal-800">✓ '+esc(txt)+' <button onclick="ntClearLinked()" class="text-teal-500 hover:text-teal-800">✕</button></div>'; } }
+function ntClearLinked(){ const l=document.getElementById('ntLinked'); if(l){ l.classList.add('hidden'); l.innerHTML=''; } ntFill('','',''); }
+function ntPickCustomer(i){ const c=(window.NT_RESULTS.customers||[])[i]; if(!c) return; ntFill(c.name||'', c.email||'', document.getElementById('ntOrder').value); ntHideResults(); ntShowLinked((c.name||c.email||'customer')); if(!window.NT_TYPE) ntSetType('enquiry'); }
+function ntPickOrder(i){ const o=(window.NT_RESULTS.orders||[])[i]; if(!o) return; const nm=(o.customer&&o.customer.name)||(o.shipTo&&o.shipTo.name)||''; const em=(o.customer&&o.customer.email)||''; ntFill(nm,em,o.name||''); ntHideResults(); ntShowLinked((o.name||'')+(nm?(' · '+nm):'')); if(!window.NT_TYPE) ntSetType('order'); }
 async function submitNewTicket(btn){
-  const name=ntVal('ntName'),email=ntVal('ntEmail'),order=ntVal('ntOrder'),type=ntVal('ntType'),note=ntVal('ntNote');
-  if(!name && !email){ alert('Enter a name or email.'); return; }
+  let name=ntVal('ntName'), email=ntVal('ntEmail'), order=ntVal('ntOrder'); const note=ntVal('ntNote'); const type=window.NT_TYPE||'unknown';
+  if(!name && !email && !order && !note){ alert('Add an order, a name/email, or a note.'); return; }
+  if(!name && !email && order) name='Order '+order;
   if(btn) btn.disabled=true;
   const r=await apiPost('support-ticket-create',{name,email,orderName:order,type,note,channel:'phone',direction:'in'});
   if(!r.ok){ if(btn) btn.disabled=false; alert((r.data&&r.data.error)||'Could not create.'); return; }
