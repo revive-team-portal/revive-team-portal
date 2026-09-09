@@ -33,15 +33,17 @@ function troubleReason(hay){
   return '';
 }
 
+function lineNodes(order){ return ((order.lineItems && order.lineItems.edges) || []).map(e=>e.node); }
 function serviceType(order, t){
-  const hay=((order.tags||[]).join(' ')+' '+(order.lineItems||[]).map(li=>li.title).join(' ')).toLowerCase();
+  const hay=((order.tags||[]).join(' ')+' '+lineNodes(order).map(li=>li.title||'').join(' ')).toLowerCase();
   if(/perishable|chilled|frozen|cold|fresh|refriger/.test(hay)) return 'Perishable';
   return (t && t.service) || 'Standard';
 }
 function productTypes(order){
-  const t=[...new Set((order.lineItems||[]).map(li=>li.product && li.product.productType).filter(Boolean))];
+  const ln=lineNodes(order);
+  const t=[...new Set(ln.map(li=>li.product && li.product.productType).filter(Boolean))];
   if(t.length) return t.join(', ');
-  return [...new Set((order.lineItems||[]).map(li=>(li.title||'').split(/\s+/)[0]).filter(Boolean))].slice(0,3).join(', ');
+  return [...new Set(ln.map(li=>(li.title||'').split(/\s+/)[0]).filter(Boolean))].slice(0,3).join(', ');
 }
 
 async function findReplacement(email, origName, origDate){
