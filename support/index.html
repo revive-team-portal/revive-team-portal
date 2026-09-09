@@ -116,7 +116,7 @@ function panelHTML(id){
       + '<div id="aiInsights"></div>'+'<div id="benchmark" class="mt-4"></div>';
   }
   if(id==='claims'){
-    return '<div class="flex items-center justify-between mb-1 flex-wrap gap-2"><h2 class="text-xl font-bold">Naughty Orders</h2><button onclick="refreshNaughty(this)" class="text-xs border border-stone-300 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ Check courier statuses</button></div><p class="text-stone-500 text-sm mb-4">Late / in-trouble orders — NZ Post delays, resends and manually flagged. They stay here until resolved.</p><div id="naughtyList"><div class="text-stone-400 text-sm">Loading…</div></div>';
+    return '<div class="flex items-center justify-between mb-1 flex-wrap gap-2"><h2 class="text-xl font-bold">Naughty Orders</h2><div class="flex gap-2"><button onclick="scanNaughty(this)" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-3 py-1.5 rounded-lg">⟳ Scan last month</button><button onclick="refreshNaughty(this)" class="text-xs border border-stone-300 px-3 py-1.5 rounded-lg hover:bg-stone-50">↻ Check courier statuses</button></div></div><p class="text-stone-500 text-sm mb-4">Late / in-trouble orders — NZ Post delays, resends and manually flagged. They stay here until resolved.</p><div id="naughtyList"><div class="text-stone-400 text-sm">Loading…</div></div>';
   }
   if(id==='ticket'){
     return '<h2 class="text-xl font-bold mb-1">Ticket + Customer detail</h2><p class="text-stone-500 text-sm mb-4">The core screen: thread + AI-suggested reply + order panel + notes.</p>'
@@ -907,12 +907,33 @@ async function loadNaughty(){
   if(!r.ok){ el.innerHTML='<div class="text-amber-700 text-sm">'+esc((r.data&&r.data.error)||'Could not load.')+'</div>'; return; }
   const os=r.data.orders||[];
   if(!os.length){ el.innerHTML='<div class="text-stone-400 text-sm">No naughty orders right now 🎉</div>'; return; }
-  const flagCls={'NZ Post delay':'bg-amber-100 text-amber-700','Resend':'bg-sky-100 text-sky-700','Manually flagged':'bg-red-100 text-red-700'};
-  el.innerHTML='<table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200"><th class="py-1 pr-2">Order / tracking</th><th class="py-1 pr-2">Flag</th><th class="py-1 pr-2">Courier status</th><th class="py-1 pr-2">Customer</th><th class="py-1 pr-2">Added</th><th class="py-1">Action</th></tr></thead><tbody>'
+  const flagCls={'Delayed':'bg-amber-100 text-amber-700','Destroyed':'bg-red-100 text-red-700','Lost in transit':'bg-red-100 text-red-700','Damaged':'bg-red-100 text-red-700','Returned to sender':'bg-orange-100 text-orange-700','Refused':'bg-orange-100 text-orange-700','Uncollected':'bg-orange-100 text-orange-700','Delivery failed':'bg-red-100 text-red-700','Held':'bg-amber-100 text-amber-700','Exception':'bg-amber-100 text-amber-700','NZ Post delay':'bg-amber-100 text-amber-700','Resend':'bg-sky-100 text-sky-700','Manually flagged':'bg-red-100 text-red-700'};
+  const flagClass=(f)=> flagCls[f] || (/stuck|no scan/i.test(f||'')?'bg-amber-100 text-amber-700':'bg-stone-100 text-stone-600');
+  const svc=(sv)=> sv? '<span class="text-[11px] '+(/perish/i.test(sv)?'bg-cyan-100 text-cyan-800':'bg-stone-100 text-stone-600')+' rounded px-1.5 py-0.5 whitespace-nowrap">'+esc(sv)+'</span>':'';
+  const fmt=(d)=> d? new Date(d+'T12:00:00Z').toLocaleDateString('en-NZ',{day:'numeric',month:'short'}) : '';
+  el.innerHTML='<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-xs text-stone-400 border-b border-stone-200">'
+    +'<th class="py-1 pr-2">Order</th><th class="py-1 pr-2">Despatch</th><th class="py-1 pr-2">Customer</th><th class="py-1 pr-2">Suburb</th><th class="py-1 pr-2 text-right">Value</th><th class="py-1 pr-2">Products</th><th class="py-1 pr-2">Service</th><th class="py-1 pr-2">Flag</th><th class="py-1 pr-2">Courier status</th><th class="py-1">Action</th></tr></thead><tbody>'
     +os.map(o=>{ const delivered=o.status==='delivered'||/deliver/i.test(o.courier_status||'');
+      const orderCell=esc(o.order_name||o.tracking_number||'—')+(o.resend_order?'<div class="text-[11px] text-emerald-700 whitespace-nowrap">↻ replaced by '+esc(o.resend_order)+'</div>':'');
       const cs=o.courier_status?('<span class="text-xs '+(delivered?'text-green-700 font-semibold':'text-stone-600')+'">'+esc(o.courier_status)+'</span>'):'<span class="text-xs text-stone-400">—</span>';
-      return '<tr class="border-b border-stone-100 align-top"><td class="py-2 pr-2 font-medium whitespace-nowrap">'+esc(o.order_name||o.tracking_number||'—')+(o.resend_order?' → '+esc(o.resend_order):'')+'</td><td class="py-2 pr-2"><span class="text-xs '+(flagCls[o.flag_reason]||'bg-stone-100 text-stone-600')+' rounded px-1.5 py-0.5 whitespace-nowrap">'+esc(o.flag_reason||'')+'</span>'+(delivered?' <span class="text-[10px] text-green-700">✓ delivered</span>':'')+'</td><td class="py-2 pr-2">'+cs+'</td><td class="py-2 pr-2 text-stone-600">'+esc(o.customer_name||o.customer_email||'')+'</td><td class="py-2 pr-2 text-stone-400 whitespace-nowrap">'+(o.created_at?new Date(o.created_at).toLocaleDateString('en-NZ'):'')+'</td><td class="py-2"><button onclick="resolveNaughty(\''+o.id+'\')" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-2 py-1 rounded">Resolve</button></td></tr>';
-    }).join('')+'</tbody></table>';
+      return '<tr class="border-b border-stone-100 align-top">'
+        +'<td class="py-2 pr-2 font-medium whitespace-nowrap">'+orderCell+'</td>'
+        +'<td class="py-2 pr-2 text-stone-500 whitespace-nowrap">'+fmt(o.despatch_date)+'</td>'
+        +'<td class="py-2 pr-2 text-stone-600 whitespace-nowrap">'+esc(o.customer_name||o.customer_email||'')+'</td>'
+        +'<td class="py-2 pr-2 text-stone-500 whitespace-nowrap">'+esc(o.suburb||'')+'</td>'
+        +'<td class="py-2 pr-2 text-right whitespace-nowrap">'+(o.value!=null?money0(o.value):'—')+'</td>'
+        +'<td class="py-2 pr-2 text-stone-500">'+esc(o.product_types||'')+'</td>'
+        +'<td class="py-2 pr-2">'+svc(o.service_type)+'</td>'
+        +'<td class="py-2 pr-2"><span class="text-xs '+flagClass(o.flag_reason)+' rounded px-1.5 py-0.5 whitespace-nowrap">'+esc(o.flag_reason||'')+'</span>'+(delivered?' <span class="text-[10px] text-green-700">✓ delivered</span>':'')+'</td>'
+        +'<td class="py-2 pr-2">'+cs+'</td>'
+        +'<td class="py-2 whitespace-nowrap"><button onclick="resolveNaughty(\''+o.id+'\')" class="text-xs bg-teal-700 hover:bg-teal-800 text-white px-2 py-1 rounded">Resolve</button></td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
+async function scanNaughty(btn){
+  if(btn){ btn.disabled=true; btn.dataset.t=btn.textContent; btn.textContent='Scanning… (~2 min)'; }
+  const r=await apiPost('support-naughty-scan',{days:35});
+  if(!r.ok){ if(btn){ btn.disabled=false; btn.textContent=btn.dataset.t||'⟳ Scan last month'; } alert((r.data&&r.data.error)||'Scan failed'); return; }
+  let n=0; (function poll(){ n++; loadNaughty(); if(n<16){ setTimeout(poll,10000); } else if(btn){ btn.disabled=false; btn.textContent=btn.dataset.t||'⟳ Scan last month'; } })();
 }
 async function refreshNaughty(btn){ if(btn) btn.disabled=true; try{ await apiPost('support-naughty-refresh',{}); }catch(e){} if(btn) btn.disabled=false; loadNaughty(); }
 async function resolveNaughty(id){ const reason=prompt('Resolution / action taken:',''); if(reason===null) return; const r=await apiPost('support-naughty-resolve',{id, resolution:reason}); if(!r.ok){ alert((r.data&&r.data.error)||'Failed'); return; } loadNaughty(); }

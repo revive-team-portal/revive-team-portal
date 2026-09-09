@@ -52,6 +52,10 @@
 [functions."scheduled-nzpost-delays"]
   schedule = "10 * * * *"
 
+# Daily courier scan of last-month orders -> naughty list
+[functions."scheduled-naughty-scan"]
+  schedule = "30 19 * * *"
+
 # --- Ads app -----------------------------------------------------------------
 # The video worker ships ffmpeg + whisper.cpp as committed binaries. The repo has
 # no package.json on purpose (adding one would change bundling for ~130 existing
