@@ -26,15 +26,23 @@ exports.handler = async (event) => {
     const t = await rest('tickets?id=eq.'+encodeURIComponent(body.id)+'&select=gmail_thread_id&limit=1');
     if (!t || !t.length) return json(404, { error: 'Ticket not found.' });
     const threadId = t[0].gmail_thread_id;
-    const at = await getAccessToken('cafe');
-    if (at.ok && threadId) {
-      const labelId = await ensureLabel(at.access_token);
-      await fetch('https://gmail.googleapis.com/gmail/v1/users/me/threads/'+encodeURIComponent(threadId)+'/modify', {
-        method:'POST', headers:{ Authorization:'Bearer '+at.access_token, 'Content-Type':'application/json' },
-        body: JSON.stringify({ removeLabelIds:['INBOX'], addLabelIds: labelId ? [labelId] : [] }),
-      });
+    let archived = false, archiveError = null;
+    if (threadId) {
+      // Archive in Gmail and CHECK it worked (retry once with a fresh token). Previously this
+      // fired-and-forgot, so a stale token left the email sitting in the inbox.
+      for (let attempt = 0; attempt < 2 && !archived; attempt++) {
+        const at = await getAccessToken('cafe');
+        if (!at.ok) { archiveError = at.error || 'Gmail not connected'; continue; }
+        const labelId = await ensureLabel(at.access_token).catch(() => null);
+        const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/threads/'+encodeURIComponent(threadId)+'/modify', {
+          method:'POST', headers:{ Authorization:'Bearer '+at.access_token, 'Content-Type':'application/json' },
+          body: JSON.stringify({ removeLabelIds:['INBOX'], addLabelIds: labelId ? [labelId] : [] }),
+        });
+        if (r.ok) { archived = true; }
+        else { const d = await r.json().catch(()=>({})); archiveError = (d.error && d.error.message) || ('HTTP '+r.status); }
+      }
     }
     await rest('tickets?id=eq.'+encodeURIComponent(body.id), { method:'PATCH', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ status:'Resolved', resolved_at:new Date().toISOString(), updated_at:new Date().toISOString() }) });
-    return json(200, { ok:true, archived: !!(at.ok && threadId) });
+    return json(200, { ok:true, archived, archiveError: archived ? null : (threadId ? archiveError : 'no Gmail thread on this ticket') });
   } catch (e) { return json(502, { error: String(e.message || e) }); }
 };

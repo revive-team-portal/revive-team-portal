@@ -35,7 +35,7 @@ function extractParts(payload){
   const text = plain.trim() ? plain.trim() : html.replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
   return { text, html: html.trim(), attachments };
 }
-async function gapi(token, path){ const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{headers:{Authorization:'Bearer '+token}}); return r.json().catch(()=>({})); }
+async function gapi(token, path){ const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{headers:{Authorization:'Bearer '+token}}); const j=await r.json().catch(()=>({})); if(!r.ok || (j&&j.error)){ j.__error=(j&&j.error)||{ code:r.status, message:'HTTP '+r.status }; } return j; }
 
 const infoCache={};
 async function customerOrderInfo(email){
@@ -100,14 +100,19 @@ async function runInboxSync(opts){
   if(!at.ok) return { ok:false, error:at.error, connected:false };
   const token=at.access_token;
   let purged=0; try{ const pr=await runAutoReplyPurge(token); purged=pr.trashed||0; }catch(e){}
-  const q=opts.q||'in:inbox';
+  const q=opts.q||'';
   const maxThreads=Math.min(Number(opts.max)||45,80);
 
   // Full set of inbox thread ids (for reconcile), newest-first ordered list (for processing).
-  const seen=new Set(); const ordered=[]; let pageToken=null, pages=0, complete=true;
+  // A Gmail error must NEVER look like an empty inbox — that is what caused mass auto-resolves.
+  const seen=new Set(); const ordered=[]; let pageToken=null, pages=0, complete=true, listingError=null;
   do {
-    const path='messages?maxResults=100&q='+encodeURIComponent(q)+(pageToken?('&pageToken='+pageToken):'');
+    const base = q ? ('messages?maxResults=100&q='+encodeURIComponent(q)) : 'messages?maxResults=100&labelIds=INBOX';
+    const path=base+(pageToken?('&pageToken='+pageToken):'');
     const list=await gapi(token, path);
+    if(list.__error || (!Array.isArray(list.messages) && typeof list.resultSizeEstimate!=='number')){
+      listingError=(list.__error&&(list.__error.message||('code '+list.__error.code)))||'unexpected response'; complete=false; break;
+    }
     (list.messages||[]).forEach(m=>{ if(!seen.has(m.threadId)){ seen.add(m.threadId); ordered.push(m.threadId); } });
     pageToken=list.nextPageToken; pages++;
     if(pageToken && pages>=6){ complete=false; break; }
@@ -122,17 +127,19 @@ async function runInboxSync(opts){
   }
 
   // Reconcile: resolve open email tickets whose thread is no longer in the inbox.
-  let resolved=0;
-  if(complete){
+  let resolved=0, reconcileSkipped=null;
+  if(complete && !listingError){
     const openTix=await rest("tickets?status=neq.Resolved&gmail_thread_id=not.is.null&source=eq.email&select=id,gmail_thread_id&limit=1000");
     const toResolve=(openTix||[]).filter(t=>!seen.has(t.gmail_thread_id)).map(t=>t.id);
-    if(toResolve.length){
+    // Safety: a sudden wipe of most open tickets is almost always a listing glitch, not real archiving.
+    if(toResolve.length>60){ reconcileSkipped='would resolve '+toResolve.length+' — too many, skipped'; }
+    else if(toResolve.length){
       const idList=toResolve.map(id=>'"'+id+'"').join(',');
       await rest('tickets?id=in.('+idList+')',{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({ status:'Resolved', resolved_at:new Date().toISOString(), updated_at:new Date().toISOString() }) });
       resolved=toResolve.length;
     }
-  }
-  return { ok:true, threads:newest.length, order, nonOrder, messages, resolved, reconciled:complete, purged };
+  } else if(listingError){ reconcileSkipped='Gmail listing failed: '+listingError; }
+  return { ok:true, threads:newest.length, inboxThreads:seen.size, order, nonOrder, messages, resolved, reconciled:(complete && !listingError), reconcileSkipped, listingError, purged };
 }
 
 module.exports = { runInboxSync };

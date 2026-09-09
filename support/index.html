@@ -590,6 +590,7 @@ async function resolveTicket(btn){
   if(btn){ btn.disabled=true; btn.textContent='Resolving…'; }
   const r=await apiPost('support-resolve',{id:window.CUR.id});
   if(!r.ok){ if(btn){ btn.disabled=false; btn.innerHTML='✓ Resolve &amp; archive'; } alert((r.data&&r.data.error)||'Could not resolve.'); return; }
+  if(r.data && r.data.archived===false && r.data.archiveError && !/no Gmail thread/.test(r.data.archiveError)){ alert('Ticket resolved, but it could NOT be archived in Gmail (still in the inbox): '+r.data.archiveError+'\n\nCheck the Gmail connection in Settings and try Resolve again.'); }
   show('dashboard'); loadTickets();
 }
 
