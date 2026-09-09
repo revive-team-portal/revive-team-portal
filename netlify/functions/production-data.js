@@ -53,11 +53,28 @@ exports.handler = async (event) => {
 
   try {
     if (action === 'get_pricing') {
-      const [ingredients, rates] = await Promise.all([
+      const [ingredients, rates, nutrition] = await Promise.all([
         appsDb('ingredient_cost?select=*&order=ingredient'),
         appsDb('rate_setting?select=*&order=key'),
+        appsDb('ingredient_nutrition?select=*&order=ingredient'),
       ]);
-      return json(200, { ingredients, rates });
+      return json(200, { ingredients, rates, nutrition });
+    }
+
+    if (action === 'save_nutrition') {
+      const { ingredient } = body;
+      if (!ingredient) return json(400, { error: 'Missing ingredient.' });
+      const cols = ['energy_kj','protein_g','fat_g','satfat_g','carb_g','sugar_g','fibre_g','sodium_mg'];
+      const patch = { updated_at: new Date().toISOString() };
+      cols.forEach(c => { const v = body[c]; if (v !== undefined) patch[c] = (v === '' || v === null) ? null : Number(v); });
+      const patched = await appsDb('ingredient_nutrition?ingredient=eq.' + encodeURIComponent(ingredient), {
+        method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch),
+      });
+      if (!Array.isArray(patched) || !patched.length) {
+        await appsDb('ingredient_nutrition', { method: 'POST', headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ ingredient, ...patch, source: 'edited' }) });
+      }
+      return json(200, { ok: true });
     }
 
     if (action === 'get_recipe_costs') {
