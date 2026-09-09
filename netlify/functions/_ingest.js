@@ -127,6 +127,19 @@ async function runInboxSync(opts){
   }
 
   // Reconcile: resolve open email tickets whose thread is no longer in the inbox.
+  // Re-open: any resolved email ticket whose thread is (still or back) in the inbox. Presence in
+  // the inbox is positive evidence, so this is safe even on a partial listing. Also brings a ticket
+  // back when a customer replies to a resolved thread.
+  let reopened=0;
+  if(seen.size>0){
+    const ids=[...seen];
+    for(let i=0;i<ids.length;i+=100){
+      const chunk=ids.slice(i,i+100).map(x=>'"'+x+'"').join(',');
+      const rows=await rest('tickets?status=eq.Resolved&source=eq.email&or=(excluded.is.false,excluded.is.null)&gmail_thread_id=in.('+chunk+')&select=id').catch(()=>[]);
+      if(rows&&rows.length){ const idl=rows.map(r=>'"'+r.id+'"').join(','); await rest('tickets?id=in.('+idl+')',{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({ status:'Open', resolved_at:null, updated_at:new Date().toISOString() }) }); reopened+=rows.length; }
+    }
+  }
+
   let resolved=0, reconcileSkipped=null;
   if(complete && !listingError){
     const openTix=await rest("tickets?status=neq.Resolved&gmail_thread_id=not.is.null&source=eq.email&select=id,gmail_thread_id&limit=1000");
@@ -139,7 +152,7 @@ async function runInboxSync(opts){
       resolved=toResolve.length;
     }
   } else if(listingError){ reconcileSkipped='Gmail listing failed: '+listingError; }
-  return { ok:true, threads:newest.length, inboxThreads:seen.size, order, nonOrder, messages, resolved, reconciled:(complete && !listingError), reconcileSkipped, listingError, purged };
+  return { ok:true, threads:newest.length, inboxThreads:seen.size, order, nonOrder, messages, resolved, reopened, reconciled:(complete && !listingError), reconcileSkipped, listingError, purged };
 }
 
 module.exports = { runInboxSync };
