@@ -97,7 +97,7 @@ async function processThread(token, tid){
 async function runInboxSync(opts){
   opts = opts || {};
   const at=await getAccessToken('cafe');
-  if(!at.ok) return { ok:false, error:at.error, connected:false };
+  if(!at.ok){ try{ await rest('sync_status?id=eq.1',{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({ last_run:new Date().toISOString(), result:{ ok:false, error:at.error, connected:false }, updated_at:new Date().toISOString() }) }); }catch(e){} return { ok:false, error:at.error, connected:false }; }
   const token=at.access_token;
   let purged=0; try{ const pr=await runAutoReplyPurge(token); purged=pr.trashed||0; }catch(e){}
   const q=opts.q||'';
@@ -152,7 +152,9 @@ async function runInboxSync(opts){
       resolved=toResolve.length;
     }
   } else if(listingError){ reconcileSkipped='Gmail listing failed: '+listingError; }
-  return { ok:true, threads:newest.length, inboxThreads:seen.size, order, nonOrder, messages, resolved, reopened, reconciled:(complete && !listingError), reconcileSkipped, listingError, purged };
+  const result={ ok:true, threads:newest.length, inboxThreads:seen.size, order, nonOrder, messages, resolved, reopened, reconciled:(complete && !listingError), reconcileSkipped, listingError, purged };
+  try{ await rest('sync_status?id=eq.1',{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({ last_run:new Date().toISOString(), result, updated_at:new Date().toISOString() }) }); }catch(e){}
+  return result;
 }
 
 module.exports = { runInboxSync };
