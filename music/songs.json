@@ -1920,6 +1920,209 @@
      "text": "(You reach out) I'm walking now"
     }
    ]
+  },
+  {
+   "title": "My Times Are in Your Hand",
+   "src": "audio/11.mp3",
+   "art": "art/11.jpg",
+   "duration": 183.43,
+   "note": "David — the sling on the hillside, the years hiding in caves, and the same trust the whole way through.",
+   "verse": {
+    "ref": "Psalm 31:15",
+    "text": "My times are in Your hands; deliver me from my enemies and from those who pursue me.",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Psalm%2031%3A15&version=NIV"
+   },
+   "timing": "aligned",
+   "lines": [
+    {
+     "t": 8.36,
+     "text": "Verse 1",
+     "sect": true
+    },
+    {
+     "t": 9.56,
+     "text": "Little brother with a sling and stones"
+    },
+    {
+     "t": 13.36,
+     "text": "Nobody sent for him, he came alone"
+    },
+    {
+     "t": 21.34,
+     "text": "Giant on the hillside, army full of fear"
+    },
+    {
+     "t": 26.58,
+     "text": "He said, \"The Lord who saved me from the lion, He is here\""
+    },
+    {
+     "t": 31.06,
+     "text": "Chorus",
+     "sect": true
+    },
+    {
+     "t": 32.26,
+     "text": "I'll not be afraid"
+    },
+    {
+     "t": 34.4,
+     "text": "The Lord is my light"
+    },
+    {
+     "t": 37.94,
+     "text": "Though an army rise against me"
+    },
+    {
+     "t": 41.04,
+     "text": "I will trust You in the night"
+    },
+    {
+     "t": 43.9,
+     "text": "You've been faithful before"
+    },
+    {
+     "t": 46.62,
+     "text": "So I'll wait, and I'll stand"
+    },
+    {
+     "t": 50.32,
+     "text": "For my times are in Your hand"
+    },
+    {
+     "t": 54.56,
+     "text": "Verse 2",
+     "sect": true
+    },
+    {
+     "t": 55.76,
+     "text": "Years in the wilderness, running from the king"
+    },
+    {
+     "t": 61.9,
+     "text": "Hiding in the caves with only songs to sing"
+    },
+    {
+     "t": 67.42,
+     "text": "He could have taken vengeance, had the chance in his hand"
+    },
+    {
+     "t": 73.36,
+     "text": "But he said, \"The Lord will judge — I'll wait on His plan\""
+    },
+    {
+     "t": 78.28,
+     "text": "Chorus",
+     "sect": true
+    },
+    {
+     "t": 79.48,
+     "text": "I'll not be afraid"
+    },
+    {
+     "t": 81.24,
+     "text": "The Lord is my light"
+    },
+    {
+     "t": 84.7,
+     "text": "Though an army rise against me"
+    },
+    {
+     "t": 87.78,
+     "text": "I will trust You in the night"
+    },
+    {
+     "t": 90.58,
+     "text": "You've been faithful before"
+    },
+    {
+     "t": 93.36,
+     "text": "So I'll wait, and I'll stand"
+    },
+    {
+     "t": 97.06,
+     "text": "For my times are in Your hand"
+    },
+    {
+     "t": 100.38,
+     "text": "Bridge",
+     "sect": true
+    },
+    {
+     "t": 101.58,
+     "text": "Though I walk through the valley"
+    },
+    {
+     "t": 104.8,
+     "text": "Through the shadow and the pain"
+    },
+    {
+     "t": 107.78,
+     "text": "You prepare a table for me"
+    },
+    {
+     "t": 111.16,
+     "text": "And You call me by my name"
+    },
+    {
+     "t": 112.32,
+     "text": "Verse 3",
+     "sect": true
+    },
+    {
+     "t": 113.52,
+     "text": "I've got giants of my own, and I've got caves I hide in too"
+    },
+    {
+     "t": 123.22,
+     "text": "Got a heart that keeps on running when I should be still with You"
+    },
+    {
+     "t": 129.5,
+     "text": "So I'll take the shepherd's confidence and make it mine today"
+    },
+    {
+     "t": 135.54,
+     "text": "If You brought him through, You'll bring me through — I'll walk the shepherd's way"
+    },
+    {
+     "t": 141.62,
+     "text": "Final Chorus",
+     "sect": true
+    },
+    {
+     "t": 142.82,
+     "text": "I'll not be afraid"
+    },
+    {
+     "t": 145.14,
+     "text": "The Lord is my light"
+    },
+    {
+     "t": 148.56,
+     "text": "Though an army rise against me"
+    },
+    {
+     "t": 151.68,
+     "text": "I will trust You in the night"
+    },
+    {
+     "t": 154.48,
+     "text": "You've been faithful before"
+    },
+    {
+     "t": 157.34,
+     "text": "So I'll wait, and I'll stand"
+    },
+    {
+     "t": 160.98,
+     "text": "For my times are in Your hand"
+    },
+    {
+     "t": 167.0,
+     "text": "For my times are in Your hand"
+    }
+   ]
   }
  ]
 }
