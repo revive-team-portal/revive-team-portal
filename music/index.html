@@ -128,12 +128,20 @@
   .libtools{display:flex;align-items:center;gap:16px}
   #favFilter{color:var(--muted);display:flex;align-items:center;gap:6px}
   #favFilter svg{width:18px;height:18px;fill:currentColor}
+  #newFilter{color:var(--muted);display:none;align-items:center;gap:6px}
+  #newFilter.show{display:flex}
+  #newFilter.on{color:var(--accent)}
+  #newFilter .dot{display:inline-block;min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+                  background:var(--accent);color:#000;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+  .newpill{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:var(--accent);
+           color:#000;font-size:9.5px;font-weight:700;letter-spacing:.06em;vertical-align:2px}
   #favFilter.on{color:#FF4D6D}
   .emptyfav{grid-column:1/-1;text-align:center;color:var(--dim);font-size:14px;
             line-height:1.6;padding:34px 16px}
   @media (max-width:380px){
     .libleft{gap:10px}
     #favFilter span{display:none}
+    #newFilter span.lbl{display:none}
   }
   #viewToggle{color:var(--muted);display:flex;align-items:center;padding:10px 4px}
   #viewToggle svg{width:20px;height:20px;fill:currentColor}
@@ -150,7 +158,7 @@
                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .grid.list .tn{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
                  margin-top:3px;font-size:11.5px;line-height:1.36;color:var(--dim);overflow:hidden}
-  .grid.list .ts{display:none}
+  .grid.list .ts{display:block;margin-top:2px}
   .grid.list .tilefav{position:static;width:42px;height:42px;background:none;backdrop-filter:none}
   .rowmeta{display:contents}
   .libhead button:hover{color:var(--text)}
@@ -289,6 +297,7 @@
       </div>
       <div class="libtools">
         <button id="viewToggle" aria-label="Switch view"></button>
+        <button id="newFilter" aria-pressed="false"></button>
         <button id="favFilter" aria-pressed="false"></button>
       </div>
     </div>
@@ -368,8 +377,17 @@ function paintFav(){
   f.innerHTML = (favOnly ? HEART_FULL : HEART_LINE) + '<span>' + (favs.size || '') + ' Favourites</span>';
   f.classList.toggle('on', favOnly);
   f.setAttribute('aria-pressed', favOnly);
+  const n = $('newFilter'), nc = SONGS.filter(isNew).length;
+  n.innerHTML = '<span class="dot">' + nc + '</span><span class="lbl">New</span>';
+  n.classList.toggle('show', nc > 0);
+  n.classList.toggle('on', newOnly);
+  n.setAttribute('aria-pressed', newOnly);
 }
-let favOnly = false;
+let favOnly = false, newOnly = false;
+const NEW_DAYS = 14;
+function isNew(s){ return !!s.created && (Date.now() - Date.parse(s.created)) < NEW_DAYS*86400000; }
+function fmtDate(d){ if(!d) return ''; const x = new Date(d + 'T12:00:00'); if(isNaN(x)) return '';
+  return x.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()] + ' ' + x.getFullYear(); }
 const VIEW_KEY = 'revive.music.view.v1';
 let listView = false;
 try { listView = localStorage.getItem(VIEW_KEY) === 'list'; } catch(e){}
@@ -391,7 +409,7 @@ function paint(){
   $('art').src = s.art;
   $('art').alt = s.title + ' cover';
   $('title').textContent = s.title;
-  $('sub').textContent = ARTIST;
+  $('sub').textContent = ARTIST + (s.created ? ' · ' + fmtDate(s.created) : '');
   $('note').textContent = s.note || '';
   $('note').style.display = s.note ? '' : 'none';
   if(s.verse && s.verse.ref){
@@ -446,7 +464,7 @@ function buildFlow(){
 function buildFull(){
   const s = SONGS[idx], box = $('full');
   $('sheetTitle').textContent = s.title;
-  $('sheetSub').textContent = ARTIST + (s.timing === 'estimated' ? ' · timings estimated' : '');
+  $('sheetSub').textContent = ARTIST + (s.created ? ' · ' + fmtDate(s.created) : '') + (s.timing === 'estimated' ? ' · timings estimated' : '');
   box.innerHTML = '';
   (s.lines || []).forEach(l=>{
     const p = document.createElement('p');
@@ -461,12 +479,15 @@ function buildGrid(){
   const g = $('grid');
   g.innerHTML = '';
   g.classList.toggle('list', listView);
-  const shown = SONGS.map((s,i)=>i).filter(i => !favOnly || isFav(SONGS[i]));
-  $('libcount').textContent = favOnly
+  const shown = SONGS.map((s,i)=>i).filter(i => (!favOnly || isFav(SONGS[i])) && (!newOnly || isNew(SONGS[i])));
+  $('libcount').textContent = newOnly
+    ? shown.length + (shown.length === 1 ? ' new song' : ' new songs')
+    : favOnly
     ? shown.length + (shown.length === 1 ? ' favourite' : ' favourites')
     : SONGS.length + ' songs';
   if(!shown.length){
-    g.innerHTML = '<p class="emptyfav">No favourites yet.<br>Tap the heart on a song to keep it here.</p>';
+    g.innerHTML = newOnly ? '<p class="emptyfav">Nothing new in the last two weeks.</p>'
+      : '<p class="emptyfav">No favourites yet.<br>Tap the heart on a song to keep it here.</p>';
     return;
   }
   shown.forEach(i=>{
@@ -479,8 +500,8 @@ function buildGrid(){
     b.setAttribute('aria-label', 'Play ' + s.title);
     const thumb = '<span class="thumb"><img src="' + s.art + '" alt="" loading="lazy">' +
       '<span class="bars"><i></i><i></i><i></i></span></span>';
-    const text = '<span class="tt">' + esc(s.title) + '</span>' +
-      '<span class="ts">' + fmt(s.duration) + '</span>' +
+    const text = '<span class="tt">' + esc(s.title) + (isNew(s) ? '<span class="newpill">NEW</span>' : '') + '</span>' +
+      '<span class="ts">' + fmt(s.duration) + (s.created ? ' · ' + fmtDate(s.created) : '') + '</span>' +
       (s.note ? '<span class="tn">' + esc(s.note) + '</span>' : '');
     b.innerHTML = listView ? thumb + '<span class="rowmeta">' + text + '</span>' : thumb + text;
     b.addEventListener('click', ()=>select(i));
@@ -708,9 +729,16 @@ $('viewToggle').addEventListener('click', e=>{
   paintFav();
   buildGrid();
 });
+$('newFilter').addEventListener('click', e=>{
+  e.stopPropagation();
+  newOnly = !newOnly; if(newOnly) favOnly = false;
+  paintFav();
+  buildGrid();
+  setLib(true);
+});
 $('favFilter').addEventListener('click', e=>{
   e.stopPropagation();
-  favOnly = !favOnly;
+  favOnly = !favOnly; if(favOnly) newOnly = false;
   paintFav();
   buildGrid();
   setLib(true);
