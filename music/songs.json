@@ -1742,6 +1742,184 @@
      "text": "In Your house forever, I will belong"
     }
    ]
+  },
+  {
+   "title": "He Reached Out",
+   "src": "audio/10.mp3",
+   "art": "art/10.jpg",
+   "duration": 186.24,
+   "note": "Peter on the water — eyes on the waves he sinks, eyes on Jesus he walks.",
+   "verse": {
+    "ref": "Matthew 14:31",
+    "text": "Immediately Jesus reached out His hand and took hold of Peter. “You of little faith,” He said, “why did you doubt?”",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Matthew%2014%3A31&version=NIV"
+   },
+   "timing": "aligned",
+   "lines": [
+    {
+     "t": 9.92,
+     "text": "Verse 1",
+     "sect": true
+    },
+    {
+     "t": 11.12,
+     "text": "Storm on the water, wind in the sail"
+    },
+    {
+     "t": 15.82,
+     "text": "Twelve men rowing and about to fail"
+    },
+    {
+     "t": 19.86,
+     "text": "Then You came walking on the waves"
+    },
+    {
+     "t": 24.36,
+     "text": "\"Don't be afraid\" — that's what You gave"
+    },
+    {
+     "t": 26.53,
+     "text": "Chorus",
+     "sect": true
+    },
+    {
+     "t": 27.73,
+     "text": "You reach out, You reach out"
+    },
+    {
+     "t": 30.4,
+     "text": "When I'm going under"
+    },
+    {
+     "t": 32.6,
+     "text": "You reach out, You reach out"
+    },
+    {
+     "t": 34.14,
+     "text": "Through the wind and thunder"
+    },
+    {
+     "t": 36.9,
+     "text": "I'm not gonna drown, no, I'm not gonna drown"
+    },
+    {
+     "t": 41.2,
+     "text": "You reach out and You lift me now"
+    },
+    {
+     "t": 60.8,
+     "text": "Verse 2",
+     "sect": true
+    },
+    {
+     "t": 62.0,
+     "text": "Peter said \"Lord, call me to You\""
+    },
+    {
+     "t": 66.93,
+     "text": "Stepped off the boat and walked on through"
+    },
+    {
+     "t": 70.04,
+     "text": "Then he saw the wind and started down"
+    },
+    {
+     "t": 74.49,
+     "text": "Three words — \"Lord, save me\" — and You were around"
+    },
+    {
+     "t": 77.01,
+     "text": "Chorus",
+     "sect": true
+    },
+    {
+     "t": 78.21,
+     "text": "You reach out, You reach out"
+    },
+    {
+     "t": 80.89,
+     "text": "When I'm going under"
+    },
+    {
+     "t": 83.16,
+     "text": "You reach out, You reach out"
+    },
+    {
+     "t": 85.02,
+     "text": "Through the wind and thunder"
+    },
+    {
+     "t": 87.19,
+     "text": "I'm not gonna drown, no, I'm not gonna drown"
+    },
+    {
+     "t": 91.83,
+     "text": "You reach out and You lift me now"
+    },
+    {
+     "t": 98.6,
+     "text": "Bridge",
+     "sect": true
+    },
+    {
+     "t": 99.8,
+     "text": "Eyes on the waves, and I start to sink"
+    },
+    {
+     "t": 108.16,
+     "text": "Eyes on Your face, and I can walk, I think"
+    },
+    {
+     "t": 115.11,
+     "text": "So I'm stepping out of the boat today"
+    },
+    {
+     "t": 121.34,
+     "text": "'Cause You're standing on the thing I fear"
+    },
+    {
+     "t": 124.6,
+     "text": "And You're calling me Your way"
+    },
+    {
+     "t": 131.24,
+     "text": "Final Chorus",
+     "sect": true
+    },
+    {
+     "t": 132.44,
+     "text": "You reach out, You reach out"
+    },
+    {
+     "t": 135.17,
+     "text": "When I'm going under"
+    },
+    {
+     "t": 137.44,
+     "text": "You reach out, You reach out"
+    },
+    {
+     "t": 139.3,
+     "text": "Through the wind and thunder"
+    },
+    {
+     "t": 141.49,
+     "text": "I'm not gonna drown, no, I'm not gonna drown"
+    },
+    {
+     "t": 146.13,
+     "text": "You reach out and You lift me now"
+    },
+    {
+     "t": 152.0,
+     "text": "(You reach out) You lift me now"
+    },
+    {
+     "t": 160.3,
+     "text": "(You reach out) I'm walking now"
+    }
+   ]
   }
  ]
 }
