@@ -334,7 +334,7 @@
   <div class="sheet-body"><div class="full" id="full"></div></div>
 </div>
 
-<audio id="audio" preload="metadata" playsinline></audio>
+<audio id="audio" preload="auto" playsinline></audio>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -561,12 +561,22 @@ function runLyrics(){
 }
 
 /* ─────────── playback ─────────── */
+/* iOS sometimes reports NaN/Infinity for the element's duration (after a call, on a
+   partially loaded file, or over Bluetooth). Fall back to the length we know. */
+function dur(){ const d = audio.duration; return (d && isFinite(d)) ? d : (SONGS[idx] && SONGS[idx].duration) || 0; }
 function select(i, autoplay = true){
   idx = i;
   audio.src = SONGS[idx].src;
   live = -1;
+  if(autoplay){
+    /* play FIRST, then repaint: the shorter the gap between the old track ending and
+       the new one starting, the less chance the car/lock screen decides we stopped */
+    wantPlaying = true;
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+    audio.play().catch(()=>{});
+  }
   paint();
-  if(autoplay){ wantPlaying = true; audio.play().catch(()=>{}); }
+  position(0);
 }
 function step(d){
   if(shuffle && SONGS.length > 1){
@@ -613,6 +623,7 @@ audio.addEventListener('pause', ()=>{
   buildGrid();
 });
 audio.addEventListener('ended', ()=>{
+  if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';  // we're not done, just between songs
   if(repeat === 'one'){ audio.currentTime = 0; live = -1; wantPlaying = true; audio.play().catch(()=>{}); return; }
   select(step(1));               // wraps past the last song, so playback never stops
 });
@@ -631,8 +642,8 @@ audio.addEventListener('stalled', ()=>{
 audio.addEventListener('playing', ()=>{ skips = 0; });
 audio.addEventListener('loadedmetadata', ()=>{ $('dur').textContent = fmt(SONGS[idx].duration); });
 audio.addEventListener('timeupdate', ()=>{
-  if(!scrubbing && audio.duration){
-    const pct = audio.currentTime / audio.duration * 1000;
+  if(!scrubbing && dur()){
+    const pct = audio.currentTime / dur() * 1000;
     $('seek').value = pct;
     $('seek').style.setProperty('--pct', (pct/10)+'%');
     $('cur').textContent = fmt(audio.currentTime / (scale() || 1));
@@ -645,10 +656,10 @@ const seek = $('seek');
 ['mousedown','touchstart'].forEach(e => seek.addEventListener(e, ()=>{ scrubbing = true; }, {passive:true}));
 seek.addEventListener('input', ()=>{
   seek.style.setProperty('--pct', (seek.value/10)+'%');
-  if(audio.duration) $('cur').textContent = fmt(seek.value/1000 * audio.duration / (scale() || 1));
+  if(dur()) $('cur').textContent = fmt(seek.value/1000 * dur() / (scale() || 1));
 });
 seek.addEventListener('change', ()=>{
-  if(audio.duration) audio.currentTime = seek.value/1000 * audio.duration;
+  if(dur()) audio.currentTime = seek.value/1000 * dur();
   scrubbing = false; live = -1;
 });
 
@@ -658,7 +669,7 @@ function mediaSession(){
   const s = SONGS[idx];
   navigator.mediaSession.metadata = new MediaMetadata({
     title: s.title, artist: ARTIST, album: ALBUM,
-    artwork: [96,192,256,384,512,1024].map(n=>({src: abs(s.art), sizes:n+'x'+n, type:'image/jpeg'}))
+    artwork: [96,192,256,384,512,1024].map(n=>({src: abs(s.art) + (s.created ? '?v=' + s.created : ''), sizes:n+'x'+n, type:'image/jpeg'}))
   });
   const set = (a, fn) => { try { navigator.mediaSession.setActionHandler(a, fn); } catch(e){} };
   set('play', ()=>{ wantPlaying = true; audio.play().catch(()=>{}); });
@@ -666,22 +677,24 @@ function mediaSession(){
   set('previoustrack', ()=>{ if(audio.currentTime>3){ audio.currentTime=0; live=-1; } else select(step(-1)); });
   set('nexttrack', ()=>select(step(1)));
   set('seekbackward', d=>{ audio.currentTime = Math.max(0, audio.currentTime-((d&&d.seekOffset)||10)); live=-1; });
-  set('seekforward', d=>{ audio.currentTime = Math.min(audio.duration, audio.currentTime+((d&&d.seekOffset)||10)); live=-1; });
+  set('seekforward', d=>{ audio.currentTime = Math.min(dur(), audio.currentTime+((d&&d.seekOffset)||10)); live=-1; });
   set('seekto', d=>{ audio.currentTime = d.seekTime; live=-1; });
   set('stop', ()=>{ wantPlaying = false; audio.pause(); audio.currentTime = 0; });
 }
-function position(){
+function position(pos){
   if(!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
-  if(!audio.duration || !isFinite(audio.duration)) return;
+  const d = dur(); if(!d) return;
   try{
     navigator.mediaSession.setPositionState({
-      duration: audio.duration, playbackRate: audio.playbackRate,
-      position: Math.min(audio.currentTime, audio.duration)
+      duration: d, playbackRate: audio.playbackRate || 1,
+      position: Math.min(pos == null ? audio.currentTime : pos, d)
     });
   }catch(e){}
 }
 audio.addEventListener('play', ()=>{ if('mediaSession' in navigator) navigator.mediaSession.playbackState='playing'; });
-audio.addEventListener('pause', ()=>{ if('mediaSession' in navigator) navigator.mediaSession.playbackState='paused'; });
+/* only tell the car we've paused when the listener actually paused — the pause that
+   fires at the end of every song (before 'ended') is not a real pause */
+audio.addEventListener('pause', ()=>{ if('mediaSession' in navigator && !wantPlaying) navigator.mediaSession.playbackState='paused'; });
 
 /* ─────────── lyrics sheet ─────────── */
 function openSheet(){ $('lyricSheet').classList.add('open'); $('scrim').classList.add('on'); live = -1; runLyrics(); }
