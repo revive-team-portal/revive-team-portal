@@ -564,9 +564,26 @@ function runLyrics(){
 /* iOS sometimes reports NaN/Infinity for the element's duration (after a call, on a
    partially loaded file, or over Bluetooth). Fall back to the length we know. */
 function dur(){ const d = audio.duration; return (d && isFinite(d)) ? d : (SONGS[idx] && SONGS[idx].duration) || 0; }
+/* ── gapless-ish: the NEXT song is downloaded into memory while this one plays,
+   so the swap at the end is instant instead of a network fetch (a 2016 GM head
+   unit reads that fetch gap as a pause). ── */
+const pre = { idx: -1, url: null, busy: false };
+function prefetch(){
+  if(SONGS.length < 2 || pre.busy) return;
+  const n = (shuffle ? step(1) : (idx + 1) % SONGS.length);
+  if(pre.idx === n && pre.url) return;
+  if(pre.url){ try { URL.revokeObjectURL(pre.url); } catch(e){} }
+  pre.idx = n; pre.url = null; pre.busy = true;
+  fetch(SONGS[n].src).then(r => r.ok ? r.blob() : Promise.reject())
+    .then(b => { if(pre.idx === n) pre.url = URL.createObjectURL(b); })
+    .catch(()=>{ if(pre.idx === n) pre.idx = -1; })
+    .finally(()=>{ pre.busy = false; });
+}
 function select(i, autoplay = true){
   idx = i;
-  audio.src = SONGS[idx].src;
+  if(pre.playing){ try { URL.revokeObjectURL(pre.playing); } catch(e){} pre.playing = null; }
+  if(pre.idx === i && pre.url){ audio.src = pre.playing = pre.url; pre.idx = -1; pre.url = null; }
+  else audio.src = SONGS[idx].src;
   live = -1;
   if(autoplay){
     /* play FIRST, then repaint: the shorter the gap between the old track ending and
@@ -580,6 +597,7 @@ function select(i, autoplay = true){
 }
 function step(d){
   if(shuffle && SONGS.length > 1){
+    if(d === 1 && pre.idx >= 0 && pre.idx !== idx) return pre.idx;
     let n; do { n = Math.floor(Math.random()*SONGS.length); } while(n === idx);
     return n;
   }
@@ -596,7 +614,7 @@ $('prev').addEventListener('click', ()=>{
   select(step(-1));
 });
 $('shuffle').addEventListener('click', e=>{
-  shuffle = !shuffle;
+  shuffle = !shuffle; pre.idx = -1; setTimeout(prefetch, 300);
   e.currentTarget.classList.toggle('on', shuffle);
   e.currentTarget.setAttribute('aria-pressed', shuffle);
 });
@@ -639,7 +657,7 @@ audio.addEventListener('error', skipBroken);
 audio.addEventListener('stalled', ()=>{
   if(audio.readyState < 2 && !audio.paused) audio.load(), audio.play().catch(()=>{});
 });
-audio.addEventListener('playing', ()=>{ skips = 0; });
+audio.addEventListener('playing', ()=>{ skips = 0; setTimeout(prefetch, 1500); });
 audio.addEventListener('loadedmetadata', ()=>{ $('dur').textContent = fmt(SONGS[idx].duration); });
 audio.addEventListener('timeupdate', ()=>{
   if(!scrubbing && dur()){
