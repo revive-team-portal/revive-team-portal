@@ -98,8 +98,12 @@ async function shopifySums() {
   } catch (e) { return { shopify_today: null, shopify_week: null, shopify_yest: null, shopify_today_orders: null, shopify_week_orders: null, shopify_yest_orders: null }; }
 }
 async function outstandingTickets() {
-  try { const rows = await rest('tickets?status=neq.Resolved&select=id&limit=1000'); return { outstanding_tickets: Array.isArray(rows) ? rows.length : null }; }
-  catch (e) { return { outstanding_tickets: null }; }
+  try {
+    const rows = await rest('tickets?status=neq.Resolved&select=id,holding_reply_sent_at&limit=1000');
+    if (!Array.isArray(rows)) return { outstanding_tickets: null, tickets_stressed: null };
+    const stressed = rows.filter(r => r && r.holding_reply_sent_at).length;
+    return { outstanding_tickets: rows.length, tickets_stressed: stressed };
+  } catch (e) { return { outstanding_tickets: null, tickets_stressed: null }; }
 }
 async function newJobApps() {
   // Point-in-time: applications still to be actioned (status 'new').
@@ -125,7 +129,7 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at, cafe_sales_y: t.sales_y, cafe_covers_y: t.covers_y, cafe_sales_w: t.sales_w, cafe_covers_w: t.covers_w,
         shopify_today: ss.shopify_today, shopify_week: ss.shopify_week, shopify_yest: ss.shopify_yest, shopify_today_orders: ss.shopify_today_orders, shopify_week_orders: ss.shopify_week_orders, shopify_yest_orders: ss.shopify_yest_orders,
-        orders_to_fulfil: oc.orders_to_fulfil, orders_fulfilled_today: fc.orders_fulfilled_today, orders_fulfilled_yest: fc.orders_fulfilled_yest, orders_fulfilled_week: fc.orders_fulfilled_week, outstanding_tickets: tk.outstanding_tickets, new_job_apps: jb.new_job_apps,
+        orders_to_fulfil: oc.orders_to_fulfil, orders_fulfilled_today: fc.orders_fulfilled_today, orders_fulfilled_yest: fc.orders_fulfilled_yest, orders_fulfilled_week: fc.orders_fulfilled_week, outstanding_tickets: tk.outstanding_tickets, tickets_stressed: tk.tickets_stressed, new_job_apps: jb.new_job_apps,
         meta_today: ms.meta_today, meta_week: ms.meta_week, meta_yest: ms.meta_yest, meta_acq_yest: ms.meta_acq_yest, meta_cpa_yest: ms.meta_cpa_yest, meta_acq_today: ms.meta_acq_today, meta_cpa_today: ms.meta_cpa_today, meta_acq_week: ms.meta_acq_week, meta_cpa_week: ms.meta_cpa_week, meta_today_pct: pct(ms.meta_today, ss.shopify_today), meta_week_pct: pct(ms.meta_week, ss.shopify_week) }) };
   } catch (e) { return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: String(e.message || e) }) }; }
 };

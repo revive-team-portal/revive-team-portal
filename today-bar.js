@@ -9,7 +9,7 @@
   var store = {}, stamp = {}, shown = false;
   var SRC = [['shopify', 'Shopify'], ['meta', 'Meta'], ['pos', 'POS'], ['support', 'Support'], ['jobs', 'Jobs']];
   var tick = { shopify: false, meta: false, pos: false, support: false };
-  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'meta_acq_week', 'meta_cpa_week', 'shopify_yest', 'shopify_yest_orders', 'meta_yest', 'meta_acq_yest', 'meta_cpa_yest', 'cafe_sales_y', 'cafe_covers_y', 'cafe_sales_w', 'cafe_covers_w', 'orders_to_fulfil', 'orders_fulfilled_today', 'orders_fulfilled_yest', 'orders_fulfilled_week', 'outstanding_tickets', 'new_job_apps', 'new_job_apps_yest', 'new_job_apps_week'];
+  var LIVE = ['shopify_today', 'shopify_week', 'shopify_today_orders', 'shopify_week_orders', 'meta_today', 'meta_week', 'meta_acq_today', 'meta_cpa_today', 'meta_acq_week', 'meta_cpa_week', 'shopify_yest', 'shopify_yest_orders', 'meta_yest', 'meta_acq_yest', 'meta_cpa_yest', 'cafe_sales_y', 'cafe_covers_y', 'cafe_sales_w', 'cafe_covers_w', 'orders_to_fulfil', 'orders_fulfilled_today', 'orders_fulfilled_yest', 'orders_fulfilled_week', 'outstanding_tickets', 'tickets_stressed', 'new_job_apps', 'new_job_apps_yest', 'new_job_apps_week'];
 
   var css = '.rtb-bar{background:#16543f;color:#fff;padding:6px 16px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.10);display:flex;flex-direction:column;align-items:stretch;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2}'
     + '.rtb-hidden{display:none!important}'
@@ -18,7 +18,7 @@
     + '.rtb-lab{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.9;font-weight:600}'
     + '.rtb-seg b{font-size:17px;font-weight:800;letter-spacing:-.01em;color:#fff}'
     + '.rtb-tstamp{font-size:11.5px;opacity:.8;margin-left:4px}'
-    + '.rtb-rf{cursor:pointer;color:#fff;text-decoration:none;font-size:22px;line-height:1}.rtb-rf:hover{opacity:.75}'
+    + '.rtb-rf{cursor:pointer;color:#fff;text-decoration:none;font-size:24px;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;transition:background .15s,transform .1s}.rtb-rf:hover{background:rgba(255,255,255,.18)}.rtb-rf:active{transform:scale(.82)}.rtb-rf.rtb-spin{animation:rtbspin .8s linear infinite}@keyframes rtbspin{to{transform:rotate(360deg)}}'
     + '.rtb-load{font-weight:800;font-size:14px;margin-right:6px}'
     + '.rtb-src{font-size:13px;opacity:.82;display:inline-flex;align-items:center;gap:5px}.rtb-src.rtb-done{opacity:1;font-weight:700}'
     + '.rtb-main{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;min-height:44px}'
@@ -66,12 +66,12 @@
     function metaVal(spend, pctv, acq, cpa) { return spend != null ? money0(spend) + (pctv != null ? ' · ' + pctv + '%' : '') + ' · ' + (acq != null ? Number(acq).toLocaleString() : '—') + ' / ' + (cpa != null ? money0(cpa) : '—') : '—'; }
     function periodCells(P, w) {
       w = w || cell; var out = '';
-      out += w(box('Cafe $', P.sales != null ? money0(P.sales) : '—', P.salesF, 80));
-      var cov = Number(P.covers) || 0, avg = (cov > 0 && P.sales != null) ? (P.sales / cov) : null;
-      out += w(box('Covers/avg', P.covers != null ? (Math.round(cov).toLocaleString() + (avg != null ? ' · $' + avg.toFixed(2) : '')) : '—', P.coversF, 120));
       out += w(box('Shopify', P.shopify != null ? money0(P.shopify) + (P.shopifyOrders != null ? ' · ' + Number(P.shopifyOrders).toLocaleString() : '') : '—', P.shopifyF, 126));
       out += w(box('Meta', metaVal(P.metaSpend, P.metaPct, P.metaAcq, P.metaCpa), P.metaF, 186));
       out += w(box('Fulfilled', P.fulfilled != null ? Number(P.fulfilled).toLocaleString() : '—', P.fulfilledF, 66));
+      out += w(box('Cafe $', P.sales != null ? money0(P.sales) : '—', P.salesF, 80));
+      var cov = Number(P.covers) || 0, avg = (cov > 0 && P.sales != null) ? (P.sales / cov) : null;
+      out += w(box('Covers/avg', P.covers != null ? (Math.round(cov).toLocaleString() + (avg != null ? ' · $' + avg.toFixed(2) : '')) : '—', P.coversF, 120));
       return out;
     }
     var today = { sales: store.sales, salesF: 'sales', covers: store.covers, coversF: 'covers', shopify: store.shopify_today, shopifyOrders: store.shopify_today_orders, shopifyF: 'shopify_today', metaSpend: store.meta_today, metaPct: store.meta_today_pct, metaAcq: store.meta_acq_today, metaCpa: store.meta_cpa_today, metaF: 'meta_today', fulfilled: store.orders_fulfilled_today, fulfilledF: 'orders_fulfilled_today', newjobs: store.new_job_apps, newjobsF: 'new_job_apps' };
@@ -81,7 +81,7 @@
     var proj = (nzMin() >= HALF_MIN && store.sales_1245 > 0);
     var extra = box('Halfway / projection', proj ? (money0(store.sales_1245) + ' → ' + money0(store.sales_1245 * 2)) : '\u00a0', proj ? 'sales' : null, 156);
     extra += box('To fulfil', store.orders_to_fulfil != null ? (store.orders_to_fulfil || 0).toLocaleString() : '—', 'orders_to_fulfil', 74);
-    extra += box('Tickets', store.outstanding_tickets != null ? (store.outstanding_tickets || 0).toLocaleString() : '—', 'outstanding_tickets', 60);
+    extra += box('Tickets', store.outstanding_tickets != null ? ((store.outstanding_tickets || 0).toLocaleString() + (store.tickets_stressed > 0 ? ' <span style="color:#ffd23f">\u26a0 ' + store.tickets_stressed + '</span>' : '')) : '—', 'outstanding_tickets', 88);
     extra += box('New jobs', store.new_job_apps != null ? Number(store.new_job_apps).toLocaleString() : '—', 'new_job_apps', 74);
     var open = isOpen(), tbl;
     if (open) {
@@ -97,7 +97,7 @@
     bar.innerHTML = '<div class="rtb-flexwrap">' + tbl + ctrl + '</div>';
     bar.classList.toggle('rtb-open', open);
     bar.classList.remove('rtb-hidden'); shown = true;
-    var rf = bar.querySelector('.rtb-rf'); if (rf) rf.onclick = function () { refreshAll(true); };
+    var rf = bar.querySelector('.rtb-rf'); if (rf) rf.onclick = function () { this.classList.add('rtb-spin'); refreshAll(true); };
     var pl = bar.querySelector('.rtb-plus'); if (pl) pl.onclick = function () { setOpen(!isOpen()); render(); };
   }
   function allTicked() { return SRC.every(function (a) { return tick[a[0]]; }); }
