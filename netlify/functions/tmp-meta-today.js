@@ -16,7 +16,7 @@ async function meta(level, since, until){
     v_1dc:pick(r.action_values,'1d_click'), v_7dc:pick(r.action_values,'7d_click'), v_1dv:pick(r.action_values,'1d_view'), v_default:pick(r.action_values,'value')}));
 }
 async function shop(sinceIso){
-  const q='query($q:String!,$c:String){orders(first:100,query:$q,after:$c,sortKey:CREATED_AT){pageInfo{hasNextPage endCursor} nodes{name createdAt totalPriceSet{shopMoney{amount}} discountCodes sourceName customerJourneySummary{momentsCount firstVisit{source sourceType referrerUrl utmParameters{source medium campaign}} lastVisit{source sourceType referrerUrl utmParameters{source medium campaign}}} lineItems(first:30){nodes{quantity title}}}}}';
+  const q='query($q:String!,$c:String){orders(first:100,query:$q,after:$c,sortKey:CREATED_AT){pageInfo{hasNextPage endCursor} nodes{name createdAt totalPriceSet{shopMoney{amount}} discountCodes sourceName customerJourneySummary{firstVisit{source sourceType referrerUrl utmParameters{source medium campaign}} lastVisit{source sourceType referrerUrl utmParameters{source medium campaign}}} lineItems(first:30){nodes{quantity title}}}}}';
   let c=null, out=[]; for(let i=0;i<5;i++){ const d=await gql(q,{q:'created_at:>='+sinceIso+' -status:cancelled',c}); out.push(...d.orders.nodes); if(!d.orders.pageInfo.hasNextPage) break; c=d.orders.pageInfo.endCursor; }
   return out;
 }
