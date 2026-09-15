@@ -26,6 +26,8 @@ function computeOne(lines, cm, nm, moisture) {
   });
   const finished = totalG * (1 - (Number(moisture) || 0) / 100);
   const per100 = {}; NKEYS.forEach(k => per100[k] = finished > 0 ? +(nut[k] / (finished / 100)).toFixed(2) : 0);
+  // FSANZ available carbohydrate = total carbohydrate (USDA basis, incl. fibre) minus dietary fibre
+  per100.carb_g = Math.max(0, +(per100.carb_g - per100.fibre_g).toFixed(2));
   return { total_g: totalG, cost_per_kg: totalG > 0 ? +(cost / (totalG / 1000)).toFixed(3) : 0, nip: per100 };
 }
 exports.handler = async (event) => {
@@ -41,7 +43,7 @@ exports.handler = async (event) => {
         db('ingredient_nutrition?select=*') ]);
       const cm = {}; costs.forEach(c => cm[c.ingredient] = c);
       const nm = {}; nuts.forEach(n => nm[n.ingredient] = n);
-      const moisture = body.moisture_pct != null ? body.moisture_pct : 40;
+      const moisture = body.moisture_pct != null ? body.moisture_pct : 45;
       const out = { new: computeOne(body.ingredients, cm, nm, moisture) };
       if (body.source_recipe_id) {
         const src = await db('recipe_ingredient?select=ingredient,batch_g&recipe_id=eq.' + encodeURIComponent(body.source_recipe_id));
@@ -61,7 +63,7 @@ exports.handler = async (event) => {
       const wops = rk.wopples_per_serving != null ? rk.wopples_per_serving : 2;
       const out = recs.map(r => {
         const lines = ings.filter(i => i.recipe_id === r.id).map(i => ({ ingredient: i.ingredient, grams: Number(i.batch_g) }));
-        const mo = (r.moisture_pct != null && !isNaN(Number(r.moisture_pct))) ? Number(r.moisture_pct) : 40;
+        const mo = (r.moisture_pct != null && !isNaN(Number(r.moisture_pct))) ? Number(r.moisture_pct) : 45;
         const c = computeOne(lines, {}, nm, mo);
         const gpw = Number(r.g_per_waffle) || 70;
         const serving_g = Math.round(wops * gpw * (1 - mo / 100));

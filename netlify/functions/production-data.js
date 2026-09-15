@@ -163,7 +163,7 @@ exports.handler = async (event) => {
         method: 'POST', headers: { Prefer: 'return=representation' },
         body: JSON.stringify({ sku, flavour, short_code: short_code || null, version_label, is_current: true, active: true,
           cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null,
-          g_per_waffle: g_per_waffle || 70, moisture_pct: (moisture_pct == null || moisture_pct === '') ? 40 : Number(moisture_pct), change_note }),
+          g_per_waffle: g_per_waffle || 70, moisture_pct: (moisture_pct == null || moisture_pct === '') ? 45 : Number(moisture_pct), change_note }),
       });
       const newId = created[0].id;
       const rows = ingredients
@@ -183,7 +183,7 @@ exports.handler = async (event) => {
       await appsDb('recipe?id=eq.' + encodeURIComponent(recipe_id), {
         method: 'PATCH', headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({ flavour, short_code: short_code || null, version_label,
-          cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null, g_per_waffle: g_per_waffle || 70, moisture_pct: (moisture_pct == null || moisture_pct === '') ? 40 : Number(moisture_pct) }) });
+          cook_sec: cook_sec || null, blend_min: blend_min || null, viscosity_sec: viscosity_sec || null, g_per_waffle: g_per_waffle || 70, moisture_pct: (moisture_pct == null || moisture_pct === '') ? 45 : Number(moisture_pct) }) });
       await appsDb('recipe_ingredient?recipe_id=eq.' + encodeURIComponent(recipe_id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
       const rows = (ingredients || []).filter(i => i.ingredient && i.batch_g)
         .map((i, idx) => ({ recipe_id, ingredient: String(i.ingredient).trim(), batch_g: Math.round(Number(i.batch_g)), sort: idx + 1 }));
