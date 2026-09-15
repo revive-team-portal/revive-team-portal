@@ -467,7 +467,7 @@
           {label:'Dietary fibre',s:g1(n.perServe.fibre_g),h:g1(n.per100.fibre_g)},
           {label:'Sodium',s:Math.round(n.perServe.sodium_mg)+' mg',h:Math.round(n.per100.sodium_mg)+' mg'},
         ];
-        const F='font-family="Arial, Helvetica, sans-serif"';
+        const F='fill="#000000" font-family="Arial, Helvetica, sans-serif"';
         const e=[];
         e.push('<text x="'+xl+'" y="30" '+F+' font-size="17" font-weight="700">NUTRITION INFORMATION</text>');
         e.push('<text x="'+xl+'" y="48" '+F+' font-size="12">Servings per package: '+nipMeta.serves_per_pack+'</text>');
@@ -484,12 +484,12 @@
         e.push('<text x="'+x100+'" y="'+(y+18)+'" '+F+' font-size="12" text-anchor="end">'+Math.round(n.per100.energy_kj)+' kJ</text>');
         e.push('<text x="'+xServe+'" y="'+(y+33)+'" '+F+' font-size="12" text-anchor="end">('+calStr(n.perServe.energy_kj)+')</text>');
         e.push('<text x="'+x100+'" y="'+(y+33)+'" '+F+' font-size="12" text-anchor="end">('+calStr(n.per100.energy_kj)+')</text>');
-        y=y+40; e.push('<line x1="8" y1="'+y+'" x2="'+(W-8)+'" y2="'+y+'" stroke="#ccc" stroke-width="1"/>');
+        y=y+40; e.push('<line x1="8" y1="'+y+'" x2="'+(W-8)+'" y2="'+y+'" stroke="#000000" stroke-width="1"/>');
         rows.forEach(r=>{ const lx=r.ind?xInd:xl; const ty=y+16;
           e.push('<text x="'+lx+'" y="'+ty+'" '+F+' font-size="12">'+r.label+'</text>');
           e.push('<text x="'+xServe+'" y="'+ty+'" '+F+' font-size="12" text-anchor="end">'+r.s+'</text>');
           e.push('<text x="'+x100+'" y="'+ty+'" '+F+' font-size="12" text-anchor="end">'+r.h+'</text>');
-          y=y+22; e.push('<line x1="8" y1="'+y+'" x2="'+(W-8)+'" y2="'+y+'" stroke="#ccc" stroke-width="1"/>');
+          y=y+22; e.push('<line x1="8" y1="'+y+'" x2="'+(W-8)+'" y2="'+y+'" stroke="#000000" stroke-width="1"/>');
         });
         const H=y+8;
         return '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'"><rect x="1" y="1" width="'+(W-2)+'" height="'+(H-2)+'" fill="#ffffff" stroke="#000000" stroke-width="2"/>'+e.join('')+'</svg>';
