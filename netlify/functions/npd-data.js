@@ -61,12 +61,12 @@ exports.handler = async (event) => {
       const rk = {}; rates.forEach(r => rk[r.key] = Number(r.value));
       const serves = rk.serves_per_pack != null ? rk.serves_per_pack : 4;
       const wops = rk.wopples_per_serving != null ? rk.wopples_per_serving : 2;
+      const wfg = rk.wopple_finished_g != null ? rk.wopple_finished_g : 40;
       const out = recs.map(r => {
         const lines = ings.filter(i => i.recipe_id === r.id).map(i => ({ ingredient: i.ingredient, grams: Number(i.batch_g) }));
         const mo = (r.moisture_pct != null && !isNaN(Number(r.moisture_pct))) ? Number(r.moisture_pct) : 45;
         const c = computeOne(lines, {}, nm, mo);
-        const gpw = Number(r.g_per_waffle) || 70;
-        const serving_g = Math.round(wops * gpw * (1 - mo / 100));
+        const serving_g = Math.round(wops * wfg);
         const f = serving_g / 100;
         const perServe = {}; NKEYS.forEach(k => perServe[k] = +(c.nip[k] * f).toFixed((k === 'energy_kj' || k === 'sodium_mg') ? 0 : 1));
         return { id: r.id, sku: r.sku, flavour: r.flavour, version_label: r.version_label, per100: c.nip, perServe, serving_g, moisture_pct: mo };
