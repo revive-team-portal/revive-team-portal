@@ -450,9 +450,9 @@
       const showNips=ref(false), recipeNips=ref([]), nipPrint=ref(false);
       const nipMeta=reactive({wopples_per_serving:2,serves_per_pack:4,moisture_pct:40});
       const serveCfg=reactive({serves_per_pack:4, wopples_per_serving:2});
-      const nzNipRows=[{k:'energy_kj',label:'Energy',unit:'kJ',dp:0},{k:'protein_g',label:'Protein, total',unit:'g',dp:1},{label:'– gluten',fixed:'0.0 g',indent:true},{k:'fat_g',label:'Fat, total',unit:'g',dp:1},{k:'satfat_g',label:'– saturated',unit:'g',dp:1,indent:true},{k:'carb_g',label:'Carbohydrate',unit:'g',dp:1},{k:'sugar_g',label:'– sugars',unit:'g',dp:1,indent:true},{k:'fibre_g',label:'Dietary fibre',unit:'g',dp:1},{k:'sodium_mg',label:'Sodium',unit:'mg',dp:0}];
+      const nzNipRows=[{k:'energy_kj',label:'Energy',unit:'kJ',dp:0},{k:'energy_kj',label:'Calories',unit:'Cal',dp:0,isCal:true},{k:'protein_g',label:'Protein, total',unit:'g',dp:1},{label:'– gluten',fixed:'0.0 g',indent:true},{k:'fat_g',label:'Fat, total',unit:'g',dp:1},{k:'satfat_g',label:'– saturated',unit:'g',dp:1,indent:true},{k:'carb_g',label:'Carbohydrate',unit:'g',dp:1},{k:'sugar_g',label:'– sugars',unit:'g',dp:1,indent:true},{k:'fibre_g',label:'Dietary fibre',unit:'g',dp:1},{k:'sodium_mg',label:'Sodium',unit:'mg',dp:0}];
       function nipShow(v,row){ v=Number(v)||0; return v.toFixed(row.dp)+' '+row.unit; }
-      function nipCell(obj,row){ if(row.fixed!=null) return row.fixed; const v=obj?obj[row.k]:0; if(row.k==='energy_kj'){ const kj=Math.round(Number(v)||0); return kj+' kJ ('+Math.round(kj/4.184)+' Cal)'; } return nipShow(v,row); }
+      function nipCell(obj,row){ if(row.fixed!=null) return row.fixed; const v=obj?obj[row.k]:0; if(row.isCal){ return Math.round((Number(v)||0)/4.184)+' Cal'; } return nipShow(v,row); }
       async function loadRecipeNips(){ try{ const r=await callNpd({action:'recipe_nips'}); recipeNips.value=r.recipes||[]; nipMeta.wopples_per_serving=r.wopples_per_serving; nipMeta.serves_per_pack=r.serves_per_pack; }catch(e){ recipeNips.value=[]; } }
       function printAllNips(){ printRec.value=null; npdPrint.value=false; nipPrint.value=true; nextTick(()=>window.print()); }
       const nipById=computed(()=>{ const m={}; recipeNips.value.forEach(x=>m[x.id]=x); return m; });
