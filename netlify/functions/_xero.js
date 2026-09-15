@@ -79,28 +79,55 @@ async function exchangeCode(code) {
 
 /* ---------- use ---------- */
 
+// Serialise refreshes across containers. Two crons (sales sync, recon) refreshing at the
+// same moment each get a new token and the LAST write wins -- which can be the stale one,
+// killing the connection (this is what happened on 12 Sep 2026). So: take a short row lock
+// in recon.oauth, re-read the token under the lock, refresh, save, release.
+async function acquireLock(ms = 45000) {
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    const now = new Date().toISOString();
+    const rows = await reconDb('oauth?provider=eq.xero&or=(lock_until.is.null,lock_until.lt.' + encodeURIComponent(now) + ')', {
+      method: 'PATCH', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ lock_until: new Date(Date.now() + ms).toISOString() }),
+    });
+    if (rows && rows.length) return true;
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  return false; // lock stuck -- proceed anyway; the stale lock expires on its own
+}
+async function releaseLock() {
+  await reconDb('oauth?provider=eq.xero', { method: 'PATCH', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ lock_until: null }) }).catch(() => {});
+}
+
 async function accessToken() {
   if (_access && Date.now() < _access.exp - 60000) return _access.token;
   if (!configured()) throw new Error('Xero is not configured (XERO_CLIENT_ID / XERO_CLIENT_SECRET).');
-  const row = await getRow();
-  if (!row || !row.refresh_token) throw new Error('Xero is not connected yet. Use Connect Xero first.');
+  await acquireLock();
+  try {
+    const row = await getRow(); // re-read UNDER the lock: another container may have just rotated it
+    if (!row || !row.refresh_token) throw new Error('Xero is not connected yet. Use Connect Xero first.');
 
-  const res = await fetch(IDENTITY, {
-    method: 'POST',
-    headers: { Authorization: basicAuth(), 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: row.refresh_token }),
-  });
-  const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d.access_token) {
-    throw new Error('Xero sign-in expired (' + (d.error || ('HTTP ' + res.status)) + '). Reconnect Xero.');
+    const res = await fetch(IDENTITY, {
+      method: 'POST',
+      headers: { Authorization: basicAuth(), 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: row.refresh_token }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || !d.access_token) {
+      throw new Error('Xero sign-in expired (' + (d.error || ('HTTP ' + res.status)) + '). Reconnect Xero.');
+    }
+    // Persist the rotated refresh token FIRST -- if this write is skipped the connection
+    // is dead on the next run, because Xero has already invalidated the old one.
+    if (d.refresh_token && d.refresh_token !== row.refresh_token) {
+      await saveRow({ refresh_token: d.refresh_token });
+    }
+    _access = { token: d.access_token, exp: Date.now() + (Number(d.expires_in || 1800) * 1000) };
+    return _access.token;
+  } finally {
+    await releaseLock();
   }
-  // Persist the rotated refresh token FIRST -- if this write is skipped the connection
-  // is dead on the next run, because Xero has already invalidated the old one.
-  if (d.refresh_token && d.refresh_token !== row.refresh_token) {
-    await saveRow({ refresh_token: d.refresh_token });
-  }
-  _access = { token: d.access_token, exp: Date.now() + (Number(d.expires_in || 1800) * 1000) };
-  return _access.token;
 }
 
 async function xeroGet(path, params) {
