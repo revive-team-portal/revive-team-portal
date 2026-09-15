@@ -130,7 +130,7 @@
             <table class="w-full text-xs"><thead class="text-stone-400"><tr><th class="text-left py-1">Ingredient</th><th class="text-right">Batch g</th><th class="text-right">Half g</th><th v-if="isSupervisor" class="text-right">$/kg</th></tr></thead>
               <tbody><tr v-for="ing in ingsFor(rec.id)" :key="ing.ingredient" class="border-t border-stone-50"><td class="py-1">{{ ing.ingredient }}</td><td class="text-right">{{ num(ing.batch_g) }}</td><td class="text-right text-stone-400">{{ num(ing.batch_g/2) }}</td><td v-if="isSupervisor" class="text-right text-stone-500">{{ costKg(rec.id, ing.ingredient) }}</td></tr></tbody></table>
             <div v-if="isSupervisor && recCost(rec.id)" class="mt-2 pt-2 border-t border-stone-100 flex gap-4 text-xs"><span>Batch cost <b class="text-green-800">${{ money(recCost(rec.id).batch_cost) }}</b></span><span>Ingredient cost/pack <b class="text-green-800">${{ money(recCost(rec.id).cost_per_pack) }}</b></span></div>
-          </div><div class="bg-white border border-stone-300 rounded-xl p-4"><template v-if="nipById[rec.id]"><div v-for="n in [nipById[rec.id]]" :key="n.id"><div class="text-xs text-stone-500 mb-1">Pack size: {{ nipMeta.serves_per_pack * n.serving_g }} g</div><div class="inline-block border border-stone-800 px-2 py-1.5 text-stone-900"><div class="font-extrabold border-b-2 border-stone-800 pb-0.5 mb-0.5 text-sm" style="white-space:nowrap">NUTRITION INFORMATION</div><div class="text-xs" style="white-space:nowrap">Servings per package: {{ nipMeta.serves_per_pack }}</div><div class="text-xs" style="white-space:nowrap">Serving size: {{ n.serving_g }} g ({{ nipMeta.wopples_per_serving }} Wopples)</div><table class="text-xs mt-0.5" style="border-collapse:collapse;white-space:nowrap"><thead><tr class="border-y border-stone-800"><th class="text-left font-semibold pr-3">AVERAGE QTY</th><th class="font-semibold text-right px-1">PER SERVE</th><th class="font-semibold text-right pl-2">PER 100 g</th></tr></thead><tbody><tr v-for="(row,ri) in nzNipRows" :key="ri" class="border-b border-stone-200"><td class="pr-3 py-0.5 align-top" :class="row.indent?'pl-3':'font-medium'">{{ row.label }}</td><td class="text-right px-1 align-top"><template v-if="row.k==='energy_kj'">{{ nipShow(n.perServe.energy_kj,row) }}<div>({{ calStr(n.perServe.energy_kj) }})</div></template><template v-else>{{ nipCell(n.perServe,row) }}</template></td><td class="text-right pl-2 align-top"><template v-if="row.k==='energy_kj'">{{ nipShow(n.per100.energy_kj,row) }}<div>({{ calStr(n.per100.energy_kj) }})</div></template><template v-else>{{ nipCell(n.per100,row) }}</template></td></tr></tbody></table></div></div></template><p v-else class="text-sm text-stone-400">Loading…</p></div></div></div>
+          </div><div class="bg-white border border-stone-300 rounded-xl p-4"><template v-if="nipById[rec.id]"><div v-for="n in [nipById[rec.id]]" :key="n.id"><div class="flex items-center gap-2 mb-1"><span class="text-xs text-stone-500">Pack size: {{ nipMeta.serves_per_pack * n.serving_g }} g</span><button @click="downloadNipSvg(rec)" class="text-xs border border-stone-300 rounded px-2 py-0.5 hover:bg-stone-50">⬇ SVG</button></div><div class="inline-block border border-stone-800 px-2 py-1.5 text-stone-900"><div class="font-extrabold border-b-2 border-stone-800 pb-0.5 mb-0.5 text-sm" style="white-space:nowrap">NUTRITION INFORMATION</div><div class="text-xs" style="white-space:nowrap">Servings per package: {{ nipMeta.serves_per_pack }}</div><div class="text-xs" style="white-space:nowrap">Serving size: {{ n.serving_g }} g ({{ nipMeta.wopples_per_serving }} Wopples)</div><table class="text-xs mt-0.5" style="border-collapse:collapse;white-space:nowrap"><thead><tr class="border-y border-stone-800"><th class="text-left font-semibold pr-3">AVERAGE QTY</th><th class="font-semibold text-right px-1">PER SERVE</th><th class="font-semibold text-right pl-2">PER 100 g</th></tr></thead><tbody><tr v-for="(row,ri) in nzNipRows" :key="ri" class="border-b border-stone-200"><td class="pr-3 py-0.5 align-top" :class="row.indent?'pl-3':'font-medium'">{{ row.label }}</td><td class="text-right px-1 align-top"><template v-if="row.k==='energy_kj'">{{ nipShow(n.perServe.energy_kj,row) }}<div>({{ calStr(n.perServe.energy_kj) }})</div></template><template v-else>{{ nipCell(n.perServe,row) }}</template></td><td class="text-right pl-2 align-top"><template v-if="row.k==='energy_kj'">{{ nipShow(n.per100.energy_kj,row) }}<div>({{ calStr(n.per100.energy_kj) }})</div></template><template v-else>{{ nipCell(n.per100,row) }}</template></td></tr></tbody></table></div></div></template><p v-else class="text-sm text-stone-400">Loading…</p></div></div></div>
       </section>
 
       <!-- PLANNING (weekly calendar) -->
@@ -454,6 +454,48 @@
       function nipShow(v,row){ v=Number(v)||0; return v.toFixed(row.dp)+' '+row.unit; }
       function nipCell(obj,row){ if(row.fixed!=null) return row.fixed; return nipShow(obj?obj[row.k]:0,row); }
       function calStr(v){ return Math.round((Number(v)||0)/4.184)+' Cal'; }
+      function nipSvg(n){
+        const W=384, xl=14, xInd=26, xServe=250, x100=372;
+        const g1=(v)=>Number(v||0).toFixed(1)+' g';
+        const rows=[
+          {label:'Protein, total',s:g1(n.perServe.protein_g),h:g1(n.per100.protein_g)},
+          {label:'– gluten',ind:true,s:'0.0 g',h:'0.0 g'},
+          {label:'Fat, total',s:g1(n.perServe.fat_g),h:g1(n.per100.fat_g)},
+          {label:'– saturated',ind:true,s:g1(n.perServe.satfat_g),h:g1(n.per100.satfat_g)},
+          {label:'Carbohydrate',s:g1(n.perServe.carb_g),h:g1(n.per100.carb_g)},
+          {label:'– sugars',ind:true,s:g1(n.perServe.sugar_g),h:g1(n.per100.sugar_g)},
+          {label:'Dietary fibre',s:g1(n.perServe.fibre_g),h:g1(n.per100.fibre_g)},
+          {label:'Sodium',s:Math.round(n.perServe.sodium_mg)+' mg',h:Math.round(n.per100.sodium_mg)+' mg'},
+        ];
+        const F='font-family="Arial, Helvetica, sans-serif"';
+        const e=[];
+        e.push('<text x="'+xl+'" y="30" '+F+' font-size="17" font-weight="700">NUTRITION INFORMATION</text>');
+        e.push('<text x="'+xl+'" y="48" '+F+' font-size="12">Servings per package: '+nipMeta.serves_per_pack+'</text>');
+        e.push('<text x="'+xl+'" y="64" '+F+' font-size="12">Serving size: '+n.serving_g+' g ('+nipMeta.wopples_per_serving+' Wopples)</text>');
+        e.push('<line x1="8" y1="72" x2="'+(W-8)+'" y2="72" stroke="#000" stroke-width="1.5"/>');
+        e.push('<text x="'+xl+'" y="88" '+F+' font-size="12" font-weight="700">AVERAGE QTY</text>');
+        e.push('<text x="'+xServe+'" y="88" '+F+' font-size="12" font-weight="700" text-anchor="end">PER SERVE</text>');
+        e.push('<text x="'+x100+'" y="88" '+F+' font-size="12" font-weight="700" text-anchor="end">PER 100 g</text>');
+        e.push('<line x1="8" y1="95" x2="'+(W-8)+'" y2="95" stroke="#000" stroke-width="1.5"/>');
+        let y=95;
+        // Energy (two lines)
+        e.push('<text x="'+xl+'" y="'+(y+18)+'" '+F+' font-size="12">Energy</text>');
+        e.push('<text x="'+xServe+'" y="'+(y+18)+'" '+F+' font-size="12" text-anchor="end">'+Math.round(n.perServe.energy_kj)+' kJ</text>');
+        e.push('<text x="'+x100+'" y="'+(y+18)+'" '+F+' font-size="12" text-anchor="end">'+Math.round(n.per100.energy_kj)+' kJ</text>');
+        e.push('<text x="'+xServe+'" y="'+(y+33)+'" '+F+' font-size="12" text-anchor="end">('+calStr(n.perServe.energy_kj)+')</text>');
+        e.push('<text x="'+x100+'" y="'+(y+33)+'" '+F+' font-size="12" text-anchor="end">('+calStr(n.per100.energy_kj)+')</text>');
+        y=y+40; e.push('<line x1="8" y1="'+y+'" x2="'+(W-8)+'" y2="'+y+'" stroke="#ccc" stroke-width="1"/>');
+        rows.forEach(r=>{ const lx=r.ind?xInd:xl; const ty=y+16;
+          e.push('<text x="'+lx+'" y="'+ty+'" '+F+' font-size="12">'+r.label+'</text>');
+          e.push('<text x="'+xServe+'" y="'+ty+'" '+F+' font-size="12" text-anchor="end">'+r.s+'</text>');
+          e.push('<text x="'+x100+'" y="'+ty+'" '+F+' font-size="12" text-anchor="end">'+r.h+'</text>');
+          y=y+22; e.push('<line x1="8" y1="'+y+'" x2="'+(W-8)+'" y2="'+y+'" stroke="#ccc" stroke-width="1"/>');
+        });
+        const H=y+8;
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'"><rect x="1" y="1" width="'+(W-2)+'" height="'+(H-2)+'" fill="#ffffff" stroke="#000000" stroke-width="2"/>'+e.join('')+'</svg>';
+      }
+      function downloadNipSvg(rec){ const n=nipById.value[rec.id]; if(!n) return; const blob=new Blob([nipSvg(n)],{type:'image/svg+xml;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='Wopples_'+String(rec.flavour).replace(/[^a-z0-9]+/gi,'_')+'_NIP.svg'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
+
       async function loadRecipeNips(){ try{ const r=await callNpd({action:'recipe_nips'}); recipeNips.value=r.recipes||[]; nipMeta.wopples_per_serving=r.wopples_per_serving; nipMeta.serves_per_pack=r.serves_per_pack; }catch(e){ recipeNips.value=[]; } }
       function printAllNips(){ printRec.value=null; npdPrint.value=false; nipPrint.value=true; nextTick(()=>window.print()); }
       const nipById=computed(()=>{ const m={}; recipeNips.value.forEach(x=>m[x.id]=x); return m; });
@@ -504,7 +546,7 @@
       return { ready,gateError,me,isAdmin,role,isSupervisor,roleLabel,screen,tabs,msg,supErr,checkDefs,photoKinds,ingredientNames,usedIn,abbr,settingsRows,
         recipes,runs,plans,ingredients,rates,printRec,printIngs,today,cap,capSaving,capErr,planForm,detail,aiText,aiLoading,detailPhotos,scanBusy,scanFlags,editRec,
         fmtDate,num,money,ingsFor,verLabel,recCost,costKg,rateLabel,effYield,yieldClass,vget,flagClass,util,mmss,
-        openDetail,printRecipeSheet,onScan,addPhoto,rmPhoto,resetCap,saveCapture,openRecipeEdit,saveRecipeEdit,saveRecipeInPlace,planActual,addPlan,savePlanRow,delPlan,weekWindowStart,selPlan,placeQty,placeNote,paletteFlavours,calendarWeeks,fShort,specialFlavour,placeOnDay,saveRate,saveIngredient,nutrition,saveNutrition,coreRates,weekly,weeklyKg,fmtKg,saveWeekly,d1,captureFromPhoto,dEdit,dForm,startEditRun,saveRunEdit,deleteRun,printCustom,printCustomG,printAskRec,printScale,doPrint,recipeTotalG,showNips,recipeNips,nipPrint,nipMeta,serveCfg,nzNipRows,nipShow,loadRecipeNips,printAllNips,saveServeCfg,nipById,saveMoisture,nipCell,calStr,npdView,npdProjects,npdP,npdVer,npdIngs,npdHistory,npdCmp,npdBusy,npdShowNew,npdNew,npdSensory,npdDraftNote,npdScaleTo,npdStatuses,nipRows,npdTotalG,npdPhotos,npdPrint,srcLabel,nextNpd,dsign,npdStart,npdStartNum,npdStartNipNum,loadNpd,computeNpd,openNpd,createNpd,applyScale,saveNpdMeta,saveNpdCurrent,saveNpdVersion,addNpdPhoto,printNpdSheet };
+        openDetail,printRecipeSheet,onScan,addPhoto,rmPhoto,resetCap,saveCapture,openRecipeEdit,saveRecipeEdit,saveRecipeInPlace,planActual,addPlan,savePlanRow,delPlan,weekWindowStart,selPlan,placeQty,placeNote,paletteFlavours,calendarWeeks,fShort,specialFlavour,placeOnDay,saveRate,saveIngredient,nutrition,saveNutrition,coreRates,weekly,weeklyKg,fmtKg,saveWeekly,d1,captureFromPhoto,dEdit,dForm,startEditRun,saveRunEdit,deleteRun,printCustom,printCustomG,printAskRec,printScale,doPrint,recipeTotalG,showNips,recipeNips,nipPrint,nipMeta,serveCfg,nzNipRows,nipShow,loadRecipeNips,printAllNips,saveServeCfg,nipById,saveMoisture,nipCell,calStr,downloadNipSvg,npdView,npdProjects,npdP,npdVer,npdIngs,npdHistory,npdCmp,npdBusy,npdShowNew,npdNew,npdSensory,npdDraftNote,npdScaleTo,npdStatuses,nipRows,npdTotalG,npdPhotos,npdPrint,srcLabel,nextNpd,dsign,npdStart,npdStartNum,npdStartNipNum,loadNpd,computeNpd,openNpd,createNpd,applyScale,saveNpdMeta,saveNpdCurrent,saveNpdVersion,addNpdPhoto,printNpdSheet };
     }
   }).mount('#app');
 </script>
