@@ -497,7 +497,7 @@
       function nipRowsTsv(n){
         const g1=(v)=>Number(v||0).toFixed(1)+' g';
         const rows=[
-          ['Energy', Math.round(n.perServe.energy_kj)+' kJ\u2028('+calStr(n.perServe.energy_kj)+')', Math.round(n.per100.energy_kj)+' kJ\u2028('+calStr(n.per100.energy_kj)+')'],
+          ['Energy', Math.round(n.perServe.energy_kj)+' kJ ('+calStr(n.perServe.energy_kj)+')', Math.round(n.per100.energy_kj)+' kJ ('+calStr(n.per100.energy_kj)+')'],
           ['Protein, total', g1(n.perServe.protein_g), g1(n.per100.protein_g)],
           ['– gluten', '0.0 g', '0.0 g'],
           ['Fat, total', g1(n.perServe.fat_g), g1(n.per100.fat_g)],
