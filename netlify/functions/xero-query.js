@@ -48,6 +48,13 @@ exports.handler = async (event) => {
 
   const qp = event.queryStringParameters || {};
   try {
+    // ?connect=1 — mint a fresh OAuth state (validated by xero-callback) and return the
+    // consent link for Jeremy to click. Needed whenever the refresh token has died.
+    if (qp.connect) {
+      const state = require('crypto').randomBytes(24).toString('hex');
+      await X.saveRow({ state, state_at: new Date().toISOString() });
+      return json(200, { ok: true, url: X.authorizeUrl(state), expires_in_minutes: 15 });
+    }
     const token = await X.accessToken();
     const orgs = await connections(token);
     if (!qp.org || qp.org === 'list') return json(200, { ok: true, orgs });
