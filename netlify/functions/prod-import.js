@@ -32,5 +32,22 @@ exports.handler = async (event) => {
     const t = await res.text();
     return json(res.ok ? 200 : 502, { ok: res.ok, status: res.status, body: t.slice(0, 300) });
   }
+
+  if (body.action === 'insert_runs') {
+    const res = await fetch(APPS_URL + '/rest/v1/production_run', {
+      method: 'POST', headers: { apikey: SR, Authorization: 'Bearer ' + SR, 'Content-Type': 'application/json', 'Content-Profile': 'production', Prefer: 'return=representation' },
+      body: JSON.stringify(body.rows),
+    });
+    const t = await res.text();
+    return json(res.ok ? 200 : 502, { ok: res.ok, status: res.status, body: t.slice(0, 20000) });
+  }
+  if (body.action === 'insert_photos') {
+    const res = await fetch(APPS_URL + '/rest/v1/run_photo', {
+      method: 'POST', headers: { apikey: SR, Authorization: 'Bearer ' + SR, 'Content-Type': 'application/json', 'Content-Profile': 'production', Prefer: 'return=minimal' },
+      body: JSON.stringify(body.rows),
+    });
+    const t = await res.text();
+    return json(res.ok ? 200 : 502, { ok: res.ok, status: res.status, body: t.slice(0, 2000) });
+  }
   return json(400, { error: 'unknown action' });
 };
