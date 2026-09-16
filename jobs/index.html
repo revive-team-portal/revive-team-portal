@@ -166,7 +166,7 @@
             </div>
             <h3 class="font-extrabold text-gray-900 text-base mb-1">{{ job.title }}</h3>
             <p class="text-gray-500 text-xs mb-3">{{ formatType(job.type) }}</p>
-            <div class="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100 text-center">
+            <div class="grid grid-cols-4 gap-2 pt-3 border-t border-gray-100 text-center">
               <div>
                 <div class="font-bold text-lg text-gray-900">{{ job.views || 0 }}</div>
                 <div class="text-xs text-gray-400">Views</div>
@@ -174,6 +174,12 @@
               <div>
                 <div class="font-bold text-lg text-gray-900">{{ job.app_count || 0 }}</div>
                 <div class="text-xs text-gray-400">Applied</div>
+              </div>
+              <div>
+                <div class="font-bold text-lg" :class="job.booked_count ? 'text-gray-900' : 'text-gray-300'">
+                  &#128197; {{ job.booked_count || 0 }}
+                </div>
+                <div class="text-xs text-gray-400">Booked</div>
               </div>
               <div>
                 <div class="text-xs font-semibold text-gray-600">{{ daysAgo(job.created_at) }}d ago</div>
@@ -905,18 +911,16 @@
                     </span>
                   </div>
                 </div>
-                <select v-model="selectedApplicant.status" @change="updateStatus(selectedApplicant)"
-                  class="border-2 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:border-transparent shrink-0"
-                  :class="statusSelectClass(selectedApplicant.status)">
-                  <option value="new">New</option>
-                  <option value="not_suitable">Not Suitable</option>
-                  <option value="shortlist_a">Shortlist A</option>
-                  <option value="shortlist_b">Shortlist B</option>
-                  <option value="interview">Interview</option>
-                  <option value="hired">Hired</option>
-                  <option value="not_hired">Not Hired</option>
-                  <option value="deleted" disabled>Deleted</option>
-                </select>
+                <div class="flex flex-wrap gap-1.5 shrink-0">
+                  <button v-for="st in statusList" :key="st.key"
+                    v-show="st.key !== 'deleted'"
+                    @click="setStatusAndClose(selectedApplicant, st.key)"
+                    :disabled="settingStatus"
+                    :style="statusButtonStyle(st.key, selectedApplicant.status)"
+                    class="border rounded-lg px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-50">
+                    {{ st.label }}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1069,26 +1073,13 @@
                   <p class="font-bold text-sm" style="color:#40d134;">{{ getSlotTime(selectedApplicant.interview_slot_id) }}</p>
                 </div>
               </div>
-              <div class="space-y-2">
-                <div class="flex items-center gap-2 text-xs">
-                  <span :class="selectedApplicant.interview_invite_sent ? 'text-green-600' : 'text-gray-400'">
-                    {{ selectedApplicant.interview_invite_sent ? '✓' : '○' }}
-                  </span>
-                  <span :class="selectedApplicant.interview_invite_sent ? 'text-green-700 font-semibold' : 'text-gray-500'">
-                    Invite sent{{ selectedApplicant.interview_invite_sent_at ? ' ' + timeAgo(selectedApplicant.interview_invite_sent_at) : '' }}
-                  </span>
-                </div>
-                <div class="flex items-center gap-2 text-xs">
-                  <span :class="selectedApplicant.extended_form_completed ? 'text-green-600' : 'text-gray-400'">
-                    {{ selectedApplicant.extended_form_completed ? '✓' : '○' }}
-                  </span>
-                  <span :class="selectedApplicant.extended_form_completed ? 'text-green-700 font-semibold' : 'text-gray-500'">Form completed</span>
-                </div>
-                <div class="flex items-center gap-2 text-xs">
-                  <span :class="selectedApplicant.interview_slot_id ? 'text-green-600' : 'text-gray-400'">
-                    {{ selectedApplicant.interview_slot_id ? '✓' : '○' }}
-                  </span>
-                  <span :class="selectedApplicant.interview_slot_id ? 'text-green-700 font-semibold' : 'text-gray-500'">Time confirmed</span>
+              <div class="space-y-1.5">
+                <div v-for="(ev, ei) in applicantEvents(selectedApplicant)" :key="ei" class="flex items-start gap-2 text-xs">
+                  <span :class="ev.done ? 'text-green-600' : 'text-gray-300'" class="mt-0.5">{{ ev.done ? '\u2713' : '\u25cb' }}</span>
+                  <div class="min-w-0">
+                    <div :class="ev.done ? 'text-green-700 font-semibold' : 'text-gray-400'">{{ ev.label }}</div>
+                    <div v-if="ev.when" class="text-gray-400">{{ ev.when }}</div>
+                  </div>
                 </div>
               </div>
               <button v-if="!selectedApplicant.interview_invite_sent"
@@ -1133,6 +1124,46 @@
       </div>
 
       <div class="p-6 overflow-y-auto space-y-6">
+
+        <!-- Calendar of slots, first -->
+        <div>
+          <h3 class="font-semibold text-gray-700 text-sm mb-2">Interview calendar</h3>
+          <div v-if="!jobSlots.length" class="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">
+            No interview times yet &mdash; add some below.
+          </div>
+          <div v-else class="space-y-3">
+            <div v-for="(group, day) in slotsByDay" :key="day" class="border border-gray-200 rounded-xl overflow-hidden">
+              <div class="bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                {{ day }}
+              </div>
+              <div class="divide-y divide-gray-100">
+                <div v-for="slot in group" :key="slot.id"
+                  class="flex items-center gap-3 px-3 py-2"
+                  :class="slot.is_booked ? 'bg-brand-pale' : ''">
+                  <span class="font-bold text-sm text-gray-800 w-20 shrink-0">{{ formatSlotTimeOnly(slot.slot_time) }}</span>
+                  <div class="flex-1 min-w-0">
+                    <template v-if="slot.is_booked && slotApplicant(slot)">
+                      <button @click="openApplicantFromSlot(slot)" class="text-sm font-semibold text-brand hover:underline truncate block">
+                        {{ slotApplicant(slot).full_name }}
+                      </button>
+                      <div class="text-xs text-gray-500 truncate">
+                        <span v-if="slotApplicant(slot).email">{{ slotApplicant(slot).email }}</span>
+                        <span v-if="slotApplicant(slot).phone"> &middot; {{ slotApplicant(slot).phone }}</span>
+                      </div>
+                    </template>
+                    <span v-else-if="slot.is_booked" class="text-sm text-gray-500">Booked</span>
+                    <span v-else class="text-sm text-gray-300">Available</span>
+                  </div>
+                  <span class="text-xs shrink-0" :class="slot.is_booked ? 'font-bold' : 'text-gray-300'"
+                    :style="slot.is_booked ? 'color:#40d134' : ''">
+                    {{ slot.is_booked ? '\u2713 Booked' : jobFormatLabel }}
+                  </span>
+                  <button @click="deleteSlot(slot)" class="text-gray-300 hover:text-red-500 text-xs font-semibold shrink-0">Remove</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Defaults -->
         <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
@@ -1193,50 +1224,6 @@
           </p>
         </div>
 
-        <!-- Slot list -->
-        <div>
-          <h3 class="font-semibold text-gray-700 text-sm mb-2">Scheduled times</h3>
-          <div v-if="!jobSlots.length" class="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">
-            No interview times yet.
-          </div>
-          <div v-else class="space-y-4">
-            <div v-for="(group, day) in slotsByDay" :key="day">
-              <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{{ day }}</p>
-              <div class="space-y-2">
-                <div v-for="slot in group" :key="slot.id"
-                  class="border rounded-lg px-4 py-3"
-                  :class="slot.is_booked ? 'border-brand bg-brand-pale' : 'border-gray-200 bg-white'">
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-semibold text-gray-800 text-sm">{{ formatSlotTimeOnly(slot.slot_time) }}</span>
-                        <span class="text-xs px-1.5 py-0.5 rounded-full"
-                          :class="interviewDefaults.locationType === 'video' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-600'">
-                          {{ jobFormatLabel }}
-                        </span>
-                        <span v-if="slot.is_booked" style="color:#40d134" class="text-xs font-bold">&#10003; Booked</span>
-                      </div>
-                      <div v-if="slot.is_booked && slotApplicant(slot)" class="mt-1.5 text-xs text-gray-600">
-                        <button @click="openApplicantFromSlot(slot)" class="font-semibold text-brand hover:underline">
-                          {{ slotApplicant(slot).full_name }}
-                        </button>
-                        <span v-if="slotApplicant(slot).email"> &middot; {{ slotApplicant(slot).email }}</span>
-                        <span v-if="slotApplicant(slot).phone"> &middot; {{ slotApplicant(slot).phone }}</span>
-                        <div v-if="realValue(slotApplicant(slot).last_position) || realValue(slotApplicant(slot).countries_worked)" class="text-gray-400">
-                          <span v-if="realValue(slotApplicant(slot).last_position)">{{ slotApplicant(slot).last_position }}</span>
-                          <span v-if="realValue(slotApplicant(slot).countries_worked)"> &middot; {{ slotApplicant(slot).countries_worked }}</span>
-                        </div>
-                      </div>
-                      <p v-else-if="slot.is_booked" class="mt-1 text-xs text-gray-400 italic">Booked (open the job to load applicant details)</p>
-                    </div>
-                    <button @click="deleteSlot(slot)"
-                      class="text-gray-300 hover:text-red-500 text-xs font-semibold shrink-0">Remove</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -1504,6 +1491,8 @@ const app = createApp({
     // Modals
     const showSlotsModal = ref(false);
     const showApplicant = ref(false);
+    const loadingMore = ref(false);
+    const settingStatus = ref(false);
     const showResumeModal = ref(false);
 
     // Resume preview
@@ -1700,12 +1689,10 @@ const app = createApp({
     async function loadDashboard() {
       const { data } = await sb.from('jobs').select('*').order('created_at', { ascending: false });
       if (data) {
-        // Count applications per job
-        for (const job of data) {
-          const { count } = await sb.from('applications').select('id', { count: 'exact' }).eq('job_id', job.id);
-          job.app_count = count || 0;
-        }
+        // Render the tiles first; counts arrive a moment later rather than
+        // holding the whole dashboard behind one query per job.
         jobs.value = data;
+        loadJobCounts(data);
       }
 
       // Load gallery
@@ -1734,29 +1721,76 @@ const app = createApp({
       loadSlots();
     }
 
+    const BATCH = 10;
+
     async function loadApplicants(jobId) {
       loadingApplicants.value = true;
+      applications.value = [];
       try {
-        const { data } = await sb.from('applications').select('*').eq('job_id', jobId).order('created_at', { ascending: false });
-        if (data) {
-          // Add previous application count
-          for (const app of data) {
-            const { count } = await sb.from('applications').select('id', { count: 'exact' }).eq('email', app.email);
-            app.previous_apply_count = count || 1;
-          }
-          // Read documents, then score anything not analysed yet — both in the
-          // background so the list renders straight away.
-          backfillDocTexts(data).then(freshlyRead => {
-            // Force a re-score for anyone whose CV has only just become readable.
-            const stale = data.filter(a => analysisPredatesDocuments(a));
-            const toRedo = Array.from(new Set(freshlyRead.concat(stale)));
-            return reanalyse(toRedo).then(() => backfillAnalysis(data));
-          });
-          markExistingConnections(data);
-          applications.value = data;
+        const { data } = await sb.from('applications').select('*').eq('job_id', jobId)
+          .order('created_at', { ascending: false });
+        if (!data) return;
+
+        // Show the first batch immediately, then fill in behind it. The previous
+        // version ran one count query per applicant before rendering anything,
+        // so a long list sat blank while they all completed.
+        applications.value = data.slice(0, BATCH);
+        loadingApplicants.value = false;
+        loadingMore.value = data.length > BATCH;
+
+        await nextTick();
+        for (let i = BATCH; i < data.length; i += BATCH) {
+          applications.value = data.slice(0, i + BATCH);
+          await new Promise(r => setTimeout(r, 0));   // let the browser paint
         }
+        loadingMore.value = false;
+
+        // Everything below is enrichment — it must never hold up the list.
+        countPreviousApplications(data);
+        markExistingConnections(data);
+        backfillDocTexts(data).then(freshlyRead => {
+          const stale = data.filter(a => analysisPredatesDocuments(a));
+          const toRedo = Array.from(new Set(freshlyRead.concat(stale)));
+          return reanalyse(toRedo).then(() => backfillAnalysis(data));
+        });
       } finally {
         loadingApplicants.value = false;
+      }
+    }
+
+    // One query for all of them instead of one per applicant.
+    async function countPreviousApplications(list) {
+      const emails = [...new Set(list.map(a => a.email).filter(Boolean))];
+      if (!emails.length) return;
+      try {
+        const { data } = await sb.from('applications').select('email').in('email', emails);
+        const counts = {};
+        (data || []).forEach(r => { counts[r.email] = (counts[r.email] || 0) + 1; });
+        list.forEach(a => { a.previous_apply_count = counts[a.email] || 1; });
+      } catch (e) {
+        console.warn('Could not count previous applications', e);
+      }
+    }
+
+    // Applications per job, and how many have booked an interview time.
+    async function loadJobCounts(list) {
+      try {
+        const ids = list.map(j => j.id);
+        const { data: apps } = await sb.from('applications')
+          .select('job_id,interview_slot_id,status').in('job_id', ids);
+        const counts = {}, booked = {};
+        (apps || []).forEach(a => {
+          if (a.status === 'deleted') return;
+          counts[a.job_id] = (counts[a.job_id] || 0) + 1;
+          if (a.interview_slot_id) booked[a.job_id] = (booked[a.job_id] || 0) + 1;
+        });
+        list.forEach(j => {
+          j.app_count = counts[j.id] || 0;
+          j.booked_count = booked[j.id] || 0;
+        });
+        jobs.value = [...list];
+      } catch (e) {
+        console.warn('Could not load job counts', e);
       }
     }
 
@@ -2547,6 +2581,20 @@ const app = createApp({
     }
 
     // Booked interview time for the tile, blank when they have no slot.
+    // What has happened with this applicant, in order, with dates.
+    function applicantEvents(app) {
+      if (!app) return [];
+      const slot = app.interview_slot_id ? getSlotTime(app.interview_slot_id) : '';
+      return [
+        { label: 'Applied', done: true, when: formatReceived(app.created_at) },
+        { label: 'Invite sent', done: !!app.interview_invite_sent,
+          when: app.interview_invite_sent_at ? formatReceived(app.interview_invite_sent_at) : '' },
+        { label: 'Appointment made', done: !!app.interview_slot_id, when: slot },
+        { label: 'Application form filled in', done: !!app.extended_form_completed,
+          when: app.declarations_agreed_at ? formatReceived(app.declarations_agreed_at) : '' }
+      ];
+    }
+
     function appointmentTime(app) {
       if (!app || !app.interview_slot_id) return '';
       const slot = jobSlots.value.find(sl => sl.id === app.interview_slot_id);
@@ -3307,6 +3355,32 @@ const app = createApp({
       { key:'deleted', label:'Deleted' }
     ];
 
+    // Current status is filled; the rest are outlined in their own colour.
+    function statusButtonStyle(key, current) {
+      const c = STATUS_COLOURS[key] || STATUS_COLOURS.not_hired;
+      return key === current
+        ? { background: c.dark, borderColor: c.dark, color: '#fff' }
+        : { background: c.pale, borderColor: c.mid, color: c.dark };
+    }
+
+    // Set the status and close — the reason for opening was usually to decide.
+    async function setStatusAndClose(app, status) {
+      if (!app) return;
+      settingStatus.value = true;
+      try {
+        const { error } = await sb.from('applications').update({ status }).eq('id', app.id);
+        if (error) throw error;
+        app.status = status;
+        const row = applications.value.find(a => a.id === app.id);
+        if (row) row.status = status;
+        closeApplicant();
+      } catch (e) {
+        alert('Could not update status: ' + (e.message || e));
+      } finally {
+        settingStatus.value = false;
+      }
+    }
+
     function statusPillStyle(key) {
       const c = STATUS_COLOURS[key] || STATUS_COLOURS.not_hired;
       const on = statusFilter.value.includes(key);
@@ -3637,6 +3711,7 @@ const app = createApp({
       pickConnFile, onConnFileChosen, clearConnFile, saveConnectionNote, deleteConnection,
       login, logout, openJob, editJob, cloneJob, startNewJob, saveJob, deleteJob, editorFailed, cloningFrom,
       openApplicant, closeApplicant, showApplicant, applicantIndex, stepApplicant,
+      statusButtonStyle, setStatusAndClose, settingStatus, loadingMore,
       updateStatus, saveNote, noteSaved, viewResume, loadResumePreview,
       sendInterviewInvites, sendSingleInterviewInvite, sendBulkRejection, confirmBulkRejection,
       openInterviewSlots, addSlot, deleteSlot, getSlotTime,
@@ -3646,7 +3721,7 @@ const app = createApp({
       formatType, formatReferral, daysAgo, timeAgo, formatFullDate, formatReceived, formatSlotFull,
       scoreColor, aiScoreColor, scoreStyle, aiScoreStyle, statusSelectClass,
       statusList, statusPillStyle, excerpt, cvQuote, docsFor, openDoc, formatWorkRights, realValue,
-      keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews, pdfHeight,
+      keyPoints, recentJobs, jobLine, jobMeta, docPreviews, loadingPreviews, pdfHeight, applicantEvents,
       adText, adTextLoading, adTextError, adCopied, generateAdText, copyAdText,
       applyUrl, copyApplyUrl, linkCopied, adTextDirty, adTextSaved, adTextGeneratedAt, saveAdText, analysing, analyseApplication, applicationAnswers, shortQuestion,
       coverText, coverIsUploaded, cvText, cvBlurb, docsPending, cvHighlight, oneLine,
