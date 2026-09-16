@@ -8,7 +8,9 @@
 <meta name="theme-color" content="#0A0A0B">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="The Inspiration Project">
+<meta name="apple-mobile-web-app-title" content="Inspiration">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -225,6 +227,29 @@
                color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(43,217,124,.4);
                padding-bottom:2px}
 
+  /* ══════════ offline downloads ══════════ */
+  #dlBtn{color:var(--muted);display:flex;align-items:center;gap:6px;position:relative}
+  #dlBtn svg{width:20px;height:20px;fill:currentColor}
+  #dlBtn.done{color:var(--accent)}
+  #dlBtn.busy{color:var(--text)}
+  #dlBtn .pct{font-size:11px;font-variant-numeric:tabular-nums}
+  .offtick{display:inline-block;width:12px;height:12px;margin-left:5px;vertical-align:-1px;fill:var(--accent)}
+  #offSheet{height:auto;max-height:86vh}
+  .offbody{padding:4px 22px 22px;overflow-y:auto}
+  .offstat{font-size:15px;line-height:1.5;color:var(--muted);margin:0 0 16px}
+  .offstat b{color:#fff;font-weight:600}
+  .offbar{height:6px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden;margin:0 0 18px;display:none}
+  .offbar.on{display:block}
+  .offbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+  .offgo{display:block;width:100%;padding:15px;border-radius:12px;background:var(--accent);color:#06140c;
+         font-size:15px;font-weight:700;text-align:center}
+  .offgo[disabled]{opacity:.5}
+  .offrm{display:block;width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:600;color:var(--dim)}
+  .offtip{margin:18px 0 0;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.05);
+          font-size:13px;line-height:1.55;color:var(--muted)}
+  .offtip b{color:#fff}
+  .offtip svg{width:15px;height:15px;fill:currentColor;vertical-align:-2px}
+
   @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.06s !important}}
   @media (max-height:700px){
     .stage{height:30vh}
@@ -302,6 +327,7 @@
         <h3 id="libcount">All songs</h3>
       </div>
       <div class="libtools">
+        <button id="dlBtn" aria-label="Download for offline"></button>
         <button id="viewToggle" aria-label="Switch view"></button>
         <button id="newFilter" aria-pressed="false"></button>
         <button id="favFilter" aria-pressed="false"></button>
@@ -322,6 +348,21 @@
   <div class="sheet-body">
     <p class="scripture" id="vText"></p>
     <a class="chapterlink" id="vChapter" href="#" target="_blank" rel="noopener">Read the whole chapter</a>
+  </div>
+</div>
+
+<div class="sheet" id="offSheet" role="dialog" aria-label="Offline listening">
+  <div class="grip"></div>
+  <div class="sheet-head">
+    <div><h3>Listen offline</h3><div class="sub">Save every song on this device</div></div>
+    <button class="close">Done</button>
+  </div>
+  <div class="offbody">
+    <p class="offstat" id="offStat">Checking…</p>
+    <div class="offbar" id="offBar"><i></i></div>
+    <button class="offgo" id="offGo">Download all songs</button>
+    <button class="offrm" id="offRm" style="display:none">Remove downloads</button>
+    <div class="offtip" id="offTip" style="display:none"></div>
   </div>
 </div>
 
@@ -349,6 +390,156 @@ const fmt = s => (!isFinite(s) || s < 0) ? '0:00'
   : Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
 const abs = p => new URL(p, location.href).href;
 const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ─────────── offline downloads ───────────
+   Songs are saved into Cache Storage (the service worker in sw.js serves them back,
+   byte ranges and all). Once someone has downloaded, any new song is fetched
+   automatically the next time the app opens with a connection. */
+const AUDIO_CACHE = 'music-audio-v1';                    // must match sw.js
+const OFF_META = abs('__offline-meta.json');
+const OFF_KEY = 'revive.music.offline.v1';
+const TICK = '<svg class="offtick" viewBox="0 0 24 24" aria-label="Saved offline"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
+const DL_ICON = '<svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>';
+const OK_ICON = '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+const OFF = {
+  supported: 'caches' in window && 'serviceWorker' in navigator && window.isSecureContext,
+  saved: new Set(), meta: {}, busy: false, done: 0, total: 0, failed: 0, full: false
+};
+const offVer = s => [s.v || '', s.duration || '', s.created || ''].join('|');
+const offWanted = () => { try { return localStorage.getItem(OFF_KEY) === '1'; } catch(e){ return false; } };
+const offMB = b => (b / 1048576 < 10 ? (b / 1048576).toFixed(1) : Math.round(b / 1048576)) + ' MB';
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+
+if(OFF.supported){
+  navigator.serviceWorker.register('sw.js').catch(()=>{ });
+}
+
+async function offLoad(){
+  if(!OFF.supported) return;
+  try{
+    const c = await caches.open(AUDIO_CACHE);
+    const r = await c.match(OFF_META);
+    OFF.meta = r ? await r.json() : {};
+    const have = new Set((await c.keys()).map(k => k.url));
+    OFF.saved = new Set(SONGS.filter(s => have.has(abs(s.src)) && OFF.meta[s.src] && OFF.meta[s.src].v === offVer(s)).map(s => s.src));
+  }catch(e){ OFF.meta = {}; OFF.saved = new Set(); }
+}
+async function offSaveMeta(c){
+  await c.put(OFF_META, new Response(JSON.stringify(OFF.meta), {headers:{'Content-Type':'application/json'}}));
+}
+
+async function offSync(){
+  if(!OFF.supported || OFF.busy || !SONGS.length) return;
+  const todo = SONGS.filter(s => !OFF.saved.has(s.src));
+  OFF.busy = true; OFF.done = 0; OFF.total = todo.length; OFF.failed = 0; OFF.full = false;
+  try { localStorage.setItem(OFF_KEY, '1'); } catch(e){}
+  try { if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch(e){}
+  offPaint();
+  let c;
+  try { c = await caches.open(AUDIO_CACHE); } catch(e){ OFF.busy = false; OFF.failed = todo.length; offPaint(); return; }
+
+  const queue = todo.slice();
+  async function worker(){
+    while(queue.length && !OFF.full){
+      const s = queue.shift(), key = abs(s.src);
+      try{
+        await c.delete(key);                                  // so the worker can't hand back an old copy
+        const ctl = new AbortController(), t = setTimeout(()=>ctl.abort(), 180000);
+        const r = await fetch(key, {cache:'no-store', signal: ctl.signal});
+        clearTimeout(t);
+        if(r.status !== 200) throw new Error('HTTP ' + r.status);
+        const b = await r.blob();
+        if(!b.size) throw new Error('empty');
+        await c.put(key, new Response(b, {headers:{'Content-Type': r.headers.get('Content-Type') || 'audio/mpeg', 'Content-Length': String(b.size)}}));
+        OFF.meta[s.src] = {v: offVer(s), size: b.size};
+        OFF.saved.add(s.src);
+        await offSaveMeta(c);
+      }catch(err){
+        OFF.failed++;
+        if(err && (err.name === 'QuotaExceededError' || /quota/i.test(err.message || ''))) OFF.full = true;
+      }
+      OFF.done++;
+      offPaint();
+    }
+  }
+  await Promise.all([worker(), worker()]);
+
+  /* tidy up songs that have been removed from the list */
+  try{
+    const live = new Set(SONGS.map(s => abs(s.src)));
+    for(const k of await c.keys()){
+      if(k.url !== OFF_META && !live.has(k.url)) await c.delete(k);
+    }
+    for(const src of Object.keys(OFF.meta)) if(!SONGS.some(s => s.src === src)) delete OFF.meta[src];
+    await offSaveMeta(c);
+  }catch(e){}
+
+  OFF.busy = false;
+  offPaint();
+  buildGrid();
+}
+
+async function offRemove(){
+  if(OFF.busy) return;
+  try { await caches.delete(AUDIO_CACHE); } catch(e){}
+  try { localStorage.removeItem(OFF_KEY); } catch(e){}
+  OFF.meta = {}; OFF.saved = new Set(); OFF.failed = 0; OFF.full = false;
+  offPaint();
+  buildGrid();
+}
+
+function offPaint(){
+  const btn = $('dlBtn');
+  if(!OFF.supported){ btn.style.display = 'none'; return; }
+  const n = SONGS.length, have = SONGS.filter(s => OFF.saved.has(s.src)).length;
+  const all = n > 0 && have === n;
+  const bytes = SONGS.reduce((t, s) => t + ((OFF.saved.has(s.src) && OFF.meta[s.src] && OFF.meta[s.src].size) || 0), 0);
+  const est = SONGS.reduce((t, s) => t + (OFF.saved.has(s.src) ? 0 : (Number(s.duration) || 0) * 22800), 0);
+
+  btn.classList.toggle('busy', OFF.busy);
+  btn.classList.toggle('done', all && !OFF.busy);
+  btn.innerHTML = OFF.busy
+    ? DL_ICON + '<span class="pct">' + OFF.done + '/' + OFF.total + '</span>'
+    : (all ? OK_ICON : DL_ICON);
+  btn.setAttribute('aria-label', all ? 'Saved for offline' : 'Download for offline');
+
+  const stat = $('offStat'), go = $('offGo'), rm = $('offRm'), bar = $('offBar');
+  bar.classList.toggle('on', OFF.busy);
+  bar.firstElementChild.style.width = OFF.total ? (OFF.done / OFF.total * 100) + '%' : '0';
+  if(OFF.busy){
+    stat.innerHTML = 'Downloading <b>' + Math.min(OFF.done + 1, OFF.total) + ' of ' + OFF.total + '</b>… Keep this screen open until it finishes.';
+    go.disabled = true; go.textContent = 'Downloading…'; go.style.display = '';
+  } else if(all){
+    stat.innerHTML = '<b>All ' + n + ' songs are saved on this device</b> (' + offMB(bytes) + '). They play with no signal, and new songs download automatically next time you open this online.';
+    go.style.display = 'none';
+  } else {
+    let msg = have
+      ? '<b>' + have + ' of ' + n + ' songs saved.</b> '
+      : 'Save all <b>' + n + ' songs</b> so they play with no signal — about <b>' + offMB(est) + '</b>. ';
+    if(OFF.full) msg += 'This device ran out of space for downloads. ';
+    else if(OFF.failed) msg += OFF.failed + (OFF.failed === 1 ? ' song' : ' songs') + " didn't download — check your connection and try again. ";
+    else if(have) msg += 'About ' + offMB(est) + ' left to download.';
+    stat.innerHTML = msg;
+    go.disabled = !navigator.onLine;
+    go.textContent = !navigator.onLine ? 'Connect to the internet to download' : have ? 'Download the rest' : 'Download all songs';
+    go.style.display = '';
+  }
+  rm.style.display = (have && !OFF.busy) ? '' : 'none';
+
+  const tip = $('offTip');
+  if(isIOS && !isStandalone()){
+    tip.innerHTML = '<b>iPhone: add this to your Home Screen first.</b> Tap Share <svg viewBox="0 0 24 24"><path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6a2 2 0 01-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3a2 2 0 012 2z"/></svg> → <b>Add to Home Screen</b>, open The Inspiration Project from there, then download inside it. Downloads made in a Safari tab can be cleared by the iPhone after about a week without listening.';
+    tip.style.display = '';
+  } else tip.style.display = 'none';
+}
+
+function openOffline(){
+  closeSheet();
+  offPaint();
+  $('offSheet').classList.add('open');
+  $('scrim').classList.add('on');
+}
 
 /* ─────────── favourites, kept in this browser ─────────── */
 const FAV_KEY = 'revive.music.favourites.v1';
@@ -508,7 +699,7 @@ function buildGrid(){
     const thumb = '<span class="thumb"><img src="' + s.art + '" alt="" loading="lazy">' +
       '<span class="bars"><i></i><i></i><i></i></span></span>';
     const text = '<span class="tt">' + esc(s.title) + (isNew(s) ? '<span class="newpill">NEW</span>' : '') + '</span>' +
-      '<span class="ts">' + fmt(s.duration) + (s.created ? ' · ' + fmtDate(s.created) : '') + '</span>' +
+      '<span class="ts">' + fmt(s.duration) + (s.created ? ' · ' + fmtDate(s.created) : '') + (OFF.saved.has(s.src) ? TICK : '') + '</span>' +
       (s.note ? '<span class="tn">' + esc(s.note) + '</span>' : '');
     b.innerHTML = listView ? thumb + '<span class="rowmeta">' + text + '</span>' : thumb + text;
     b.addEventListener('click', ()=>select(i));
@@ -754,6 +945,11 @@ function openVerse(i){
   $('scrim').classList.add('on');
 }
 $('verse').addEventListener('click', ()=>openVerse(idx));
+$('dlBtn').addEventListener('click', e=>{ e.stopPropagation(); openOffline(); });
+$('offGo').addEventListener('click', ()=>offSync());
+$('offRm').addEventListener('click', ()=>offRemove());
+window.addEventListener('online', ()=>{ offPaint(); if(offWanted() || OFF.saved.size) offSync(); });
+window.addEventListener('offline', offPaint);
 
 $('fav').addEventListener('click', ()=>{
   $('fav').classList.add('pop');
@@ -907,6 +1103,12 @@ fetch('songs.json', {cache:'no-cache'})
     $('dur').textContent = fmt(SONGS[idx].duration);
     paint();
     requestAnimationFrame(measureLib);
+    offPaint();
+    offLoad().then(()=>{
+      offPaint();
+      buildGrid();
+      if(navigator.onLine && (offWanted() || OFF.saved.size) && OFF.saved.size < SONGS.length) setTimeout(offSync, 4000);
+    });
   })
   .catch(()=>{
     $('title').textContent = 'Songs unavailable';
