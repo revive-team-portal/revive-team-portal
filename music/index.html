@@ -233,7 +233,7 @@
   #dlBtn.done{color:var(--accent)}
   #dlBtn.busy{color:var(--text)}
   #dlBtn .pct{font-size:11px;font-variant-numeric:tabular-nums}
-  .offtick{display:inline-block;width:12px;height:12px;margin-left:5px;vertical-align:-1px;fill:var(--accent)}
+  .offtick{display:inline-block;width:13px;height:13px;margin-left:5px;vertical-align:-2px;fill:var(--accent)}
   #offSheet{height:auto;max-height:86vh}
   .offbody{padding:4px 22px 22px;overflow-y:auto}
   .offstat{font-size:15px;line-height:1.5;color:var(--muted);margin:0 0 16px}
@@ -398,9 +398,9 @@ const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 const AUDIO_CACHE = 'music-audio-v1';                    // must match sw.js
 const OFF_META = abs('__offline-meta.json');
 const OFF_KEY = 'revive.music.offline.v1';
-const TICK = '<svg class="offtick" viewBox="0 0 24 24" aria-label="Saved offline"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
+const TICK = '<svg class="offtick" viewBox="0 0 24 24" aria-label="Downloaded"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>';
 const DL_ICON = '<svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>';
-const OK_ICON = '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+const OK_ICON = '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm5 15H7v-1.8h10V17zm-5-2.6L7.4 9.8H10.5V6h3v3.8h3.1L12 14.4z"/></svg>';
 const OFF = {
   supported: 'caches' in window && 'serviceWorker' in navigator && window.isSecureContext,
   saved: new Set(), meta: {}, busy: false, done: 0, total: 0, failed: 0, full: false
