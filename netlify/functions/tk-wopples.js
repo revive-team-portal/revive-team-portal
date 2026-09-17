@@ -18,7 +18,7 @@ exports.handler = async (event) => {
     date: nz(e.start_time, { year: 'numeric', month: '2-digit', day: '2-digit' }),
     start: nz(e.start_time, { hour: '2-digit', minute: '2-digit', hour12: false }),
     end: e.end_time ? nz(e.end_time, { hour: '2-digit', minute: '2-digit', hour12: false }) : null,
-    hours: Number(e.duration_in_hours_raw) || 0, job: e.job_id, staff: e.user_name || e.employee_name || (e.user && (e.user.name || (e.user.first_name + ' ' + e.user.last_name))) || e.user_id,
+    hours: Number(e.duration_in_hours_raw) || 0, job: e.job_id, staff: e.employee_id,
   })).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
   return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ n: all.length, sample: all[0], entries: out }) };
 };
