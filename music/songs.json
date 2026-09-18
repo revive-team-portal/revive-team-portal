@@ -3,6 +3,166 @@
  "album": "The Inspiration Project",
  "songs": [
   {
+   "title": "Not by Bread Alone",
+   "src": "audio/13.mp3",
+   "art": "art/13.jpg",
+   "duration": 249.91,
+   "note": "Jesus in the wilderness — forty days hungry, one answer, and the same answer still works at 2 a.m.",
+   "verse": {
+    "ref": "Matthew 4:4",
+    "text": "4 But Jesus answered, “It is written: ‘Man shall not live on bread alone, but on every word that comes from the mouth of God.’”",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Matthew%204%3A1-4&version=NIV"
+   },
+   "created": "2026-09-18",
+   "timing": "aligned",
+   "lines": [
+    {
+     "sect": true,
+     "text": "Verse 1",
+     "t": 18.94
+    },
+    {
+     "t": 20.14,
+     "text": "Sun beating down on the Judean sand"
+    },
+    {
+     "t": 24.54,
+     "text": "No bread, no water, no helping hand"
+    },
+    {
+     "t": 29.6,
+     "text": "Forty days hungry, forty nights cold"
+    },
+    {
+     "t": 34.52,
+     "text": "Then the tempter came strolling with a voice like gold"
+    },
+    {
+     "sect": true,
+     "text": "Pre-Chorus",
+     "t": 38.22
+    },
+    {
+     "t": 39.42,
+     "text": "“Go on, turn these stones into something to eat”"
+    },
+    {
+     "t": 44.4,
+     "text": "Jesus just smiled and stood on His feet"
+    },
+    {
+     "sect": true,
+     "text": "Chorus",
+     "t": 48.8
+    },
+    {
+     "t": 50.0,
+     "text": "Not by bread alone, not by bread alone"
+    },
+    {
+     "t": 59.6,
+     "text": "I’ve got a Word to live on and a Father on the throne"
+    },
+    {
+     "t": 69.54,
+     "text": "You can offer me the world, but I’m still headed home"
+    },
+    {
+     "t": 78.42,
+     "text": "Not by bread alone"
+    },
+    {
+     "sect": true,
+     "text": "Verse 2",
+     "t": 84.06
+    },
+    {
+     "t": 85.26,
+     "text": "My desert’s not so dusty, it’s a phone at 2 a.m."
+    },
+    {
+     "t": 90.62,
+     "text": "A second slice of something, a text I shouldn’t send"
+    },
+    {
+     "t": 95.84,
+     "text": "Same old voice still whispering the same old lines"
+    },
+    {
+     "t": 100.72,
+     "text": "But I’ve got the same Spirit and the same reply"
+    },
+    {
+     "sect": true,
+     "text": "Chorus",
+     "t": 105.64
+    },
+    {
+     "t": 106.84,
+     "text": "Not by bread alone, not by bread alone"
+    },
+    {
+     "t": 116.62,
+     "text": "I’ve got a Word to live on and a Father on the throne"
+    },
+    {
+     "t": 125.5,
+     "text": "You can offer me the world, but I’m still headed home"
+    },
+    {
+     "t": 134.78,
+     "text": "Not by bread alone"
+    },
+    {
+     "sect": true,
+     "text": "Bridge",
+     "t": 161.1
+    },
+    {
+     "t": 162.3,
+     "text": "How’d You do it, hungry and alone?"
+    },
+    {
+     "t": 165.76,
+     "text": "Nothing in Your hands but the Scripture You had known"
+    },
+    {
+     "t": 171.9,
+     "text": "I’m standing here amazed at the ground You won"
+    },
+    {
+     "t": 177.6,
+     "text": "Wilderness to victory, the Father’s only Son"
+    },
+    {
+     "sect": true,
+     "text": "Final Chorus",
+     "t": 182.24
+    },
+    {
+     "t": 183.44,
+     "text": "Not by bread alone, not by bread alone"
+    },
+    {
+     "t": 192.54,
+     "text": "I’ve got a Word to live on and I’m never on my own"
+    },
+    {
+     "t": 202.36,
+     "text": "You can offer me the world, but I’m walking with the One"
+    },
+    {
+     "t": 210.76,
+     "text": "Who already beat you in the desert sun"
+    },
+    {
+     "t": 222.4,
+     "text": "Not by bread alone"
+    }
+   ]
+  },
+  {
    "title": "Wings Like Eagles",
    "src": "audio/12.mp3",
    "art": "art/12.jpg",
