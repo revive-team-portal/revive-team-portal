@@ -3,6 +3,245 @@
  "album": "The Inspiration Project",
  "songs": [
   {
+   "title": "It’s Always Been Love",
+   "src": "audio/14.mp3",
+   "art": "art/14.jpg",
+   "duration": 243.31,
+   "note": "The lost sheep — a light left on, a Shepherd who came looking, and love the whole way home.",
+   "verse": {
+    "ref": "Luke 15:4-6",
+    "text": "4 “What man among you, if he has a hundred sheep and loses one of them, does not leave the ninety-nine in the pasture and go after the one that is lost, until he finds it? 5 And when he finds it, he joyfully puts it on his shoulders, 6 comes home, and calls together his friends and neighbors to tell them, ‘Rejoice with me, for I have found my lost sheep!’",
+    "version": "BSB",
+    "chapterUrl": "https://www.biblegateway.com/passage/?search=Luke%2015%3A1-7&version=NIV"
+   },
+   "created": "2026-09-18",
+   "timing": "aligned",
+   "lines": [
+    {
+     "sect": true,
+     "text": "Verse 1",
+     "t": 14.7
+    },
+    {
+     "t": 15.9,
+     "text": "I left a light on in the window"
+    },
+    {
+     "t": 20.1,
+     "text": "Waiting through the cold and the rain"
+    },
+    {
+     "t": 24.9,
+     "text": "I thought that I had strayed too far, Lord"
+    },
+    {
+     "t": 29.2,
+     "text": "To ever hear You call my name"
+    },
+    {
+     "t": 34.1,
+     "text": "Then Jesus stood outside my doorway"
+    },
+    {
+     "t": 38.8,
+     "text": "And every chain I carried fell"
+    },
+    {
+     "t": 43.3,
+     "text": "The Shepherd came to find His lost one"
+    },
+    {
+     "t": 46.7,
+     "text": "You knew my heart, You knew it well"
+    },
+    {
+     "sect": true,
+     "text": "Chorus",
+     "t": 49.7
+    },
+    {
+     "t": 50.9,
+     "text": "It’s always been love, and it’s never gone"
+    },
+    {
+     "t": 55.5,
+     "text": "It’s always been Jesus, carrying me on"
+    },
+    {
+     "t": 60.3,
+     "text": "Through every night I thought I stood alone"
+    },
+    {
+     "t": 64.9,
+     "text": "Your love was the light leading me home"
+    },
+    {
+     "sect": true,
+     "text": "Verse 2",
+     "t": 78.8
+    },
+    {
+     "t": 80.0,
+     "text": "I tried to build my walls of silence"
+    },
+    {
+     "t": 84.6,
+     "text": "I tried to make it on my own"
+    },
+    {
+     "t": 89.0,
+     "text": "But grace came running down the roadside"
+    },
+    {
+     "t": 93.2,
+     "text": "And rolled away my heart of stone"
+    },
+    {
+     "t": 98.1,
+     "text": "You bore my shame upon the cross, Lord"
+    },
+    {
+     "t": 102.8,
+     "text": "You paid the price I couldn’t pay"
+    },
+    {
+     "t": 107.3,
+     "text": "The empty tomb became my morning"
+    },
+    {
+     "t": 110.8,
+     "text": "Your mercy’s new with every day"
+    },
+    {
+     "sect": true,
+     "text": "Chorus",
+     "t": 113.7
+    },
+    {
+     "t": 114.9,
+     "text": "It’s always been love, and it’s never gone"
+    },
+    {
+     "t": 119.5,
+     "text": "It’s always been Jesus, carrying me on"
+    },
+    {
+     "t": 124.2,
+     "text": "Through every night I thought I stood alone"
+    },
+    {
+     "t": 128.5,
+     "text": "Your love was the light leading me home"
+    },
+    {
+     "sect": true,
+     "text": "Bridge",
+     "t": 132.2
+    },
+    {
+     "t": 133.4,
+     "text": "When I was lost, You searched for me"
+    },
+    {
+     "t": 138.0,
+     "text": "You gave Your life on Calvary"
+    },
+    {
+     "t": 142.4,
+     "text": "Now I am found, now I am free"
+    },
+    {
+     "t": 147.1,
+     "text": "It’s always been You, Jesus, loving me"
+    },
+    {
+     "sect": true,
+     "text": "Break",
+     "t": 154.8
+    },
+    {
+     "t": 156.0,
+     "text": "It’s always been love"
+    },
+    {
+     "t": 160.7,
+     "text": "It’s always been Jesus"
+    },
+    {
+     "sect": true,
+     "text": "Final Chorus",
+     "t": 166.0
+    },
+    {
+     "t": 167.2,
+     "text": "It’s always been love, and it’s never gone"
+    },
+    {
+     "t": 171.8,
+     "text": "It’s always been Jesus, carrying me on"
+    },
+    {
+     "t": 176.4,
+     "text": "Through every night I thought I stood alone"
+    },
+    {
+     "t": 180.8,
+     "text": "Your love was the light leading me home"
+    },
+    {
+     "sect": true,
+     "text": "Chorus",
+     "t": 184.1
+    },
+    {
+     "t": 185.3,
+     "text": "It’s always been love, and it’s never gone"
+    },
+    {
+     "t": 189.8,
+     "text": "It’s always been Jesus, carrying me on"
+    },
+    {
+     "t": 194.5,
+     "text": "Through every night I thought I stood alone"
+    },
+    {
+     "t": 199.1,
+     "text": "Your love was the light leading me home"
+    },
+    {
+     "sect": true,
+     "text": "Tag",
+     "t": 207.0
+    },
+    {
+     "t": 208.2,
+     "text": "Your love is leading me"
+    },
+    {
+     "t": 212.8,
+     "text": "Your love is leading me"
+    },
+    {
+     "t": 218.5,
+     "text": "Your love is leading me home"
+    },
+    {
+     "sect": true,
+     "text": "Outro",
+     "t": 227.7
+    },
+    {
+     "t": 228.9,
+     "text": "It’s always been love"
+    },
+    {
+     "t": 235.3,
+     "text": "Jesus, lead me home"
+    }
+   ]
+  },
+  {
    "title": "Not by Bread Alone",
    "src": "audio/13.mp3",
    "art": "art/13.jpg",
