@@ -98,22 +98,16 @@
   .link-box{display:flex;gap:8px;align-items:center;background:#f7f4ec;border-radius:9px;padding:9px 11px;font-size:13.5px}
   .link-box code{flex:1;word-break:break-all}
 </style>
-<link rel="stylesheet" href="/chrome.css">
 </head>
 <body>
-<div id="gate" class="rv-load">
-  <div class="rv-load__scrim"></div>
-  <div class="rv-load__box">
-    <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
-    <p class="rv-load__text">Opening Pulse</p>
-    <div class="rv-load__bar"><i></i></div>
-  </div>
-</div>
+<div id="gate" class="center">Opening Pulse…</div>
 
 <div id="appui" class="hidden">
-<header class="rv-nav">
-  <div class="rv-left"><a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe"><span class="rv-appname">Pulse</span></div>
-  <div class="rv-right"><span class="rv-who" id="who"></span></div>
+<header>
+  <div class="mark">📊</div>
+  <h1>Pulse</h1>
+  <a class="back" href="/">← Portal</a>
+  <span class="who" id="who"></span>
 </header>
 <div class="wrap">
   <aside>
@@ -160,12 +154,11 @@ let surveys=[], current=null, charts=[];
   }catch(e){ $('gate').innerHTML='Could not open Pulse. Please reload.'; return; }
   $('who').textContent=p.user.email||'';
   $('gate').classList.add('hidden'); $('appui').classList.remove('hidden');
-  try{ await loadSurveys(); }catch(e){ $('appui').classList.add('hidden'); $('gate').classList.remove('hidden'); $('gate').innerHTML='<div class="rv-load__scrim"></div><div class="rv-load__box"><img class="rv-load__logo" src="/assets/revive-logo.png"><p class="rv-load__text">Couldn\'t load surveys. Please reload.</p></div>'; }
+  await loadSurveys();
 })();
 
 async function loadSurveys(){
-  const { data, error } = await sb.from('surveys').select('*').order('created_at',{ascending:false});
-  if(error) throw error;
+  const { data } = await sb.from('surveys').select('*').order('created_at',{ascending:false});
   surveys=data||[];
   // response counts + last response date
   const counts={};
@@ -420,16 +413,16 @@ async function renderResponses(){
   const byR={}; answers.forEach(a=>{(byR[a.response_id]=byR[a.response_id]||{})[a.question_id]=a;});
   const cell=a=>!a?'':(a.value_options?a.value_options.join(', '):(a.value??a.value_number??''));
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><p class="sub" style="margin:0">${responses.length} responses</p><button class="btn small" onclick="exportCSV()">⬇ Export CSV</button></div>`;
-  html+='<div class="card" style="overflow:auto;max-height:65vh;padding:0"><table><thead><tr><th>When</th><th>Source</th><th>Name</th><th>Email</th>'+qs.map((q,i)=>`<th>Q${i+1}</th>`).join('')+'</tr></thead><tbody>';
-  html+=responses.slice(0,300).map(r=>`<tr><td>${new Date(r.submitted_at).toLocaleDateString('en-NZ')}</td><td>${esc(src(r))}</td><td>${esc(r.respondent_name||'')}</td><td>${esc(r.respondent_email||'')}</td>`+qs.map(q=>`<td>${esc(cell((byR[r.id]||{})[q.id])).slice(0,120)}</td>`).join('')+'</tr>').join('');
+  html+='<div class="card" style="overflow:auto;max-height:65vh;padding:0"><table><thead><tr><th>#</th><th>When</th><th>Source</th><th>Name</th><th>Email</th>'+qs.map((q,i)=>`<th>Q${i+1}</th>`).join('')+'</tr></thead><tbody>';
+  html+=responses.slice(0,300).map(r=>`<tr><td><strong>${r.seq??''}</strong></td><td>${new Date(r.submitted_at).toLocaleDateString('en-NZ')}</td><td>${esc(src(r))}</td><td>${esc(r.respondent_name||'')}</td><td>${esc(r.respondent_email||'')}</td>`+qs.map(q=>`<td>${esc(cell((byR[r.id]||{})[q.id])).slice(0,120)}</td>`).join('')+'</tr>').join('');
   html+='</tbody></table></div>';
   window._exp={questions:qs,responses,byR,cell,src};
   $('tabbody').innerHTML=html;
 }
 function exportCSV(){
   const {questions,responses,byR,cell,src}=window._exp;
-  const head=['submitted_at','source','name','email',...questions.map(q=>q.label)];
-  const rows=responses.map(r=>[r.submitted_at,src(r),r.respondent_name||'',r.respondent_email||'',...questions.map(q=>cell((byR[r.id]||{})[q.id]))]);
+  const head=['#','submitted_at','source','name','email',...questions.map(q=>q.label)];
+  const rows=responses.map(r=>[r.seq??'',r.submitted_at,src(r),r.respondent_name||'',r.respondent_email||'',...questions.map(q=>cell((byR[r.id]||{})[q.id]))]);
   const csv=[head,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=(current.slug||'survey')+'.csv';a.click();
 }

@@ -19,29 +19,37 @@ exports.handler = async (event) => {
 
   const survey = (await (await sb('/rest/v1/surveys?id=eq.'+survey_id+'&select=title,notify_emails,slug')).json())[0];
   if (!survey || !Array.isArray(survey.notify_emails) || !survey.notify_emails.length) return { statusCode:200, body:'no recipients' };
-  const resp = (await (await sb('/rest/v1/responses?id=eq.'+response_id+'&select=respondent_name,respondent_email,submitted_at,meta')).json())[0] || {};
+  const resp = (await (await sb('/rest/v1/responses?id=eq.'+response_id+'&select=seq,respondent_name,respondent_email,submitted_at,meta')).json())[0] || {};
   const questions = await (await sb('/rest/v1/questions?survey_id=eq.'+survey_id+'&select=id,label,type,sort_order&order=sort_order')).json();
   const answers = await (await sb('/rest/v1/answers?response_id=eq.'+response_id+'&select=question_id,value,value_options,value_number')).json();
   const amap = {}; (answers||[]).forEach(a => amap[a.question_id] = a);
 
-  const rows = (questions||[]).filter(q => q.type!=='info' && q.type!=='image').map(q => {
-    const a = amap[q.id]; if (!a) return '';
-    const v = a.value_options ? a.value_options.join(', ') : (a.value != null ? a.value : (a.value_number != null ? a.value_number : ''));
-    return (v==='' || v==null) ? '' : `<p style="margin:7px 0"><strong>${esc(q.label)}</strong><br>${esc(String(v))}</p>`;
-  }).join('');
+  // Anonymised for confidential sharing with staff: hide the customer's name & email.
+  const name = (resp.respondent_name || '').trim().toLowerCase();
+  const email = (resp.respondent_email || '').trim().toLowerCase();
+  const isIdentity = (v) => { const s = String(v||'').trim().toLowerCase(); return s && (s === name || s === email || (email && s.includes('@') && s === email)); };
+  const rows = (questions||[])
+    .filter(q => q.type!=='info' && q.type!=='image' && q.type!=='email' && q.type!=='email_klaviyo')
+    .map(q => {
+      const a = amap[q.id]; if (!a) return '';
+      const v = a.value_options ? a.value_options.join(', ') : (a.value != null ? a.value : (a.value_number != null ? a.value_number : ''));
+      if (v==='' || v==null) return '';
+      if (isIdentity(v)) return '';                    // skip answers that are the customer's name/email
+      return `<p style="margin:7px 0"><strong>${esc(q.label)}</strong><br>${esc(String(v))}</p>`;
+    }).join('');
 
-  const who = resp.respondent_name || resp.respondent_email || 'Anonymous';
-  const collector = resp.meta && resp.meta.collector ? ` · ${esc(resp.meta.collector)}` : '';
+  const collector = resp.meta && resp.meta.collector ? `${esc(resp.meta.collector)} · ` : '';
+  const when = resp.submitted_at ? new Date(resp.submitted_at).toLocaleString('en-NZ') : '';
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#243029;max-width:640px">
     <div style="background:#1f6f54;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0">
       <div style="font-size:12px;letter-spacing:.08em;opacity:.85">REVIVE · PULSE</div>
       <div style="font-size:17px;font-weight:700;margin-top:4px">New response — ${esc(survey.title)}</div></div>
     <div style="border:1px solid #e6e0d4;border-top:none;border-radius:0 0 10px 10px;padding:16px 18px">
-      <p style="margin:0 0 12px;color:#6b7b72">From ${esc(who)}${collector} · ${resp.submitted_at?new Date(resp.submitted_at).toLocaleString('en-NZ'):''}</p>
+      <p style="margin:0 0 12px;color:#6b7b72">${resp.seq!=null?`<strong style="color:#1f6f54">Response #${resp.seq}</strong> · `:''}${collector}${when}</p>
       ${rows}
-      <p style="margin:16px 0 0;font-size:12.5px;color:#8a938c">Full results &amp; AI analysis: team.revive.co.nz/pulse</p></div></div>`;
+      <p style="margin:16px 0 0;font-size:12.5px;color:#8a938c">Customer details are hidden so this can be shared with the team. Full results &amp; AI analysis: team.revive.co.nz/pulse</p></div></div>`;
 
-  const r = await sendMail({ to: survey.notify_emails.join(','), subject: `New feedback: ${survey.title}`, html,
-    text: `New response to ${survey.title} from ${who}. Full results: team.revive.co.nz/pulse` });
+  const r = await sendMail({ to: survey.notify_emails.join(','), subject: `New feedback${resp.seq!=null?` #${resp.seq}`:''}: ${survey.title}`, html,
+    text: `New response${resp.seq!=null?` #${resp.seq}`:''} to ${survey.title}. Customer details hidden. Full results: team.revive.co.nz/pulse` });
   return { statusCode: 200, headers:{'Content-Type':'application/json'}, body: JSON.stringify(r) };
 };
