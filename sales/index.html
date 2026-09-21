@@ -198,7 +198,7 @@
               </td>
               <td class="px-3 py-2.5 align-top">
                 <div class="flex gap-0.5">
-                  <button v-for="n in 3" :key="n" type="button" @click.stop="quickSave(s,{rating:n})" class="text-lg leading-none" :class="(s.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
+                  <button v-for="n in 5" :key="n" type="button" @click.stop="quickSave(s,{rating:n})" class="text-lg leading-none" :class="(s.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
                 </div>
               </td>
               <td class="px-3 py-2.5 align-top"><span class="text-sm font-semibold text-stone-700">{{ eventCount(s.id) }}</span></td>
@@ -258,7 +258,7 @@
           </label>
           <div><span class="lbl">Rating</span>
             <div class="flex gap-0.5">
-              <button v-for="n in 3" :key="n" type="button" @click="cur.rating=n" class="text-2xl leading-none" :class="(cur.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
+              <button v-for="n in 5" :key="n" type="button" @click="cur.rating=n" class="text-2xl leading-none" :class="(cur.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
             </div>
           </div>
           <label class="block"><span class="lbl">Customer type</span>
