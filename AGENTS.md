@@ -1,6 +1,8 @@
 # Revive Team Portal — Conventions & Build Rules
 
 > Canonical build rules for the Revive Team Portal. Any Cowork/agent working on this repo must follow these. Update this file (with agreement) before changing the rule in code.
+>
+> **Docs:** `docs/STACK.md` (stack, keys, guards, new-app checklist) and `docs/<app>.md` for every app — read the app doc before changing it and update it in the same commit. Rendered in the portal at `/guide/`.
 
 This file is the single source of truth for how portal apps are built, changed, and shipped. If a change contradicts these rules, fix the rule here first (with agreement), then the code.
 
