@@ -127,6 +127,8 @@
       <div class="flex flex-nowrap items-center gap-2 mb-4 overflow-x-auto">
         <button @click="newEmailsOnly=!newEmailsOnly" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
           :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">📥 New emails {{ newCount }}</button>
+        <button @click="keenOnly=!keenOnly" title="Show only stores marked keen at a trade show" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
+          :class="keenOnly?'bg-green-700 text-white border-green-700':'bg-white text-stone-600 border-stone-300 hover:border-stone-400'">KEEN {{ keenCount }}</button>
         <button @click="actionsOnly=!actionsOnly" title="Show customers with outstanding actions (🔥 due now · 📌 scheduled for later)" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap inline-flex items-center gap-1.5"
           :class="actionsOnly?'bg-stone-800 text-white border-stone-800':'bg-white text-stone-600 border-stone-300 hover:border-stone-400'">
           Actions:
@@ -185,7 +187,7 @@
             <tr v-for="s in displayStores" :key="s.id" class="border-t border-stone-100" :class="[rowBg(s.status), selectedIds.includes(s.id)?'ring-2 ring-inset ring-amber-400':'']">
               <td class="px-3 py-3 align-top"><input type="checkbox" :checked="selectedIds.includes(s.id)" @change="toggleSel(s.id)" class="w-5 h-5 accent-amber-600 cursor-pointer"></td>
               <td class="px-3 py-2.5 cursor-pointer align-top" @click="openStore(s)">
-                <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}<span v-if="dueActions(s.id)" class="no-underline ml-1.5 inline-flex items-center gap-0.5 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500 text-white" :title="dueActions(s.id)+' action(s) due now'">🔥 {{ dueActions(s.id) }}</span><span v-if="dormantActions(s.id)" class="no-underline ml-1 inline-flex items-center gap-0.5 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700" :title="dormantActions(s.id)+' action(s) scheduled for later'">📌 {{ dormantActions(s.id) }}</span></p>
+                <p class="font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 hover:decoration-amber-600">{{ s.store_name }}<span v-if="s.keen" class="no-underline ml-1.5 inline-flex items-center align-middle text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-200 text-green-800" title="Marked keen at a trade show">KEEN</span><span v-if="dueActions(s.id)" class="no-underline ml-1.5 inline-flex items-center gap-0.5 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500 text-white" :title="dueActions(s.id)+' action(s) due now'">🔥 {{ dueActions(s.id) }}</span><span v-if="dormantActions(s.id)" class="no-underline ml-1 inline-flex items-center gap-0.5 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700" :title="dormantActions(s.id)+' action(s) scheduled for later'">📌 {{ dormantActions(s.id) }}</span></p>
                 <p class="text-xs text-stone-400">{{ s.store_type }}<span v-if="s.contact_name"> · {{ s.contact_name }}</span></p>
                 <p v-if="s.contact_email" class="text-xs text-stone-400">{{ s.contact_email }}</p>
               </td>
@@ -305,6 +307,12 @@
             <div class="flex gap-0.5">
               <button v-for="n in 3" :key="n" type="button" @click="cur.rating=n" class="text-2xl leading-none" :class="(cur.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
             </div>
+          </div>
+          <div><span class="lbl">Keen</span>
+            <label class="inline-flex items-center gap-2 text-sm mt-1.5">
+              <input type="checkbox" v-model="cur.keen" class="w-4 h-4 accent-green-600">
+              <span class="text-stone-600">Marked keen at a show</span>
+            </label>
           </div>
           <label class="block"><span class="lbl">Customer type</span>
             <select v-model="cur.store_type" class="inp"><option value="">— Type —</option><option v-for="t in TYPES" :key="t" :value="t">{{ t }}</option></select>
@@ -1077,6 +1085,8 @@
       function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/86400000); }
       function daysSinceOrder(d){ if(!d) return null; const today=new Date().toLocaleDateString('en-CA',{timeZone:'Pacific/Auckland'}); return daysBetween(d,today); }
       function orgShort(n){ n=String(n||''); if(/cafe/i.test(n)) return 'Cafes'; if(/revivealicious|foods/i.test(n)) return 'Foods'; return n.split(' ')[0]||n; }
+      const keenOnly=ref(false);
+      const keenCount=computed(()=>stores.value.filter(s=>s.keen).length);
       const settings=reactive({ai_master_prompt:'',ai_actions_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:'',sales_prompts:''});
       const promptsOpen=ref(true);
       const salesPrompts=reactive({features:'',retailer:'',objections:'',closing:''});
@@ -1260,6 +1270,7 @@
       const filteredStores=computed(()=>{
         let list=stores.value.slice();
         const q=search.value.trim().toLowerCase();
+        if(keenOnly.value) list=list.filter(s=>s.keen);
         if(q) list=list.filter(s=>[s.store_name,s.contact_name,s.contact2_name,s.contact3_name,s.contact4_name,s.contact5_name,s.contact6_name,s.contact_email,s.contact2_email,s.contact3_email,s.contact4_email,s.contact5_email,s.contact6_email,s.area,s.store_type].some(v=>(v||'').toLowerCase().includes(q)));
         if(areaFilter.value) list=list.filter(s=>s.area===areaFilter.value);
         if(activeStatuses.value.length) list=list.filter(s=>activeStatuses.value.includes(s.status));
@@ -1416,7 +1427,7 @@
       const salesSyncTitle=computed(()=> salesSync.value? ('Last Xero sales sync: '+salesSyncLabel.value+(salesSync.value.note?(' · '+salesSync.value.note):'')) : 'Sync wholesale sales from Xero (last 24 months)');
 
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,info:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',contact_position:'',contact2_position:'',contact3_first:'',contact3_last:'',contact3_name:'',contact3_email:'',contact3_phone:'',contact3_position:'',contact4_first:'',contact4_last:'',contact4_name:'',contact4_email:'',contact4_phone:'',contact4_position:'',contact5_first:'',contact5_last:'',contact5_name:'',contact5_email:'',contact5_phone:'',contact5_position:'',contact6_first:'',contact6_last:'',contact6_name:'',contact6_email:'',contact6_phone:'',contact6_position:'',store_email:'',website:'',status:'lead',no_reason:''}; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,info:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',contact_position:'',contact2_position:'',contact3_first:'',contact3_last:'',contact3_name:'',contact3_email:'',contact3_phone:'',contact3_position:'',contact4_first:'',contact4_last:'',contact4_name:'',contact4_email:'',contact4_phone:'',contact4_position:'',contact5_first:'',contact5_last:'',contact5_name:'',contact5_email:'',contact5_phone:'',contact5_position:'',contact6_first:'',contact6_last:'',contact6_name:'',contact6_email:'',contact6_phone:'',contact6_position:'',store_email:'',website:'',status:'lead',no_reason:'',keen:false}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
       function openNewStore(){ cur.value=blankStore(); visibleContacts.value=2; resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
       function openStoreById(id){ const st=stores.value.find(x=>x.id===id); if(st){ showAnalytics.value=false; openStore(st); } }
@@ -1753,7 +1764,7 @@
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,
         recentNotes,eventCount,daysSinceEvent,daysEventLabel,daysSince,psList,
-        cur,tab,saving,actForm,pinForm,email,selectedTemplate,aiIntent,aiBusy,visibleContacts,
+        cur,tab,saving,actForm,pinForm,email,selectedTemplate,aiIntent,aiBusy,visibleContacts,keenOnly,keenCount,
         curActivities,noteSortDesc,updateNoteDate,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,reply,decodeHtml,
