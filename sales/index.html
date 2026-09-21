@@ -13,7 +13,6 @@
     ::-webkit-scrollbar{width:9px;height:9px}
     ::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
   </style>
-<link rel="stylesheet" href="/chrome.css">
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
 
@@ -30,12 +29,11 @@
 <div id="app" v-cloak>
 
   <!-- ============ GATE ============ -->
-  <div v-if="!ready" class="rv-load">
-    <div class="rv-load__scrim"></div>
-    <div class="rv-load__box">
-      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
-      <p v-if="!gateError" class="rv-load__text">Loading Sales CRM</p>
-      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
+  <div v-if="!ready" class="min-h-screen flex items-center justify-center revive-waffle relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="text-center relative z-10">
+      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
+      <p v-if="!gateError" class="text-white/90 text-sm">Loading Sales CRM…</p>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto">
         <p class="text-red-600 text-sm mb-3">{{ gateError }}</p>
         <a href="/" class="text-amber-700 underline text-sm">← Back to portal</a>
@@ -45,10 +43,10 @@
 
   <div v-else class="min-h-screen flex flex-col">
     <!-- NAV -->
-    <nav class="rv-nav">
+    <nav class="text-white px-5 py-3 flex items-center justify-between sticky top-0 z-40 shadow" style="background:#25b4e8">
       <div class="flex items-center gap-2">
-        <a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
-        <span class="rv-appname">Sales CRM</span>
+        <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
+        <span class="text-white/90 text-sm hidden sm:inline font-medium">Sales CRM</span>
       </div>
       <div class="flex items-center gap-2">
         <button @click="openNewStore" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">+ Store</button>
@@ -57,23 +55,23 @@
         <button @click="showMotivation=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
         <button v-if="isAdmin" @click="openAdmin" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Admin</button>
         <span class="text-white/80 text-xs hidden md:inline ml-1">{{ me }}</span>
-        
+        <a href="/" class="text-white/80 hover:text-white text-xs ml-1">Portal</a>
       </div>
     </nav>
 
     <main class="flex-1 max-w-[100rem] mx-auto w-full px-4 py-6">
 
       <!-- ===== ANALYTICS BAR ===== -->
-      <div class="flex flex-nowrap items-center gap-2 mb-3 bg-white border border-stone-200 rounded-xl px-3 py-2 overflow-x-auto">
+      <div class="flex flex-wrap items-center gap-2 mb-3 bg-white border border-stone-200 rounded-xl px-3 py-2">
         <button @click="showAnalytics=true" class="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg whitespace-nowrap">📊 Analytics</button>
-        <select v-model="analyticsPreset" @change="setRange(analyticsPreset)" class="border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white shrink-0">
+        <select v-model="analyticsPreset" @change="setRange(analyticsPreset)" class="border border-stone-300 rounded-lg px-2 py-1 text-sm bg-white">
           <option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">This week</option><option value="lastweek">Last week</option><option value="month">This month</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option>
         </select>
         <button @click="setRange('today')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">Today</button>
         <button @click="setRange('yesterday')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">Yesterday</button>
         <button @click="setRange('week')" class="text-xs px-2 py-1 rounded border border-stone-300 hover:bg-stone-100">This week</button>
         <span class="text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 rounded px-2 py-1 whitespace-nowrap">Total Events: {{ dashTotal }}</span>
-        <span class="hidden md:flex ml-1 flex-nowrap gap-x-3 text-xs text-stone-600 items-center shrink-0 whitespace-nowrap">
+        <span class="hidden md:flex ml-1 flex-wrap gap-x-3 text-xs text-stone-600 items-center">
           <span>📞 Out <b>{{ dashMetrics.phone_out }}</b></span>
           <span>📲 In <b>{{ dashMetrics.phone_in }}</b></span>
           <span>✉ Out <b>{{ dashMetrics.email_out }}</b></span>
@@ -98,7 +96,7 @@
       </div>
 
       <!-- ===== STATUS FILTER ROW (toggle on/off, multi-select) ===== -->
-      <div class="flex flex-nowrap items-center gap-2 mb-3 overflow-x-auto">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
         <button @click="clearStatuses"
           class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="activeStatuses.length===0?'bg-stone-800 text-white border-stone-800':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
@@ -112,7 +110,7 @@
       </div>
 
       <!-- ===== CUSTOMER TYPE FILTER ROW ===== -->
-      <div class="flex flex-nowrap items-center gap-2 mb-3 overflow-x-auto">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
         <button @click="clearTypes"
           class="text-xs px-2.5 py-1 rounded-full border font-medium transition"
           :class="activeTypes.length===0?'bg-teal-700 text-white border-teal-700':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600'">
@@ -124,11 +122,9 @@
           {{ t }} <span class="opacity-80">{{ countByType(t) }}</span>
         </button>
       </div>
-      <div class="flex flex-nowrap items-center gap-2 mb-4 overflow-x-auto">
+      <div class="flex flex-wrap items-center gap-2 mb-4">
         <button @click="newEmailsOnly=!newEmailsOnly" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
           :class="newEmailsOnly?'bg-red-600 text-white border-red-600':(newCount?'bg-red-50 text-red-700 border-red-300':'bg-stone-100 text-stone-400 border-stone-200 hover:text-stone-600')">📥 New emails {{ newCount }}</button>
-        <button @click="keenOnly=!keenOnly" title="Show only stores marked keen at a trade show" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap"
-          :class="keenOnly?'bg-red-600 text-white border-red-600':'bg-white text-red-600 border-stone-300 hover:border-red-400'">★★★★★ {{ keenCount }}</button>
         <button @click="actionsOnly=!actionsOnly" title="Show customers with outstanding actions (🔥 due now · 📌 scheduled for later)" class="text-xs px-3 py-2 rounded-lg border font-medium transition whitespace-nowrap inline-flex items-center gap-1.5"
           :class="actionsOnly?'bg-stone-800 text-white border-stone-800':'bg-white text-stone-600 border-stone-300 hover:border-stone-400'">
           Actions:
@@ -144,8 +140,6 @@
           <option v-for="a in allAreas" :key="a" :value="a">{{ a }}</option>
         </select>
         <span class="text-stone-400 text-sm">{{ displayStores.length }} shown · click a column to sort</span>
-        <button @click="syncSales(false)" :disabled="salesBusy" :title="salesSyncTitle" class="text-xs px-2.5 py-2 rounded-lg border font-medium bg-white text-stone-600 border-stone-300 hover:border-stone-400 disabled:opacity-50 whitespace-nowrap">{{ salesBusy?'Syncing…':'↻ Sync sales' }}</button>
-        <span v-if="salesSync" class="text-stone-400 text-xs whitespace-nowrap">💰 {{ salesSyncLabel }}</span>
       </div>
 
       <!-- ===== BULK ACTION BAR ===== -->
@@ -178,7 +172,6 @@
               <th @click="setSort('rating')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap">Rating<span class="text-amber-600 text-sm">{{ sortArrow('rating') }}</span></th>
               <th @click="setSort('events')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap" title="Total events (calls, emails, meetings, samples)">Events<span class="text-amber-600 text-sm">{{ sortArrow('events') }}</span></th>
               <th @click="setSort('daysevent')" class="text-left font-semibold px-3 py-2.5 cursor-pointer select-none hover:text-stone-700 whitespace-nowrap" title="Days since last event">Days<span class="text-amber-600 text-sm">{{ sortArrow('daysevent') }}</span></th>
-              <th @click="setSort('sales')" class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell cursor-pointer select-none hover:text-stone-700 whitespace-nowrap" title="Wholesale sales from Xero (last 24 months)">Sales<span class="text-amber-600 text-sm">{{ sortArrow('sales') }}</span></th>
               <th class="text-left font-semibold px-3 py-2.5 hidden xl:table-cell w-1/5">Customer Info</th>
               <th class="text-left font-semibold px-3 py-2.5 hidden lg:table-cell w-2/5">TIMELINE</th>
             </tr>
@@ -205,20 +198,11 @@
               </td>
               <td class="px-3 py-2.5 align-top">
                 <div class="flex gap-0.5">
-                  <button v-for="n in 5" :key="n" type="button" @click.stop="quickSave(s,{rating:n, keen:n>=5})" class="text-lg leading-none" :class="(s.rating||1)>=n?((s.rating||1)>=5?'text-red-600':'text-amber-400'):'text-stone-300'" :title="n>=5?'5 stars = keen':'Set rating'">★</button>
+                  <button v-for="n in 3" :key="n" type="button" @click.stop="quickSave(s,{rating:n})" class="text-lg leading-none" :class="(s.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
                 </div>
               </td>
               <td class="px-3 py-2.5 align-top"><span class="text-sm font-semibold text-stone-700">{{ eventCount(s.id) }}</span></td>
               <td class="px-3 py-2.5 align-top"><span class="text-sm" :class="(daysSinceEvent(s.id)!==null && daysSinceEvent(s.id)>=30)?'text-amber-600 font-semibold':'text-stone-500'">{{ daysEventLabel(s.id) }}</span></td>
-              <td class="px-3 py-2.5 hidden lg:table-cell align-top text-xs cursor-pointer whitespace-nowrap" @click="openStore(s)" style="width:1%">
-                <div v-if="storeSales(s)" class="inline-block rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 leading-snug">
-                  <div class="font-bold text-emerald-700 text-sm">{{ fmtMoney(storeSales(s).total) }}</div>
-                  <div class="text-stone-500">{{ storeSales(s).orders }} order{{ storeSales(s).orders===1?'':'s' }}</div>
-                  <div class="text-stone-400">Last: {{ salesDateLabel(storeSales(s).last) }}</div>
-                  <div v-if="storeSales(s).gap!=null" class="text-stone-400">Every ~{{ storeSales(s).gap }} days</div>
-                </div>
-                <span v-else class="text-stone-300">—</span>
-              </td>
               <td class="px-3 py-2.5 hidden xl:table-cell align-top text-xs">
                 <span v-if="(s.info||'').trim()" class="block bg-yellow-50 border border-yellow-200 rounded px-1.5 py-1 text-stone-700 whitespace-normal break-words overflow-hidden" style="max-height:3.6rem" :title="s.info">{{ s.info }}</span>
                 <span v-else class="text-stone-300">—</span>
@@ -261,37 +245,6 @@
         <button @click="closeStore" class="text-stone-400 hover:text-stone-700 px-2 text-lg leading-none">✕</button>
       </div>
 
-      <!-- SALES (Xero wholesale roll-up) -->
-      <div v-if="curSales" class="px-4 pt-3">
-        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-          <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-            <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Total sales</p><p class="text-xl font-extrabold text-emerald-800">{{ fmtMoney(curSales.total) }}</p></div>
-            <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Orders</p><p class="text-lg font-bold text-stone-700">{{ curSales.orders }}</p></div>
-            <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Last order</p><p class="text-lg font-bold text-stone-700">{{ salesDateLabel(curSales.last) }}</p></div>
-            <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Since last order</p><p class="text-lg font-bold" :class="(curSales.gap!=null && daysSinceOrder(curSales.last) > curSales.gap*1.5)?'text-red-600':'text-stone-700'">{{ daysSinceOrder(curSales.last)!=null? daysSinceOrder(curSales.last)+' days':'—' }}</p></div>
-            <div><p class="text-[11px] uppercase tracking-wide text-emerald-700/70 font-semibold">Usual gap</p><p class="text-lg font-bold text-stone-700">{{ curSales.gap!=null? '~'+curSales.gap+' days':'—' }}</p></div>
-            <div class="ml-auto text-[11px] text-emerald-700/70 text-right">Xero · last 24 months<span v-if="curSales.orgs&&curSales.orgs.size"><br>{{ [...curSales.orgs].map(orgShort).join(' + ') }}</span><span v-if="curSales.source && curSales.source!=='direct'"> · via {{ curSales.source==='foodstuffs'?'Foodstuffs':'Farro' }}</span></div>
-          </div>
-          <details class="mt-2">
-            <summary class="text-xs text-emerald-800 cursor-pointer font-medium select-none">Individual orders ({{ curSales.list.length }})</summary>
-            <div class="mt-2 max-h-56 overflow-y-auto bg-white rounded-lg border border-emerald-100">
-              <table class="w-full text-xs">
-                <thead class="text-stone-400 sticky top-0 bg-white"><tr><th class="text-left py-1 px-2">Date</th><th class="text-left px-2">Invoice</th><th class="text-left px-2">Ref</th><th class="text-left px-2">Org</th><th class="text-right px-2">Value</th></tr></thead>
-                <tbody>
-                  <tr v-for="(o,i) in curSales.list" :key="o.invoice_id||o.invoice_number" class="border-t border-emerald-50">
-                    <td class="py-1 px-2 whitespace-nowrap">{{ salesDateLabel(o.order_date) }}<span v-if="i < curSales.list.length-1" class="text-emerald-600/70"> (+{{ daysBetween(curSales.list[i+1].order_date, o.order_date) }}d)</span></td>
-                    <td class="px-2">{{ o.invoice_number }}</td>
-                    <td class="px-2 text-stone-500">{{ o.reference }}</td>
-                    <td class="px-2 text-stone-400">{{ orgShort(o.org) }}</td>
-                    <td class="px-2 text-right font-medium">{{ fmtMoney(o.total) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </details>
-        </div>
-      </div>
-
       <!-- TOP BOX: full-width customer details -->
       <div class="px-4 py-3 bg-white border-b border-stone-200 space-y-3">
         <div class="flex flex-wrap items-end gap-x-4 gap-y-2">
@@ -305,7 +258,7 @@
           </label>
           <div><span class="lbl">Rating</span>
             <div class="flex gap-0.5">
-              <button v-for="n in 5" :key="n" type="button" @click="cur.rating=n; cur.keen=(n>=5)" class="text-2xl leading-none" :class="(cur.rating||1)>=n?((cur.rating||1)>=5?'text-red-600':'text-amber-400'):'text-stone-300'" :title="n>=5?'5 stars = keen':'Set rating'">★</button>
+              <button v-for="n in 3" :key="n" type="button" @click="cur.rating=n" class="text-2xl leading-none" :class="(cur.rating||1)>=n?'text-amber-400':'text-stone-300'" title="Set rating">★</button>
             </div>
           </div>
           <label class="block"><span class="lbl">Customer type</span>
@@ -317,36 +270,21 @@
         </div>
         <label class="block"><span class="lbl">Customer info</span><div class="flex items-center gap-2 rounded-lg px-2 py-1.5" :class="(cur.info||'').trim() ? 'bg-yellow-100 border border-yellow-300 note-flash' : ''"><span class="text-base" title="Customer info">📝</span><input v-model="cur.info" class="inp flex-1" :class="(cur.info||'').trim()?'bg-yellow-50':''" placeholder="Notes about this customer…"></div></label>
         <div class="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1.5">
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center">
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
             <span class="text-base" title="Contact 1">👤</span>
-            <input v-model="cur.contact_first" placeholder="First" class="inp"><input v-model="cur.contact_last" placeholder="Last" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp"><input v-model="cur.contact_position" placeholder="Position" class="inp">
+            <input v-model="cur.contact_first" placeholder="First" class="inp"><input v-model="cur.contact_last" placeholder="Last" class="inp"><input v-model="cur.contact_email" placeholder="Email" class="inp"><input v-model="cur.contact_phone" placeholder="Phone" class="inp">
           </div>
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 2">
+          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
             <span class="text-base" title="Contact 2">👤</span>
-            <input v-model="cur.contact2_first" placeholder="First" class="inp"><input v-model="cur.contact2_last" placeholder="Last" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp"><input v-model="cur.contact2_position" placeholder="Position" class="inp">
-          </div>
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 3">
-            <span class="text-base" title="Contact 3">👤</span>
-            <input v-model="cur.contact3_first" placeholder="First" class="inp"><input v-model="cur.contact3_last" placeholder="Last" class="inp"><input v-model="cur.contact3_email" placeholder="Email" class="inp"><input v-model="cur.contact3_phone" placeholder="Phone" class="inp"><input v-model="cur.contact3_position" placeholder="Position" class="inp">
-          </div>
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 4">
-            <span class="text-base" title="Contact 4">👤</span>
-            <input v-model="cur.contact4_first" placeholder="First" class="inp"><input v-model="cur.contact4_last" placeholder="Last" class="inp"><input v-model="cur.contact4_email" placeholder="Email" class="inp"><input v-model="cur.contact4_phone" placeholder="Phone" class="inp"><input v-model="cur.contact4_position" placeholder="Position" class="inp">
-          </div>
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 5">
-            <span class="text-base" title="Contact 5">👤</span>
-            <input v-model="cur.contact5_first" placeholder="First" class="inp"><input v-model="cur.contact5_last" placeholder="Last" class="inp"><input v-model="cur.contact5_email" placeholder="Email" class="inp"><input v-model="cur.contact5_phone" placeholder="Phone" class="inp"><input v-model="cur.contact5_position" placeholder="Position" class="inp">
-          </div>
-          <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr 1.4fr;gap:10px" class="items-center" v-if="visibleContacts >= 6">
-            <span class="text-base" title="Contact 6">👤</span>
-            <input v-model="cur.contact6_first" placeholder="First" class="inp"><input v-model="cur.contact6_last" placeholder="Last" class="inp"><input v-model="cur.contact6_email" placeholder="Email" class="inp"><input v-model="cur.contact6_phone" placeholder="Phone" class="inp"><input v-model="cur.contact6_position" placeholder="Position" class="inp">
-          </div>
-          <div v-if="visibleContacts < 6" class="pl-8">
-            <button type="button" @click="visibleContacts = Math.min(6, visibleContacts + 1)" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1">+ Add contact</button>
+            <input v-model="cur.contact2_first" placeholder="First" class="inp"><input v-model="cur.contact2_last" placeholder="Last" class="inp"><input v-model="cur.contact2_email" placeholder="Email" class="inp"><input v-model="cur.contact2_phone" placeholder="Phone" class="inp">
           </div>
           <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
             <span class="text-base" title="Store / site">🏢</span>
             <input v-model="cur.website" placeholder="Website" class="inp" style="grid-column:span 2"><input v-model="cur.store_email" placeholder="Email" class="inp"><input v-model="cur.store_phone" placeholder="Phone" class="inp">
+          </div>
+          <div style="display:grid;grid-template-columns:1.75rem 1fr;gap:10px" class="items-center">
+            <span class="text-base" title="Purchase-order email (buyer who raises the PO)">🧾</span>
+            <input v-model="cur.po_email" placeholder="PO email — buyer who raises the Foodstuffs order" class="inp">
           </div>
           <div style="display:grid;grid-template-columns:1.75rem 1fr;gap:10px" class="items-center">
             <a v-if="cur.address" :href="'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(cur.address)" target="_blank" class="text-base" title="Open in Maps">📍</a><span v-else class="text-base" title="Address">📍</span>
@@ -779,7 +717,7 @@
   const REGIONS = ['Northland','Auckland Central','Auckland North','Auckland West','Auckland East','Auckland South','Waikato','Bay of Plenty','Lower North Island','Wellington','Christchurch','Rest of South Island','All NZ'];
   // Generic mailbox providers — never treat these as a store's "own" domain when matching emails.
   const GENERIC_EMAIL_DOMAINS = new Set(['gmail.com','googlemail.com','yahoo.com','yahoo.co.nz','yahoo.co.uk','hotmail.com','hotmail.co.nz','hotmail.co.uk','outlook.com','outlook.co.nz','live.com','live.co.nz','msn.com','icloud.com','me.com','mac.com','aol.com','gmx.com','mail.com','hey.com','protonmail.com','proton.me','xtra.co.nz','clear.net.nz','vodafone.co.nz','vodafone.net.nz','slingshot.co.nz','actrix.co.nz','paradise.net.nz','orcon.net.nz','inspire.net.nz','ihug.co.nz','callplus.net.nz','windowslive.com']);
-  const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World',"Pak'nSave",'Farro','Woolworths','Bin Inn','Other','None'];
+  const TYPES = ['Green Store','Foodservice','Fresh Choice','Four Square','New World','Woolworths','Bin Inn','Other','None'];
   const EVENT_TYPES = ['call','phone_in','email','meeting','sample'];
   const MERGE_FIELDS = ['{{firstname}}','{{customer}}'];
   const QUOTES = [
@@ -1067,20 +1005,6 @@
       const ready=ref(false), gateError=ref(''), me=ref(''), isAdmin=ref(false);
       const loading=ref(true);
       const stores=ref([]), activities=ref([]), templates=ref([]), documents=ref([]);
-      // ---- Xero wholesale sales (roll-up shown next to each store) ----
-      const salesByStoreId=ref({}), salesUnmatched=ref([]), salesSync=ref(null), salesBusy=ref(false);
-      function salesKey(n){ return String(n||'').toLowerCase().replace(/&/g,' and ').replace(/['’.]/g,'').replace(/[^a-z0-9]+/g,'').trim(); }
-      const SALES_GENERIC=new Set(['organics','organic','natural','naturals','wholefoods','wholefood','foods','food','health','store','shop','retail','supermarket','market','grocer','grocery','ltd','limited','co','company','nz','newzealand','the','and']);
-      function sigTokens(n){ return String(n||'').toLowerCase().replace(/\(.*?\)/g,' ').replace(/&/g,' and ').replace(/['’.]/g,'').split(/[^a-z0-9]+/).filter(t=>t.length>2 && !SALES_GENERIC.has(t)); }
-      function tokensMatch(storeToks, unitToks){ if(!storeToks.length) return false; const us=new Set(unitToks); for(const t of storeToks){ if(!us.has(t)) return false; } return storeToks.length>=2 || storeToks.length===unitToks.length; }
-      function storeSales(s){ if(!s) return null; return salesByStoreId.value[s.id]||null; }
-      function fmtMoney(n){ return '$'+Math.round(Number(n)||0).toLocaleString('en-NZ'); }
-      function salesDateLabel(d){ if(!d) return '—'; const dt=new Date(d+'T12:00:00Z'); return dt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'2-digit'}); }
-      function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/86400000); }
-      function daysSinceOrder(d){ if(!d) return null; const today=new Date().toLocaleDateString('en-CA',{timeZone:'Pacific/Auckland'}); return daysBetween(d,today); }
-      function orgShort(n){ n=String(n||''); if(/cafe/i.test(n)) return 'Cafes'; if(/revivealicious|foods/i.test(n)) return 'Foods'; return n.split(' ')[0]||n; }
-      const keenOnly=ref(false);
-      const keenCount=computed(()=>stores.value.filter(s=>(s.rating||1)>=5||s.keen).length);
       const settings=reactive({ai_master_prompt:'',ai_actions_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:'',sales_prompts:''});
       const promptsOpen=ref(true);
       const salesPrompts=reactive({features:'',retailer:'',objections:'',closing:''});
@@ -1118,11 +1042,6 @@
 
       // ---- detail drawer ----
       const cur=ref(null), tab=ref('details'), saving=ref(false);
-      // How many of the six contact rows to show. Grows to fit whatever the store already has.
-      const visibleContacts=ref(2);
-      function filledContacts(s){ let n=0; for(let i=1;i<=6;i++){ const p = i===1?'contact':('contact'+i);
-          if(((s[p+'_first']||'')+(s[p+'_last']||'')+(s[p+'_email']||'')+(s[p+'_phone']||'')+(s[p+'_position']||'')).trim()) n=i; }
-        return n; }
       const actForm=reactive({type:'note',result:'',date:todayStr()});
       const pinForm=reactive({result:'',date:todayStr()});
       const email=reactive({to:'',subject:'',body:'',ps:'',quote:'',threadId:''});
@@ -1264,8 +1183,7 @@
       const filteredStores=computed(()=>{
         let list=stores.value.slice();
         const q=search.value.trim().toLowerCase();
-        if(keenOnly.value) list=list.filter(s=>(s.rating||1)>=5||s.keen);
-        if(q) list=list.filter(s=>[s.store_name,s.contact_name,s.contact2_name,s.contact3_name,s.contact4_name,s.contact5_name,s.contact6_name,s.contact_email,s.contact2_email,s.contact3_email,s.contact4_email,s.contact5_email,s.contact6_email,s.area,s.store_type].some(v=>(v||'').toLowerCase().includes(q)));
+        if(q) list=list.filter(s=>[s.store_name,s.contact_name,s.contact_email,s.area,s.store_type].some(v=>(v||'').toLowerCase().includes(q)));
         if(areaFilter.value) list=list.filter(s=>s.area===areaFilter.value);
         if(activeStatuses.value.length) list=list.filter(s=>activeStatuses.value.includes(s.status));
         if(activeTypes.value.length) list=list.filter(s=>activeTypes.value.includes(s.store_type||''));
@@ -1280,7 +1198,6 @@
           else if(k2==='rating') r=(a.rating||1)-(b.rating||1);
           else if(k2==='daysevent'){ const da=daysSinceEvent(a.id), db=daysSinceEvent(b.id); r=(da===null?1e9:da)-(db===null?1e9:db); }
           else if(k2==='events') r=eventCount(a.id)-eventCount(b.id);
-          else if(k2==='sales'){ const va=(storeSales(a)||{}).total||0, vb=(storeSales(b)||{}).total||0; r=va-vb; }
           return sortDir.value==='asc'? r : -r;
         });
         return list;
@@ -1325,7 +1242,7 @@
             + '\n- NEVER recommend an action that was effectively just completed (e.g. do not suggest emailing when an email is already sent and unanswered).'
             + '\n- Move to a NEW channel/angle each step: email intro -> phone follow-up -> sample -> phone re sample -> etc. Match the pipeline status.'
             + '\n- Leave the action BLANK (empty string, priority 0) when there is nothing useful to do now: status is "No — Permanent"; OR just contacted (daysSinceLastContact within ~7) and too soon to chase; OR simply waiting with nothing due.'
-            + '\n- Higher star ratings usually raise priority, but not always — a hot 1-star that just replied can outrank a cold 4-star. 5 stars (shown red) means marked keen at a trade show. Weigh rating, recency, status and recent activity together.'
+            + '\n- Higher star ratings usually raise priority, but not always — a hot 1-star that just replied can outrank a cold 3-star. Weigh rating, recency, status and recent activity together.'
             + '\naction = a short imperative, max 6 words, and it must name the channel + angle (e.g. "Call to follow up on email", "Call re: the samples", "Phone to introduce us", "Send price list", "Email the intro + flyer").'
             + '\npriority: 1 = do today, 2 = soon, 3 = later. Only a handful should be 1. Use "" with priority 0 for blank/no-action.'
             + '\nReturn ONLY a JSON array covering every # number, e.g. [{"n":1,"action":"Call to follow up","priority":1},{"n":2,"action":"","priority":0}]. No prose.';
@@ -1367,65 +1284,16 @@
         if(!promptsLoaded) loadSalesPrompts();
         const mq=await sb.from('motivation').select('*').order('created_at',{ascending:false});
         savedQuotes.value=mq.data||[];
-        await loadSales();
+        refreshOrder();
         loading.value=false;
       }
 
-      function finalizeAgg(list, source, orgs){
-        list=list.slice().sort((a,b)=> (a.order_date<b.order_date?1:(a.order_date>b.order_date?-1:0)));
-        let total=0,last=null,first=null; list.forEach(r=>{ total+=Number(r.total)||0; const d=r.order_date; if(d){ if(!last||d>last)last=d; if(!first||d<first)first=d; } });
-        const ds=[...new Set(list.map(r=>r.order_date).filter(Boolean))].sort();
-        const gap= ds.length>=2 ? Math.round((new Date(ds[ds.length-1])-new Date(ds[0]))/86400000/(ds.length-1)) : null;
-        return { orders:list.length, total:Math.round(total*100)/100, last, first, gap, source:source||'direct', orgs, list };
-      }
-      function mergeUnits(hits){
-        const list=[]; let source=null; const orgs=new Set();
-        hits.forEach(u=>{ u.list.forEach(x=>list.push(x)); if(u.source==='foodstuffs') source='foodstuffs'; u.orgs.forEach(o=>orgs.add(o)); });
-        return finalizeAgg(list, source, orgs);
-      }
-      async function loadSales(){
-        const xo=await sb.from('xero_orders').select('invoice_id,store_key,store_name,order_date,total,invoice_number,reference,source,org').order('order_date',{ascending:false});
-        const units={};
-        (xo.data||[]).forEach(r=>{ const k=r.store_key; if(!k) return; let m=units[k]; if(!m){ m=units[k]={key:k,name:r.store_name,source:r.source,orgs:new Set(),toks:sigTokens(r.store_name),list:[]}; } if(r.org) m.orgs.add(r.org); m.list.push(r); });
-        const unitArr=Object.values(units);
-        const byStore={}; const matched=new Set();
-        for(const s of stores.value){
-          const sk=salesKey(s.store_name), stoks=sigTokens(s.store_name);
-          const hits=unitArr.filter(u=> u.key===sk || tokensMatch(stoks,u.toks));
-          if(!hits.length) continue;
-          hits.forEach(u=>matched.add(u.key));
-          byStore[s.id]=mergeUnits(hits);
-        }
-        salesByStoreId.value=byStore;
-        salesUnmatched.value=unitArr.filter(u=>!matched.has(u.key)).map(u=>finalizeAgg(u.list,u.source,u.orgs)).sort((a,b)=>b.total-a.total);
-        try{ const xs=await sb.from('xero_sync').select('*').eq('id',1).maybeSingle(); salesSync.value=(xs&&xs.data)||null; }catch(e){}
-        refreshOrder();
-      }
-      async function pollSales(n){
-        if(n>24){ salesBusy.value=false; await loadSales(); flash('Sales updated'); return; }
-        await new Promise(r=>setTimeout(r,4000));
-        try{ const xs=await sb.from('xero_sync').select('*').eq('id',1).maybeSingle(); if(xs&&xs.data&&xs.data.status!=='running'){ await loadSales(); salesBusy.value=false; flash('Sales updated ✓'); return; } }catch(e){}
-        pollSales(n+1);
-      }
-      async function syncSales(full){
-        salesBusy.value=true;
-        try{
-          const r=await fetch('/.netlify/functions/sales-xero-refresh',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(await portalToken())},body:JSON.stringify({full: full===true})});
-          if(!r.ok){ const d=await r.json().catch(()=>({})); flash('Sync failed: '+(d.error||r.status)); salesBusy.value=false; return; }
-          flash('Syncing sales from Xero… this can take a minute.');
-          pollSales(0);
-        }catch(e){ flash('Sync error: '+e.message); salesBusy.value=false; }
-      }
-      const curSales=computed(()=> cur.value? storeSales(cur.value): null);
-      const salesSyncLabel=computed(()=>{ const x=salesSync.value; if(!x) return ''; const t=x.last_run? new Date(x.last_run).toLocaleString('en-NZ',{timeZone:'Pacific/Auckland',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'never'; return (x.order_count||0)+' orders · '+t; });
-      const salesSyncTitle=computed(()=> salesSync.value? ('Last Xero sales sync: '+salesSyncLabel.value+(salesSync.value.note?(' · '+salesSync.value.note):'')) : 'Sync wholesale sales from Xero (last 24 months)');
-
       // ===== store CRUD =====
-      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,info:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',contact_position:'',contact2_position:'',contact3_first:'',contact3_last:'',contact3_name:'',contact3_email:'',contact3_phone:'',contact3_position:'',contact4_first:'',contact4_last:'',contact4_name:'',contact4_email:'',contact4_phone:'',contact4_position:'',contact5_first:'',contact5_last:'',contact5_name:'',contact5_email:'',contact5_phone:'',contact5_position:'',contact6_first:'',contact6_last:'',contact6_name:'',contact6_email:'',contact6_phone:'',contact6_position:'',store_email:'',website:'',status:'lead',no_reason:'',keen:false}; }
+      function blankStore(){ return {store_name:'',store_type:'',area:'',rating:1,info:'',address:'',contact_name:'',contact_email:'',store_phone:'',contact_phone:'',contact2_name:'',contact2_email:'',contact2_phone:'',contact_first:'',contact_last:'',contact2_first:'',contact2_last:'',store_email:'',po_email:'',website:'',status:'lead',no_reason:''}; }
       function resetNoteForm(){ actForm.type='note'; actForm.result=''; actForm.date=todayStr(); pinForm.result=''; pinForm.date=todayStr(); }
-      function openNewStore(){ cur.value=blankStore(); visibleContacts.value=2; resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
+      function openNewStore(){ cur.value=blankStore(); resetNoteForm(); email.to=''; blankCompose(); selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; }
       function openStoreById(id){ const st=stores.value.find(x=>x.id===id); if(st){ showAnalytics.value=false; openStore(st); } }
-      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); visibleContacts.value=Math.max(2, filledContacts(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); blankCompose(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
+      function openStore(s, t){ cur.value=JSON.parse(JSON.stringify(s)); resetNoteForm(); email.to=storeEmails(s).join(', '); blankCompose(); email.quote=''; email.threadId=''; replyMsg.value=null; selectedTemplate.value=''; aiIntent.value=''; curEmails.value=[]; emailBodies.value={}; filedIds.value=[]; loadEmails(); }
       function closeStore(){ cur.value=null; }
       let statusChanged=false;
       function onStatusChange(){ statusChanged=true; }
@@ -1435,8 +1303,6 @@
         saving.value=true;
         cur.value.contact_name=((cur.value.contact_first||'')+' '+(cur.value.contact_last||'')).trim();
         cur.value.contact2_name=((cur.value.contact2_first||'')+' '+(cur.value.contact2_last||'')).trim();
-        for(let i=3;i<=6;i++){ const p='contact'+i;
-          cur.value[p+'_name']=(((cur.value[p+'_first']||'')+' '+(cur.value[p+'_last']||'')).trim())||null; }
         const isNew=!cur.value.id;
         const payload={...cur.value, updated_at:new Date().toISOString()};
         if(isNew){ payload.created_by=me.value; delete payload.id; }
@@ -1492,9 +1358,9 @@
 
 
       // ===== email =====
-      function mergeStore(str, st, fb){ if(!str) return ''; let nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); if(!nm) nm=fb||'there'; const store=(st.store_name||'').trim()||'there'; let out=str; out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); out=out.replace(/\{\{\s*(firstname|first_name|contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,''); return out; }
-      function merge(str){ return mergeStore(str, cur.value, 'there'); }
-      function storeEmails(s){ const es=[s.contact_email,s.contact2_email,s.contact3_email,s.contact4_email,s.contact5_email,s.contact6_email,s.store_email]; return [...new Set(es.map(e=>(e||'').trim().toLowerCase()).filter(e=>e.includes('@')))]; }
+      function mergeStore(str, st, fb){ if(!str) return ''; let nm=((st.contact_first!=null? st.contact_first : (st.contact_name||'').trim().split(/\s+/)[0])||'').trim(); if(!nm && fb) nm=fb; const store=(st.store_name||'').trim(); let out=str; if(store) out=out.replace(/\{\{\s*(store_name|customer|store)\s*\}\}/gi,store); if(nm) out=out.replace(/\{\{\s*(firstname|first_name|contact_name|contact|name)\s*\}\}/gi,nm); out=out.replace(/\{\{\s*area\s*\}\}/gi,''); return out; }
+      function merge(str){ return mergeStore(str, cur.value); }
+      function storeEmails(s){ return [...new Set([s.contact_email,s.contact2_email,s.store_email].map(e=>(e||'').trim().toLowerCase()).filter(e=>e.includes('@')))]; }
       function applyTemplate(){ const t=templates.value.find(x=>x.id===selectedTemplate.value); if(!t) return; email.subject=(t.subject||''); email.body=(t.body||'').replace(/\\r\\n|\\n/g,'\n'); }
       function finalBody(){ return email.body; }
       const _decEl=(typeof document!=='undefined')?document.createElement('textarea'):null;
@@ -1519,7 +1385,7 @@
           const byEmail={}; const domCount={}, domStore={};
           for(const st of stores.value){
             const doms=new Set();
-            [st.contact_email,st.contact2_email,st.contact3_email,st.contact4_email,st.contact5_email,st.contact6_email,st.store_email].forEach(e=>{ const v=(e||'').trim().toLowerCase(); const at=v.indexOf('@'); if(at>0){ byEmail[v]=st.id; const dom=v.slice(at+1); if(dom && !GENERIC_EMAIL_DOMAINS.has(dom)) doms.add(dom); } });
+            [st.contact_email,st.contact2_email,st.store_email].forEach(e=>{ const v=(e||'').trim().toLowerCase(); const at=v.indexOf('@'); if(at>0){ byEmail[v]=st.id; const dom=v.slice(at+1); if(dom && !GENERIC_EMAIL_DOMAINS.has(dom)) doms.add(dom); } });
             doms.forEach(dom=>{ domCount[dom]=(domCount[dom]||0)+1; domStore[dom]=st.id; });
           }
           // Domain fallback: only for a non-generic domain owned by exactly ONE store (never a catch-all).
@@ -1758,7 +1624,7 @@
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,
         recentNotes,eventCount,daysSinceEvent,daysEventLabel,daysSince,psList,
-        cur,tab,saving,actForm,pinForm,email,selectedTemplate,aiIntent,aiBusy,visibleContacts,keenOnly,keenCount,
+        cur,tab,saving,actForm,pinForm,email,selectedTemplate,aiIntent,aiBusy,
         curActivities,noteSortDesc,updateNoteDate,
         curTimeline,loadingEmails,emailBodies,expandEmail,gmailConnected,gmailEmail,
         sendEmail,sendBusy,aiSubject,toggleAttach,attachIds,previewSubject,previewBody,attachDocs,reply,decodeHtml,
@@ -1774,7 +1640,6 @@
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         typeLabel,noteTypeLabel,salesPrompts,promptsOpen,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
         openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
-        storeSales,fmtMoney,salesDateLabel,daysBetween,daysSinceOrder,orgShort,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,salesUnmatched,
         toast };
     }
   }).mount('#app');
