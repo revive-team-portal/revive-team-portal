@@ -41,7 +41,9 @@
   function hm(ms) { var d = new Date(ms); return DOW[d.getDay()] + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
   function nzMin() { var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Pacific/Auckland', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date()); var h = 0, m = 0; p.forEach(function (x) { if (x.type === 'hour') h = +x.value; if (x.type === 'minute') m = +x.value; }); return h * 60 + m; }
   function money0(n) { return '$' + Math.round(Number(n) || 0).toLocaleString(); }
-  function get(only, refresh) { return fetch('/.netlify/functions/cafe-today?only=' + only + (refresh ? '&refresh=1' : '')).then(function (r) { return r.json(); }); }
+  // cafe-today is login-gated: send the portal session (supabase-js default storage key).
+  function tok() { try { var v = JSON.parse(localStorage.getItem('sb-zpcbtfdjcsbdeqnizrpr-auth-token') || 'null'); return (v && (v.access_token || (v.currentSession && v.currentSession.access_token))) || ''; } catch (e) { return ''; } }
+  function get(only, refresh) { return fetch('/.netlify/functions/cafe-today?only=' + only + (refresh ? '&refresh=1' : ''), { headers: { Authorization: 'Bearer ' + tok() } }).then(function (r) { return r.json(); }); }
   function ingest(j) {
     if (!j || j.error) return; var now = Date.now(), tillMs = j.updated_at ? Date.parse(j.updated_at) : null;
     if (j.sales != null) { store.sales = j.sales; stamp.sales = tillMs || now; }

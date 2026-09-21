@@ -133,7 +133,7 @@ const portal = createClient(PORTAL_URL, PORTAL_ANON);
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'pulse' } });
 
 const $=id=>document.getElementById(id);
-const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>(s??'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let toastT; function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
 const QTYPES=['info','image','short_text','long_text','radio','checkbox','dropdown','rating','yes_no','number','date','email','email_klaviyo','staff'];
 const CHOICE=new Set(['radio','checkbox','dropdown','staff']);

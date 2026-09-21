@@ -2,7 +2,7 @@
 // Returns per-NZ-day hours for the job, broken down by employee. Writes nothing.
 // TimeKeeper caps time-entries at 7 days per pull, so the range is chunked.
 // All TK times are UTC; entries are attributed to the NZ calendar date of start_time.
-const GUARD = process.env.PORTAL_RUN_KEY;
+const { guard } = require('./_runkey');
 const TK_KEY = process.env.TIMEKEEPER_API_KEY;
 const BASE = 'https://api.timekeeper.co.uk/api/tk/v1';
 const NZ = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -51,7 +51,7 @@ async function employeeNames() {
 
 exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
-  if (!GUARD || q.k !== GUARD) return { statusCode: 401, body: 'no' };
+  if (!(await guard(event)).ok) return { statusCode: 403, body: 'nope' };
   if (!TK_KEY) return { statusCode: 500, body: 'missing TIMEKEEPER_API_KEY' };
   const start = q.start, end = q.end;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start || '') || !/^\d{4}-\d{2}-\d{2}$/.test(end || '')) {

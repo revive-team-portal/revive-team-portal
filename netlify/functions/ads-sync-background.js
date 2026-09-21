@@ -6,7 +6,7 @@
 // Video analysis is a separate, slower job — this one just marks which ads are
 // waiting for it, so the list is fully populated long before the tagging runs.
 
-const { authorizeRun } = require('./_adsauth');
+const { guard } = require('./_runkey');
 const { extractCreative, codeOf } = require('./_adscreative');
 const { graph, pageAll, multiGet, insights, shapePerf, nzToMetaOffsetDays, nzToday, ACCT } = require('./_adsmeta');
 const { db, upsert, log } = require('./_adsdb');
@@ -189,12 +189,8 @@ async function run(opts) {
 }
 
 exports.handler = async (event) => {
-  const auth = await authorizeRun(event);
-  if (!auth.ok) {
-    // Netlify's scheduler invokes with no query string; allow that path through.
-    const isSchedule = !!(event && event.body && String(event.body).includes('next_run'));
-    if (!isSchedule) return { statusCode: 403, body: 'nope' };
-  }
+  // Cron (ads-*-cron) and the Ads page (ads-run) call with the internal header; Claude with a run key.
+  if (!(await guard(event)).ok) return { statusCode: 403, body: 'nope' };
   let out, ok = true;
   try { out = await run({}); }
   catch (e) { ok = false; out = { error: String((e && e.message) || e).slice(0, 500), stack: String((e && e.stack) || '').slice(0, 800) }; }

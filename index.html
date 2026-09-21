@@ -310,7 +310,7 @@ function show(el){el.classList.remove('hidden')}
 function hide(el){el.classList.add('hidden')}
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2600)}
 function msg(box,text,type){box.innerHTML = text ? `<div class="msg msg-${type}">${text}</div>` : ''}
-function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 /* ===== AUTH BOOTSTRAP ===== */
 async function start(){

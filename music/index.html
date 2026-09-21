@@ -389,7 +389,7 @@ let wantPlaying = false;
 const fmt = s => (!isFinite(s) || s < 0) ? '0:00'
   : Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
 const abs = p => new URL(p, location.href).href;
-const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ─────────── offline downloads ───────────
    Songs are saved into Cache Storage (the service worker in sw.js serves them back,

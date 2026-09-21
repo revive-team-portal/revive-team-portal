@@ -1,12 +1,14 @@
 // One-off / occasional backfill: enrich support.customers with lifetime spend, city and
 // order count from Shopify, so the ticket list can show a customer profile box.
-// Background function (up to 15 min). No auth: server-side only.
+// Background function (up to 15 min). Run-key guarded (Claude/maintenance tool).
 const { rest } = require('./_appsdb');
 const { gql } = require('./_shopify');
+const { guard, DENY } = require('./_runkey');
 
 const Q = 'query($q:String!){ customers(first:1, query:$q){ edges { node { numberOfOrders amountSpent { amount } defaultAddress { city province } } } } }';
 
-exports.handler = async () => {
+exports.handler = async (event) => {
+  if (!(await guard(event)).ok) return DENY;
   let updated = 0, scanned = 0;
   try {
     const rows = await rest('customers?select=id,email,orders_count,lifetime_value,city&order=updated_at.desc&limit=1000');

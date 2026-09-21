@@ -2,7 +2,9 @@
 // pairing to surface destroyed originals. Up to 15 min. Triggered on demand + daily.
 const { runScan, runResendScan } = require('./_naughtyscan');
 const { rest } = require('./_appsdb');
+const { guard, DENY } = require('./_runkey');
 exports.handler = async (event) => {
+  if (!(await guard(event)).ok) return DENY;
   const qs = (event && event.queryStringParameters) || {};
   const days = Number(qs.days) || 35;
   try {

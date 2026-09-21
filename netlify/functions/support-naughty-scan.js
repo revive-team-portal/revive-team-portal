@@ -9,7 +9,7 @@ exports.handler = async (event) => {
   if (!hasKey()) return json(500, { error: 'Not configured.' });
   let body = {}; try { body = JSON.parse(event.body || '{}'); } catch (e) {}
   const base = process.env.URL || 'https://team.revive.co.nz';
-  fetch(base + '/.netlify/functions/support-naughty-scan-background?days=' + (Number(body.days) || 35), { method: 'POST' }).catch(() => {});
+  require('./_runkey').internalFetch('support-naughty-scan-background?days=' + (Number(body.days) || 35)).catch(() => {});
   try { await rest('naughty_scan?id=eq.1', { method:'PATCH', headers:{Prefer:'return=minimal'}, body: JSON.stringify({ status:'running', updated_at:new Date().toISOString() }) }); } catch (e) {}
   let status = null; try { const r = await rest('naughty_scan?id=eq.1&select=*'); status = (r && r[0]) || null; } catch (e) {}
   return json(202, { started: true, status });

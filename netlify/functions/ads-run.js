@@ -1,11 +1,7 @@
 // Kick a sync or an analysis batch from the Ads page. Admin/ads users only.
-// Mints a short-lived single-use key for the background worker rather than
-// exposing any long-lived secret to the browser.
+// Starts the worker with the internal header (_runkey) — no secret reaches the browser.
 const { json, validatePortalUser } = require('./_portal');
-const { db } = require('./_adsdb');
-
-const SITE = process.env.URL || 'https://team.revive.co.nz';
-const rand = () => [...require('crypto').randomBytes(24)].map(b => b.toString(16).padStart(2, '0')).join('');
+const { internalFetch } = require('./_runkey');
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
@@ -16,14 +12,8 @@ exports.handler = async (event) => {
   const action = body.action === 'analyse' ? 'analyse' : 'sync';
   const limit = Math.min(Math.max(Number(body.limit) || 5, 1), 25);
 
-  const key = rand();
-  await db('job', { method: 'POST', headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify([{ kind: 'runkey', status: 'open', cursor: key, note: 'ads-run ' + action + ' by ' + (auth.user && auth.user.email), started_at: new Date().toISOString() }]) });
-
-  const fn = action === 'analyse'
-    ? '/.netlify/functions/ads-video-background?k=' + key + '&limit=' + limit
-    : '/.netlify/functions/ads-sync-background?k=' + key;
-  try { await fetch(SITE + fn, { method: 'POST' }); }
+  const fn = action === 'analyse' ? 'ads-video-background?limit=' + limit : 'ads-sync-background';
+  try { await internalFetch(fn, { body: JSON.stringify({ by: auth.user && auth.user.email }) }); }
   catch (e) { return json(502, { error: 'Could not start the job: ' + String(e.message || e).slice(0, 120) }); }
 
   return json(200, { ok: true, action, limit,

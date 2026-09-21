@@ -195,7 +195,7 @@ exports.handler = async (event) => {
       await queueJob('dept-feed', DEPT_SQL).catch(() => {});
       await queueJob('uber-feed', UBER_SQL).catch(() => {});
       const base = process.env.URL || 'https://team.revive.co.nz';
-      await fetch(base + '/.netlify/functions/catering-sync-background').catch(() => {});
+      await require('./_runkey').internalFetch('catering-sync-background').catch(() => {});
       await appsDb('rpc/rollup_pulse', { method: 'POST', headers: { 'Content-Profile': 'scoreboard' }, body: '{}' }).catch(() => {});
       return json(200, { ok: true,
         timekeeper: tk.status === 'fulfilled' ? tk.value : String(tk.reason).slice(0, 160),

@@ -2,6 +2,7 @@ const { TODAY_SQL, YESTERDAY_SQL, WEEK_TD_SQL, queueJob, db } = require('./_posq
 const { gql } = require('./_shopify');
 const { rest } = require('./_appsdb');
 const { spendRange, metaInsightsRange, metaAccountTz } = require('./_metasync');
+const { validatePortalUser } = require('./_portal');
 const NZ = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' });
 function nzToday() { return NZ.format(new Date()); }
 function nzToday_() { return NZ.format(new Date()); }
@@ -110,9 +111,12 @@ async function newJobApps() {
   try { const rows = await rest('applications?status=eq.new&select=id&limit=2000', { headers: { 'Accept-Profile': 'jobs', 'Content-Profile': 'jobs' } }); return { new_job_apps: Array.isArray(rows) ? rows.length : null }; }
   catch (e) { return { new_job_apps: null }; }
 }
-const RESP_H = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
+const RESP_H = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', };
 const send = (o) => ({ statusCode: 200, headers: RESP_H, body: JSON.stringify(o) });
+// Business figures (sales, ad spend) — portal login required, no CORS.
 exports.handler = async (event) => {
+  const who = await validatePortalUser(event, null);
+  if (!who.ok) return { statusCode: who.status || 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: who.error }) };
   const qp = (event && event.queryStringParameters) || {};
   const only = qp.only;
   try {
@@ -126,7 +130,7 @@ exports.handler = async (event) => {
     const [rows, oc, ss, tk, ms, jb, fc] = await Promise.all([db('pos_today?id=eq.1&select=sales,covers,sales_1245,updated_at,sales_y,covers_y,sales_w,covers_w'), orderCounts(), shopifySums(), outstandingTickets(), metaSpend(), newJobApps(), fulfilledCounts()]);
     const pct = (spend, sales) => (spend != null && sales != null && sales > 0) ? Math.round(spend / sales * 100) : null;
     const t = (rows && rows[0]) || {};
-    return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', },
       body: JSON.stringify({ sales: t.sales, covers: t.covers, sales_1245: t.sales_1245, updated_at: t.updated_at, cafe_sales_y: t.sales_y, cafe_covers_y: t.covers_y, cafe_sales_w: t.sales_w, cafe_covers_w: t.covers_w,
         shopify_today: ss.shopify_today, shopify_week: ss.shopify_week, shopify_yest: ss.shopify_yest, shopify_today_orders: ss.shopify_today_orders, shopify_week_orders: ss.shopify_week_orders, shopify_yest_orders: ss.shopify_yest_orders,
         orders_to_fulfil: oc.orders_to_fulfil, orders_fulfilled_today: fc.orders_fulfilled_today, orders_fulfilled_yest: fc.orders_fulfilled_yest, orders_fulfilled_week: fc.orders_fulfilled_week, outstanding_tickets: tk.outstanding_tickets, tickets_stressed: tk.tickets_stressed, new_job_apps: jb.new_job_apps,

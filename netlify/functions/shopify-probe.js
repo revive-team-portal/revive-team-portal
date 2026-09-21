@@ -1,7 +1,7 @@
 // TEMPORARY diagnostic. ?k=<PORTAL_RUN_KEY> — lists the granted Shopify access scopes and
 // probes which order-attribution fields the current app can actually read.
 const { gql, STORE, API_VER } = require('./_shopify');
-const GUARD = process.env.PORTAL_RUN_KEY;
+const { guard } = require('./_runkey');
 
 const PROBES = {
   landing_referrer: 'landingPageUrl referrerUrl',
@@ -14,7 +14,7 @@ const PROBES = {
 
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
-  if (!GUARD || qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  if (!(await guard(event)).ok) return { statusCode: 403, body: 'nope' };
   const out = { store: STORE, api_version: API_VER, scopes: null, probes: {} };
   try {
     const s = await gql('{ currentAppInstallation{ accessScopes{ handle } app{ title } } }');

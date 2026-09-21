@@ -1,7 +1,7 @@
 // Read-only Meta budget/pacing config dump. ?k=<PORTAL_RUN_KEY>
 // Shows account spend cap, campaign + ad set budgets, bid strategy, pacing and
 // dayparting schedules — the settings that govern how much Meta can spend in a day.
-const GUARD = process.env.PORTAL_RUN_KEY;
+const { guard } = require('./_runkey');
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const TOKEN = process.env.META_ACCESS_TOKEN;
 const ACCT = process.env.META_AD_ACCOUNT || 'act_242089740673955';
@@ -23,7 +23,7 @@ const money = (v) => v == null ? null : Math.round(Number(v)) / 100;
 
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
-  if (!GUARD || qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  if (!(await guard(event)).ok) return { statusCode: 403, body: 'nope' };
   try {
     const [acct, camps, sets] = await Promise.all([
       g(ACCT, 'name,currency,timezone_name,spend_cap,amount_spent,balance,account_status,disable_reason,is_prepay_account,funding_source_details,min_daily_budget'),

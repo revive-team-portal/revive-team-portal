@@ -15,7 +15,7 @@ exports.handler = async (event) => {
   const base = process.env.URL || 'https://team.revive.co.nz';
   // Fire-and-forget: the background function returns 202 immediately; the browser polls
   // sales.xero_orders / sales.xero_sync for completion.
-  fetch(base + '/.netlify/functions/sales-xero-sync-background?full=' + (full ? '1' : '0'), { method: 'POST' }).catch(() => {});
+  require('./_runkey').internalFetch('sales-xero-sync-background?full=' + (full ? '1' : '0')).catch(() => {});
 
   let status = null;
   try {

@@ -3,6 +3,7 @@
 // till PC was unreachable on the 1st.
 const { reportSql, parseReport, emailHtml } = require('./_posreport');
 const { sendMail } = require('./_mail');
+const { guard, DENY } = require('./_runkey');
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -17,7 +18,8 @@ async function db(path, opts = {}) {
 async function getSetting(k) { const r = await db('app_setting?key=eq.' + k + '&select=value'); return r && r[0] ? r[0].value : null; }
 async function setSetting(k, v) { await db('app_setting?on_conflict=key', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([{ key: k, value: v, updated_at: new Date().toISOString() }]) }); }
 
-exports.handler = async () => {
+exports.handler = async (event) => {
+  if (!(await guard(event)).ok) return DENY;
   try {
     const nz = new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const [Y, M] = nz.split('-').map(Number); const pad = x => String(x).padStart(2, '0');

@@ -6,7 +6,7 @@
 const { gql } = require('./_shopify');
 const { metaAccountTz } = require('./_metasync');
 
-const GUARD = process.env.PORTAL_RUN_KEY;
+const { guard } = require('./_runkey');
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const TOKEN = process.env.META_ACCESS_TOKEN;
 const ACCT = process.env.META_AD_ACCOUNT || 'act_242089740673955';
@@ -107,7 +107,7 @@ async function shopifyOrders(startNz, endNz) {
 
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
-  if (!GUARD || qp.k !== GUARD) return { statusCode: 403, body: 'nope' };
+  if (!(await guard(event)).ok) return { statusCode: 403, body: 'nope' };
   const end = qp.end || NZ.format(new Date());
   const start = qp.start || shift(end, -13);
   try {

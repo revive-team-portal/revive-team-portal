@@ -14,7 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const cp = require('child_process');
-const { authorizeRun } = require('./_adsauth');
+const { guard } = require('./_runkey');
 const { graph } = require('./_adsmeta');
 const { db, upsert, log, config, putObject, getObject } = require('./_adsdb');
 const ai = require('./_adsai');
@@ -436,11 +436,8 @@ async function run(qp) {
 
 exports.handler = async (event) => {
   const qp = (event && event.queryStringParameters) || {};
-  const auth = await authorizeRun(event);
-  if (!auth.ok) {
-    const isSchedule = !!(event && event.body && String(event.body).includes('next_run'));
-    if (!isSchedule) return { statusCode: 403, body: 'nope' };
-  }
+  // Cron (ads-*-cron) and the Ads page (ads-run) call with the internal header; Claude with a run key.
+  if (!(await guard(event)).ok) return { statusCode: 403, body: 'nope' };
   let out, ok = true;
   try { out = await run(qp); }
   catch (e) { ok = false; out = { error: String((e && e.message) || e).slice(0, 400), stack: String((e && e.stack) || '').slice(0, 900) }; }

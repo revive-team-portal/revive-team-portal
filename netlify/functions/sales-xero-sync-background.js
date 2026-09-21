@@ -1,9 +1,11 @@
 // Heavy Xero -> sales.xero_orders sync. Background function (up to 15 min) because a full
 // 24-month backfill pages through every ACCREC invoice with line items. Called by the
 // daily schedule (netlify.toml) and by sales-xero-refresh when a user hits "Sync sales".
-// No auth: server-side only, writes to our own DB, returns no customer data to the caller.
+// Guarded: internal calls (cron, sales-xero-refresh) or a run key.
 const { runSync } = require('./_xerosales');
+const { guard, DENY } = require('./_runkey');
 exports.handler = async (event) => {
+  if (!(await guard(event)).ok) return DENY;
   const qs = (event && event.queryStringParameters) || {};
   const full = qs.full === '1' || qs.full === 'true';
   try {

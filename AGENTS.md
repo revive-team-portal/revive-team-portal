@@ -146,10 +146,10 @@ copy, so they cannot be analysed at all; they are stored with
 | `_adsmeta.js` | Meta paging with page-size backoff, live NZ→account tz offset, insights split by attribution window |
 | `_adsdb.js` | `ads` schema access + `ad-frames` storage + runtime config |
 | `_adsai.js` | Claude calls: frame tagging, on-screen text, brand-glossary transcript pass, scoring |
-| `_adsauth.js` | Run-key guard (env `PORTAL_RUN_KEY`, or a single-use key in `ads.job`) |
+| `_adsauth.js` | Alias of `_runkey.js` (shared guard) |
 | `ads-sync-background.js` | All 383 ads: metadata, copy, landing page, performance. ~70s |
 | `ads-video-background.js` | One ad at a time: ffmpeg frames + audio, whisper transcript, tagging, scoring. Ships `bin/` |
-| `ads-data.js` / `ads-run.js` | The page's gated read and its run trigger |
+| `ads-data.js` / `ads-run.js` | The page's gated read and its run trigger (starts workers via `internalFetch`) |
 | `ads-export.js` | Key-guarded machine-readable corpus (below) |
 
 `ads-sync-cron` and `ads-video-cron` carry the schedules. **Do not put a
@@ -214,21 +214,7 @@ Each ad carries identity (`ad_id`, `ad_name`, `campaign_name`, `adset_name`,
 
 ## The 84 ads we cannot analyse
 
-Four routes were tried and all are dead ends with the current token:
-
-| Route | Result |
-|---|---|
-| `/{video_id}?fields=source` | `(#10)` — app has no permission on Page-owned videos |
-| `/{post_id}?fields=attachments` | `(#100)` Missing permissions |
-| `/{ad_id}/previews` iframe | Renders, but client-side; no `<video>` element to scrape |
-| Ad number ↔ library video title | Only 2 of 84 — most predate the numbering |
-| Thumbnail image fingerprint (`ads-recover-background`) | 22% top-1 accuracy against a labelled set of ads whose answer is known. Refuses to write below 85% |
-
-`ads-recover-background` self-validates before it writes anything, so it is safe
-to re-run — it will start applying matches by itself if accuracy ever clears the
-bar. **The actual fix is a permission**, not more code: a token with Page access
-(`pages_read_engagement`) for the Revive Cafe Page would make
-`/{video_id}?fields=source` work for these too.
+They were published from Page posts, and the `ads_read` token has no Page access. Five workaround routes were tried and failed (incl. thumbnail fingerprinting, 22% accuracy — removed Sep 2026). **The fix is a permission, not code:** a token with `pages_read_engagement` on the Revive Cafe Page makes `/{video_id}?fields=source` work.
 
 ## Gotchas already paid for
 
@@ -244,6 +230,4 @@ bar. **The actual fix is a permission**, not more code: a token with Page access
   `?ids=` multi-get. `_adsmeta.pageAll` backs the page size off automatically.
 - Adding a schema to `pgrst.db_schemas` is not enough on its own — PostgREST
   also needs `notify pgrst, 'reload schema'` or every read 404s with `PGRST205`.
-- `PORTAL_RUN_KEY` is **not currently set** in Netlify, so `ads-audit.js` and
-  `meta-config.js` return 403 to everything. The ads functions work around it
-  with single-use keys minted into `ads.job`.
+- **Guards:** browser-facing functions use `_portal.validatePortalUser`. Everything else (Claude tools, maintenance runs, background workers) uses `_runkey.guard` — internal header for our own cron→worker calls, or a single-use run key minted into `ads.job`. `PORTAL_RUN_KEY` env is optional and currently unset. See `docs/STACK.md`.

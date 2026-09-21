@@ -11,7 +11,7 @@ function json(status, obj) {
 }
 
 // Returns { ok:true, user } if the caller is an active portal user who is either
-// an admin or has been granted `requiredApp`. Otherwise { ok:false, status, error }.
+// an admin or has been granted `requiredApp` (pass null for "any active user"). Otherwise { ok:false, status, error }.
 async function validatePortalUser(event, requiredApp) {
   if (!PORTAL_SERVICE) return { ok: false, status: 500, error: 'Server not configured (PORTAL_SERVICE_ROLE_KEY).' };
   const token = (event.headers.authorization || event.headers.Authorization || '').replace(/^Bearer\s+/i, '').trim();
@@ -27,6 +27,7 @@ async function validatePortalUser(event, requiredApp) {
   const prof = (await pres.json().catch(() => []))[0];
   if (!prof || prof.active === false) return { ok: false, status: 403, error: 'No access.' };
   if (prof.is_admin) return { ok: true, user };
+  if (!requiredApp) return { ok: true, user }; // any active portal user (e.g. the green today bar)
 
   const ares = await fetch(PORTAL_URL + '/rest/v1/user_app_access?user_id=eq.' + user.id + '&app_id=eq.' + encodeURIComponent(requiredApp) + '&select=app_id', {
     headers: { apikey: PORTAL_SERVICE, Authorization: 'Bearer ' + PORTAL_SERVICE },
