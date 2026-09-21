@@ -1085,7 +1085,7 @@
       function orgShort(n){ n=String(n||''); if(/cafe/i.test(n)) return 'Cafes'; if(/revivealicious|foods/i.test(n)) return 'Foods'; return n.split(' ')[0]||n; }
       const keenOnly=ref(false);
       const keenCount=computed(()=>stores.value.filter(s=>(s.rating||1)>=5||s.keen).length);
-      const settings=reactive({ai_master_prompt:'',ai_actions_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:'',sales_prompts:''});
+      const settings=reactive({ai_master_prompt:'',email_signature:'',sender_name:'',ps_list:'',email_banner_url:'',sales_prompts:''});
       const promptsOpen=ref(true);
       const salesPrompts=reactive({features:'',retailer:'',objections:'',closing:''});
       let promptsLoaded=false;
@@ -1136,7 +1136,6 @@
       const replyMsg=ref(null);
       function sigBody(){ return settings.email_signature? '\n\n'+settings.email_signature : ''; }
       function blankCompose(){ email.subject=''; email.body=sigBody(); email.ps=psList.value[0]||''; attachIds.value=[]; email.quote=''; email.threadId=''; replyMsg.value=null; }
-      function prefillFromLast(){ const L=lastEmail.value; if(L && cur.value){ email.subject=(L.subject||''); email.body=(L.body||''); email.ps=L.ps||''; attachIds.value=(L.attachIds||[]).filter(id=>documents.value.some(d=>d.id===id)); } else { blankCompose(); } }
       function clearCompose(){ blankCompose(); selectedTemplate.value=''; aiIntent.value=''; flash('Cleared'); }
       const bodyRef=ref(null), bulkBodyRef=ref(null);
       const bodyCaret=ref(0), bulkCaret=ref(0);
@@ -1292,55 +1291,6 @@
       const displayStores=ref([]);
       function refreshOrder(){ displayStores.value = filteredStores.value.slice(); }
       watch([search,areaFilter,activeStatuses,activeTypes,newEmailsOnly,actionsOnly,sortKey,sortDir, ()=>stores.value.map(s=>s.id).join(','), ()=>activities.value.filter(a=>a.type==='action').map(a=>a.id+(a.done?'1':'0')).join(',')], refreshOrder, {immediate:true});
-      /* AI Actions feature removed (may resurrect later); ai_action/ai_priority columns retained in DB.
-      async function runAiActions(){
-        try{
-          const now=Date.now();
-          const idx=stores.value.map((s,i)=>({n:i+1,s}));
-          const T=x=> x? new Date(x.occurred_at).getTime():0;
-          const lines=idx.map(({n,s})=>{
-            const acts=activities.value.filter(a=>a.store_id===s.id);
-            const recent=acts.slice(0,4).map(a=>{ const t=(a.type==='email'&&a.created_by==='Gmail')?'Email In':noteTypeLabel(a.type); return nzYMD(a.occurred_at)+' '+t+': '+((a.result||cap(a.type))+'').replace(/\s+/g,' ').slice(0,45); });
-            const d=daysSince(s);
-            const lastOut=acts.find(a=>a.type==='email'&&a.created_by!=='Gmail');
-            const lastIn=acts.find(a=>a.type==='email'&&a.created_by==='Gmail');
-            const lastCall=acts.find(a=>a.type==='call'||a.type==='phone_in');
-            const lastSample=acts.find(a=>a.type==='sample');
-            const sampleSent=!!lastSample || s.status==='sent_sample';
-            const awaiting = lastOut && (!lastIn || T(lastIn) < T(lastOut));
-            // deterministic next-step hint (channel + angle) from what has actually happened
-            let hint;
-            if(s.status==='no_permanent') hint='none — declined, do not pursue';
-            else if(!acts.length && s.status==='lead') hint='make first contact — send an intro email';
-            else if(lastIn && T(lastIn)>T(lastOut) && T(lastIn)>T(lastCall)) hint='they replied — respond to their message';
-            else if(sampleSent && T(lastCall)<T(lastSample)) hint='PHONE to follow up on the sample sent';
-            else if(lastOut && !lastCall) hint='PHONE to follow up on the email (already emailed, never phoned)';
-            else if(lastOut && awaiting) hint='PHONE to follow up on the email';
-            else if(lastCall && T(lastCall)>T(lastOut)) hint='already phoned — send info / email next, or wait';
-            else hint='PHONE to progress the relationship';
-            return '#'+n+' | '+(s.store_name||'')+' | type:'+(s.store_type||'-')+' | rating:'+(s.rating||1)+'star | status:'+label(s.status)+' | daysSinceLastContact:'+(d===null?'never':d)+' | emailedOut:'+(lastOut?'yes':'no')+' | sampleSent:'+(sampleSent?'yes':'no')+' | phonedOut:'+(lastCall?'yes':'no')+' | awaitingReply:'+(awaiting?'yes':'no')+' | suggestedNextStep:'+hint+' | recent:['+recent.join(' ; ')+']';
-          });
-          const sys=(settings.ai_actions_prompt||'').trim()
-            + '\n\nYou are a sales manager triaging a CRM for Revivealicious Foods. For EVERY store listed, output the single best NEXT action and a priority. Read the recent activity carefully so you NEVER repeat something that was just done.'
-            + '\nStatus meanings: Lead=not yet contacted; Sent Communication=intro email/message already sent; Connected=have made contact; Sent Sample/Details=samples or info sent; First Order / Repeat Customer=buying; "No — Reconnect"=declined for now, revisit later; "No — Permanent"=declined, do not pursue.'
-            + '\nEach store has a suggestedNextStep computed from what has actually happened. Treat it as the strong default: adopt its CHANNEL (phone vs email) and ANGLE, and phrase a specific action. Only override it if the recent activity clearly warrants something else.'
-            + '\nHARD RULES:'
-            + '\n- Choose the CHANNEL deliberately — do not just say "connect". If a store has already been emailed or sent a sample and has NOT been phoned (phonedOut=no) or is awaitingReply=yes, the next step is a PHONE CALL, and the action should reference what was sent (e.g. "Call re: the samples", "Call to follow up on email").'
-            + '\n- NEVER recommend an action that was effectively just completed (e.g. do not suggest emailing when an email is already sent and unanswered).'
-            + '\n- Move to a NEW channel/angle each step: email intro -> phone follow-up -> sample -> phone re sample -> etc. Match the pipeline status.'
-            + '\n- Leave the action BLANK (empty string, priority 0) when there is nothing useful to do now: status is "No — Permanent"; OR just contacted (daysSinceLastContact within ~7) and too soon to chase; OR simply waiting with nothing due.'
-            + '\n- Higher star ratings usually raise priority, but not always — a hot 1-star that just replied can outrank a cold 4-star. 5 stars (shown red) means marked keen at a trade show. Weigh rating, recency, status and recent activity together.'
-            + '\naction = a short imperative, max 6 words, and it must name the channel + angle (e.g. "Call to follow up on email", "Call re: the samples", "Phone to introduce us", "Send price list", "Email the intro + flyer").'
-            + '\npriority: 1 = do today, 2 = soon, 3 = later. Only a handful should be 1. Use "" with priority 0 for blank/no-action.'
-            + '\nReturn ONLY a JSON array covering every # number, e.g. [{"n":1,"action":"Call to follow up","priority":1},{"n":2,"action":"","priority":0}]. No prose.';
-          const txt=await callAI([{role:'user',content:'Stores:\n'+lines.join('\n')}],{model:'sonnet',max_tokens:4000,system:sys});
-          const arr=parseJSON(txt); const byN={}; (Array.isArray(arr)?arr:[]).forEach(o=>{ const n=parseInt(o.n); if(n) byN[n]={action:((o.action||'')+'').trim().slice(0,80), priority:Math.max(1,Math.min(3,parseInt(o.priority)||3))}; });
-          let cnt=0;
-          for(const {n,s} of idx){ const r=byN[n]; const action=(r&&r.action)? r.action : null; const priority=action? r.priority : null; if((s.ai_action||null)===action && (s.ai_priority||null)===priority) continue; await sb.from('stores').update({ai_action:action, ai_priority:priority}).eq('id',s.id); s.ai_action=action; s.ai_priority=priority; if(action) cnt++; }
-          refreshOrder(); flash('AI actions ready ('+cnt+' with an action)');
-        }catch(e){ flash('AI actions failed: '+e.message); }
-      }
-      */
 
       const curActivities=computed(()=> cur.value? activities.value.filter(a=>a.store_id===cur.value.id):[]);
       const noteSortDesc=ref(true);
@@ -1539,7 +1489,6 @@
           if(rows.length||flagIds.length){ await loadAll(); const n=rows.length+flagIds.length; flash(n+' new email'+(n>1?'s':'')+' flagged'); }
         }catch(e){}
       }
-      async function markStoreRead(id){ if(!activities.value.some(a=>a.store_id===id&&a.unread)) return; await sb.from('activities').update({unread:false}).eq('store_id',id).eq('unread',true); activities.value=activities.value.map(a=>(a.store_id===id&&a.unread)?{...a,unread:false}:a); }
       async function saveAndClose(){ const ok=await saveStore(); if(ok!==false) closeStore(); }
       const bannerBusy=ref(false);
       async function uploadBanner(e){ const f=e.target.files[0]; if(!f) return; bannerBusy.value=true; try{ const path='email-banner-'+Date.now()+'-'+f.name.replace(/[^a-zA-Z0-9._-]/g,'_'); const up=await sb.storage.from('sales-public').upload(path,f,{upsert:true}); if(up.error) throw up.error; const { data }=sb.storage.from('sales-public').getPublicUrl(path); settings.email_banner_url=data.publicUrl; await sb.from('settings').upsert({key:'email_banner_url',value:data.publicUrl}); flash('Banner updated'); }catch(err){ flash('Upload failed: '+(err.message||err)); } bannerBusy.value=false; e.target.value=''; }
