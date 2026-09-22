@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
 /* ============================================================
    Revive shared chrome — top nav + loading screen.
    ONE place to change the brand colour, logo, and loader image.
@@ -6,6 +7,10 @@
 :root{
   --rv-green:#16543f;      /* dark revive green — the nav bar colour */
   --rv-green-d:#0f3d2d;
+  --rv-blue:#31607e;        /* muted blue — secondary accent */
+  --rv-blue-d:#254c63;
+  --rv-ink:#1f2a26;         /* soft near-black text */
+  --rv-line:#e8ece9;        /* hairline borders */
 }
 
 /* ---------- TOP NAV BAR ---------- */
@@ -76,3 +81,65 @@
   .rv-logo{height:28px;width:28px}
   .rv-load__logo{width:84px;height:84px}
 }
+
+
+/* ============================================================
+   Revive type system — light & elegant (Manrope), one source.
+   Applied across the portal + every app via chrome.css.
+   ============================================================ */
+html, body{
+  font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif !important;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+/* lighter, more refined headings everywhere */
+h1,h2,h3,h4,h5,h6{
+  font-weight:500 !important;
+  letter-spacing:-.012em;
+}
+h1{ font-weight:400 !important; }
+
+/* Force Manrope onto text elements too (beats Tailwind .font-sans etc.),
+   without disturbing icon glyph fonts (<i>, [class*=icon], .material-icons). */
+p, span, div, a, button, input, textarea, select, label,
+td, th, li, dt, dd, figcaption, blockquote, small, strong, em, b,
+h1, h2, h3, h4, h5, h6{
+  font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif !important;
+}
+i, .material-icons, [class*="icon-"], [class^="icon"], .fa, [class*=" fa-"]{
+  font-family:revert !important;
+}
+
+/* ============================================================
+   Revive UI kit — thin accent buttons, hairline tables, pills.
+   Muted-blue secondary accent (--rv-blue). Opt-in classes.
+   ============================================================ */
+.rv-btn2{display:inline-flex;align-items:center;gap:6px;font-family:inherit;
+  font-size:13.5px;font-weight:500;line-height:1;padding:8px 14px;border-radius:9px;
+  border:1px solid transparent;background:transparent;color:var(--rv-ink);
+  cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.rv-btn2.gn{border-color:var(--rv-green);color:var(--rv-green)}
+.rv-btn2.gn:hover{background:#eef4f1}
+.rv-btn2.bl{border-color:var(--rv-blue);color:var(--rv-blue)}
+.rv-btn2.bl:hover{background:#eef3f7}
+.rv-btn2.solid{background:var(--rv-green);border-color:var(--rv-green);color:#fff}
+.rv-btn2.solid:hover{background:var(--rv-green-d)}
+.rv-btn2.ghost{color:#6b7671}
+.rv-btn2.ghost:hover{background:#f2f4f3;color:var(--rv-ink)}
+
+.rv-table{width:100%;border-collapse:collapse;font-size:14px;color:var(--rv-ink)}
+.rv-table th{text-align:left;font-weight:500;color:#8a938f;font-size:12px;
+  letter-spacing:.03em;text-transform:uppercase;padding:10px 12px;
+  border-bottom:1px solid var(--rv-line)}
+.rv-table td{padding:12px;border-bottom:1px solid var(--rv-line);font-weight:400}
+.rv-table tr:last-child td{border-bottom:none}
+.rv-table tbody tr:hover{background:#fafbfa}
+
+.rv-pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;
+  padding:3px 10px;border-radius:999px;line-height:1.4}
+.rv-pill.on{background:#e7f1ec;color:#1c6a4c}
+.rv-pill.off{background:#eef0ef;color:#7a827e}
+.rv-pill.warn{background:#fbf1dd;color:#9a6a12}
+.rv-pill.blue{background:#e9f1f6;color:#2c5c79}
+.rv-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle}
+.rv-dot.on{background:#2c9c6a}.rv-dot.off{background:#c2c8c5}.rv-dot.warn{background:#e0a52e}.rv-dot.blue{background:var(--rv-blue)}
