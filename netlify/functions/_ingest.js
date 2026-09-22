@@ -90,7 +90,10 @@ async function processThread(token, tid){
     const ins=await rest('tickets',{ method:'POST', headers:{Prefer:'return=representation'}, body:JSON.stringify({ gmail_thread_id:tid, customer_id:customerId, subject:subj, status:'Open', triage, ticket_type:classifyType(isOrder,custEmail,blob), source:'email', reviewed:false, matched_order:matchedOrder, snippet, updated_at:lastTs }) });
     ticketId=ins&&ins[0]&&ins[0].id; created=true;
   }
-  await Promise.all(parsed.map(pm=>upsert('messages',{ gmail_message_id:pm.m.id, ticket_id:ticketId, direction:pm.from===MAILBOX?'outbound':'inbound', from_addr:pm.h.from||'', to_addr:pm.h.to||'', body:(pm.bodyText||'').slice(0,20000), body_html:(pm.html||'').slice(0,120000), attachments:(pm.attachments||[]), sent_at:new Date(Number(pm.m.internalDate||Date.now())).toISOString() },'gmail_message_id')));
+  const upserts=Promise.all(parsed.map(pm=>upsert('messages',{ gmail_message_id:pm.m.id, ticket_id:ticketId, direction:pm.from===MAILBOX?'outbound':'inbound', from_addr:pm.h.from||'', to_addr:pm.h.to||'', body:(pm.bodyText||'').slice(0,20000), body_html:(pm.html||'').slice(0,120000), attachments:(pm.attachments||[]), sent_at:new Date(Number(pm.m.internalDate||Date.now())).toISOString() },'gmail_message_id')));
+  await upserts;
+  // Record the thread's historyId only after every message is saved, so a failed run is retried.
+  if(ticketId && thread.historyId){ try{ await rest('tickets?id=eq.'+ticketId,{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({ gmail_history_id:String(thread.historyId) }) }); }catch(e){} }
   return { messages:parsed.length, created, triage };
 }
 
@@ -119,10 +122,28 @@ async function runInboxSync(opts){
   } while(pageToken);
 
   const newest=ordered.slice(0, maxThreads);
+  // Change detection: one threads.list call gives every inbox thread's historyId. Skip threads whose
+  // historyId matches what we stored last time (nothing new). Unknown/missing ids are always processed.
+  let work=newest, skipped=0;
+  if(!q && !opts.force){
+    try{
+      const tl=await gapi(token,'threads?maxResults=100&labelIds=INBOX');
+      const hist={}; (tl.threads||[]).forEach(t=>{ hist[t.id]=String(t.historyId||''); });
+      const known=newest.filter(t=>hist[t]);
+      if(!tl.__error && known.length){
+        const rows=await rest('tickets?gmail_thread_id=in.('+known.map(x=>'"'+x+'"').join(',')+')&select=gmail_thread_id,gmail_history_id').catch(()=>null);
+        if(Array.isArray(rows)){
+          const stored={}; rows.forEach(r=>{ stored[r.gmail_thread_id]=r.gmail_history_id; });
+          work=newest.filter(t=>!(hist[t] && stored[t] && stored[t]===hist[t]));
+          skipped=newest.length-work.length;
+        }
+      }
+    }catch(e){ work=newest; skipped=0; }
+  }
   let order=0, nonOrder=0, messages=0;
   const CHUNK=4;
-  for(let i=0;i<newest.length;i+=CHUNK){
-    const res=await Promise.all(newest.slice(i,i+CHUNK).map(tid=>processThread(token,tid)));
+  for(let i=0;i<work.length;i+=CHUNK){
+    const res=await Promise.all(work.slice(i,i+CHUNK).map(tid=>processThread(token,tid)));
     for(const r of res){ messages+=r.messages||0; if(r.created){ if(r.triage==='order') order++; else nonOrder++; } }
   }
 
@@ -152,7 +173,7 @@ async function runInboxSync(opts){
       resolved=toResolve.length;
     }
   } else if(listingError){ reconcileSkipped='Gmail listing failed: '+listingError; }
-  const result={ ok:true, threads:newest.length, inboxThreads:seen.size, order, nonOrder, messages, resolved, reopened, reconciled:(complete && !listingError), reconcileSkipped, listingError, purged };
+  const result={ ok:true, threads:newest.length, processed:work.length, skipped, inboxThreads:seen.size, order, nonOrder, messages, resolved, reopened, reconciled:(complete && !listingError), reconcileSkipped, listingError, purged };
   try{ await rest('sync_status?id=eq.1',{ method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({ last_run:new Date().toISOString(), result, updated_at:new Date().toISOString() }) }); }catch(e){}
   return result;
 }

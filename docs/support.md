@@ -22,4 +22,4 @@ Schema `support`: `tickets`, `messages`, `customers`, `notes`, `interactions`, `
 - Raw `innerHTML` rendering: always `esc()` (it escapes quotes) for email text, names, filenames.
 
 ## Open items / review notes (Sep 2026)
-- `scheduled-sync` rewrites every thread in the window each run (~500k writes for 404 customers). Add change detection (skip threads whose last message id is unchanged). Biggest DB-load win in the portal.
+- DONE 22 Sep 2026: `scheduled-sync` now skips threads whose Gmail `historyId` equals `tickets.gmail_history_id` (one `threads.list` call per run). `sync_status.result` shows `processed` vs `skipped`. Pass `force:true` to `support-ingest` for a full re-read.
