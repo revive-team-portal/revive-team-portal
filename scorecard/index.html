@@ -221,6 +221,20 @@ td.der .subn,td .subn{opacity:.85}
 .remail .remsg{font-size:12px;color:var(--steel)}
 .remail .renote{font-size:11px;color:var(--steel-lt);margin-top:6px}
 .dmx .avgd{font-size:9px;color:var(--steel-lt);letter-spacing:.04em}
+@media(max-width:640px){
+  thead th.mname,tbody td.mname{min-width:112px;padding-left:8px;font-size:11px}
+  th,td{font-size:11px;white-space:nowrap}
+  thead th{padding:6px 4px;font-size:8.5px}
+  tbody td{padding:6px 5px}
+  tbody tr.sec td{padding:5px 8px;font-size:10.5px;letter-spacing:.08em}
+  thead th.avg10,tbody td.avg10{padding-right:8px;padding-left:6px}
+  .mname .src{display:none}
+  .ptitle{flex-wrap:wrap;gap:2px}
+  .ptitle h2{font-size:16px}
+  .panel{margin-top:6px}
+  .dmx th,.dmx td{padding:5px 6px}
+  .dcell b{font-size:12.5px}.dcell small{font-size:9px}
+}
 </style>
 <link rel="stylesheet" href="/chrome.css">
 </head>
@@ -584,7 +598,9 @@ createApp({
 
     // ---------- windows ----------
     const currentWeek=computed(()=> weeks.value.length? weeks.value[weeks.value.length-1].period_end : null);
-    const windowWeeks=computed(()=> weeks.value.slice(-13).map(w=>w.period_end));
+    const vw=ref(typeof window!=='undefined'?window.innerWidth:1200);
+    if(typeof window!=='undefined') window.addEventListener('resize',()=>{ vw.value=window.innerWidth; });
+    const windowWeeks=computed(()=> weeks.value.slice(vw.value<640?-6:-13).map(w=>w.period_end));
     const curWeekObj=computed(()=> currentWeek.value? weekByEnd[currentWeek.value] : null);
 
     // ---------- targets ----------
