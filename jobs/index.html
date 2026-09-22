@@ -248,6 +248,15 @@
               class="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-0 focus:outline-none focus:ring-2 focus:border-transparent">
             <button @click="showAddApplicant=true" class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">+ Add</button>
             <button @click="exportCSV" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">⬇ CSV</button>
+            <button @click="runAiShortlist" :disabled="aiShortlistRunning"
+              class="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors inline-flex items-center gap-2">
+              <span>{{ aiShortlistRunning ? 'Shortlisting\u2026' : '\u2728 AI Shortlist' }}</span>
+              <select v-model.number="aiShortlistCount" @click.stop :disabled="aiShortlistRunning"
+                class="bg-violet-700 text-white rounded px-1 py-0.5 text-xs font-bold focus:outline-none">
+                <option v-for="n in [5,10,15,20,25,30]" :key="n" :value="n">top {{ n }}</option>
+              </select>
+            </button>
+
             <button v-if="tickedApplicants.length" @click="openInvitePreview()"
               class="bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
               <span v-if="sendingInvites" class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -316,6 +325,7 @@
                   :class="statusSelectClass(app.status)"
                   style="min-width:130px">
                   <option value="new">New</option>
+                  <option value="ai_shortlist">AI Shortlist</option>
                   <option value="not_suitable">Not Suitable</option>
                   <option value="shortlist_a">Shortlist A</option>
                   <option value="shortlist_b">Shortlist B</option>
@@ -351,6 +361,11 @@
                       <span class="text-gray-700 font-medium truncate" :title="kp.value">{{ kp.value }}</span>
                     </div>
                   </div>
+                  <p v-if="app.status === 'ai_shortlist' && app.ai_shortlist_reason"
+                    class="mt-1.5 mb-1.5 text-xs text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2 py-1.5">
+                    <span class="font-bold">#{{ app.ai_shortlist_rank }}</span> {{ app.ai_shortlist_reason }}
+                  </p>
+
                   <div v-if="recentJobs(app).length" class="mt-1.5 mb-1.5">
                     <div class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">Recent roles</div>
                     <div v-for="(j, ji) in recentJobs(app)" :key="ji" class="text-xs leading-snug mb-0.5">
@@ -1493,6 +1508,8 @@ const app = createApp({
     const showApplicant = ref(false);
     const loadingMore = ref(false);
     const settingStatus = ref(false);
+    const aiShortlistRunning = ref(false);
+    const aiShortlistCount = ref(10);
     const showResumeModal = ref(false);
 
     // Resume preview
@@ -2812,6 +2829,35 @@ const app = createApp({
     }
 
     // Plain-text advert for social posts and job boards.
+    // Ranks only the applicants nobody has categorised yet. Anything already
+    // filed by a human is left exactly as it is.
+    async function runAiShortlist() {
+      if (!selectedJob.value) return;
+      const uncategorised = applications.value.filter(a => a.status === 'new').length;
+      if (!uncategorised) { alert('Every applicant has already been categorised — nothing to shortlist.'); return; }
+
+      const n = Math.min(aiShortlistCount.value, uncategorised);
+      if (!confirm(`Shortlist the best ${n} from the ${uncategorised} applicant${uncategorised !== 1 ? 's' : ''} not yet categorised?\n\nAnyone you have already sorted will not be touched.`)) return;
+
+      aiShortlistRunning.value = true;
+      try {
+        const res = await fetch('https://jobs.revive.co.nz/.netlify/functions/ai-shortlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job_id: selectedJob.value.id, count: aiShortlistCount.value })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Shortlisting failed');
+        await loadApplicants(selectedJob.value.id);
+        statusFilter.value = ['ai_shortlist'];
+        alert(`Shortlisted ${data.shortlisted} of ${data.considered} uncategorised applicants.`);
+      } catch (e) {
+        alert('Could not run the shortlist: ' + (e.message || e));
+      } finally {
+        aiShortlistRunning.value = false;
+      }
+    }
+
     async function generateAdText(force) {
       const job = editingJob.value.id ? editingJob.value : selectedJob.value;
       if (!job || !job.id) return;
@@ -3335,6 +3381,7 @@ const app = createApp({
     // kept in step with the per-card status dropdown below.
     const STATUS_COLOURS = {
       new:         { dark:'#1d4ed8', mid:'#93c5fd', pale:'#eff6ff' },
+      ai_shortlist:{ dark:'#7c3aed', mid:'#c4b5fd', pale:'#f5f3ff' },
       shortlist_a: { dark:'#7e22ce', mid:'#d8b4fe', pale:'#faf5ff' },
       shortlist_b: { dark:'#4338ca', mid:'#a5b4fc', pale:'#eef2ff' },
       interview:   { dark:'#a16207', mid:'#fde047', pale:'#fefce8' },
@@ -3346,6 +3393,7 @@ const app = createApp({
 
     const statusList = [
       { key:'new', label:'New' },
+      { key:'ai_shortlist', label:'AI Shortlist' },
       { key:'shortlist_a', label:'Shortlist A' },
       { key:'shortlist_b', label:'Shortlist B' },
       { key:'interview', label:'Interview' },
@@ -3535,6 +3583,7 @@ const app = createApp({
     function statusSelectClass(status) {
       const map = {
         new: 'border-blue-300 text-blue-700',
+        ai_shortlist: 'border-violet-300 text-violet-700',
         not_suitable: 'border-red-300 text-red-700',
         shortlist_a: 'border-purple-300 text-purple-700',
         shortlist_b: 'border-indigo-300 text-indigo-700',
@@ -3703,6 +3752,7 @@ const app = createApp({
       filteredJobs, jobCounts, filteredApplicants, selectedForInterview, notSuitableSelected, parsedInterviewNotes, interviewAnswerCount,
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
       showDeleted, deletedCount, restoreApplication,
+      runAiShortlist, aiShortlistRunning, aiShortlistCount,
       showInvitePreview, inviteErrors, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
       openInvitePreview, confirmSendInvites,
       connections, filteredConnections, loadingConnections, connectionSearch,
