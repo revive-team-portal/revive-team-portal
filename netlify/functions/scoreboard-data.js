@@ -115,35 +115,52 @@ exports.handler = async (event) => {
         }
       }
 
-      // 2) upsert each supplied fact. Track overrides: if a stored value already
-      // exists from an automated source and the human types a different number,
-      // keep the original and record who/why.
+      // 2) upsert each CHANGED fact.
+      // Fix 22 Sep 2026: every row in a PostgREST bulk insert must carry the same keys
+      // (PGRST102 "All object keys must match"). Previously only override rows carried
+      // is_override/original_value/override_reason, so one edited auto figure (e.g. the
+      // till-receipt cafe_sales) made the WHOLE batch fail after the notes had saved —
+      // numbers vanished, notes stayed. Also: manual figures typed into auto-fed metrics
+      // were stored without is_override, so the nightly sync overwrote them days later.
+      let saved = 0;
       if (values && typeof values === 'object') {
-        const codes = Object.keys(values);
-        let existing = [];
+        const codes = Object.keys(values).filter(c => /^[a-z0-9_]+$/.test(c));
+        let existing = [], meta = [];
         if (codes.length) {
-          existing = await appsDb('fact?select=metric_code,value,source,is_override,original_value&period_type=eq.week&period_end=eq.' +
-            period_end + '&metric_code=in.(' + codes.join(',') + ')');
+          [existing, meta] = await Promise.all([
+            appsDb('fact?select=metric_code,value,source,is_override,original_value&period_type=eq.week&period_end=eq.' +
+              period_end + '&metric_code=in.(' + codes.join(',') + ')'),
+            appsDb('metric?select=code,source_type&code=in.(' + codes.join(',') + ')'),
+          ]);
         }
         const exByCode = {}; (existing || []).forEach(r => { exByCode[r.metric_code] = r; });
+        const isAuto = {}; (meta || []).forEach(m => { isAuto[m.code] = m.source_type === 'auto'; });
+        const now = new Date().toISOString();
         const rows = [];
         for (const code of codes) {
           const v = values[code];
-          const val = (v === '' || v == null) ? null : Number(v);
+          let val = (v === '' || v == null) ? null : Number(v);
+          if (val != null && !isFinite(val)) val = null;
           const prev = exByCode[code];
-          const row = { metric_code: code, period_type: 'week', period_end, value: val, source: 'manual', quality: 'ok', entered_by: auth.user.id, entered_at: new Date().toISOString() };
-          if (prev && prev.source && prev.source !== 'manual' && Number(prev.value) !== val && val != null) {
+          const prevVal = prev && prev.value != null ? Number(prev.value) : null;
+          if (val === prevVal) continue;                                   // unchanged: leave source/flags alone
+          if (val == null && prev && prev.source !== 'manual' && !prev.is_override) continue; // blank never wipes a feed value
+          const row = { metric_code: code, period_type: 'week', period_end, value: val, source: 'manual', quality: 'ok',
+            entered_by: auth.user.id, entered_at: now, is_override: false, original_value: null, override_reason: null };
+          if (val != null && isAuto[code]) {
+            // A person typed a figure into an auto-fed metric: pin it so nightly syncs never overwrite it.
             row.is_override = true;
-            row.original_value = prev.original_value != null ? prev.original_value : prev.value;
-            row.override_reason = body.reason || 'Manually corrected';
+            row.original_value = prev ? (prev.is_override ? prev.original_value : (prev.source !== 'manual' ? prev.value : prev.original_value)) : null;
+            row.override_reason = body.reason || 'Entered manually';
           }
           rows.push(row);
         }
         if (rows.length) {
-          await appsDb('fact', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows) });
+          await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows) });
+          saved = rows.length;
         }
       }
-      return json(200, { ok: true });
+      return json(200, { ok: true, saved });
     }
 
     if (action === 'save_target') {

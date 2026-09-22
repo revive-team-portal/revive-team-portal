@@ -870,10 +870,11 @@ createApp({
         const notes={};
         ['days_note','holiday','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ notes[k]= entryNotes[k]===''?null:entryNotes[k]; });
         if(entryNotes.trading_days!==''&&entryNotes.trading_days!=null){ const _td=Number(String(entryNotes.trading_days).replace(/[^0-9.\-]/g,'')); notes.trading_days=isNaN(_td)?null:_td; }
-        await callData({action:'save_week',period_end:entryWeek.value,values,notes});
-        await refresh();
-        flash('Week saved'); entryMsg.value='Saved.';
-      }catch(e){ flash('Save failed: '+e.message); }
+        const r=await callData({action:'save_week',period_end:entryWeek.value,values,notes});
+        await refresh(); loadEntry(entryWeek.value);
+        const t=new Date().toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit'});
+        flash('Week saved'); entryMsg.value='✓ Saved at '+t+' — '+(r.saved||0)+' figure'+(r.saved===1?'':'s')+' updated. Reloaded from the database, so what you see is what is stored.';
+      }catch(e){ flash('Save failed'); entryMsg.value='⚠ SAVE FAILED — your figures were NOT stored. Do not leave this page; tell Jeremy. ('+e.message+')'; }
       saving.value=false;
     }
 
