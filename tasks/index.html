@@ -100,7 +100,7 @@
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3 no-print">
           <div>
             <h1 class="text-lg font-bold text-stone-800">Board</h1>
-            <p class="text-xs text-stone-500">{{ openCount }} open · {{ weekCount }} in current · new tasks go into Future — drag them up to Current or down to Park</p>
+            <p class="text-xs text-stone-500">{{ openCount }} open · {{ weekCount }} in current · add straight into any band, or drag tasks between them</p>
             <p class="text-[11px] text-stone-400 mt-1 flex items-center gap-1.5">
               <span class="inline-block w-3 h-3 rounded-sm bg-stone-200 align-middle"></span> current
               <span class="inline-block w-3 h-3 rounded-sm bg-stone-100 align-middle ml-2"></span> future
@@ -171,8 +171,8 @@
                   <button @click="commitToggle(t)" class="opacity-0 group-hover:opacity-100 text-xs flex-none no-print" :title="t.horizon==='week' ? 'Move to future' : 'Move to current'">{{ t.horizon==='week' ? '📌' : '📍' }}</button>
                 </div>
 
-                <input v-if="s.key==='future'" v-model="inlineAdd[c.key]" @keyup.enter="addInline(c)" type="text" placeholder="+ add"
-                  class="w-full text-[13px] border border-transparent hover:border-white focus:border-white rounded-lg px-2 py-1 bg-white/50 focus:bg-white outline-none no-print">
+                <input v-model="inlineAdd[c.key+'|'+s.key]" @keyup.enter="addInline(c,s.key)" type="text" :placeholder="'+ add to ' + s.short"
+                  class="w-full text-[13px] border border-white/70 hover:border-white focus:border-stone-400 rounded-lg px-2 py-1 mt-0.5 bg-white/80 focus:bg-white outline-none placeholder:text-stone-400 no-print">
               </div>
             </div>
           </div>
@@ -668,10 +668,13 @@ createApp({
       }catch(e){ flash('Could not add: '+e.message); }
     }
     // Everything is entered into Future, then dragged up to Current or down to Park.
-    async function addInline(tile){
-      const v=(inlineAdd[tile.key]||'').trim(); if(!v) return;
-      inlineAdd[tile.key]='';
-      try{ await addTaskRaw({title:v,category_id:tile.id,owner_id:personFilter.value,horizon:'future',priority:3}); }
+    async function addInline(tile,section){
+      const k=tile.key+'|'+section;
+      const v=(inlineAdd[k]||'').trim(); if(!v) return;
+      inlineAdd[k]='';
+      const horizon=HORIZON_FOR[section]||'future';
+      try{ await addTaskRaw({title:v,category_id:tile.id,owner_id:personFilter.value,horizon,
+        committed_week: horizon==='week' ? week.value : null, priority:3}); }
       catch(e){ flash('Could not add: '+e.message); }
     }
     async function addGm(p){
