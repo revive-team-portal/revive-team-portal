@@ -50,9 +50,13 @@ async function syncShopify(start, end) {
   const ov = await appsDb("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(online_sales,online_orders)");
   const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
 
+  // Shopify only exposes this app the last ~60 days of orders, so an older week would
+  // be undercounted. Never overwrite a week whose oldest day could fall outside that
+  // window — leave the correct historical figure in place.
+  const cutoff = new Date(Date.now() - 50 * 86400000).toISOString().slice(0, 10);
   const rows = []; const written = [];
   for (const we of Object.keys(wk)) {
-    if (!exist.has(we) || we > today) continue;
+    if (!exist.has(we) || we > today || we < cutoff) continue;
     const now = new Date().toISOString();
     if (!ovSet.has('online_sales|' + we)) rows.push({ metric_code: 'online_sales', period_type: 'week', period_end: we, value: Math.round(wk[we].sales * 100) / 100, source: 'shopify', quality: 'ok', entered_at: now });
     if (!ovSet.has('online_orders|' + we)) rows.push({ metric_code: 'online_orders', period_type: 'week', period_end: we, value: wk[we].orders, source: 'shopify', quality: 'ok', entered_at: now });
