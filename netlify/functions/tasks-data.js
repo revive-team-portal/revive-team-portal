@@ -111,14 +111,42 @@ const DEFAULT_BOARDS = [
   { name: 'Finance & Admin',   icon: '💰', colour: 'emerald', sort_order: 60 },
   { name: 'Systems & IT',      icon: '⚙️', colour: 'slate',   sort_order: 70 },
 ];
-async function seedBoards(userId) {
-  const existing = await db('category?select=id&limit=1&owner_id=eq.' + userId);
-  if (Array.isArray(existing) && existing.length) return false;
-  await db('category', {
-    method: 'POST', headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify(DEFAULT_BOARDS.map(b => ({ ...b, owner_id: userId, shared: false }))),
-  });
-  return true;
+// Seed for EVERYONE with access, not just whoever is loading the page — otherwise a
+// manager switching to a colleague who has never signed in sees a blank screen.
+async function seedBoards(people) {
+  const owned = await db('category?select=owner_id');
+  const has = new Set((owned || []).map(c => c.owner_id));
+  const missing = (people || []).filter(p => p.active !== false && !has.has(p.id));
+  if (!missing.length) return 0;
+  const rows = [];
+  missing.forEach(p => DEFAULT_BOARDS.forEach(b => rows.push({ ...b, owner_id: p.id, shared: false })));
+  await db('category', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
+  return missing.length;
+}
+
+// Every task lives on a board — there is no Uncategorised tile. Anything left
+// stranded (from before that rule, or by a deleted board) is rehomed to its
+// owner's first board so it can never go invisible.
+async function rehomeLooseTasks() {
+  const loose = await db('task?select=id,owner_id&category_id=is.null&done=eq.false');
+  if (!Array.isArray(loose) || !loose.length) return 0;
+  const boards = await db('category?select=id,owner_id&archived=eq.false&order=sort_order.asc');
+  const firstBy = {};
+  (boards || []).forEach(b => { if (!firstBy[b.owner_id]) firstBy[b.owner_id] = b.id; });
+  let n = 0;
+  for (const t of loose) {
+    const cid = firstBy[t.owner_id];
+    if (!cid) continue;
+    await db('task?id=eq.' + t.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ category_id: cid }) });
+    n++;
+  }
+  return n;
+}
+
+// The board a new task falls into when none was chosen.
+async function firstBoardOf(userId) {
+  const rows = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=eq.' + userId);
+  return rows && rows[0] ? rows[0].id : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +253,8 @@ exports.handler = async (event) => {
       const carried = await rollover(week);
 
       // Every board belongs to one person and may be shared with named people.
-      await seedBoards(me);
+      await seedBoards(people);
+      await rehomeLooseTasks();
       const shares = await db('category_share?select=category_id,person_id');
       const sharedWithMe = (shares || []).filter(s => s.person_id === me).map(s => s.category_id);
 
@@ -285,6 +314,7 @@ exports.handler = async (event) => {
       }
       row.created_by = me;
       if (!row.owner_id) row.owner_id = me;
+      if (!row.category_id) row.category_id = await firstBoardOf(row.owner_id);
       const out = await db('task', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
       const t = out && out[0];
       if (t && t.horizon === 'week' && t.committed_week) {
