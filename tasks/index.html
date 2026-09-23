@@ -651,7 +651,8 @@ createApp({
     async function toggle(t){
       if(!canEdit(t)){ flash('That task belongs to someone else.'); return; }
       const was=t.done; t.done=!was; t.done_at=t.done?new Date().toISOString():null;
-      try{ const j=await call({action:'toggle_task',id:t.id,done:t.done}); if(j.task) upsertLocal(tasks,j.task); await refreshLogs(); }
+      noteLog(t,{completed:t.done});
+      try{ const j=await call({action:'toggle_task',id:t.id,done:t.done}); if(j.task) upsertLocal(tasks,j.task); }
       catch(e){ t.done=was; flash('Could not save: '+e.message); }
     }
 
@@ -661,8 +662,8 @@ createApp({
       try{
         await call({action:'move_tasks',items:[{id:t.id,horizon:to,committed_week: to==='week'?week.value:null}]});
         t.horizon=to; t.committed_week = to==='week'?week.value:null;
-        flash(to==='week'?'Committed to this week':'Taken off this week');
-        await refreshLogs();
+        if(to==='week') noteLog(t,{completed:t.done});
+        flash(to==='week'?'Moved to current':'Moved to future');
       }catch(e){ flash('Could not save: '+e.message); }
     }
 
@@ -792,7 +793,14 @@ createApp({
       catch(e){ flash('Could not save notes'); }
     }
 
-    async function refreshLogs(){ try{ const j=await call({action:'bootstrap'}); logs.value=j.logs||[]; }catch(e){} }
+    // The server keeps week_log in step; mirror the same change locally so the Review
+    // tab stays accurate without refetching the entire app on every click.
+    function noteLog(t,{completed}={}){
+      if(!t.committed_week) return;
+      const i=logs.value.findIndex(l=>l.task_id===t.id && l.week_start===t.committed_week);
+      if(i>=0){ if(completed!==undefined) logs.value[i].completed=completed; }
+      else logs.value.push({task_id:t.id,person_id:t.owner_id,week_start:t.committed_week,completed:!!completed});
+    }
 
     // ---- boot ---------------------------------------------------------------
     async function load(){

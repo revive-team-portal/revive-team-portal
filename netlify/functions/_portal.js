@@ -26,7 +26,7 @@ async function validatePortalUser(event, requiredApp) {
   });
   const prof = (await pres.json().catch(() => []))[0];
   if (!prof || prof.active === false) return { ok: false, status: 403, error: 'No access.' };
-  if (prof.is_admin) return { ok: true, user };
+  if (prof.is_admin) return { ok: true, user, profile: prof };
   if (!requiredApp) return { ok: true, user }; // any active portal user (e.g. the green today bar)
 
   const ares = await fetch(PORTAL_URL + '/rest/v1/user_app_access?user_id=eq.' + user.id + '&app_id=eq.' + encodeURIComponent(requiredApp) + '&select=app_id', {
@@ -34,7 +34,7 @@ async function validatePortalUser(event, requiredApp) {
   });
   const acc = await ares.json().catch(() => []);
   if (!Array.isArray(acc) || !acc.length) return { ok: false, status: 403, error: 'You do not have access to this app.' };
-  return { ok: true, user };
+  return { ok: true, user, profile: prof };
 }
 
 module.exports = { PORTAL_URL, PORTAL_ANON, json, validatePortalUser };

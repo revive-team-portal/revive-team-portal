@@ -60,9 +60,12 @@ function quarterOf(iso) {
 // ---------------------------------------------------------------------------
 // Who is calling
 // ---------------------------------------------------------------------------
-async function accessLevel(userId) {
-  const p = await portalRest('profiles?id=eq.' + userId + '&select=is_admin');
-  if (p && p[0] && p[0].is_admin) return 'manager';
+async function accessLevel(userId, profile) {
+  if (profile && profile.is_admin) return 'manager';
+  if (!profile) {
+    const p = await portalRest('profiles?id=eq.' + userId + '&select=is_admin');
+    if (p && p[0] && p[0].is_admin) return 'manager';
+  }
   const a = await portalRest('user_app_access?user_id=eq.' + userId + '&app_id=eq.tasks&select=role');
   const role = a && a[0] ? (a[0].role || 'team') : null;
   if (role === 'manager') return 'manager';
@@ -117,71 +120,23 @@ const DEFAULT_BOARDS = [
 //   owner_id set     -> that person's own board, optionally shared with named people.
 // The seven defaults are the Team set. Personal boards start empty — people build
 // their own.
-async function ensureTeamBoards() {
-  const existing = await db('category?select=id,name&owner_id=is.null');
-  const have = new Set((existing || []).map(c => c.name));
-  const missing = DEFAULT_BOARDS.filter(b => !have.has(b.name));
-  if (!missing.length) return 0;
+// Only seeds when there is no Team board at all, so a board you delete stays deleted
+// and the common case costs zero extra queries.
+async function ensureTeamBoards(categories) {
+  if ((categories || []).some(c => !c.owner_id)) return 0;
   await db('category', {
     method: 'POST', headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify(missing.map(b => ({ ...b, owner_id: null, shared: false }))),
+    body: JSON.stringify(DEFAULT_BOARDS.map(b => ({ ...b, owner_id: null, shared: false }))),
   });
-  return missing.length;
-}
-
-// One-off consolidation: the defaults were briefly seeded per person. Fold any of
-// those personal copies (and their tasks) back into the matching Team board. Scoped
-// to rows created before the cutover so boards people make later are never absorbed.
-const CUTOVER = '2026-09-26T00:00:00Z';
-async function absorbOldPersonalDefaults() {
-  const names = DEFAULT_BOARDS.map(b => b.name);
-  const dupes = await db('category?select=id,name,owner_id&owner_id=not.is.null&created_at=lt.' + CUTOVER);
-  const stale = (dupes || []).filter(c => names.includes(c.name));
-  if (!stale.length) return 0;
-  const team = await db('category?select=id,name&owner_id=is.null');
-  const teamBy = {};
-  (team || []).forEach(c => { teamBy[c.name] = c.id; });
-  let n = 0;
-  for (const c of stale) {
-    const target = teamBy[c.name];
-    if (!target) continue;
-    await db('task?category_id=eq.' + c.id, {
-      method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ category_id: target }),
-    });
-    await db('category?id=eq.' + c.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
-    n++;
-  }
-  return n;
-}
-
-// Every task lives on a board — there is no Uncategorised tile. Anything left
-// stranded (from before that rule, or by a deleted board) is rehomed to its
-// owner's first board so it can never go invisible.
-async function rehomeLooseTasks() {
-  const loose = await db('task?select=id,owner_id&category_id=is.null&done=eq.false');
-  if (!Array.isArray(loose) || !loose.length) return 0;
-  const boards = await db('category?select=id,owner_id&archived=eq.false&order=sort_order.asc');
-  const firstBy = {};
-  let firstTeam = null;
-  (boards || []).forEach(b => {
-    if (b.owner_id === null) { if (!firstTeam) firstTeam = b.id; return; }
-    if (!firstBy[b.owner_id]) firstBy[b.owner_id] = b.id;
-  });
-  let n = 0;
-  for (const t of loose) {
-    const cid = firstBy[t.owner_id] || firstTeam;
-    if (!cid) continue;
-    await db('task?id=eq.' + t.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ category_id: cid }) });
-    n++;
-  }
-  return n;
+  return DEFAULT_BOARDS.length;
 }
 
 // The board a new task falls into when none was chosen.
-async function firstBoardOf(userId) {
-  const own = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=eq.' + userId);
+async function firstBoardOf(userId, excludeId) {
+  const skip = excludeId ? '&id=neq.' + excludeId : '';
+  const own = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=eq.' + userId + skip);
   if (own && own[0]) return own[0].id;
-  const team = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=is.null');
+  const team = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=is.null' + skip);
   return team && team[0] ? team[0].id : null;
 }
 
@@ -190,37 +145,23 @@ async function firstBoardOf(userId) {
 // done, rolls forward and its carry counter ticks up — that visible number is
 // the accountability signal in the 1:1.
 // ---------------------------------------------------------------------------
-async function rollover(weekStart) {
-  const stale = await db('task?select=id,carry_count,owner_id,committed_week&done=eq.false&horizon=eq.week&committed_week=lt.' + weekStart);
+async function rollover(weekStart, stale) {
   if (!Array.isArray(stale) || !stale.length) return 0;
-
-  // Close out last week's log rows as not completed.
-  await db('week_log?on_conflict=task_id,week_start', {
-    method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(stale.map(t => ({
-      task_id: t.id, person_id: t.owner_id, week_start: t.committed_week,
-      completed: false, closed_at: new Date().toISOString(),
-    }))),
+  const now = new Date().toISOString();
+  const logUpsert = (rows) => db('week_log?on_conflict=task_id,week_start', {
+    method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows),
   });
-
-  for (const t of stale) {
-    await db('task?id=eq.' + t.id, {
-      method: 'PATCH',
-      headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({
-        committed_week: weekStart,
-        carry_count: (t.carry_count || 0) + 1,
-        updated_at: new Date().toISOString(),
-      }),
-    });
-  }
-  // Open this week's log rows for the carried tasks.
-  await db('week_log?on_conflict=task_id,week_start', {
-    method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(stale.map(t => ({ task_id: t.id, person_id: t.owner_id, week_start: weekStart }))),
-  });
+  await Promise.all([
+    // close out last week's rows as not completed …
+    logUpsert(stale.map(t => ({ task_id: t.id, person_id: t.owner_id, week_start: t.committed_week, completed: false, closed_at: now }))),
+    // … open this week's …
+    logUpsert(stale.map(t => ({ task_id: t.id, person_id: t.owner_id, week_start: weekStart }))),
+    // … and carry each task forward, all at once rather than one at a time.
+    ...stale.map(t => db('task?id=eq.' + t.id, {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ committed_week: weekStart, carry_count: (t.carry_count || 0) + 1, updated_at: now }),
+    })),
+  ]);
   return stale.length;
 }
 
@@ -243,7 +184,7 @@ exports.handler = async (event) => {
   const auth = await validatePortalUser(event, 'tasks');
   if (!auth.ok) return json(auth.status || 403, { error: auth.error });
 
-  const level = await accessLevel(auth.user.id);
+  const level = await accessLevel(auth.user.id, auth.profile);
   if (!level) return json(403, { error: 'You do not have access to Tasks.' });
 
   const me = auth.user.id;
@@ -285,23 +226,26 @@ exports.handler = async (event) => {
     if (action === 'bootstrap') {
       const today = nzToday();
       const week = mondayOf(today);
-      const people = await syncPeople();
-      const carried = await rollover(week);
+      const CATS = 'category?select=*&archived=eq.false&order=sort_order.asc,name.asc';
 
-      await ensureTeamBoards();
-      await absorbOldPersonalDefaults();
-      await rehomeLooseTasks();
-      const shares = await db('category_share?select=category_id,person_id');
+      // Phase 1 — everything that depends on nothing, in one burst.
+      let [people, shares, cats, stale] = await Promise.all([
+        syncPeople(),
+        db('category_share?select=category_id,person_id'),
+        db(CATS),
+        db('task?select=id,carry_count,owner_id,committed_week&done=eq.false&horizon=eq.week&committed_week=lt.' + week),
+      ]);
+
+      // Phase 2 — only fires when there is actually something to do.
+      const carried = await rollover(week, stale);
+      if (await ensureTeamBoards(cats)) cats = await db(CATS);
+
       const sharedWithMe = (shares || []).filter(s => s.person_id === me).map(s => s.category_id);
 
       // Everyone gets the Team boards, their own boards, and anything shared with them.
-      let catFilter = '';
-      if (!isManager) {
-        const clauses = ['owner_id.is.null', 'owner_id.eq.' + me];
-        if (sharedWithMe.length) clauses.push('id.in.(' + sharedWithMe.join(',') + ')');
-        catFilter = '&or=(' + clauses.join(',') + ')';
-      }
-      const categories = await db('category?select=*&archived=eq.false' + catFilter + '&order=sort_order.asc,name.asc');
+      // The full list is already in hand; a non-manager just sees less of it.
+      const visible = (c) => !c.owner_id || c.owner_id === me || sharedWithMe.includes(c.id);
+      const categories = isManager ? (cats || []) : (cats || []).filter(visible);
 
       // A shared personal board shows every task in it to the people it's shared with.
       // Team boards never do — there, you see only your own work.
@@ -460,7 +404,14 @@ exports.handler = async (event) => {
         const rows = await db('category?select=owner_id&id=eq.' + body.id);
         if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: "That board belongs to someone else." });
       }
-      // Tasks survive; they fall back to Uncategorised (category_id set null by FK).
+      // Move the tasks somewhere real first — there is no Uncategorised tile to catch them.
+      const rows = await db('category?select=owner_id&id=eq.' + body.id);
+      const home = await firstBoardOf((rows && rows[0] && rows[0].owner_id) || me, body.id);
+      if (home) {
+        await db('task?category_id=eq.' + body.id, {
+          method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ category_id: home }),
+        });
+      }
       await db('category?id=eq.' + body.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
       return json(200, { ok: true });
     }
