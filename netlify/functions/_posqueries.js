@@ -18,7 +18,7 @@ const WEEKLY_SQL =
   " SUM(CASE WHEN p.Product_Group=6 THEN i.Qty ELSE 0 END) AS shop" +
   " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
   " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
-  " WHERE t.Receipt_Date_Time >= DATEADD(week,-10,GETDATE()) GROUP BY " + WEEK_END + " ORDER BY 1;";
+  " WHERE t.Receipt_Date_Time >= DATEADD(day,-84,GETDATE()) GROUP BY " + WEEK_END + " ORDER BY 1;";
 const TODAY_SQL =
   "SELECT SUM(i.Sales) AS sales, SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS covers," +
   " SUM(CASE WHEN DATEPART(hour,t.Receipt_Date_Time)*60+DATEPART(minute,t.Receipt_Date_Time) < 770 THEN i.Sales ELSE 0 END) AS sales_1245" +
@@ -41,14 +41,14 @@ const DEPT_SQL =
   " SUM(i.Sales) AS sales, SUM(i.Qty) AS qty" +
   " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
   " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
-  " WHERE t.Receipt_Date_Time >= DATEADD(week,-10,GETDATE())" +
+  " WHERE t.Receipt_Date_Time >= DATEADD(day,-84,GETDATE())" +
   " GROUP BY " + WEEK_END + ", p.Product_Group ORDER BY 1,2;";
 
 const UBER_SQL =
   "SELECT CONVERT(varchar(10)," + WEEK_END + ",23) AS week_end, SUM(m.MediaAmount) AS uber_sales," +
   " COUNT(DISTINCT m.Transaction_Number) AS uber_txns" +
   " FROM EJMediaTable m JOIN EJTable t ON t.Transaction_Number=m.Transaction_Number" +
-  " WHERE m.MediaType IN (3,5) AND t.Receipt_Date_Time >= DATEADD(week,-10,GETDATE())" +
+  " WHERE m.MediaType IN (3,5) AND t.Receipt_Date_Time >= DATEADD(day,-84,GETDATE())" +
   " GROUP BY " + WEEK_END + " ORDER BY 1;";
 async function queueJob(note, sql) {
   const cutoff = new Date(Date.now() - 4 * 60000).toISOString();
@@ -68,6 +68,7 @@ function parseTSV(text) {
   return { cols: lines[0].split('\t'), rows: lines.slice(1).map(l => l.split('\t')) };
 }
 async function ingest(note, result) {
+  const cut70 = new Date(Date.now() - 70 * 86400000).toISOString().slice(0, 10); // only write weeks fully inside the fetched window
   if (!note) return;
   if (note.indexOf('cafe-today') === 0) {
     const { cols, rows } = parseTSV(result); const r = rows[0] || []; const ix = c => cols.indexOf(c);
@@ -94,7 +95,7 @@ async function ingest(note, result) {
     const map = { cafe_sales: 'cafe_sales', cafe_customers: 'customers', sweets_sold: 'sweets', drinks_sold: 'drinks', shop_sold: 'shop' };
     const facts = [];
     for (const r of rows) {
-      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > today) continue;
+      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > today || wk < cut70) continue;
       for (const metric in map) {
         const v = Number(r[ix(map[metric])] || 0);
         if (!ovSet.has(metric + '|' + wk)) facts.push({ metric_code: metric, period_type: 'week', period_end: wk, value: metric === 'cafe_sales' ? Math.round(v * 100) / 100 : v, source: 'swiftpos', quality: 'ok', entered_at: now });
@@ -110,7 +111,7 @@ async function ingest(note, result) {
     const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
     const today = new Date().toISOString().slice(0, 10); const now = new Date().toISOString(); const facts = [];
     for (const r of rows) {
-      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > today) continue;
+      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > today || wk < cut70) continue;
       const sales = Math.round((Number(r[ix('uber_sales')] || 0)) * 100) / 100;
       const txns = Math.round(Number(r[ix('uber_txns')] || 0));
       if (!ovSet.has('uber_total|' + wk)) facts.push({ metric_code: 'uber_total', period_type: 'week', period_end: wk, value: sales, source: 'swiftpos', quality: 'ok', entered_at: now });
@@ -124,7 +125,7 @@ async function ingest(note, result) {
     const weeks = await db('week?select=period_end'); const exist = new Set((weeks || []).map(w => w.period_end));
     const now = new Date().toISOString(); const out = [];
     for (const r of rows) {
-      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk)) continue;
+      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk < cut70) continue;
       out.push({ week_end: wk, grp: Number(r[ix('grp')] || 0), sales: Math.round((Number(r[ix('sales')] || 0)) * 100) / 100, qty: Math.round(Number(r[ix('qty')] || 0)), updated_at: now });
     }
     for (let i = 0; i < out.length; i += 400) await db('pos_dept_week?on_conflict=week_end,grp', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(out.slice(i, i + 400)) });
