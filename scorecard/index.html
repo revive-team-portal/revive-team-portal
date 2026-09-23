@@ -591,6 +591,7 @@ createApp({
         case 'ad_cost_per_order':{ const a=B('ad_spend'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
         case 'ship_cost_per_order':{ const a=B('shipping_cost'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
         case 'labour_per_sweet':{ const a=B('hours_kitchen_sweets'),b=B('sweets_sold'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v*60/b.v,q:worst([a.q,b.q])}; }
+        case 'heat_eat_net':{ const a=B('meals_packed'),b=B('heat_eat_sold'); if(a.v==null&&b.v==null) return {v:null,q:null}; return {v:(a.v||0)-(b.v||0),q:worst([a.q,b.q])}; }
         default: return base(code,pe);
       }
     }
@@ -708,7 +709,7 @@ createApp({
       {sec:'Shipping'},
       'shipping_cost','shipping_subsidy','ship_cost_per_order','parcels_sent',
       {sec:'Production'},
-      'mueslis_packed','meals_packed','ingredients_packed',
+      'mueslis_packed','heat_eat_sold','meals_packed','heat_eat_net','ingredients_packed',
     ];
     // ---- department breakdown matrices (bottom of manager panel) ----
     const DEPT_ROWS=[{grp:1,label:'Salads'},{grp:2,label:'Meals'},{grp:4,label:'Sweets'},{grp:5,label:'Drinks'},{grp:6,label:'Shop'},{grp:3,label:'Other'}];
@@ -770,7 +771,7 @@ createApp({
     const entryVals=reactive({}), entryNotes=reactive({}), saving=ref(false), entryMsg=ref('');
     const ENTRY_INPUTS=['cafe_sales','online_sales','catering_sales','uber_total','cafe_customers','online_orders','resends_refunds','orders_not_sent',
       ...HOURS,'hours_wopples','wages_paid','wages_wopples','wage_budget','ad_spend','online_cogs','online_gross_profit','cafe_waste_value',
-      'mueslis_packed','meals_packed','ingredients_packed'];
+      'mueslis_packed','heat_eat_sold','meals_packed','ingredients_packed'];
     const ENTRY=[
       {sec:'Sales'},'cafe_sales','online_sales','total_sales','catering_sales','uber_total',
       {sec:'Customers & orders'},'cafe_customers','online_orders','resends_refunds','orders_not_sent','perfect_order_rate',
@@ -778,7 +779,7 @@ createApp({
       {sec:'Wages'},'wages_paid','wages_wopples','wage_budget',
       {sec:'Advertising'},'ad_spend',
       {sec:'Margin'},'online_cogs','online_gross_profit','cafe_waste_value',
-      {sec:'Production'},'mueslis_packed','meals_packed','ingredients_packed',
+      {sec:'Production'},'mueslis_packed','heat_eat_sold','meals_packed','heat_eat_net','ingredients_packed',
     ];
     const entryRows=computed(()=> ENTRY.map(x=> typeof x==='string'? mkRow(x): x));
     function loadEntry(pe){
