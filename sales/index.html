@@ -345,7 +345,7 @@
             <button type="button" @click="visibleContacts = Math.min(6, visibleContacts + 1)" class="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 rounded px-2 py-1">+ Add contact</button>
           </div>
           <div style="display:grid;grid-template-columns:1.75rem 1.2fr 1.2fr 2fr 1.2fr;gap:10px" class="items-center">
-            <span class="text-base" title="Store / site">🏢</span>
+            <a v-if="(cur.website||'').trim()" :href="normUrl(cur.website)" target="_blank" rel="noopener" class="text-base" title="Open store website">🌐</a><span v-else class="text-base" title="Store / site">🏢</span>
             <input v-model="cur.website" placeholder="Website" class="inp" style="grid-column:span 2"><input v-model="cur.store_email" placeholder="Email" class="inp"><input v-model="cur.store_phone" placeholder="Phone" class="inp">
           </div>
           <div style="display:grid;grid-template-columns:1.75rem 1fr;gap:10px" class="items-center">
@@ -1243,6 +1243,7 @@
       const fmtDate=(d)=> d? new Date(d+ (d.length<=10?'T00:00:00':'')).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
       const shortDate=(d)=> d? new Date(d).toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'}):'';
       const oneLine=(s)=> (s||'').replace(/[\r\n]+/g,' ').replace(/\s{2,}/g,' ').trim();
+      const normUrl=(u)=>{ u=(u||'').trim(); if(!u) return ''; return /^https?:\/\//i.test(u)? u : ('https://'+u); };
       const fmtDateTime=(d)=> d? new Date(d).toLocaleString('en-NZ',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
       const countBy=(k)=> stores.value.filter(s=>s.status===k).length;
       const eventCount=(id)=> activities.value.filter(a=>a.store_id===id && EVENT_TYPES.includes(a.type)).length;
@@ -1706,7 +1707,7 @@
         stores,activities,templates,documents,settings,
         search,areaFilter,sortKey,sortDir,setSort,sortArrow,filteredStores,displayStores,allAreas,REGIONS,TYPES,
         activeStatuses,toggleStatus,isStatusActive,clearStatuses,rowBg,
-        activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,oneLine,newEmailsOnly,newCount,stores,
+        activeTypes,toggleType,isTypeActive,clearTypes,countByType,shortDate,oneLine,normUrl,newEmailsOnly,newCount,stores,
         countBy,
         selectedIds,bulk,allShownSelected,toggleSel,toggleAll,clearSel,quickSave,applyBulk,bulkDelete,
         label,badge,cap,typeIcon,fmtDate,fmtDateTime,
