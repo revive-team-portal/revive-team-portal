@@ -14,7 +14,7 @@ exports.handler = async (event) => {
     const cur = cand.inventoryItem.inventoryLevel.quantities[0].quantity;
     const d = await gql(
       'mutation($input:InventorySetQuantitiesInput!){ inventorySetQuantities(input:$input){ userErrors{ field message } inventoryAdjustmentGroup{ createdAt } } }',
-      { input: { name: 'available', reason: 'correction', quantities: [{ inventoryItemId: cand.inventoryItem.id, locationId: loc.id, quantity: cur }] } }
+      { input: { name: 'available', reason: 'correction', quantities: [{ inventoryItemId: cand.inventoryItem.id, locationId: loc.id, quantity: cur, changeFromQuantity: cur }] } }
     );
     return { statusCode: 200, headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ item: cand.displayName, current: cur, result: d.inventorySetQuantities }, null, 1) };
   } catch (e) { return { statusCode: 200, body: JSON.stringify({ err: String(e.message || e) }) }; }
