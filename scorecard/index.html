@@ -77,9 +77,9 @@ a{color:inherit}
 .ptitle .r{font-family:var(--mono);font-size:11px;color:var(--steel)}
 table{width:100%;border-collapse:collapse}
 th,td{padding:0;text-align:right;font-family:var(--mono);font-size:11.5px;white-space:nowrap}
-thead th{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--steel);font-weight:500;padding:9px 7px;border-bottom:1px solid var(--line);background:#FBFCFC;position:sticky;top:0}
+thead th{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--steel);font-weight:500;padding:9px 7px;border-bottom:1px solid var(--line);background:#FBFCFC;position:sticky;top:0;z-index:3}
 thead th.mname,tbody td.mname{text-align:left;font-family:var(--body);font-size:12.5px;padding-left:16px;min-width:230px;position:sticky;left:0;background:var(--paper-2);z-index:2}
-thead th.mname{background:#FBFCFC}
+thead th.mname{background:#FBFCFC;z-index:4}
 thead th.tgt,tbody td.tgt{border-right:2px solid var(--line);color:var(--info)}
 tbody td{padding:7px;border-bottom:1px solid var(--line-2);position:relative;font-weight:700}
 tbody td.mname{font-weight:400}
@@ -97,6 +97,7 @@ td.susp{color:var(--steel-lt);font-style:normal}
 td.susp:after{content:' ~'}
 .der{color:var(--steel);font-style:normal}
 .scroll{overflow-x:auto}
+    .gscroll{max-height:calc(100vh - 96px);overflow:auto}
 .mname .src{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;padding:1px 4px;border-radius:2px;margin-left:6px;vertical-align:1px}
 .src.a{background:#E4EFF6;color:#2A6285}.src.m{background:#F0EDF6;color:#5B4A85}.src.d{background:var(--line-2);color:var(--steel)}
 .cand{border-bottom:1px dotted var(--info)}
@@ -223,6 +224,7 @@ td.der .subn,td .subn{opacity:.85}
 .remail .renote{font-size:11px;color:var(--steel-lt);margin-top:6px}
 .dmx .avgd{font-size:9px;color:var(--steel-lt);letter-spacing:.04em}
 @media(max-width:640px){
+  .gscroll{max-height:calc(100vh - 70px)}
   thead th.mname,tbody td.mname{min-width:112px;padding-left:8px;font-size:11px}
   th,td{font-size:11px;white-space:nowrap}
   thead th{padding:6px 4px;font-size:8.5px}
@@ -311,7 +313,7 @@ td.der .subn,td .subn{opacity:.85}
     <div v-if="screen==='manager' && level==='manager'">
       <div class="panel">
         <div class="ptitle"><h2>Weekly grid</h2><div class="r">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</div></div>
-        <div class="scroll"><table>
+        <div class="scroll gscroll"><table>
           <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w"><span class="dhdr"><span class="circslot"><span v-if="dayNum(w)" class="daycirc">{{ dayNum(w) }}</span></span>{{ colLabel(w) }}</span><span v-if="holidayName(w)" class="shortcell">{{ holidayName(w) }}</span></th><th class="avg10">10-wk avg</th></tr></thead>
           <tbody>
             <template v-for="row in gridRows" :key="row.key||row.sec">
