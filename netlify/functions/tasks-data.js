@@ -111,17 +111,47 @@ const DEFAULT_BOARDS = [
   { name: 'Finance & Admin',   icon: '💰', colour: 'emerald', sort_order: 60 },
   { name: 'Systems & IT',      icon: '⚙️', colour: 'slate',   sort_order: 70 },
 ];
-// Seed for EVERYONE with access, not just whoever is loading the page — otherwise a
-// manager switching to a colleague who has never signed in sees a blank screen.
-async function seedBoards(people) {
-  const owned = await db('category?select=owner_id');
-  const has = new Set((owned || []).map(c => c.owner_id));
-  const missing = (people || []).filter(p => p.active !== false && !has.has(p.id));
+// Two kinds of board:
+//   owner_id IS NULL -> Team board. Everyone sees the board; each person sees only
+//                       their own tasks inside it.
+//   owner_id set     -> that person's own board, optionally shared with named people.
+// The seven defaults are the Team set. Personal boards start empty — people build
+// their own.
+async function ensureTeamBoards() {
+  const existing = await db('category?select=id,name&owner_id=is.null');
+  const have = new Set((existing || []).map(c => c.name));
+  const missing = DEFAULT_BOARDS.filter(b => !have.has(b.name));
   if (!missing.length) return 0;
-  const rows = [];
-  missing.forEach(p => DEFAULT_BOARDS.forEach(b => rows.push({ ...b, owner_id: p.id, shared: false })));
-  await db('category', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
+  await db('category', {
+    method: 'POST', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(missing.map(b => ({ ...b, owner_id: null, shared: false }))),
+  });
   return missing.length;
+}
+
+// One-off consolidation: the defaults were briefly seeded per person. Fold any of
+// those personal copies (and their tasks) back into the matching Team board. Scoped
+// to rows created before the cutover so boards people make later are never absorbed.
+const CUTOVER = '2026-09-26T00:00:00Z';
+async function absorbOldPersonalDefaults() {
+  const names = DEFAULT_BOARDS.map(b => b.name);
+  const dupes = await db('category?select=id,name,owner_id&owner_id=not.is.null&created_at=lt.' + CUTOVER);
+  const stale = (dupes || []).filter(c => names.includes(c.name));
+  if (!stale.length) return 0;
+  const team = await db('category?select=id,name&owner_id=is.null');
+  const teamBy = {};
+  (team || []).forEach(c => { teamBy[c.name] = c.id; });
+  let n = 0;
+  for (const c of stale) {
+    const target = teamBy[c.name];
+    if (!target) continue;
+    await db('task?category_id=eq.' + c.id, {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ category_id: target }),
+    });
+    await db('category?id=eq.' + c.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+    n++;
+  }
+  return n;
 }
 
 // Every task lives on a board — there is no Uncategorised tile. Anything left
@@ -132,10 +162,14 @@ async function rehomeLooseTasks() {
   if (!Array.isArray(loose) || !loose.length) return 0;
   const boards = await db('category?select=id,owner_id&archived=eq.false&order=sort_order.asc');
   const firstBy = {};
-  (boards || []).forEach(b => { if (!firstBy[b.owner_id]) firstBy[b.owner_id] = b.id; });
+  let firstTeam = null;
+  (boards || []).forEach(b => {
+    if (b.owner_id === null) { if (!firstTeam) firstTeam = b.id; return; }
+    if (!firstBy[b.owner_id]) firstBy[b.owner_id] = b.id;
+  });
   let n = 0;
   for (const t of loose) {
-    const cid = firstBy[t.owner_id];
+    const cid = firstBy[t.owner_id] || firstTeam;
     if (!cid) continue;
     await db('task?id=eq.' + t.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ category_id: cid }) });
     n++;
@@ -145,8 +179,10 @@ async function rehomeLooseTasks() {
 
 // The board a new task falls into when none was chosen.
 async function firstBoardOf(userId) {
-  const rows = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=eq.' + userId);
-  return rows && rows[0] ? rows[0].id : null;
+  const own = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=eq.' + userId);
+  if (own && own[0]) return own[0].id;
+  const team = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=is.null');
+  return team && team[0] ? team[0].id : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -252,23 +288,24 @@ exports.handler = async (event) => {
       const people = await syncPeople();
       const carried = await rollover(week);
 
-      // Every board belongs to one person and may be shared with named people.
-      await seedBoards(people);
+      await ensureTeamBoards();
+      await absorbOldPersonalDefaults();
       await rehomeLooseTasks();
       const shares = await db('category_share?select=category_id,person_id');
       const sharedWithMe = (shares || []).filter(s => s.person_id === me).map(s => s.category_id);
 
+      // Everyone gets the Team boards, their own boards, and anything shared with them.
       let catFilter = '';
       if (!isManager) {
-        const clauses = ['owner_id.eq.' + me];
+        const clauses = ['owner_id.is.null', 'owner_id.eq.' + me];
         if (sharedWithMe.length) clauses.push('id.in.(' + sharedWithMe.join(',') + ')');
         catFilter = '&or=(' + clauses.join(',') + ')';
       }
       const categories = await db('category?select=*&archived=eq.false' + catFilter + '&order=sort_order.asc,name.asc');
 
-      // A shared board shows every task in it to everyone it's shared with; a private
-      // board shows only its owner's work (a manager sees everything either way).
-      const openBoards = (categories || []).filter(c => c.shared).map(c => c.id);
+      // A shared personal board shows every task in it to the people it's shared with.
+      // Team boards never do — there, you see only your own work.
+      const openBoards = (categories || []).filter(c => c.owner_id && c.shared).map(c => c.id);
       let taskFilter = '';
       if (!isManager) {
         const clauses = ['owner_id.eq.' + me, 'for_person_id.eq.' + me];
@@ -383,10 +420,12 @@ exports.handler = async (event) => {
       if (!row.name || !String(row.name).trim()) return json(400, { error: 'A category needs a name.' });
       row.name = String(row.name).slice(0, 80);
       // Every board has exactly one owner. Only a manager may create one for someone else.
-      if (!isManager || !row.owner_id) row.owner_id = isManager ? (row.owner_id || me) : me;
+      // owner_id null = Team board, and only a manager may make one.
+      const wantsTeam = isManager && Object.prototype.hasOwnProperty.call(row, 'owner_id') && row.owner_id === null;
+      if (!wantsTeam) row.owner_id = isManager ? (row.owner_id || me) : me;
 
       // share_with: the people this board is visible to and editable by, besides the owner.
-      const shareWith = Array.isArray(body.share_with)
+      const shareWith = (!wantsTeam && Array.isArray(body.share_with))
         ? [...new Set(body.share_with.filter(Boolean))].filter(id => id !== row.owner_id)
         : null;
       if (shareWith) row.shared = shareWith.length > 0;
