@@ -547,8 +547,21 @@
               <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-1.5">Start Date</label>
-                  <input v-model="editingJob.start_date" type="date"
+                  <div class="flex gap-1.5 mb-1.5">
+                    <button type="button" @click="editingJob.start_date = 'ASAP'"
+                      class="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors"
+                      :class="editingJob.start_date === 'ASAP' ? 'bg-brand text-white border-brand' : 'bg-white text-gray-600 border-gray-300 hover:border-brand'">
+                      ASAP
+                    </button>
+                    <button type="button" @click="editingJob.start_date = ''"
+                      class="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors"
+                      :class="editingJob.start_date !== 'ASAP' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'">
+                      Pick a date
+                    </button>
+                  </div>
+                  <input v-if="editingJob.start_date !== 'ASAP'" v-model="editingJob.start_date" type="date"
                     class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
+                  <p v-else class="text-sm text-gray-500 px-1 py-2.5">Shown to applicants as <strong>ASAP</strong>.</p>
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-1.5">Hourly Rate ($)</label>
@@ -2841,10 +2854,16 @@ const app = createApp({
     async function runAiShortlist() {
       if (!selectedJob.value) return;
       const uncategorised = applications.value.filter(a => a.status === 'new').length;
-      if (!uncategorised) { alert('Every applicant has already been categorised — nothing to shortlist.'); return; }
+      const priorShortlist = applications.value.filter(a => a.status === 'ai_shortlist').length;
+      if (!uncategorised && !priorShortlist) { alert('Every applicant has already been categorised — nothing to shortlist.'); return; }
 
-      const n = Math.min(aiShortlistCount.value, uncategorised);
-      if (!confirm(`Shortlist the best ${n} from the ${uncategorised} applicant${uncategorised !== 1 ? 's' : ''} not yet categorised?\n\nAnyone you have already sorted will not be touched.`)) return;
+      const existing = applications.value.filter(a => a.status === 'ai_shortlist').length;
+      const pool = uncategorised + existing;
+      const n = Math.min(aiShortlistCount.value, pool);
+      const msg = `Shortlist the best ${n} from ${pool} applicant${pool !== 1 ? 's' : ''}?` +
+        (existing ? `\n\nThe current AI Shortlist of ${existing} will be cleared and everyone reassessed from scratch.` : '') +
+        `\n\nAnyone you have already sorted yourself will not be touched.`;
+      if (!confirm(msg)) return;
 
       aiShortlistRunning.value = true;
       try {
@@ -2857,7 +2876,8 @@ const app = createApp({
         if (!res.ok || !data.ok) throw new Error(data.error || 'Shortlisting failed');
         await loadApplicants(selectedJob.value.id);
         statusFilter.value = ['ai_shortlist'];
-        alert(`Shortlisted ${data.shortlisted} of ${data.considered} uncategorised applicants.`);
+        alert(`Shortlisted ${data.shortlisted} of ${data.considered} applicants` +
+          (data.cleared ? `, after clearing the previous shortlist of ${data.cleared}.` : '.'));
       } catch (e) {
         alert('Could not run the shortlist: ' + (e.message || e));
       } finally {
