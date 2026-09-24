@@ -795,9 +795,11 @@ createApp({
     const entryWeek=ref(null);
     const entryIdx=computed(()=> weeks.value.findIndex(w=>w.period_end===entryWeek.value));
     const entryVals=reactive({}), entryNotes=reactive({}), entryNotesOrig=reactive({}), saving=ref(false), entryMsg=ref('');
-    const ENTRY_INPUTS=['mueslis_packed','ingredients_packed','meals_packed'];
+    const ENTRY_INPUTS=['mueslis_packed','ingredients_packed','meals_packed','wages_paid','wages_wopples','wage_budget','cafe_waste_value','resends_refunds'];
     const ENTRY=[
       {sec:'Produced this week'},'mueslis_packed','ingredients_packed','meals_packed',
+      {sec:'Wages (actual, from payroll)'},'wages_paid','wages_wopples','wage_budget',
+      {sec:'Other'},'cafe_waste_value','resends_refunds',
     ];
     const entryRows=computed(()=> ENTRY.map(x=> typeof x==='string'? mkRow(x): x));
     function loadEntry(pe){
