@@ -89,6 +89,11 @@ tbody tr.sec.ad td{background:#3a2d12;color:#F1D48A}
 tbody tr.sec.ad td.mname{background:#3a2d12;color:#F1D48A}
 tbody tr:hover td{background:#F4F7F9}
 tbody tr:hover td.mname{background:#F4F7F9}
+tbody tr.sec:hover td,tbody tr.sec:hover td.mname{background:var(--ink)}
+tbody tr.sec.ad:hover td,tbody tr.sec.ad:hover td.mname{background:#3a2d12}
+.notecell{white-space:normal!important;text-align:left;vertical-align:top;padding:4px 7px!important;font-family:var(--body)!important;font-size:10px!important}
+.noteclip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.32;max-width:150px;word-break:break-word;color:var(--ink)}
+tr.noterow td.mname{font-size:11px;color:var(--steel);font-weight:500}
 td.ok{color:#0C6B47}
 td.warn{color:#8A5E10}
 td.bad{color:#9B2F21;font-weight:700}
@@ -331,6 +336,13 @@ td.der .subn,td .subn{opacity:.85}
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
+            <tr class="sec"><td class="mname" :colspan="windowWeeks.length+3">Weekly notes</td></tr>
+            <tr v-for="nf in NOTE_FIELDS" :key="'note-'+nf.key" class="noterow">
+              <td class="mname">{{ nf.label }}</td>
+              <td class="tgt"></td>
+              <td v-for="w in windowWeeks" :key="w" class="notecell" :class="{now:w===currentWeek}"><div class="noteclip" :title="(weekByEnd[w]&&weekByEnd[w][nf.key])||''">{{ (weekByEnd[w]&&weekByEnd[w][nf.key])||'' }}</div></td>
+              <td class="avg10"></td>
+            </tr>
           </tbody>
         </table></div>
         <div class="legend">
@@ -390,16 +402,6 @@ td.der .subn,td .subn{opacity:.85}
             </tr>
           </tbody>
         </table></div>
-      </div>
-      <div class="panel">
-        <div class="ptitle"><h2>Weekly notes &amp; promos</h2><div class="r">offers, promos &amp; comments</div></div>
-        <div class="wknotes">
-          <div class="wknote" v-for="x in weekNotesList" :key="x.w">
-            <span class="wkd">{{ x.label }}</span>
-            <span class="wkt"><template v-if="x.n.email_offer"><b>Offer:</b> {{ x.n.email_offer }} </template><template v-if="x.n.promo_comments"><b>· Promo:</b> {{ x.n.promo_comments }} </template><template v-if="x.n.npd"><b>· NPD:</b> {{ x.n.npd }} </template><template v-if="x.n.wages_exceptions"><b>· Wages:</b> {{ x.n.wages_exceptions }} </template><template v-if="x.n.other_comments"><b>· Other:</b> {{ x.n.other_comments }}</template></span>
-          </div>
-          <div v-if="!weekNotesList.length" class="softnote" style="color:var(--steel-lt)">No notes recorded for these weeks.</div>
-        </div>
       </div>
     </div>
 
@@ -609,6 +611,7 @@ createApp({
         case 'ship_cost_per_order':{ const a=B('shipping_cost'),b=B('online_orders'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v/b.v,q:worst([a.q,b.q])}; }
         case 'labour_per_sweet':{ const a=B('hours_kitchen_sweets'),b=B('sweets_sold'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v*60/b.v,q:worst([a.q,b.q])}; }
         case 'heat_eat_net':{ const a=B('meals_packed'),b=B('heat_eat_sold'); if(a.v==null&&b.v==null) return {v:null,q:null}; return {v:(a.v||0)-(b.v||0),q:worst([a.q,b.q])}; }
+        case 'muesli_net':{ const a=B('mueslis_packed'),b=B('muesli_sold'); if(a.v==null&&b.v==null) return {v:null,q:null}; return {v:(a.v||0)-(b.v||0),q:worst([a.q,b.q])}; }
         default: return base(code,pe);
       }
     }
@@ -712,8 +715,6 @@ createApp({
     const SYSNAME={swiftpos:'SwiftPOS',shopify:'Shopify',timekeeper:'TimeKeeper',eship:'eShip',meta:'Meta',pulse:'Pulse',support:'Support'};
     function srcLabel(row){ if(row.src==='a'){ const n=SYSNAME[SYS[row.key]]; return n?('✨ '+n):'auto'; } return srcName[row.src]; }
     const GRID=[
-      {ad:true,sec:'Advertising'},
-      'ad_spend','ad_pct_online','ad_cost_per_order',
       {sec:'Sales'},
       'cafe_sales','online_sales','total_sales','catering_sales','uber_total',
       {sec:'Customers & orders'},
@@ -724,11 +725,18 @@ createApp({
       'wages_paid','wages_wopples','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour','labour_per_sweet',
       {sec:'Margin'},
       'online_cogs','online_cogs_pct','online_gross_profit','cafe_waste_value','cafe_waste_pct',
+      {ad:true,sec:'Advertising'},
+      'ad_spend','ad_pct_online','ad_cost_per_order',
       {sec:'Shipping'},
       'shipping_cost','shipping_subsidy','ship_cost_per_order','parcels_sent',
+      {sec:'Heat & Eat Meals'},
+      'meals_packed','heat_eat_sold','heat_eat_net',
+      {sec:'Muesli'},
+      'mueslis_packed','muesli_sold','muesli_net',
       {sec:'Production'},
-      'mueslis_packed','heat_eat_sold','meals_packed','heat_eat_net','ingredients_packed',
+      'ingredients_packed',
     ];
+    const NOTE_FIELDS=[{key:'email_offer',label:'Offer'},{key:'promo_comments',label:'Promo'},{key:'npd',label:'NPD'},{key:'wages_exceptions',label:'Wages note'},{key:'other_comments',label:'Other'}];
     // ---- department breakdown matrices (bottom of manager panel) ----
     const DEPT_ROWS=[{grp:1,label:'Salads'},{grp:2,label:'Meals'},{grp:4,label:'Sweets'},{grp:5,label:'Drinks'},{grp:6,label:'Shop'},{grp:3,label:'Other'}];
     const deptRows=computed(()=> DEPT_ROWS.concat([{grp:0,label:'Total'}]));
@@ -1002,7 +1010,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,weekNotesList,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
