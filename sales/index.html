@@ -570,6 +570,17 @@
           <div><p class="font-semibold text-sm">Sync Gmail history</p><p class="text-xs text-stone-500">Pull every customer's full email history from Gmail and count it as events. Run once; new emails are then captured automatically as you open each customer.</p><p v-if="syncProgress" class="text-xs text-sky-700 mt-1">{{ syncProgress }}</p></div>
           <button @click="syncAllEmails" :disabled="syncBusy" class="bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap disabled:opacity-50">{{ syncBusy? 'Syncing…' : '📧 Sync all emails' }}</button>
         </div>
+        <div class="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-2">
+          <p class="font-semibold text-sm">📋 Email lists <span class="text-xs font-normal text-stone-400">(non-customer address lists — kept separate from stores)</span></p>
+          <div v-if="!emailLists.length" class="text-xs text-stone-400">No lists yet.</div>
+          <div v-for="g in emailLists" :key="g.name" class="border border-stone-200 rounded-lg bg-white p-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-medium">{{ g.name }} <span class="text-stone-400">({{ g.emails.length }})</span></span>
+              <button @click="copyList(g)" class="text-xs bg-stone-800 hover:bg-stone-700 text-white px-2 py-1 rounded whitespace-nowrap">Copy addresses</button>
+            </div>
+            <textarea readonly rows="3" class="w-full mt-2 text-[11px] font-mono border border-stone-200 rounded p-1 bg-stone-50" :value="g.emails.join(', ')"></textarea>
+          </div>
+        </div>
         <div class="space-y-2">
           <p class="font-semibold text-sm">AI master prompt</p>
           <p class="text-xs text-stone-500">Sets the voice &amp; rules for every AI-drafted email (e.g. “write in the philosophy of Ogilvy”).</p>
@@ -1151,6 +1162,9 @@
       const gmailConnected=ref(false), gmailEmail=ref('');
       const curEmails=ref([]), loadingEmails=ref(false), emailBodies=ref({});
       const syncBusy=ref(false), syncProgress=ref('');
+      const emailLists=ref([]);
+      async function loadEmailLists(){ try{ const r=await sb.from('email_lists').select('list_name,email').order('list_name'); const g={}; (r.data||[]).forEach(x=>{ (g[x.list_name]=g[x.list_name]||[]).push(x.email); }); emailLists.value=Object.keys(g).sort().map(n=>({name:n,emails:g[n]})); }catch(e){} }
+      function copyList(g){ const t=g.emails.join(', '); try{ navigator.clipboard.writeText(t); flash('Copied '+g.emails.length+' addresses'); }catch(e){ flash('Copy failed — select and copy manually'); } }
       const selectedIds=ref([]); const bulk=reactive({status:'',next:'',tag:''});
 
       // ---- modals ----
@@ -1323,6 +1337,7 @@
         const mq=await sb.from('motivation').select('*').order('created_at',{ascending:false});
         savedQuotes.value=mq.data||[];
         await loadSales();
+        loadEmailLists();
         loading.value=false;
       }
 
@@ -1727,7 +1742,7 @@
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         typeLabel,noteTypeLabel,salesPrompts,promptsOpen,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
-        openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,
+        openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,emailLists,copyList,
         storeSales,fmtMoney,salesDateLabel,daysBetween,daysSinceOrder,orgShort,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,salesUnmatched,
         toast };
     }
