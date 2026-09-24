@@ -332,7 +332,7 @@ td.der .subn,td .subn{opacity:.85}
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
-                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]"><span>{{ cellText(row,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_txns',w).v!=null" class="subn" :title="fm(cellObj('uber_txns',w).v,0)+' Uber transactions'">{{ fm(cellObj('uber_txns',w).v,0) }}</span></td>
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]"><span>{{ cellText(row,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span></td>
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
@@ -411,7 +411,6 @@ td.der .subn,td .subn{opacity:.85}
         <div class="ehead">
           <div class="wkpick"><button @click="stepWeek(-1)" :disabled="entryIdx<=0">◀</button><span>Week ending {{ longDate(entryWeek) }}</span><button @click="stepWeek(1)" :disabled="entryIdx>=weeks.length-1">▶</button></div>
           <button class="mini" @click="newWeek">+ New week</button>
-          <div class="rcpt"><input type="file" ref="rcptInput" accept="image/*" multiple capture="environment" style="display:none" @change="onReceiptFiles"><button class="mini" :disabled="receiptBusy" @click="$refs.rcptInput.click()">{{ receiptBusy?'Reading receipt…':'\ud83d\udcf7 Upload till receipt' }}</button><span v-if="receiptMsg" class="rcptmsg">{{ receiptMsg }}</span></div>
           <div class="feeds">
             <button class="mini pri" :disabled="feedsBusy" @click="getFeeds">{{ feedsBusy?'Pulling…':'↻ Get auto feeds' }}</button>
             <span v-for="f in feedList" :key="f.name" class="feed" :class="{on:feedIn(f)}"><span class="tick">{{ feedIn(f)?'\u2713':'\u25cb' }}</span>{{ f.name }}</span>
@@ -612,6 +611,7 @@ createApp({
         case 'labour_per_sweet':{ const a=B('hours_kitchen_sweets'),b=B('sweets_sold'); if(a.v==null||!b.v) return {v:null,q:null}; return {v:a.v*60/b.v,q:worst([a.q,b.q])}; }
         case 'heat_eat_net':{ const a=B('meals_packed'),b=B('heat_eat_sold'); if(a.v==null&&b.v==null) return {v:null,q:null}; return {v:(a.v||0)-(b.v||0),q:worst([a.q,b.q])}; }
         case 'muesli_net':{ const a=B('mueslis_packed'),b=B('muesli_sold'); if(a.v==null&&b.v==null) return {v:null,q:null}; return {v:(a.v||0)-(b.v||0),q:worst([a.q,b.q])}; }
+        case 'online_gross_profit':{ const a=B('online_sales'),b=B('online_cogs'); if(a.v==null||b.v==null) return {v:null,q:null}; return {v:a.v/g-b.v,q:worst([a.q,b.q])}; }
         default: return base(code,pe);
       }
     }
@@ -795,15 +795,9 @@ createApp({
     const entryWeek=ref(null);
     const entryIdx=computed(()=> weeks.value.findIndex(w=>w.period_end===entryWeek.value));
     const entryVals=reactive({}), entryNotes=reactive({}), entryNotesOrig=reactive({}), saving=ref(false), entryMsg=ref('');
-    const ENTRY_INPUTS=['cafe_sales','cafe_customers','uber_total','resends_refunds','orders_not_sent',
-      'wages_paid','wages_wopples','wage_budget','online_cogs','online_gross_profit','cafe_waste_value',
-      'mueslis_packed','meals_packed','ingredients_packed'];
+    const ENTRY_INPUTS=['mueslis_packed','ingredients_packed','meals_packed'];
     const ENTRY=[
-      {sec:'Cafe — from till receipt'},'cafe_sales','cafe_customers','uber_total',
-      {sec:'Service'},'resends_refunds','orders_not_sent',
-      {sec:'Wages'},'wages_paid','wages_wopples','wage_budget',
-      {sec:'Margin'},'online_cogs','online_gross_profit','cafe_waste_value',
-      {sec:'Production'},'mueslis_packed','meals_packed','ingredients_packed',
+      {sec:'Produced this week'},'mueslis_packed','ingredients_packed','meals_packed',
     ];
     const entryRows=computed(()=> ENTRY.map(x=> typeof x==='string'? mkRow(x): x));
     function loadEntry(pe){

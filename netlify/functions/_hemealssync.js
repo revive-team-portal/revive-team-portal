@@ -22,7 +22,7 @@ const MUESLI_TYPES = new Set(['Mueslis']);
 function mealsPerUnit(title) { const m = /\((\d+)\s*items?/i.exec(title || ''); return m ? Math.max(1, parseInt(m[1], 10)) : 1; }
 
 async function startBulk(start, end) {
-  const inner = '{ orders(query: "created_at:>=' + start + ' created_at:<=' + end + '") { edges { node { id createdAt lineItems { edges { node { quantity product { productType title } } } } } } } }';
+  const inner = '{ orders(query: "created_at:>=' + start + ' created_at:<=' + end + '") { edges { node { id createdAt lineItems { edges { node { quantity product { productType title } variant { inventoryItem { unitCost { amount } } } } } } } } } }';
   const m = 'mutation($q:String!){ bulkOperationRunQuery(query:$q){ bulkOperation{ id status } userErrors{ field message } } }';
   const d = await gql(m, { q: inner });
   const r = d.bulkOperationRunQuery;
@@ -42,18 +42,18 @@ async function pollBulk() {
 async function syncHeatEat(start, end) {
   await startBulk(start, end);
   const op = await pollBulk();
-  const wk = {}; const mu = {}; let orders = 0;
+  const wk = {}; const mu = {}; const cogsWk = {}; let orders = 0;
   if (op.url) {
     const text = await (await fetch(op.url)).text();
     const lines = text.split('\n').filter(Boolean);
     const orderWeek = {};
     for (const ln of lines) { let o; try { o = JSON.parse(ln); } catch { continue; } if (o.id && o.createdAt && o.__parentId === undefined) { orderWeek[o.id] = weekEndFri(nzDate(o.createdAt)); orders++; } }
-    for (const ln of lines) { let o; try { o = JSON.parse(ln); } catch { continue; } if (!o.__parentId || !o.product) continue; const we = orderWeek[o.__parentId]; if (!we) continue; const pt = o.product.productType || ''; const units = (Number(o.quantity) || 0) * mealsPerUnit(o.product.title); if (MEAL_TYPES.has(pt)) wk[we] = (wk[we] || 0) + units; if (MUESLI_TYPES.has(pt)) mu[we] = (mu[we] || 0) + units; }
+    for (const ln of lines) { let o; try { o = JSON.parse(ln); } catch { continue; } if (!o.__parentId || !o.product) continue; const we = orderWeek[o.__parentId]; if (!we) continue; const pt = o.product.productType || ''; const qty = Number(o.quantity) || 0; const units = qty * mealsPerUnit(o.product.title); if (MEAL_TYPES.has(pt)) wk[we] = (wk[we] || 0) + units; if (MUESLI_TYPES.has(pt)) mu[we] = (mu[we] || 0) + units; const uc = o.variant && o.variant.inventoryItem && o.variant.inventoryItem.unitCost && Number(o.variant.inventoryItem.unitCost.amount); if (uc) cogsWk[we] = (cogsWk[we] || 0) + uc * qty; }
   }
   const weekRows = await appsDb('week?select=period_end');
   const exist = new Set((weekRows || []).map(x => x.period_end));
   const today = new Date().toISOString().slice(0, 10);
-  const ov = await appsDb("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(heat_eat_sold,muesli_sold)");
+  const ov = await appsDb("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(heat_eat_sold,muesli_sold,online_cogs)");
   const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
   const rows = []; const written = [];
   for (const we of Object.keys(wk)) {
@@ -64,6 +64,10 @@ async function syncHeatEat(start, end) {
   for (const we of Object.keys(mu)) {
     if (!exist.has(we) || we > today || we < start) continue;
     if (!ovSet.has('muesli_sold|' + we)) rows.push({ metric_code: 'muesli_sold', period_type: 'week', period_end: we, value: mu[we], source: 'shopify', quality: 'ok', entered_at: new Date().toISOString() });
+  }
+  for (const we of Object.keys(cogsWk)) {
+    if (!exist.has(we) || we > today || we < start) continue;
+    if (!ovSet.has('online_cogs|' + we)) rows.push({ metric_code: 'online_cogs', period_type: 'week', period_end: we, value: Math.round(cogsWk[we] * 100) / 100, source: 'shopify', quality: 'ok', entered_at: new Date().toISOString() });
   }
   for (let i = 0; i < rows.length; i += 400) await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 400)) });
   return { orders, weeks: written.length, sample: wk[weekEndFri(end)] };

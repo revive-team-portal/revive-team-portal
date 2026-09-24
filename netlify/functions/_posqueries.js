@@ -45,11 +45,17 @@ const DEPT_SQL =
   " GROUP BY " + WEEK_END + ", p.Product_Group ORDER BY 1,2;";
 
 const UBER_SQL =
-  "SELECT CONVERT(varchar(10)," + WEEK_END + ",23) AS week_end, SUM(m.MediaAmount) AS uber_sales," +
-  " COUNT(DISTINCT m.Transaction_Number) AS uber_txns" +
-  " FROM EJMediaTable m JOIN EJTable t ON t.Transaction_Number=m.Transaction_Number" +
-  " WHERE m.MediaType IN (3,5) AND t.Receipt_Date_Time >= DATEADD(day,-84,GETDATE())" +
-  " GROUP BY " + WEEK_END + " ORDER BY 1;";
+  "SELECT CONVERT(varchar(10)," + WEEK_END + ",23) AS week_end, SUM(t.media_amt) AS uber_sales," +
+  " COUNT(*) AS uber_txns, SUM(t.covers) AS uber_covers" +
+  " FROM (SELECT tt.Transaction_Number, MIN(tt.Receipt_Date_Time) AS Receipt_Date_Time," +
+  "   SUM(m.MediaAmount) AS media_amt," +
+  "   (SELECT ISNULL(SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END),0)" +
+  "      FROM EJItemsTable i LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
+  "      WHERE i.Transaction_Number=tt.Transaction_Number) AS covers" +
+  "   FROM EJMediaTable m JOIN EJTable tt ON tt.Transaction_Number=m.Transaction_Number" +
+  "   WHERE m.MediaType IN (3,5) AND tt.Receipt_Date_Time >= DATEADD(day,-84,GETDATE())" +
+  "   GROUP BY tt.Transaction_Number) t" +
+  " GROUP BY CONVERT(varchar(10)," + WEEK_END + ",23) ORDER BY 1;";
 async function queueJob(note, sql) {
   const cutoff = new Date(Date.now() - 4 * 60000).toISOString();
   // A recent pending job of this type already covers it — skip.
@@ -107,15 +113,17 @@ async function ingest(note, result) {
   if (note.indexOf('uber-feed') === 0) {
     const { cols, rows } = parseTSV(result); const ix = c => cols.indexOf(c);
     const weeks = await db('week?select=period_end'); const exist = new Set((weeks || []).map(w => w.period_end));
-    const ov = await db("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(uber_total,uber_txns)");
+    const ov = await db("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(uber_total,uber_txns,uber_covers)");
     const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
     const today = new Date().toISOString().slice(0, 10); const now = new Date().toISOString(); const facts = [];
     for (const r of rows) {
       const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > today || wk < cut70) continue;
       const sales = Math.round((Number(r[ix('uber_sales')] || 0)) * 100) / 100;
       const txns = Math.round(Number(r[ix('uber_txns')] || 0));
+      const covers = Math.round(Number(r[ix('uber_covers')] || 0));
       if (!ovSet.has('uber_total|' + wk)) facts.push({ metric_code: 'uber_total', period_type: 'week', period_end: wk, value: sales, source: 'swiftpos', quality: 'ok', entered_at: now });
       if (!ovSet.has('uber_txns|' + wk)) facts.push({ metric_code: 'uber_txns', period_type: 'week', period_end: wk, value: txns, source: 'swiftpos', quality: 'ok', entered_at: now });
+      if (!ovSet.has('uber_covers|' + wk)) facts.push({ metric_code: 'uber_covers', period_type: 'week', period_end: wk, value: covers, source: 'swiftpos', quality: 'ok', entered_at: now });
     }
     for (let i = 0; i < facts.length; i += 400) await db('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(facts.slice(i, i + 400)) });
     return;
