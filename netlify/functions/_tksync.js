@@ -34,6 +34,13 @@ async function fetchWeekEntries(start, end) {
 async function runSync(nWeeks, daysOnly) {
   if (!APPS_KEY || !TK_KEY) throw new Error('missing APPS_SERVICE_ROLE_KEY or TIMEKEEPER_API_KEY');
   const maps = await appsDb('tk_job_map?select=job_id,metric_code,active');
+  // Paid hours = on-site minus one unpaid meal break per qualifying shift (paid 10-min
+  // rest breaks are NOT deducted). Rule is editable in scoreboard.rate_setting.
+  const rs = await appsDb('rate_setting?select=key,value');
+  const rsMap = {}; (rs || []).forEach(r => { rsMap[r.key] = Number(r.value); });
+  const BRK_MIN = isFinite(rsMap.tk_break_minutes) ? rsMap.tk_break_minutes : 30;
+  const BRK_THRESH = isFinite(rsMap.tk_break_min_hours) ? rsMap.tk_break_min_hours : 4.5;
+  const netHours = raw => (raw > BRK_THRESH ? raw - BRK_MIN / 60 : raw);
   const jobMetric = {}; (maps || []).forEach(m => { if (m.active && m.metric_code) jobMetric[m.job_id] = m.metric_code; });
   const weeks = await appsDb('week?select=period_end,trading_days,holiday&order=period_end.desc&limit=' + nWeeks);
   const fridays = (weeks || []).map(w => w.period_end);
@@ -51,7 +58,7 @@ async function runSync(nWeeks, daysOnly) {
     for (const e of w.entries) {
       const mc = jobMetric[e.job_id]; if (!mc) continue;
       const nz = nzDate(e.start_time); if (nz < w.start || nz > w.F) continue;
-      per[mc] = (per[mc] || 0) + (Number(e.duration_in_hours_raw) || 0);
+      per[mc] = (per[mc] || 0) + netHours(Number(e.duration_in_hours_raw) || 0);
     }
     // Trading days = distinct NZ dates the cafe had front-of-house staff. Only set
     // it when the week doesn't already have a (manually entered) value.
