@@ -134,25 +134,18 @@ td.susp:after{content:' ~'}
 .chip{font-family:var(--mono);font-size:10px;letter-spacing:.05em;padding:4px 9px;border-radius:3px;border:1px solid var(--line);background:#fff;color:var(--steel)}
 .chip.done{background:var(--ok-bg);color:#0C6B47;border-color:#B5DFCC}
 .chip.todo{background:var(--warn-bg);color:#8A5E10;border-color:#EBD3A3}
+table.entry{width:auto;min-width:520px}
 table.entry td,table.entry th{border:1px solid var(--line)}
-table.entry td.mname{border-left:0;min-width:230px}
-table.entry input{font-family:var(--mono);font-size:12.5px;text-align:right;border:0;background:transparent;width:100%;padding:8px 9px;color:var(--text);outline:none}
-table.entry input:focus{background:#EAF3FA;box-shadow:inset 0 0 0 2px var(--info)}
-td.cell{padding:0;position:relative}
-td.cell.man input{color:var(--text)}
-td.cell.auto{background:#F4F8FB}
-td.cell.auto input{color:#2A6285}
-td.cell.derived{background:#F7F8F9}
-td.cell.derived input{color:var(--steel);font-style:italic}
-td.cell.ovr{background:#FBF1DE}
-td.cell.ovr input{color:#8A5E10;font-weight:600}
-.pin{position:absolute;top:2px;left:3px;font-size:8px;font-family:var(--mono);color:var(--steel-lt)}
-.cmt{padding:14px 16px}
-.cmt label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);margin:0 0 5px}
-.cmt .row{margin-bottom:13px}
-.cmt input[type=text],.cmt textarea{width:100%;font-family:var(--body);font-size:12.5px;padding:8px 10px;border:1px solid var(--line);border-radius:3px;background:#fff;color:var(--text);resize:vertical}
-.cmt textarea{min-height:52px;line-height:1.55}
-.cmt .half{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+table.entry th{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--steel);text-align:left;padding:7px 12px;background:#FBFCFC}
+table.entry td.mname{border-left:0;min-width:210px;text-align:left;font-family:var(--body);font-weight:500;font-size:13px;color:var(--ink);padding:6px 14px}
+table.entry td.cell{padding:5px 12px;text-align:left}
+table.entry input,table.entry textarea{font-family:var(--body);font-size:13px;border:1px solid var(--line);border-radius:5px;padding:6px 9px;color:var(--ink);background:#fff;outline:none;box-sizing:border-box;vertical-align:middle}
+table.entry input:focus,table.entry textarea:focus{border-color:var(--info);box-shadow:0 0 0 2px #EAF3FA}
+table.entry input.num{width:100px;text-align:right;font-family:var(--mono)}
+table.entry input.txt{width:420px;max-width:60vw}
+table.entry textarea.txt{width:420px;max-width:60vw;height:44px;line-height:1.4;resize:vertical}
+.whoby{padding:9px 16px;font-size:11.5px;color:var(--steel);border-bottom:1px solid var(--line-2)}
+.whoby b{color:var(--ink)}
 .sticky{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:11px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;z-index:5}
 .sticky .msg{font-family:var(--mono);font-size:10.5px;color:var(--steel)}
 .mini{font-family:var(--disp);font-size:12px;letter-spacing:.03em;text-transform:uppercase;padding:8px 15px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-weight:600;color:var(--text)}
@@ -416,46 +409,35 @@ td.der .subn,td .subn{opacity:.85}
             <span v-for="f in feedList" :key="f.name" class="feed" :class="{on:feedIn(f)}"><span class="tick">{{ feedIn(f)?'\u2713':'\u25cb' }}</span>{{ f.name }}</span>
           </div>
         </div>
+        <div class="whoby">Signed in as <b>{{ me||email }}</b> — your name is saved with every entry.<span v-if="editors[entryWeek]"> · Last saved by <b>{{ editors[entryWeek].name }}</b> on {{ shortDate(String(editors[entryWeek].at).slice(0,10)) }}</span></div>
         <div class="scroll"><table class="entry">
-          <thead><tr><th class="mname">Metric</th><th style="width:200px">Value</th></tr></thead>
+          <thead><tr><th class="mname">Item</th><th>Value</th></tr></thead>
           <tbody>
             <template v-for="row in entryRows" :key="row.key||row.sec">
               <tr v-if="row.sec" class="sec"><td class="mname" :colspan="2">{{ row.sec }}</td></tr>
               <tr v-else>
-                <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
-                <td class="cell" :class="entryCellClass(row)">
-                  <span v-if="row.src==='a'" class="pin">auto</span>
-                  <input v-if="row.src!=='d'" v-model="entryVals[row.key]" :placeholder="entryPlaceholder(row)" inputmode="decimal">
-                  <input v-else :value="derivedDisplay(row.key)" readonly placeholder="—">
-                </td>
+                <td class="mname">{{ row.label }}</td>
+                <td class="cell"><input class="num" v-model="entryVals[row.key]" inputmode="decimal" placeholder="—"></td>
               </tr>
             </template>
+            <tr class="sec"><td class="mname" :colspan="2">Week notes</td></tr>
+            <tr v-for="n in ENTRY_NOTES" :key="'n-'+n.key">
+              <td class="mname">{{ n.label }}</td>
+              <td class="cell">
+                <input v-if="n.type==='num'" class="num" v-model="entryNotes[n.key]" inputmode="numeric" placeholder="—">
+                <textarea v-else-if="n.type==='long'" class="txt" v-model="entryNotes[n.key]"></textarea>
+                <input v-else class="txt" type="text" v-model="entryNotes[n.key]" placeholder="—">
+              </td>
+            </tr>
           </tbody>
         </table></div>
-
-        <div style="display:grid;grid-template-columns:1fr;gap:0;border-top:1px solid var(--line)">
-          <div class="cmt">
-            <div class="row"><label>Days note — anything that changed the shape of the week</label><input type="text" v-model="entryNotes.days_note" placeholder="e.g. 4-day week — Matariki"></div>
-            <div class="half">
-              <div class="row"><label>Public holiday</label><input type="text" v-model="entryNotes.holiday"></div>
-              <div class="row"><label>Trading days</label><input type="text" v-model="entryNotes.trading_days" inputmode="numeric"></div>
-            </div>
-            <div class="row"><label>Email offer sent</label><input type="text" v-model="entryNotes.email_offer"></div>
-            <div class="row"><label>Promo detail / channel</label><textarea v-model="entryNotes.promo_comments"></textarea></div>
-            <div class="half">
-              <div class="row"><label>New product / NPD</label><input type="text" v-model="entryNotes.npd"></div>
-              <div class="row"><label>Wages exceptions</label><input type="text" v-model="entryNotes.wages_exceptions"></div>
-            </div>
-            <div class="row"><label>Other</label><input type="text" v-model="entryNotes.other_comments"></div>
-          </div>
-        </div>
 
         <div class="sticky">
           <div class="msg">{{ entryMsg }}</div>
           <div style="display:flex;gap:7px"><button class="mini" @click="loadEntry(entryWeek)">Reset</button><button class="mini pri" @click="saveWeek" :disabled="saving">{{ saving?'Saving…':'Save week' }}</button></div>
         </div>
       </div>
-      <p class="note">Blue cells will fill automatically once the Shopify, Meta, Klaviyo and TimeKeeper feeds are wired in. Type over an auto value and the app keeps the original and records it as an override. Grey cells are calculated and can't be typed in.</p>
+      <p class="note">Enter this week's produced counts, actual wages, waste and any notes. Everything else — cafe till, online sales, margin, ads, hours — fills automatically. Numbers use a small box; notes use a wide box.</p>
     </div>
 
     <!-- ============ POS REPORT MODAL ============ -->
@@ -566,6 +548,7 @@ createApp({
     // raw data
     const metrics=ref([]), weeks=ref([]), targets=ref([]), rates=ref([]);
     const factMap=reactive({});   // code -> { period_end -> {v,q} }
+    const me=ref(''); const editors=reactive({});
     const deptData=ref([]);
     const weekByEnd=reactive({});
 
@@ -801,6 +784,16 @@ createApp({
       {sec:'Wages (actual, from payroll)'},'wages_paid','wages_wopples','wage_budget',
       {sec:'Other'},'cafe_waste_value','resends_refunds',
     ];
+    const ENTRY_NOTES=[
+      {key:'days_note',label:'Days note',type:'text'},
+      {key:'trading_days',label:'Trading days',type:'num'},
+      {key:'holiday',label:'Public holiday',type:'text'},
+      {key:'email_offer',label:'Email offer sent',type:'text'},
+      {key:'promo_comments',label:'Promo detail / channel',type:'long'},
+      {key:'npd',label:'New product / NPD',type:'text'},
+      {key:'wages_exceptions',label:'Wages exceptions',type:'text'},
+      {key:'other_comments',label:'Other',type:'long'},
+    ];
     const entryRows=computed(()=> ENTRY.map(x=> typeof x==='string'? mkRow(x): x));
     function loadEntry(pe){
       entryWeek.value=pe;
@@ -954,7 +947,7 @@ createApp({
       metrics.value=d.metrics||[]; weeks.value=d.weeks||[]; targets.value=d.targets||[]; rates.value=d.rates||[];
       Object.keys(factMap).forEach(k=>delete factMap[k]);
       const f=d.facts||{}; Object.keys(f).forEach(code=>{ const m={}; f[code].forEach(([pe,v,q])=>{ m[pe]={v,q}; }); factMap[code]=m; });
-      deptData.value=d.dept||[];
+      deptData.value=d.dept||[]; me.value=d.me||''; Object.keys(editors).forEach(k=>delete editors[k]); Object.assign(editors, d.editors||{});
       Object.keys(weekByEnd).forEach(k=>delete weekByEnd[k]);
       (d.weeks||[]).forEach(w=>{ weekByEnd[w.period_end]=w; });
       indexMeta();
@@ -1007,7 +1000,7 @@ createApp({
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
       windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
-      entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
+      entryWeek,entryIdx,weeks,entryRows,ENTRY_NOTES,me,editors,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
             fm,shortDate,longDate,colLabel };

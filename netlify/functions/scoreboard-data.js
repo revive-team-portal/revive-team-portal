@@ -93,8 +93,21 @@ exports.handler = async (event) => {
       const facts = await loadFacts(isMgr ? null : TEAM_CODES);
       const pubMetrics = isMgr ? metrics : (metrics || []).filter(m => m.is_public);
       const dept = isMgr ? (await appsDb('pos_dept_week?select=week_end,grp,sales,qty&order=week_end.asc')) : [];
+      // Who last entered each week (manual saves carry entered_by; syncs don't).
+      let editors = {}, meName = auth.user.email;
+      try {
+        const rowsE = await appsDb('fact?select=period_end,entered_by,entered_at&period_type=eq.week&entered_by=not.is.null&order=entered_at.desc&limit=4000');
+        const latest = {};
+        (rowsE || []).forEach(r => { if (!latest[r.period_end]) latest[r.period_end] = { id: r.entered_by, at: r.entered_at }; });
+        const ids = [...new Set(Object.values(latest).map(x => x.id).concat([auth.user.id]))];
+        const profs = ids.length ? await fetch(PORTAL_URL + '/rest/v1/profiles?id=in.(' + ids.join(',') + ')&select=id,full_name,email',
+          { headers: { apikey: PORTAL_KEY, Authorization: 'Bearer ' + PORTAL_KEY } }).then(r => r.json()).catch(() => []) : [];
+        const nameById = {}; (profs || []).forEach(p => { nameById[p.id] = p.full_name || p.email; });
+        Object.keys(latest).forEach(pe => { editors[pe] = { name: nameById[latest[pe].id] || '—', at: latest[pe].at }; });
+        meName = nameById[auth.user.id] || auth.user.email;
+      } catch (e) { /* editor resolution best-effort */ }
       return json(200, {
-        level, email: auth.user.email,
+        level, email: auth.user.email, me: meName, editors,
         metrics: pubMetrics, weeks, facts, targets, rates, dept,
       });
     }
