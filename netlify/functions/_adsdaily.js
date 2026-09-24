@@ -39,7 +39,9 @@ const ORDER_FIELDS = `
     lastVisit{ source sourceType referrerUrl utmParameters{ source medium campaign } } }`;
 
 async function shopifyOrders(startNz, endNz) {
-  const q = 'created_at:>=' + startNz + 'T00:00:00+12:00 AND created_at:<' + shift(endNz, 1) + 'T00:00:00+12:00';
+  // Shopify's created_at search filter does not honour the offset reliably, so pull a
+  // day of padding either side and keep rows by their NZ calendar date.
+  const q = 'created_at:>=' + shift(startNz, -1) + 'T00:00:00Z AND created_at:<' + shift(endNz, 2) + 'T00:00:00Z';
   const build = 'query($q:String!,$after:String){ orders(first:100, query:$q, after:$after, sortKey:CREATED_AT){ pageInfo{ hasNextPage endCursor } nodes{ ' + ORDER_FIELDS + ' } } }';
   const out = []; let after = null;
   for (let g = 0; g < 20; g++) {
@@ -47,11 +49,12 @@ async function shopifyOrders(startNz, endNz) {
     const o = r && r.orders; if (!o) break;
     for (const n of o.nodes) {
       if (n.test) continue;
+      const nzd = NZ.format(new Date(n.createdAt)); if (nzd < startNz || nzd > endNz) continue;
       const j = n.customerJourneySummary || {}; const lv = j.lastVisit || {}, fv = j.firstVisit || {};
       const types = {}; for (const li of ((n.lineItems && n.lineItems.nodes) || [])) { const t = (li.product && li.product.productType) || 'Other'; types[t] = (types[t] || 0) + (li.quantity || 0); }
       const utm = lv.utmParameters || {};
       out.push({ name: n.name, nz_date: NZ.format(new Date(n.createdAt)), amount: Number((n.currentTotalPriceSet && n.currentTotalPriceSet.shopMoney && n.currentTotalPriceSet.shopMoney.amount) || 0),
-        channel: n.sourceName, customer_orders: n.customer ? n.customer.numberOfOrders : null, codes: n.discountCodes || [], types,
+        channel: n.sourceName, customer_orders: n.customer ? Number(n.customer.numberOfOrders) : null, codes: n.discountCodes || [], types,
         moments: (j.momentsCount && j.momentsCount.count) || null, days_to_conv: j.daysToConversion == null ? null : j.daysToConversion,
         last_source: lv.source || null, last_type: lv.sourceType || null, last_ref: lv.referrerUrl || null,
         last_utm: [utm.source, utm.medium, utm.campaign].filter(Boolean).join('|') || null,
