@@ -98,6 +98,11 @@ td.susp:after{content:' ~'}
 .der{color:var(--steel);font-style:normal}
 .scroll{overflow-x:auto}
     .gscroll{max-height:calc(100vh - 96px);overflow:auto}
+    .wknotes{display:flex;flex-direction:column;gap:5px;padding:2px}
+    .wknote{display:flex;gap:10px;font-size:11px;line-height:1.4;border-bottom:1px solid var(--line-2);padding-bottom:5px}
+    .wknote:last-child{border-bottom:none}
+    .wkd{flex:0 0 58px;font-family:var(--mono);font-size:9.5px;color:var(--steel);text-transform:uppercase;letter-spacing:.03em;padding-top:1px}
+    .wkt{flex:1;color:var(--ink)} .wkt b{color:var(--steel);font-weight:600}
 .mname .src{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;padding:1px 4px;border-radius:2px;margin-left:6px;vertical-align:1px}
 .src.a{background:#E4EFF6;color:#2A6285}.src.m{background:#F0EDF6;color:#5B4A85}.src.d{background:var(--line-2);color:var(--steel)}
 .cand{border-bottom:1px dotted var(--info)}
@@ -386,6 +391,16 @@ td.der .subn,td .subn{opacity:.85}
           </tbody>
         </table></div>
       </div>
+      <div class="panel">
+        <div class="ptitle"><h2>Weekly notes &amp; promos</h2><div class="r">offers, promos &amp; comments</div></div>
+        <div class="wknotes">
+          <div class="wknote" v-for="x in weekNotesList" :key="x.w">
+            <span class="wkd">{{ x.label }}</span>
+            <span class="wkt"><template v-if="x.n.email_offer"><b>Offer:</b> {{ x.n.email_offer }} </template><template v-if="x.n.promo_comments"><b>· Promo:</b> {{ x.n.promo_comments }} </template><template v-if="x.n.npd"><b>· NPD:</b> {{ x.n.npd }} </template><template v-if="x.n.wages_exceptions"><b>· Wages:</b> {{ x.n.wages_exceptions }} </template><template v-if="x.n.other_comments"><b>· Other:</b> {{ x.n.other_comments }}</template></span>
+          </div>
+          <div v-if="!weekNotesList.length" class="softnote" style="color:var(--steel-lt)">No notes recorded for these weeks.</div>
+        </div>
+      </div>
     </div>
 
     <!-- ============ ENTER WEEK ============ -->
@@ -542,7 +557,7 @@ const portal = supabase.createClient(PORTAL_URL, PORTAL_ANON);
 
 createApp({
   setup(){
-    const ready=ref(false), gateError=ref(''), level=ref(''), email=ref(''), screen=ref('team');
+    const ready=ref(false), gateError=ref(''), level=ref(''), email=ref(''), screen=ref('manager');
     const msg=ref('');
     let flashT=null;
     function flash(t){ msg.value=t; clearTimeout(flashT); flashT=setTimeout(()=>msg.value='',2600); }
@@ -606,6 +621,7 @@ createApp({
     if(typeof window!=='undefined') window.addEventListener('resize',()=>{ vw.value=window.innerWidth; });
     const windowWeeks=computed(()=> weeks.value.slice(vw.value<640?-6:-13).map(w=>w.period_end));
     const curWeekObj=computed(()=> currentWeek.value? weekByEnd[currentWeek.value] : null);
+    const weekNotesList=computed(()=> [...windowWeeks.value].reverse().map(w=>({w,label:colLabel(w),n:weekByEnd[w]||{}})).filter(x=> x.n.email_offer||x.n.promo_comments||x.n.npd||x.n.other_comments||x.n.wages_exceptions||x.n.days_note));
 
     // ---------- targets ----------
     function storedTarget(code,pe){
@@ -770,18 +786,16 @@ createApp({
     // ---------- ENTRY ----------
     const entryWeek=ref(null);
     const entryIdx=computed(()=> weeks.value.findIndex(w=>w.period_end===entryWeek.value));
-    const entryVals=reactive({}), entryNotes=reactive({}), saving=ref(false), entryMsg=ref('');
-    const ENTRY_INPUTS=['cafe_sales','online_sales','catering_sales','uber_total','cafe_customers','online_orders','resends_refunds','orders_not_sent',
-      ...HOURS,'hours_wopples','wages_paid','wages_wopples','wage_budget','ad_spend','online_cogs','online_gross_profit','cafe_waste_value',
-      'mueslis_packed','heat_eat_sold','meals_packed','ingredients_packed'];
+    const entryVals=reactive({}), entryNotes=reactive({}), entryNotesOrig=reactive({}), saving=ref(false), entryMsg=ref('');
+    const ENTRY_INPUTS=['cafe_sales','cafe_customers','uber_total','resends_refunds','orders_not_sent',
+      'wages_paid','wages_wopples','wage_budget','online_cogs','online_gross_profit','cafe_waste_value',
+      'mueslis_packed','meals_packed','ingredients_packed'];
     const ENTRY=[
-      {sec:'Sales'},'cafe_sales','online_sales','total_sales','catering_sales','uber_total',
-      {sec:'Customers & orders'},'cafe_customers','online_orders','resends_refunds','orders_not_sent','perfect_order_rate',
-      {sec:'Labour — hours by area'},...HOURS,'hours_wopples','total_hours',
+      {sec:'Cafe — from till receipt'},'cafe_sales','cafe_customers','uber_total',
+      {sec:'Service'},'resends_refunds','orders_not_sent',
       {sec:'Wages'},'wages_paid','wages_wopples','wage_budget',
-      {sec:'Advertising'},'ad_spend',
       {sec:'Margin'},'online_cogs','online_gross_profit','cafe_waste_value',
-      {sec:'Production'},'mueslis_packed','heat_eat_sold','meals_packed','heat_eat_net','ingredients_packed',
+      {sec:'Production'},'mueslis_packed','meals_packed','ingredients_packed',
     ];
     const entryRows=computed(()=> ENTRY.map(x=> typeof x==='string'? mkRow(x): x));
     function loadEntry(pe){
@@ -790,6 +804,8 @@ createApp({
       ENTRY_INPUTS.forEach(code=>{ const f=base(code,pe); entryVals[code]= f.v==null?'':String(f.v); });
       const w=weekByEnd[pe]||{};
       ['days_note','holiday','trading_days','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ entryNotes[k]= w[k]==null?'':w[k]; });
+      Object.keys(entryNotesOrig).forEach(k=>delete entryNotesOrig[k]);
+      ['days_note','holiday','trading_days','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ entryNotesOrig[k]=entryNotes[k]; });
       entryMsg.value='Week loaded — edit any value and Save.';
     }
     function stepWeek(d){ const i=entryIdx.value+d; if(i>=0&&i<weeks.value.length) loadEntry(weeks.value[i].period_end); }
@@ -872,8 +888,8 @@ createApp({
         const values={};
         ENTRY_INPUTS.forEach(code=>{ const raw=entryVals[code]; if(raw===''||raw==null){ values[code]=null; } else { const n=Number(String(raw).replace(/[^0-9.\-]/g,'')); values[code]=isNaN(n)?null:n; } });
         const notes={};
-        ['days_note','holiday','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ notes[k]= entryNotes[k]===''?null:entryNotes[k]; });
-        if(entryNotes.trading_days!==''&&entryNotes.trading_days!=null){ const _td=Number(String(entryNotes.trading_days).replace(/[^0-9.\-]/g,'')); notes.trading_days=isNaN(_td)?null:_td; }
+        ['days_note','holiday','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ const cur=entryNotes[k]===''?null:entryNotes[k]; const orig=(entryNotesOrig[k]===''||entryNotesOrig[k]==null)?null:entryNotesOrig[k]; if(cur!==orig) notes[k]=cur; });
+        if(String(entryNotes.trading_days??'')!==String(entryNotesOrig.trading_days??'')){ if(entryNotes.trading_days!==''&&entryNotes.trading_days!=null){ const _td=Number(String(entryNotes.trading_days).replace(/[^0-9.\-]/g,'')); notes.trading_days=isNaN(_td)?null:_td; } else { notes.trading_days=null; } }
         const r=await callData({action:'save_week',period_end:entryWeek.value,values,notes});
         await refresh(); loadEntry(entryWeek.value);
         const t=new Date().toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit'});
@@ -942,7 +958,7 @@ createApp({
     async function refresh(){ const d=await callData({action:'board'}); ingest(d); }
 
     const tabs=computed(()=>{
-      const t=[{id:'team',label:'Team board'}];
+      const t=[];
       if(level.value==='manager') t.push({id:'manager',label:'Manager view'});
       if(level.value!=='team') t.push({id:'enter',label:'Enter week'});
       if(level.value==='manager') t.push({id:'targets',label:'Targets'});
@@ -953,7 +969,7 @@ createApp({
     async function loadBoard(){
       const d=await callData({action:'board'});
       level.value=d.level; email.value=d.email||email.value; ingest(d);
-      if(level.value==='team') screen.value='team';
+      screen.value='manager';
       entryWeek.value=currentWeek.value; if(level.value!=='team') loadEntry(currentWeek.value);
       if(level.value==='manager'){ initTargetForm(); initTopline(); }
     }
@@ -986,7 +1002,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,weekNotesList,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
