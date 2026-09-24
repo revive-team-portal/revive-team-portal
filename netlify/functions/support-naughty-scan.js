@@ -2,15 +2,18 @@
 // returns the current scan status. Frontend polls the naughty list + scan status.
 const { json, validatePortalUser } = require('./_portal');
 const { rest, hasKey } = require('./_appsdb');
+const { runResendScan } = require('./_naughtyscan');
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
   const a = await validatePortalUser(event, 'support');
   if (!a.ok) return json(a.status || 403, { error: a.error });
   if (!hasKey()) return json(500, { error: 'Not configured.' });
   let body = {}; try { body = JSON.parse(event.body || '{}'); } catch (e) {}
+  // Fast pass (zero-value resends -> destroyed originals) runs right here so results are immediate.
+  let resend = null; try { resend = await runResendScan(Number(body.days) || 35); } catch (e) { resend = { error: String(e && e.message || e) }; }
   const base = process.env.URL || 'https://team.revive.co.nz';
   require('./_runkey').internalFetch('support-naughty-scan-background?days=' + (Number(body.days) || 35)).catch(() => {});
   try { await rest('naughty_scan?id=eq.1', { method:'PATCH', headers:{Prefer:'return=minimal'}, body: JSON.stringify({ status:'running', updated_at:new Date().toISOString() }) }); } catch (e) {}
   let status = null; try { const r = await rest('naughty_scan?id=eq.1&select=*'); status = (r && r[0]) || null; } catch (e) {}
-  return json(202, { started: true, status });
+  return json(202, { started: true, resend, status });
 };
