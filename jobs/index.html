@@ -2638,6 +2638,7 @@ const app = createApp({
     // ============ INTERVIEW INVITES ============
     const showInvitePreview = ref(false);
     const inviteErrors = ref([]);
+    const queuedCount = ref(0);
 
     const invitesAlreadySent = computed(() => tickedApplicants.value.filter(a => a.interview_invite_sent).length);
     const invitesMissingEmail = computed(() => tickedApplicants.value.filter(a => !a.email).length);
@@ -2685,6 +2686,7 @@ const app = createApp({
 
       sendingInvites.value = true;
       inviteErrors.value = [];
+      queuedCount.value = 0;
       const failed = [];
       try {
         for (const app of list) {
@@ -2698,6 +2700,9 @@ const app = createApp({
         }
       } finally {
         sendingInvites.value = false;
+        if (queuedCount.value) {
+          alert(`${queuedCount.value} of these reached today's send limit and are queued — they'll go out automatically tomorrow morning.`);
+        }
         if (inviteErrors.value.length) alert('Interview invites:\n\n' + inviteErrors.value.join('\n'));
         if (!failed.length) clearTicks();
       }
@@ -2717,6 +2722,7 @@ const app = createApp({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'interview_invite',
+            bulk: tickedApplicants.value.length > 1,
             applicationId: app.id,
             jobId: selectedJob.value.id,
             employerEmail: selectedJob.value.employer_email,
@@ -2740,6 +2746,7 @@ const app = createApp({
           inviteErrors.value.push(`${app.full_name}: ${out.error || 'email service returned ' + res.status}`);
           return false;
         }
+        if (out.queued) queuedCount.value++;
 
         const { error } = await sb.from('applications').update({
           interview_invite_sent: true,
@@ -3753,7 +3760,7 @@ const app = createApp({
       ticked, tickedApplicants, allTicked, toggleTick, toggleAllTicks, clearTicks,
       showDeleted, deletedCount, restoreApplication,
       runAiShortlist, aiShortlistRunning, aiShortlistCount,
-      showInvitePreview, inviteErrors, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
+      showInvitePreview, inviteErrors, queuedCount, invitePreview, invitePreviewName, invitesAlreadySent, invitesMissingEmail,
       openInvitePreview, confirmSendInvites,
       connections, filteredConnections, loadingConnections, connectionSearch,
       showAddConnection, savingConnection, connError, connForm, connFile, connFileInput,
