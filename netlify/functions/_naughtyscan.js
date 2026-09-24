@@ -9,7 +9,7 @@ const { rest } = require('./_appsdb');
 function daysAgoISO(n){ const d=new Date(); d.setUTCDate(d.getUTCDate()-n); return d.toISOString().slice(0,10); }
 function daysBetween(a,b){ return Math.round((new Date(b)-new Date(a))/86400000); }
 
-const ORDER_Q = `query($q:String!,$after:String){ orders(first:20, query:$q, after:$after){ pageInfo{ hasNextPage endCursor } edges { node {
+const ORDER_Q = `query($q:String!,$after:String){ orders(first:30, query:$q, after:$after, sortKey:CREATED_AT, reverse:true){ pageInfo{ hasNextPage endCursor } edges { node {
   name createdAt displayFulfillmentStatus
   totalPriceSet{ shopMoney{ amount } } currentTotalPriceSet{ shopMoney{ amount } }
   customer{ firstName lastName email }
@@ -76,7 +76,7 @@ async function runScan(opts={}){
 
   const statuses={}; const eventStatuses={}; const samples=[]; let scanned=0, tracked=0, flagged=0;
   let after=null, pages=0;
-  while(pages<8){
+  while(pages<40){
     const d=await gql(ORDER_Q, { q, after });
     const conn=d.orders; const edges=(conn&&conn.edges)||[];
     for(const e of edges){
@@ -105,7 +105,7 @@ async function runScan(opts={}){
         else if(desp && daysBetween(desp, new Date().toISOString())>12){ reason='No scan / stuck ('+daysBetween(desp, new Date().toISOString())+'d)'; detail=eventsText.slice(0,240); }
       }
       if(samples.length<25) samples.push({ order:o.name, status, flagged: !!reason, reason: reason||null });
-      if(!reason){ await sleep(350); continue; }
+      if(!reason){ await sleep(250); continue; }
 
       flagged++;
       const email=(o.customer&&o.customer.email)||'';
@@ -139,9 +139,9 @@ function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 // earlier paid order for the same items — the order that was destroyed. Flag those originals.
 async function runResendScan(days){
   const since=daysAgoISO(Number(days)||35);
-  const RS_Q = `query($q:String!,$after:String){ orders(first:40, query:$q, after:$after){ pageInfo{hasNextPage endCursor} edges{ node{ name createdAt totalPriceSet{ shopMoney{ amount } } customer{ email firstName lastName } lineItems(first:15){ edges{ node{ title sku } } } } } } }`;
+  const RS_Q = `query($q:String!,$after:String){ orders(first:50, query:$q, after:$after, sortKey:CREATED_AT, reverse:true){ pageInfo{hasNextPage endCursor} edges{ node{ name createdAt totalPriceSet{ shopMoney{ amount } } customer{ email firstName lastName } lineItems(first:15){ edges{ node{ title sku } } } } } } }`;
   const resends=[]; let after=null, pages=0;
-  while(pages<10){
+  while(pages<30){
     const d=await gql(RS_Q, { q:'created_at:>='+since, after });
     const conn=d.orders; const edges=(conn&&conn.edges)||[];
     for(const e of edges){ const o=e.node; const total=Number((o.totalPriceSet&&o.totalPriceSet.shopMoney&&o.totalPriceSet.shopMoney.amount)||0); if(total===0 && ((o.customer&&o.customer.email))) resends.push(o); }
