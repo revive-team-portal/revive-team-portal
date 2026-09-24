@@ -73,3 +73,7 @@
 # Nightly, after the sync: tag any newly-seen videos. Self-limiting batch.
 [functions."ads-video-cron"]
   schedule = "35 17 * * *"
+
+# Daily Meta ads analysis email to Jeremy, 07:30 NZ (18:30 UTC in NZDT).
+[functions."ads-daily-cron"]
+  schedule = "30 18 * * *"
