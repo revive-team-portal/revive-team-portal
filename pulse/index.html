@@ -133,7 +133,7 @@ const portal = createClient(PORTAL_URL, PORTAL_ANON);
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { db:{ schema:'pulse' } });
 
 const $=id=>document.getElementById(id);
-const esc=s=>(s??'').toString().replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let toastT; function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
 const QTYPES=['info','image','short_text','long_text','radio','checkbox','dropdown','rating','yes_no','number','date','email','email_klaviyo','staff'];
 const CHOICE=new Set(['radio','checkbox','dropdown','staff']);
@@ -449,6 +449,9 @@ async function renderSetup(){
     <div class="two">
       <div class="field"><label>Send completion email to respondent</label><select id="f_ce"><option value="true" ${s.send_completion_email?'selected':''}>Yes</option><option value="false" ${!s.send_completion_email?'selected':''}>No</option></select></div>
       <div class="field"><label>Post opt-in reviews to Judge.me</label><select id="f_jm"><option value="true" ${s.judgeme_enabled?'selected':''}>Yes</option><option value="false" ${!s.judgeme_enabled?'selected':''}>No</option></select></div>
+    </div>
+    <div class="two">
+      <div class="field"><label>Colour-code answers in notification emails</label><select id="f_color"><option value="true" ${s.color_code?'selected':''}>Yes</option><option value="false" ${!s.color_code?'selected':''}>No</option></select><small style="color:var(--muted)">Green = positive, red = negative; names/dishes stay black.</small></div>
     </div>`;
   if(true){ h+=`<div class="two">
       <div class="field"><label>Competition draw</label><select id="f_draw">${['none','on_close','monthly'].map(x=>`<option ${s.draw_mode===x?'selected':''}>${x}</option>`).join('')}</select></div>
@@ -511,7 +514,7 @@ async function saveSetup(){
   const patch={ title:g('f_title'), slug:g('f_slug').trim(), status:g('f_status'), type:g('f_type'),
     intro:g('f_intro'), thankyou_message:g('f_ty'),
     notify_emails:g('f_notify').split(',').map(x=>x.trim()).filter(Boolean), notify_mode:g('f_notifymode'),
-    send_completion_email:g('f_ce')==='true', judgeme_enabled:g('f_jm')==='true',
+    send_completion_email:g('f_ce')==='true', judgeme_enabled:g('f_jm')==='true', color_code:g('f_color')==='true',
     draw_mode:g('f_draw'), draw_enabled:g('f_draw')!=='none', draw_prize:g('f_prize'), updated_at:new Date().toISOString() };
   const { error }=await sb.from('surveys').update(patch).eq('id',current.id);
   if(error){ toast('Error: '+error.message); return; }

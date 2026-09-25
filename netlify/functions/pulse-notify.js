@@ -1,12 +1,31 @@
 // Pulse notifications — emails a survey's notify_emails when a new response arrives.
-// Uses the portal's shared mailer (_mail.js → Resend when RESEND_KEY is set, else Gmail).
-// Called server-to-server by the Pulse submit edge function (notify_mode = 'each').
+// Uses the portal's shared mailer (_mail.js → Resend when configured, else Gmail).
+// Customer name/email are hidden so it can be shared with staff. Each response has a #.
+// If the survey has color_code on, answers are colour-coded (green good … red bad);
+// names/dishes/free text stay black. Question titles are small grey; answers are bold.
 const { sendMail } = require('./_mail');
 
 const APPS_URL = 'https://xcwrawjdfajlmbkdwlbm.supabase.co';
 const KEY = process.env.APPS_SERVICE_ROLE_KEY;
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function sb(path){ return fetch(APPS_URL+path,{ headers:{ apikey:KEY, Authorization:'Bearer '+KEY, 'Accept-Profile':'pulse' } }); }
+
+const C = { green:'#2e7d32', lgreen:'#6aa84f', amber:'#b7791f', orange:'#d9622b', red:'#c0392b', black:'#243029' };
+function colorForFraction(f){ if(f>=0.8)return C.green; if(f>=0.6)return C.lgreen; if(f>=0.4)return C.amber; if(f>=0.2)return C.orange; return C.red; }
+function colorForRating(n, scale){
+  n=Number(n); if(isNaN(n)||!scale) return null;
+  if(scale>=9){ if(n>=9)return C.green; if(n>=7)return C.amber; return C.red; }   // NPS bands
+  return colorForFraction((n-1)/(scale-1));
+}
+function colorForChoice(v){
+  const s=String(v||'').trim().toLowerCase();
+  if(/(strongly disagree|very dissatisfied|very poor|terrible|awful|definitely not)/.test(s)) return C.red;
+  if(/(strongly agree|very satisfied|very good|excellent)/.test(s)) return C.green;
+  if(/(^|\W)(disagree|dissatisfied|poor|unlikely|probably not)(\W|$)/.test(s)) return C.orange;
+  if(/(^|\W)(agree|satisfied|good|likely|probably)(\W|$)/.test(s)) return C.lgreen;
+  if(/(neutral|neither|average|^ok(ay)?$|unsure|maybe|sometimes|n\/?a)/.test(s)) return C.amber;
+  return null; // unknown → not coloured
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode:405, body:'Method not allowed' };
@@ -17,25 +36,36 @@ exports.handler = async (event) => {
   const { survey_id, response_id } = b;
   if (!survey_id || !response_id) return { statusCode:400, body:'missing ids' };
 
-  const survey = (await (await sb('/rest/v1/surveys?id=eq.'+survey_id+'&select=title,notify_emails,slug')).json())[0];
+  const survey = (await (await sb('/rest/v1/surveys?id=eq.'+survey_id+'&select=title,notify_emails,slug,color_code')).json())[0];
   if (!survey || !Array.isArray(survey.notify_emails) || !survey.notify_emails.length) return { statusCode:200, body:'no recipients' };
   const resp = (await (await sb('/rest/v1/responses?id=eq.'+response_id+'&select=seq,respondent_name,respondent_email,submitted_at,meta')).json())[0] || {};
-  const questions = await (await sb('/rest/v1/questions?survey_id=eq.'+survey_id+'&select=id,label,type,sort_order&order=sort_order')).json();
+  const questions = await (await sb('/rest/v1/questions?survey_id=eq.'+survey_id+'&select=id,label,type,sort_order,settings&order=sort_order')).json();
   const answers = await (await sb('/rest/v1/answers?response_id=eq.'+response_id+'&select=question_id,value,value_options,value_number')).json();
   const amap = {}; (answers||[]).forEach(a => amap[a.question_id] = a);
 
-  // Anonymised for confidential sharing with staff: hide the customer's name & email.
+  const cc = !!survey.color_code;
   const name = (resp.respondent_name || '').trim().toLowerCase();
   const email = (resp.respondent_email || '').trim().toLowerCase();
-  const isIdentity = (v) => { const s = String(v||'').trim().toLowerCase(); return s && (s === name || s === email || (email && s.includes('@') && s === email)); };
+  const isIdentity = (v) => { const s=String(v||'').trim().toLowerCase(); return s && (s===name || s===email); };
+
   const rows = (questions||[])
     .filter(q => q.type!=='info' && q.type!=='image' && q.type!=='email' && q.type!=='email_klaviyo')
     .map(q => {
       const a = amap[q.id]; if (!a) return '';
       const v = a.value_options ? a.value_options.join(', ') : (a.value != null ? a.value : (a.value_number != null ? a.value_number : ''));
       if (v==='' || v==null) return '';
-      if (isIdentity(v)) return '';                    // skip answers that are the customer's name/email
-      return `<p style="margin:7px 0"><strong>${esc(q.label)}</strong><br>${esc(String(v))}</p>`;
+      if (isIdentity(v)) return '';
+      const scale = q.settings && q.settings.scale;
+      let color = C.black;
+      if (cc) {
+        if (q.type==='rating') { const c=colorForRating(a.value_number!=null?a.value_number:v, scale); if(c) color=c; }
+        else if (q.type==='radio' || q.type==='dropdown') { const c=colorForChoice(v); if(c) color=c; }
+      }
+      const disp = (q.type==='rating' && scale) ? `${v} / ${scale}` : String(v);
+      return `<div style="margin:11px 0">
+        <div style="font-size:11.5px;color:#8a938c;margin-bottom:1px">${esc(q.label)}</div>
+        <div style="font-weight:700;font-size:14px;color:${color}">${esc(disp)}</div>
+      </div>`;
     }).join('');
 
   const collector = resp.meta && resp.meta.collector ? `${esc(resp.meta.collector)} · ` : '';
