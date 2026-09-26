@@ -18,7 +18,7 @@
     + '.rtb-lab{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.9;font-weight:600}'
     + '.rtb-seg b{font-size:17px;font-weight:800;letter-spacing:-.01em;color:#fff}'
     + '.rtb-tstamp{font-size:11.5px;opacity:.8;margin-left:4px}'
-    + '.rtb-rf{cursor:pointer;color:#fff;text-decoration:none;font-size:24px;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;transition:background .15s,transform .1s}.rtb-rf:hover{background:rgba(255,255,255,.18)}.rtb-rf:active{transform:scale(.82)}.rtb-rf.rtb-spin{animation:rtbspin .8s linear infinite}@keyframes rtbspin{to{transform:rotate(360deg)}}'
+    + '.rtb-rf{cursor:pointer;color:#fff;text-decoration:none;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;transition:background .15s,transform .1s}.rtb-rf:hover{background:rgba(255,255,255,.18)}.rtb-rf:active{transform:scale(.9)}.rtb-rf svg{width:17px;height:17px;display:block}.rtb-rf.rtb-spin svg{animation:rtbspin .7s linear infinite;transform-origin:50% 50%}@keyframes rtbspin{to{transform:rotate(360deg)}}'
     + '.rtb-load{font-weight:800;font-size:14px;margin-right:6px}'
     + '.rtb-src{font-size:13px;opacity:.82;display:inline-flex;align-items:center;gap:5px}.rtb-src.rtb-done{opacity:1;font-weight:700}'
     + '.rtb-main{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;min-height:44px}'
@@ -95,7 +95,7 @@
     } else {
       tbl = '<div class="rtb-wrap">' + periodCells(today, function (x) { return x; }) + '</div>';
     }
-    var ctrl = '<div class="rtb-extra">' + extra + '<span class="rtb-tstamp">as at ' + hm(now) + '</span><a class="rtb-rf" title="Refresh">↻</a><button class="rtb-plus" title="Yesterday & week to date">' + (open ? '−' : '+') + '</button></div>';
+    var ctrl = '<div class="rtb-extra">' + extra + '<span class="rtb-tstamp">as at ' + hm(now) + '</span><a class="rtb-rf" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></a><button class="rtb-plus" title="Yesterday & week to date">' + (open ? '−' : '+') + '</button></div>';
     bar.innerHTML = '<div class="rtb-flexwrap">' + tbl + ctrl + '</div>';
     bar.classList.toggle('rtb-open', open);
     bar.classList.remove('rtb-hidden'); shown = true;
