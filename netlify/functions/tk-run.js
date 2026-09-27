@@ -5,6 +5,6 @@ exports.handler = async (event) => {
   if (!(await guard(event)).ok) return { statusCode: 403, body: 'nope' };
   const n = Math.min(Math.max(parseInt(qp.weeks || 6, 10) || 6, 1), 15);
   const daysOnly = qp.mode === 'days';
-  try { const s = await runSync(n, daysOnly); return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true, summary: s }, null, 1) }; }
+  try { const s = await runSync(n, daysOnly, (qp.from && qp.to) ? { from: qp.from, to: qp.to } : null); return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true, summary: s }, null, 1) }; }
   catch (e) { return { statusCode: 500, body: String(e.message || e) }; }
 };

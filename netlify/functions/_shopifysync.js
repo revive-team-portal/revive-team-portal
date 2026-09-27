@@ -31,7 +31,7 @@ async function fetchOrders(startUTC, endUTC) {
   return all;
 }
 
-async function syncShopify(start, end) {
+async function syncShopify(start, end, full) {
   const startUTC = addDays(start, -1) + 'T00:00:00Z';
   const endUTC = addDays(end, 1) + 'T00:00:00Z';
   const orders = await fetchOrders(startUTC, endUTC);
@@ -57,7 +57,7 @@ async function syncShopify(start, end) {
   const cutoff = new Date(Date.now() - 50 * 86400000).toISOString().slice(0, 10);
   const rows = []; const written = [];
   for (const we of Object.keys(wk)) {
-    if (!exist.has(we) || we > curFri || we < cutoff) continue;
+    if (!exist.has(we) || we > curFri || (!full && we < cutoff)) continue;   // full=true: deliberate history backfill (app now has read_all_orders)
     const now = new Date().toISOString();
     if (!ovSet.has('online_sales|' + we)) rows.push({ metric_code: 'online_sales', period_type: 'week', period_end: we, value: Math.round(wk[we].sales * 100) / 100, source: 'shopify', quality: 'ok', entered_at: now });
     if (!ovSet.has('online_orders|' + we)) rows.push({ metric_code: 'online_orders', period_type: 'week', period_end: we, value: wk[we].orders, source: 'shopify', quality: 'ok', entered_at: now });

@@ -6,6 +6,6 @@ exports.handler = async (event) => {
   if (!(await guard(event)).ok) return { statusCode: 403, body: 'nope' };
   const end = qp.end || new Date().toISOString().slice(0, 10);
   const start = qp.start || '2022-01-01';
-  try { const s = await syncShopify(start, end); return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true, ...s }) }; }
+  try { const s = await syncShopify(start, end, qp.full === '1'); return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true, ...s }) }; }
   catch (e) { return { statusCode: 500, body: String(e.message || e) }; }
 };
