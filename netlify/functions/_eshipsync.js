@@ -67,7 +67,14 @@ async function syncShipping(sinceShipDate, maxOrders) {
 // Aggregate order_shipping -> weekly facts. Cost & subsidy attributed to the SALE
 // week (matches revenue); parcels to the SHIP week (operational). Skips overrides.
 async function rollupWeeks() {
-  const rows = await appsDb('order_shipping?select=sale_week,ship_week,actual_cost,subsidy&limit=100000');
+  // PostgREST caps a single response (Supabase max-rows), so page through — an un-paged
+  // read silently truncated order_shipping and undercounted parcels/cost.
+  let rows = []; const PAGE = 1000;
+  for (let off = 0; ; off += PAGE) {
+    const pg = await appsDb('order_shipping?select=sale_week,ship_week,actual_cost,subsidy&order=order_id.asc&limit=' + PAGE + '&offset=' + off);
+    if (pg && pg.length) rows = rows.concat(pg);
+    if (!pg || pg.length < PAGE) break;
+  }
   const bySale = {}, byShip = {};
   for (const r of (rows || [])) {
     if (r.sale_week) { const b = bySale[r.sale_week] || (bySale[r.sale_week] = { cost: 0, sub: 0 }); b.cost += Number(r.actual_cost || 0); b.sub += Number(r.subsidy || 0); }
