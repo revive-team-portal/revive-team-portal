@@ -16,6 +16,7 @@ async function appsDb(path, opts = {}) {
   const t = await res.text(); if (!res.ok) throw new Error('DB ' + res.status + ': ' + t.slice(0, 160));
   return t ? JSON.parse(t) : null;
 }
+function addDays(ymd, n) { const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 function weekEndFri(ymd) { const d = new Date(ymd + 'T00:00:00Z'); const add = (5 - d.getUTCDay() + 7) % 7; d.setUTCDate(d.getUTCDate() + add); return d.toISOString().slice(0, 10); }
 
 async function fetchInsights(since, until) {
@@ -46,7 +47,9 @@ async function syncMeta(start, end) {
   const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
   const rows = []; const written = [];
   for (const we of Object.keys(wk)) {
-    if (!exist.has(we) || we > curFri) continue;
+    // Only write a week whose whole Sat–Fri span is inside the fetched window — the
+    // oldest week in a windowed fetch is a partial sum and must NOT overwrite a full one.
+    if (!exist.has(we) || we > curFri || addDays(we, -6) < start) continue;
     if (!ovSet.has('ad_spend|' + we)) rows.push({ metric_code: 'ad_spend', period_type: 'week', period_end: we, value: Math.round(wk[we] * 100) / 100, source: 'meta', quality: 'ok', entered_at: new Date().toISOString() });
     written.push(we);
   }
