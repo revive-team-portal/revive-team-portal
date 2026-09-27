@@ -15,7 +15,9 @@ const WEEKLY_SQL =
   " SUM(CASE WHEN p.Product_Group IN (1,2) THEN i.Qty ELSE 0 END) AS customers," +
   " SUM(CASE WHEN p.Product_Group=4 THEN i.Qty ELSE 0 END) AS sweets," +
   " SUM(CASE WHEN p.Product_Group=5 THEN i.Qty ELSE 0 END) AS drinks," +
-  " SUM(CASE WHEN p.Product_Group=6 THEN i.Qty ELSE 0 END) AS shop" +
+  " SUM(CASE WHEN p.Product_Group=6 THEN i.Qty ELSE 0 END) AS shop," +
+  " SUM(CASE WHEN p.Product_Group=8 AND (p.Description LIKE 'Flyer%' OR p.Description LIKE 'OfficeFlyer%') THEN i.Qty ELSE 0 END) AS share_flyers," +
+  " SUM(CASE WHEN p.Product_Group=1 AND p.Description LIKE '%VIP%' THEN i.Qty ELSE 0 END) AS vip" +
   " FROM EJItemsTable i JOIN EJTable t ON t.Transaction_Number=i.Transaction_Number" +
   " LEFT JOIN ProductTable p ON p.Inventory_Code=i.InventoryCode" +
   " WHERE t.Receipt_Date_Time >= DATEADD(day,-84,GETDATE()) GROUP BY " + WEEK_END + " ORDER BY 1;";
@@ -95,11 +97,11 @@ async function ingest(note, result) {
   if (note.indexOf('weekly-feed') === 0) {
     const { cols, rows } = parseTSV(result); const ix = c => cols.indexOf(c);
     const weeks = await db('week?select=period_end'); const exist = new Set((weeks || []).map(w => w.period_end));
-    const ov = await db("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(cafe_sales,cafe_customers,sweets_sold,drinks_sold,shop_sold)");
+    const ov = await db("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(cafe_sales,cafe_customers,sweets_sold,drinks_sold,shop_sold,cafe_share_flyers,cafe_vip_card)");
     const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
     const today = new Date().toISOString().slice(0, 10); const now = new Date().toISOString();
     const _cf = new Date(today + 'T00:00:00Z'); _cf.setUTCDate(_cf.getUTCDate() + ((5 - _cf.getUTCDay() + 7) % 7)); const curFri = _cf.toISOString().slice(0, 10);
-    const map = { cafe_sales: 'cafe_sales', cafe_customers: 'customers', sweets_sold: 'sweets', drinks_sold: 'drinks', shop_sold: 'shop' };
+    const map = { cafe_sales: 'cafe_sales', cafe_customers: 'customers', sweets_sold: 'sweets', drinks_sold: 'drinks', shop_sold: 'shop', cafe_share_flyers: 'share_flyers', cafe_vip_card: 'vip' };
     const facts = [];
     for (const r of rows) {
       const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > curFri || wk < cut70) continue;
