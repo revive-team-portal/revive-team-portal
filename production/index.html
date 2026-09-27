@@ -138,25 +138,18 @@
         <div class="flex items-center justify-between mb-3">
           <h1 class="text-lg font-bold text-stone-800">Production Plan</h1>
         </div>
-        <div v-if="isSupervisor" class="bg-white border border-stone-200 rounded-xl p-3 mb-3">
-          <p class="text-xs text-stone-500 mb-2">Pick a flavour, set packs, then tap future days to add it to the plan.</p>
-          <div class="flex flex-wrap items-center gap-2">
-            <button v-for="f in paletteFlavours" :key="f" @click="selPlan = selPlan===f ? '' : f" class="text-xs px-2.5 py-1 rounded-lg border" :style="!specialFlavour(f) ? {borderColor:flavourColour(f), background:(selPlan===f?flavourColour(f):'#fff'), color:(selPlan===f?textOn(flavourColour(f)):'#374151')} : {}" :class="specialFlavour(f)?(selPlan===f?'bg-stone-600 text-white border-stone-600':'bg-stone-100 text-stone-600 border-stone-300'):''">{{ f }}</button>
-            <span class="text-xs text-stone-400 ml-1">packs</span><input v-model.number="placeQty" type="number" class="w-16 border border-stone-300 rounded px-2 py-1 text-sm text-right">
-            <input v-model="placeNote" type="text" placeholder="note (optional)" class="flex-1 min-w-[8rem] border border-stone-300 rounded px-2 py-1 text-sm">
-          </div>
-        </div>
+        <p v-if="isSupervisor" class="text-xs text-stone-500 mb-3">Tap any upcoming day to plan a flavour, quantity and production note.</p>
         <div class="bg-white border border-stone-200 rounded-xl overflow-x-auto">
           <table class="w-full text-xs table-fixed" style="min-width:760px">
-            <thead><tr class="text-stone-400 border-b border-stone-100"><th class="p-1.5 text-left" style="width:58px">W/E Fri</th><th v-for="d in ['Sat','Sun','Mon','Tue','Wed','Thu','Fri']" :key="d" class="p-1.5">{{ d }}</th></tr></thead>
+            <thead><tr class="text-stone-400 border-b border-stone-100"><th class="p-1 text-left" style="width:58px">W/E Fri</th><th v-for="d in ['Sat','Sun','Mon','Tue','Wed','Thu','Fri']" :key="d" class="p-1">{{ d }}</th></tr></thead>
             <tbody>
               <tr v-for="wk in calendarWeeks" :key="wk.start" class="border-t border-stone-100">
-                <td class="p-1.5 text-stone-500 font-medium align-top whitespace-nowrap">{{ wk.label }}</td>
-                <td v-for="day in wk.days" :key="day.date" @click="placeOnDay(day)" class="p-1 border-l border-stone-50 align-top" :class="[day.isPast?'bg-stone-50':'', (isSupervisor && !day.isPast && selPlan)?'cursor-pointer hover:bg-green-50':'']">
-                  <div style="height:54px;overflow-y:auto">
-                    <div class="text-[10px] text-right mb-0.5" :class="day.isToday?'text-green-700 font-bold':'text-stone-300'">{{ day.dayNum }}</div>
-                    <template v-if="day.isPast"><div v-for="a in day.actual" :key="a.flavour" class="text-[10px] rounded px-1 mb-0.5 truncate" :style="{background:flavourColour(a.flavour), color:textOn(flavourColour(a.flavour))}">{{ fShort(a.flavour) }} {{ a.packs }}</div></template>
-                    <template v-else><div v-for="p in day.plan" :key="p.id" class="text-[10px] rounded px-1 mb-0.5 flex items-center justify-between" :style="specialFlavour(p.flavour)?{background:'#e7e5e4',color:'#57534e'}:{background:flavourColour(p.flavour)+'33', color:'#111', border:'1px solid '+flavourColour(p.flavour)}"><span :title="p.notes||''" class="truncate">{{ fShort(p.flavour) }}<span v-if="!specialFlavour(p.flavour)"> {{ p.planned_packs }}</span><span v-if="p.notes"> &#9998;</span></span><button v-if="isSupervisor" @click.stop="delPlan(p.id)" class="text-stone-400 hover:text-red-500 ml-1 leading-none">&times;</button></div></template>
+                <td class="p-1 text-stone-500 font-medium align-top whitespace-nowrap">{{ wk.label }}</td>
+                <td v-for="day in wk.days" :key="day.date" @click="openCell(day)" class="p-0.5 border-l border-stone-50 align-top" :class="[day.isPast?'bg-stone-50':'', (isSupervisor && !day.isPast)?'cursor-pointer hover:bg-green-50':'']">
+                  <div>
+                    <div class="text-[10px] text-right leading-none mb-0.5" :class="day.isToday?'text-green-700 font-bold':'text-stone-300'">{{ day.dayNum }}</div>
+                    <template v-if="day.isPast"><div v-for="a in day.actual" :key="a.flavour" class="text-[11px] leading-tight rounded px-1 mb-0.5 truncate" :style="{background:flavourColour(a.flavour), color:textOn(flavourColour(a.flavour))}">{{ fShort(a.flavour) }} {{ a.packs }}</div></template>
+                    <template v-else><div v-for="p in day.plan" :key="p.id" class="text-[11px] leading-tight rounded px-1 mb-0.5 flex items-center justify-between" :style="specialFlavour(p.flavour)?{background:'#e7e5e4',color:'#57534e'}:{background:flavourColour(p.flavour)+'33', color:'#111', border:'1px solid '+flavourColour(p.flavour)}"><span :title="p.notes||''" class="truncate">{{ fShort(p.flavour) }}<span v-if="!specialFlavour(p.flavour)"> {{ p.planned_packs }}</span><span v-if="p.notes"> &#9998;</span></span><button v-if="isSupervisor" @click.stop="delPlan(p.id)" class="text-stone-400 hover:text-red-500 ml-1 leading-none">&times;</button></div></template>
                   </div>
                 </td>
               </tr>
@@ -165,6 +158,23 @@
         </div>
         <p class="text-xs text-stone-400 mt-2">Solid = produced &middot; Outlined = planned &middot; Grey = no shift / TBD &middot; &#9998; = note. Colours are per flavour (set each recipe's pack colour). Newest week on top &mdash; scroll down for full history.</p>
       </section>
+      <!-- PLAN CELL editor -->
+      <div v-if="dCell.open" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" @click.self="dCell.open=false">
+        <div class="bg-white rounded-xl p-4 w-full max-w-sm">
+          <div class="flex items-center justify-between mb-1"><h3 class="font-semibold text-stone-800">Plan production</h3><button @click="dCell.open=false" class="text-stone-400 text-xl leading-none">&times;</button></div>
+          <p class="text-xs text-stone-500 mb-2">{{ dCell.date }}</p>
+          <div v-if="cellPlans.length" class="mb-3">
+            <div v-for="p in cellPlans" :key="p.id" class="flex items-center justify-between text-sm border-b border-stone-100 py-1">
+              <span class="flex items-center gap-1.5 min-w-0"><span class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{background:specialFlavour(p.flavour)?'#a8a29e':flavourColour(p.flavour)}"></span><span class="truncate">{{ p.flavour }}<span v-if="!specialFlavour(p.flavour)" class="text-stone-500"> · {{ p.planned_packs }} packs</span><span v-if="p.notes" class="text-stone-400"> · {{ p.notes }}</span></span></span>
+              <button @click="delPlan(p.id)" class="text-stone-400 hover:text-red-500 ml-2 flex-shrink-0">&times;</button>
+            </div>
+          </div>
+          <label class="text-sm block">Flavour<select v-model="dCell.flavour" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5 bg-white"><option value="">Select…</option><option v-for="f in paletteFlavours" :key="f" :value="f">{{ f }}</option></select></label>
+          <label v-if="dCell.flavour && !specialFlavour(dCell.flavour)" class="text-sm block mt-2">Quantity (packs)<input v-model.number="dCell.packs" type="number" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5 text-right"></label>
+          <label class="text-sm block mt-2">Production note<textarea v-model="dCell.note" rows="2" placeholder="optional" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></textarea></label>
+          <div class="flex justify-end gap-2 mt-3"><button @click="dCell.open=false" class="text-sm px-3 py-1.5 rounded-lg border border-stone-300">Done</button><button @click="saveCell" class="text-sm bg-green-700 text-white px-4 py-1.5 rounded-lg">Add to day</button></div>
+        </div>
+      </div>
 
       <!-- NPD -->
       <section v-if="screen==='npd'">
@@ -437,7 +447,7 @@
       const paletteFlavours=computed(()=> recipes.value.map(r=>r.flavour).concat(['No shift','To be decided']));
       function fShort(f){ if(f==='No shift') return 'No shift'; if(f==='To be decided') return 'TBD'; const r=recipes.value.find(x=>x.flavour===f); return r?r.short_code:f; }
       function saturdayOf(d){ const x=new Date(d); const off=(x.getDay()-6+7)%7; x.setDate(x.getDate()-off); x.setHours(0,0,0,0); return x; }
-      const packColourDefaults={ 'Original':'#0D9488','Six Seed':'#EA7317','Sultana & Spice':'#7C3AED','Spinach & Garlic':'#16A34A','Banana & Cinnamon':'#F59E0B' };
+      const packColourDefaults={ 'Original':'#06B6D4','Six Seed':'#EA7317','Sultana & Spice':'#7C3AED','Spinach & Garlic':'#16A34A','Banana & Cinnamon':'#F59E0B' };
       function flavourColour(f){ const r=recipes.value.find(x=>x.flavour===f); if(r&&r.pack_colour) return r.pack_colour; return packColourDefaults[f]||'#64748B'; }
       function textOn(hex){ if(!hex||hex.length<7) return '#111'; const h=hex.replace('#',''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return (0.299*r+0.587*g+0.114*b)>150?'#111':'#fff'; }
       const calendarWeeks=computed(()=>{
@@ -460,6 +470,10 @@
         }
         return weeks;
       });
+      const dCell=reactive({open:false, date:'', flavour:'', packs:100, note:''});
+      const cellPlans=computed(()=> plans.value.filter(p=>p.plan_date===dCell.date));
+      function openCell(day){ if(!isSupervisor.value || day.isPast) return; dCell.date=day.date; dCell.flavour=''; dCell.packs=100; dCell.note=''; dCell.open=true; }
+      async function saveCell(){ if(!dCell.flavour) return; if(cellPlans.value.some(p=>p.flavour===dCell.flavour)){ flash('Already on that day'); return; } const packs=specialFlavour(dCell.flavour)?0:(dCell.packs||100); try{ await callData({action:'save_plan', plan_date:dCell.date, flavour:dCell.flavour, planned_packs:packs, notes:dCell.note||null}); await loadPlans(); dCell.flavour=''; dCell.note=''; }catch(e){ flash('Failed: '+e.message); } }
       async function placeOnDay(day){ if(!isSupervisor.value || day.isPast || !selPlan.value) return; if(day.plan.some(p=>p.flavour===selPlan.value)){ flash('Already on that day'); return; } const packs= specialFlavour(selPlan.value)?0:(placeQty.value||100); try{ await callData({action:'save_plan', plan_date:day.date, flavour:selPlan.value, planned_packs:packs, notes:placeNote.value||null}); await loadPlans(); }catch(e){ flash('Failed: '+e.message); } }
 
       async function saveRate(rt){ try{ await callData({action:'save_rate',key:rt.key,value:rt.value}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
@@ -595,7 +609,7 @@
       return { ready,gateError,me,isAdmin,role,isSupervisor,roleLabel,screen,tabs,msg,supErr,checkDefs,photoKinds,ingredientNames,usedIn,abbr,settingsRows,
         recipes,runs,plans,ingredients,rates,printRec,printIngs,today,cap,capSaving,capErr,planForm,detail,aiText,aiLoading,detailPhotos,scanBusy,scanFlags,editRec,
         fmtDate,num,money,ingsFor,verLabel,recCost,costKg,rateLabel,effYield,yieldClass,vget,flagClass,util,mmss,
-        openDetail,printRecipeSheet,onScan,addPhoto,rmPhoto,resetCap,saveCapture,openRecipeEdit,saveRecipeEdit,saveRecipeInPlace,planActual,addPlan,savePlanRow,delPlan,weekWindowStart,selPlan,placeQty,placeNote,paletteFlavours,calendarWeeks,fShort,specialFlavour,placeOnDay,flavourColour,textOn,saveRate,saveIngredient,nutrition,saveNutrition,coreRates,weekly,weeklyKg,fmtKg,saveWeekly,d1,captureFromPhoto,dEdit,dForm,startEditRun,saveRunEdit,deleteRun,printCustom,printCustomG,printAskRec,printScale,doPrint,recipeTotalG,showNips,recipeNips,nipPrint,nipMeta,serveCfg,nzNipRows,nipShow,loadRecipeNips,printAllNips,saveServeCfg,nipById,saveMoisture,nipCell,calStr,downloadNipSvg,copyNipRows,npdView,npdProjects,npdP,npdVer,npdIngs,npdHistory,npdCmp,npdBusy,npdShowNew,npdNew,npdSensory,npdDraftNote,npdScaleTo,npdStatuses,nipRows,npdTotalG,npdPhotos,npdPrint,srcLabel,nextNpd,dsign,npdStart,npdStartNum,npdStartNipNum,loadNpd,computeNpd,openNpd,createNpd,applyScale,saveNpdMeta,saveNpdCurrent,saveNpdVersion,addNpdPhoto,printNpdSheet };
+        openDetail,printRecipeSheet,onScan,addPhoto,rmPhoto,resetCap,saveCapture,openRecipeEdit,saveRecipeEdit,saveRecipeInPlace,planActual,addPlan,savePlanRow,delPlan,weekWindowStart,selPlan,placeQty,placeNote,paletteFlavours,calendarWeeks,fShort,specialFlavour,placeOnDay,flavourColour,textOn,dCell,cellPlans,openCell,saveCell,saveRate,saveIngredient,nutrition,saveNutrition,coreRates,weekly,weeklyKg,fmtKg,saveWeekly,d1,captureFromPhoto,dEdit,dForm,startEditRun,saveRunEdit,deleteRun,printCustom,printCustomG,printAskRec,printScale,doPrint,recipeTotalG,showNips,recipeNips,nipPrint,nipMeta,serveCfg,nzNipRows,nipShow,loadRecipeNips,printAllNips,saveServeCfg,nipById,saveMoisture,nipCell,calStr,downloadNipSvg,copyNipRows,npdView,npdProjects,npdP,npdVer,npdIngs,npdHistory,npdCmp,npdBusy,npdShowNew,npdNew,npdSensory,npdDraftNote,npdScaleTo,npdStatuses,nipRows,npdTotalG,npdPhotos,npdPrint,srcLabel,nextNpd,dsign,npdStart,npdStartNum,npdStartNipNum,loadNpd,computeNpd,openNpd,createNpd,applyScale,saveNpdMeta,saveNpdCurrent,saveNpdVersion,addNpdPhoto,printNpdSheet };
     }
   }).mount('#app');
 </script>
