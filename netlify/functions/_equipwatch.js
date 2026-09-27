@@ -240,7 +240,48 @@ async function abAuctions() {
     desc: strip(p.excerpt && p.excerpt.rendered).slice(0, 400), force: true }));
 }
 
-const SITES = { thorntons, mainland, allAbout, silverchef, brianMillen, skylarc, federal, tiger, abAuctions };
+// ---------------------------------------------------------------- Trade Me (official API, app-only auth)
+// Keys: ads.config trademe_consumer_key / trademe_consumer_secret (Revive Apps), or env
+// TRADEME_CONSUMER_KEY / TRADEME_CONSUMER_SECRET. Dormant (returns []) until keys exist.
+const TM_TERMS = ['upright freezer', 'commercial freezer', 'freezer 2 door', 'blast chiller', 'blast freezer', 'shock freezer',
+  'freezer room', 'cool room', 'coolroom panels', 'walk in freezer', 'tray sealer', 'vacuum packer', 'vacuum packing machine',
+  'flow wrapper', 'band sealer', 'labeller', 'label applicator', 'shrink wrap machine', 'packaging machine', 'date coder'];
+async function tmKeys() {
+  if (process.env.TRADEME_CONSUMER_KEY) return { key: process.env.TRADEME_CONSUMER_KEY, secret: process.env.TRADEME_CONSUMER_SECRET };
+  try {
+    const { db } = require('./_adsdb');
+    const rows = await db("config?select=key,value&key=in.(trademe_consumer_key,trademe_consumer_secret)");
+    const m = {}; (rows || []).forEach(r => { m[r.key] = typeof r.value === 'string' ? r.value : String(r.value); });
+    return m.trademe_consumer_key ? { key: m.trademe_consumer_key, secret: m.trademe_consumer_secret } : null;
+  } catch (e) { return null; }
+}
+const tmDate = (v) => { const m = String(v || '').match(/Date\((\d+)/); return m ? new Date(Number(m[1])).toISOString() : (v || null); };
+async function trademe() {
+  const k = await tmKeys();
+  if (!k) return [];
+  const auth = `OAuth oauth_consumer_key="${k.key}", oauth_signature_method="PLAINTEXT", oauth_signature="${k.secret}&"`;
+  const since = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 19);
+  const out = []; const seen = new Set();
+  for (const term of TM_TERMS) {
+    const d = await get(`https://api.trademe.co.nz/v1/Search/General.json?search_string=${encodeURIComponent(term)}&rows=100&sort_order=ExpiryDesc&date_from=${since}&photo_size=Large`, { json: true, headers: { Authorization: auth } });
+    for (const x of d.List || []) {
+      if (seen.has(x.ListingId)) continue; seen.add(x.ListingId);
+      const auction = !x.IsBuyNowOnly && !x.IsClassified;
+      const parts = [];
+      if (x.PriceDisplay) parts.push(x.PriceDisplay);
+      if (x.HasBuyNow && x.BuyNowPrice) parts.push('Buy Now ' + money(x.BuyNowPrice));
+      if (x.BidCount) parts.push(x.BidCount + ' bids');
+      out.push({ key: 'trademe:' + x.ListingId, site: 'Trade Me', title: x.Title, url: 'https://www.trademe.co.nz/a/listing/' + x.ListingId,
+        image: x.PictureHref || null, price: parts.join(' · ') || 'See listing', closes_at: tmDate(x.EndDate),
+        location: [x.Suburb, x.Region].filter(Boolean).join(', ') || null,
+        how: (x.IsClassified ? 'Trade Me classified - contact seller' : auction ? 'Trade Me auction' + (x.HasBuyNow ? ' with Buy Now' : '') + (x.HasReserve ? (x.ReserveState === 1 ? ', reserve met' : ', reserve not met') : ', no reserve') : 'Trade Me Buy Now (fixed price)') + (x.IsNew ? ', new item' : ', used') + (x.Category ? '. Category ' + x.Category : '') + '.',
+        desc: (x.Subtitle || '') + ' [search: ' + term + ']', force: true });
+    }
+  }
+  return out;
+}
+
+const SITES = { trademe, thorntons, mainland, allAbout, silverchef, brianMillen, skylarc, federal, tiger, abAuctions };
 
 async function fetchAll(only) {
   const names = only ? only.split(',') : Object.keys(SITES);
