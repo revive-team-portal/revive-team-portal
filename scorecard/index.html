@@ -108,6 +108,13 @@ td.susp:after{content:' ~'}
     .wknote:last-child{border-bottom:none}
     .wkd{flex:0 0 58px;font-family:var(--mono);font-size:9.5px;color:var(--steel);text-transform:uppercase;letter-spacing:.03em;padding-top:1px}
     .wkt{flex:1;color:var(--ink)} .wkt b{color:var(--steel);font-weight:600}
+    tbody td.man{background:#FEFBEA;padding:0}
+    tbody td.man input.gcell{width:100%;border:0;background:transparent;font-family:var(--mono);font-size:11.5px;text-align:right;padding:7px 6px;color:#7A5B00;font-weight:700;outline:none;box-sizing:border-box}
+    tbody td.man input.gcell::placeholder{color:#C9A94E;font-weight:400}
+    tbody td.man input.gcell:focus{background:#FFF4BF;box-shadow:inset 0 0 0 2px var(--warn)}
+    tbody td.notecell.man{background:#FEFBEA;padding:0;vertical-align:top}
+    tbody td.notecell.man textarea.gnote{width:100%;min-width:130px;border:0;background:transparent;font-family:var(--body);font-size:10px;line-height:1.3;resize:none;height:34px;color:var(--ink);outline:none;padding:4px 6px;box-sizing:border-box}
+    tbody td.notecell.man textarea.gnote:focus{background:#FFF4BF;height:60px}
 .mname .src{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;padding:1px 4px;border-radius:2px;margin-left:6px;vertical-align:1px}
 .src.a{background:#E4EFF6;color:#2A6285}.src.m{background:#F0EDF6;color:#5B4A85}.src.d{background:var(--line-2);color:var(--steel)}
 .cand{border-bottom:1px dotted var(--info)}
@@ -325,7 +332,7 @@ td.der .subn,td .subn{opacity:.85}
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
-                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect'}]"><span>{{ cellText(row,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span></td>
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect', man:isManual(row.key)}]"><input v-if="isManual(row.key)" class="gcell" :value="cellRaw(row.key,w)" @change="saveCell(row.key,w,$event.target.value)" inputmode="decimal" placeholder="—"><template v-else><span>{{ cellText(row,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span><span v-if="row.key==='secret_shopper_score' && cellObj('secret_shopper_count',w).v!=null" class="subn" :title="fm(cellObj('secret_shopper_count',w).v,0)+' surveys'">{{ fm(cellObj('secret_shopper_count',w).v,0) }}</span></template></td>
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
@@ -333,7 +340,7 @@ td.der .subn,td .subn{opacity:.85}
             <tr v-for="nf in NOTE_FIELDS" :key="'note-'+nf.key" class="noterow">
               <td class="mname">{{ nf.label }}</td>
               <td class="tgt"></td>
-              <td v-for="w in windowWeeks" :key="w" class="notecell" :class="{now:w===currentWeek}"><div class="noteclip" :title="(weekByEnd[w]&&weekByEnd[w][nf.key])||''">{{ (weekByEnd[w]&&weekByEnd[w][nf.key])||'' }}</div></td>
+              <td v-for="w in windowWeeks" :key="w" class="notecell man" :class="{now:w===currentWeek}"><textarea class="gnote" :value="(weekByEnd[w]&&weekByEnd[w][nf.key])||''" @change="saveNote(nf.key,w,$event.target.value)" :title="(weekByEnd[w]&&weekByEnd[w][nf.key])||''" placeholder="—"></textarea></td>
               <td class="avg10"></td>
             </tr>
           </tbody>
@@ -709,7 +716,7 @@ createApp({
       {sec:'Margin'},
       'online_cogs','online_cogs_pct','online_gross_profit','cafe_waste_value','cafe_waste_pct',
       {ad:true,sec:'Advertising'},
-      'ad_spend','ad_pct_online','ad_cost_per_order',
+      'ad_spend','ad_pct_online','ad_cost_per_order','share_flyer_bundles',
       {sec:'Shipping'},
       'shipping_cost','shipping_subsidy','ship_cost_per_order','parcels_sent',
       {sec:'Heat & Eat Meals'},
@@ -732,6 +739,19 @@ createApp({
     const gridRows=computed(()=> GRID.map(x=> typeof x==='string'? mkRow(x) : x));
 
     function cellObj(code,pe){ return val(code,pe); }
+    function isManual(code){ return SRC[code]==='m'; }
+    function cellRaw(code,pe){ const f=base(code,pe); return f.v==null?'':String(f.v); }
+    async function saveCell(code,pe,raw){
+      const clean=String(raw==null?'':raw).replace(/[^0-9.\-]/g,'');
+      const v=(clean==='')?null:(isNaN(Number(clean))?null:Number(clean));
+      try{ await callData({action:'save_week',period_end:pe,values:{[code]:v}}); (factMap[code]=factMap[code]||{})[pe]={v:v,q:'ok'}; await refresh(); flash('Saved'); }
+      catch(e){ flash('Save failed: '+e.message); }
+    }
+    async function saveNote(key,pe,val){
+      const v=(val===''||val==null)?null:val;
+      try{ await callData({action:'save_week',period_end:pe,notes:{[key]:v}}); if(weekByEnd[pe]) weekByEnd[pe][key]=v; await refresh(); flash('Saved'); }
+      catch(e){ flash('Save failed: '+e.message); }
+    }
     function cellText(row,pe){ const x=val(row.key,pe); if(x.v==null) return ''; if(closed(pe)&&isCafeMetric(row.key)&&row.key!=='total_sales') return (row.pre||'')+fm(x.v,row.dp)+(row.suf||''); return (row.pre||'')+fm(x.v,row.dp)+(row.suf||''); }
     function cellRag(row,pe){ return rag(row.key,pe); }
     function cellTarget(code){ const T=effTarget(code,currentWeek.value); return T||{candidate:false}; }
@@ -957,7 +977,6 @@ createApp({
     const tabs=computed(()=>{
       const t=[];
       if(level.value==='manager') t.push({id:'manager',label:'Manager view'});
-      if(level.value!=='team') t.push({id:'enter',label:'Enter week'});
       if(level.value==='manager') t.push({id:'targets',label:'Targets'});
       return t;
     });
@@ -999,7 +1018,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,isManual,cellRaw,saveCell,saveNote,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,ENTRY_NOTES,me,editors,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
