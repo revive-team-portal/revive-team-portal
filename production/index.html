@@ -137,32 +137,33 @@
       <section v-if="screen==='planning'">
         <div class="flex items-center justify-between mb-3">
           <h1 class="text-lg font-bold text-stone-800">Production Plan</h1>
-          <div class="flex items-center gap-1 text-sm"><button @click="weekWindowStart-=4" class="border border-stone-300 rounded px-2 py-1">&#9664;</button><button @click="weekWindowStart=-2" class="border border-stone-300 rounded px-2 py-1">Today</button><button @click="weekWindowStart+=4" class="border border-stone-300 rounded px-2 py-1">&#9654;</button></div>
         </div>
         <div v-if="isSupervisor" class="bg-white border border-stone-200 rounded-xl p-3 mb-3">
           <p class="text-xs text-stone-500 mb-2">Pick a flavour, set packs, then tap future days to add it to the plan.</p>
           <div class="flex flex-wrap items-center gap-2">
-            <button v-for="f in paletteFlavours" :key="f" @click="selPlan = selPlan===f ? '' : f" class="text-xs px-2.5 py-1 rounded-lg border" :class="selPlan===f ? 'bg-green-700 text-white border-green-700' : (specialFlavour(f)?'bg-stone-100 text-stone-600 border-stone-300':'bg-white text-stone-700 border-stone-300')">{{ f }}</button>
+            <button v-for="f in paletteFlavours" :key="f" @click="selPlan = selPlan===f ? '' : f" class="text-xs px-2.5 py-1 rounded-lg border" :style="!specialFlavour(f) ? {borderColor:flavourColour(f), background:(selPlan===f?flavourColour(f):'#fff'), color:(selPlan===f?textOn(flavourColour(f)):'#374151')} : {}" :class="specialFlavour(f)?(selPlan===f?'bg-stone-600 text-white border-stone-600':'bg-stone-100 text-stone-600 border-stone-300'):''">{{ f }}</button>
             <span class="text-xs text-stone-400 ml-1">packs</span><input v-model.number="placeQty" type="number" class="w-16 border border-stone-300 rounded px-2 py-1 text-sm text-right">
             <input v-model="placeNote" type="text" placeholder="note (optional)" class="flex-1 min-w-[8rem] border border-stone-300 rounded px-2 py-1 text-sm">
           </div>
         </div>
         <div class="bg-white border border-stone-200 rounded-xl overflow-x-auto">
-          <table class="w-full text-xs" style="min-width:780px">
-            <thead><tr class="text-stone-400 border-b border-stone-100"><th class="p-1.5 text-left w-14">Week</th><th v-for="d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="d" class="p-1.5">{{ d }}</th></tr></thead>
+          <table class="w-full text-xs table-fixed" style="min-width:760px">
+            <thead><tr class="text-stone-400 border-b border-stone-100"><th class="p-1.5 text-left" style="width:58px">W/E Fri</th><th v-for="d in ['Sat','Sun','Mon','Tue','Wed','Thu','Fri']" :key="d" class="p-1.5">{{ d }}</th></tr></thead>
             <tbody>
               <tr v-for="wk in calendarWeeks" :key="wk.start" class="border-t border-stone-100">
                 <td class="p-1.5 text-stone-500 font-medium align-top whitespace-nowrap">{{ wk.label }}</td>
                 <td v-for="day in wk.days" :key="day.date" @click="placeOnDay(day)" class="p-1 border-l border-stone-50 align-top" :class="[day.isPast?'bg-stone-50':'', (isSupervisor && !day.isPast && selPlan)?'cursor-pointer hover:bg-green-50':'']">
-                  <div class="text-[10px] text-right mb-0.5" :class="day.isToday?'text-green-700 font-bold':'text-stone-300'">{{ day.dayNum }}</div>
-                  <template v-if="day.isPast"><div v-for="a in day.actual" :key="a.flavour" class="rounded px-1 mb-0.5 bg-green-100 text-green-800">{{ fShort(a.flavour) }} {{ a.packs }}</div></template>
-                  <template v-else><div v-for="p in day.plan" :key="p.id" class="rounded px-1 mb-0.5 flex items-center justify-between" :class="specialFlavour(p.flavour)?'bg-stone-200 text-stone-600':'bg-sky-100 text-sky-800'"><span :title="p.notes||''">{{ fShort(p.flavour) }}<span v-if="!specialFlavour(p.flavour)"> {{ p.planned_packs }}</span><span v-if="p.notes"> &#9998;</span></span><button v-if="isSupervisor" @click.stop="delPlan(p.id)" class="text-stone-400 hover:text-red-500 ml-1 leading-none">&times;</button></div></template>
+                  <div style="height:54px;overflow-y:auto">
+                    <div class="text-[10px] text-right mb-0.5" :class="day.isToday?'text-green-700 font-bold':'text-stone-300'">{{ day.dayNum }}</div>
+                    <template v-if="day.isPast"><div v-for="a in day.actual" :key="a.flavour" class="text-[10px] rounded px-1 mb-0.5 truncate" :style="{background:flavourColour(a.flavour), color:textOn(flavourColour(a.flavour))}">{{ fShort(a.flavour) }} {{ a.packs }}</div></template>
+                    <template v-else><div v-for="p in day.plan" :key="p.id" class="text-[10px] rounded px-1 mb-0.5 flex items-center justify-between" :style="specialFlavour(p.flavour)?{background:'#e7e5e4',color:'#57534e'}:{background:flavourColour(p.flavour)+'33', color:'#111', border:'1px solid '+flavourColour(p.flavour)}"><span :title="p.notes||''" class="truncate">{{ fShort(p.flavour) }}<span v-if="!specialFlavour(p.flavour)"> {{ p.planned_packs }}</span><span v-if="p.notes"> &#9998;</span></span><button v-if="isSupervisor" @click.stop="delPlan(p.id)" class="text-stone-400 hover:text-red-500 ml-1 leading-none">&times;</button></div></template>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p class="text-xs text-stone-400 mt-2">Green = produced &middot; Blue = planned &middot; Grey = no shift / TBD &middot; &#9998; = has a note (hover to read).</p>
+        <p class="text-xs text-stone-400 mt-2">Solid = produced &middot; Outlined = planned &middot; Grey = no shift / TBD &middot; &#9998; = note. Colours are per flavour (set each recipe's pack colour). Newest week on top &mdash; scroll down for full history.</p>
       </section>
 
       <!-- NPD -->
@@ -293,6 +294,7 @@
             <label class="text-sm">Cook (s) <span class="text-stone-400">{{ mmss(editRec.cook_sec) }}</span><input v-model.number="editRec.cook_sec" type="number" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
             <label class="text-sm">Blend (min) <span class="text-stone-400">{{ mmss(editRec.blend_min*60) }}</span><input v-model.number="editRec.blend_min" type="number" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
             <label class="text-sm">Moisture loss % <span class="text-stone-400">(NIP, finished basis)</span><input v-model.number="editRec.moisture_pct" type="number" step="1" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
+            <label class="text-sm">Pack colour <span class="text-stone-400">(calendar)</span><input v-model="editRec.pack_colour" type="color" class="mt-1 w-full h-9 border border-stone-300 rounded p-0.5"></label>
             <label class="text-sm">Viscosity (s) <span class="text-stone-400">{{ mmss(editRec.viscosity_sec) }}</span><input v-model.number="editRec.viscosity_sec" type="number" class="mt-1 w-full border border-stone-300 rounded px-2 py-1.5"></label>
           </div>
           <div><p class="text-sm font-semibold text-stone-700 mb-1">Ingredients (batch g)</p>
@@ -350,7 +352,7 @@
       const capSaving=ref(false), capErr=ref('');
       const planForm=reactive({plan_date:today,flavour:'',planned_packs:100,notes:''});
       const weekWindowStart=ref(-2), selPlan=ref(''), placeQty=ref(100), placeNote=ref('');
-      const editRec=reactive({open:false,base_recipe_id:null,sku:'',flavour:'',short_code:'',version_label:'',change_note:'',cook_sec:null,blend_min:null,viscosity_sec:null,g_per_waffle:70,moisture_pct:40,ingredients:[],current_version:'',history:[]});
+      const editRec=reactive({open:false,base_recipe_id:null,sku:'',flavour:'',short_code:'',version_label:'',change_note:'',cook_sec:null,blend_min:null,viscosity_sec:null,g_per_waffle:70,moisture_pct:45,pack_colour:'#64748B',ingredients:[],current_version:'',history:[]});
 
       const isSupervisor=computed(()=> isAdmin.value || role.value==='supervisor');
       const roleLabel=computed(()=> isAdmin.value?'Administrator':(role.value==='supervisor'?'Supervisor':'Operator'));
@@ -420,9 +422,9 @@
       const printScale=computed(()=> { const t=printBatchG.value; return (printCustom.value && t>0 && printCustomG.value>0) ? (Number(printCustomG.value)/t) : null; });
       function doPrint(){ const rec=printAskRec.value; if(!rec) return; npdPrint.value=false; nipPrint.value=false; printRec.value=rec; printIngs.value=ingsFor(rec.id); printAskRec.value=null; nextTick(()=>window.print()); }
 
-      function openRecipeEdit(rec){ Object.assign(editRec,{ open:true, base_recipe_id:rec.id, sku:rec.sku, flavour:rec.flavour, short_code:rec.short_code, current_version:rec.version_label, version_label:nextVersion(rec.version_label), change_note:'', cook_sec:rec.cook_sec, blend_min:rec.blend_min, viscosity_sec:rec.viscosity_sec, g_per_waffle:rec.g_per_waffle, moisture_pct:(rec.moisture_pct==null?40:rec.moisture_pct), ingredients:ingsFor(rec.id).map(i=>({ingredient:i.ingredient,batch_g:i.batch_g})), history:[] }); loadHistory(rec.sku); }
-      async function saveRecipeEdit(){ if(!editRec.change_note.trim()){ flash('Describe what changed'); return; } if(!editRec.version_label.trim()){ flash('Set a version label'); return; } try{ await callData({action:'save_recipe_version',base_recipe_id:editRec.base_recipe_id,sku:editRec.sku,flavour:editRec.flavour,short_code:editRec.short_code,version_label:editRec.version_label,change_note:editRec.change_note,cook_sec:editRec.cook_sec,blend_min:editRec.blend_min,viscosity_sec:editRec.viscosity_sec,g_per_waffle:editRec.g_per_waffle,moisture_pct:editRec.moisture_pct,ingredients:editRec.ingredients}); editRec.open=false; await loadRecipes(); await loadSupervisor(); flash('New version saved'); }catch(e){ flash('Failed: '+e.message); } }
-      async function saveRecipeInPlace(){ try{ await callData({action:'update_recipe_inplace', recipe_id:editRec.base_recipe_id, flavour:editRec.flavour, short_code:editRec.short_code, version_label:editRec.current_version, cook_sec:editRec.cook_sec, blend_min:editRec.blend_min, viscosity_sec:editRec.viscosity_sec, g_per_waffle:editRec.g_per_waffle, moisture_pct:editRec.moisture_pct, ingredients:editRec.ingredients}); editRec.open=false; await loadRecipes(); await loadSupervisor(); flash('Recipe updated ('+editRec.current_version+', same version)'); }catch(e){ flash('Failed: '+e.message); } }
+      function openRecipeEdit(rec){ Object.assign(editRec,{ open:true, base_recipe_id:rec.id, sku:rec.sku, flavour:rec.flavour, short_code:rec.short_code, current_version:rec.version_label, version_label:nextVersion(rec.version_label), change_note:'', cook_sec:rec.cook_sec, blend_min:rec.blend_min, viscosity_sec:rec.viscosity_sec, g_per_waffle:rec.g_per_waffle, moisture_pct:(rec.moisture_pct==null?45:rec.moisture_pct), pack_colour:(rec.pack_colour||'#64748B'), ingredients:ingsFor(rec.id).map(i=>({ingredient:i.ingredient,batch_g:i.batch_g})), history:[] }); loadHistory(rec.sku); }
+      async function saveRecipeEdit(){ if(!editRec.change_note.trim()){ flash('Describe what changed'); return; } if(!editRec.version_label.trim()){ flash('Set a version label'); return; } try{ await callData({action:'save_recipe_version',base_recipe_id:editRec.base_recipe_id,sku:editRec.sku,flavour:editRec.flavour,short_code:editRec.short_code,version_label:editRec.version_label,change_note:editRec.change_note,cook_sec:editRec.cook_sec,blend_min:editRec.blend_min,viscosity_sec:editRec.viscosity_sec,g_per_waffle:editRec.g_per_waffle,moisture_pct:editRec.moisture_pct,pack_colour:editRec.pack_colour,ingredients:editRec.ingredients}); editRec.open=false; await loadRecipes(); await loadSupervisor(); flash('New version saved'); }catch(e){ flash('Failed: '+e.message); } }
+      async function saveRecipeInPlace(){ try{ await callData({action:'update_recipe_inplace', recipe_id:editRec.base_recipe_id, flavour:editRec.flavour, short_code:editRec.short_code, version_label:editRec.current_version, cook_sec:editRec.cook_sec, blend_min:editRec.blend_min, viscosity_sec:editRec.viscosity_sec, g_per_waffle:editRec.g_per_waffle, moisture_pct:editRec.moisture_pct, pack_colour:editRec.pack_colour, ingredients:editRec.ingredients}); editRec.open=false; await loadRecipes(); await loadSupervisor(); flash('Recipe updated ('+editRec.current_version+', same version)'); }catch(e){ flash('Failed: '+e.message); } }
 
       function planActual(p){ return runs.value.filter(r=>r.run_date===p.plan_date && r.flavour===p.flavour).reduce((s,r)=>s+(r.output_packs||0),0); }
       async function addPlan(){ if(!planForm.flavour){ flash('Pick a flavour'); return; } try{ await callData({action:'save_plan',plan_date:planForm.plan_date,flavour:planForm.flavour,planned_packs:planForm.planned_packs||100,notes:planForm.notes}); planForm.flavour=''; planForm.planned_packs=100; planForm.notes=''; await loadPlans(); flash('Added'); }catch(e){ flash('Failed: '+e.message); } }
@@ -434,7 +436,30 @@
       function specialFlavour(f){ return f==='No shift' || f==='To be decided'; }
       const paletteFlavours=computed(()=> recipes.value.map(r=>r.flavour).concat(['No shift','To be decided']));
       function fShort(f){ if(f==='No shift') return 'No shift'; if(f==='To be decided') return 'TBD'; const r=recipes.value.find(x=>x.flavour===f); return r?r.short_code:f; }
-      const calendarWeeks=computed(()=>{ const base=mondayOf(new Date()); const weeks=[]; for(let w=0; w<8; w++){ const wkStart=new Date(base); wkStart.setDate(base.getDate()+(weekWindowStart.value+w)*7); const days=[]; for(let dd=0; dd<7; dd++){ const dt=new Date(wkStart); dt.setDate(wkStart.getDate()+dd); const ds=ymd(dt); const isPast= ds<todayLocal; const acc={}; runs.value.filter(r=>r.run_date===ds).forEach(r=>{ acc[r.flavour]=(acc[r.flavour]||0)+(r.output_packs||0); }); const actual=Object.entries(acc).map(([fl,p])=>({flavour:fl,packs:p})); const plan=plans.value.filter(p=>p.plan_date===ds); days.push({ date:ds, dayNum:dt.getDate(), isPast, isToday:ds===todayLocal, actual, plan }); } weeks.push({ start:ymd(wkStart), label:wkStart.toLocaleDateString('en-NZ',{day:'2-digit',month:'short'}), days }); } return weeks; });
+      function saturdayOf(d){ const x=new Date(d); const off=(x.getDay()-6+7)%7; x.setDate(x.getDate()-off); x.setHours(0,0,0,0); return x; }
+      const packColourDefaults={ 'Original':'#0D9488','Six Seed':'#EA7317','Sultana & Spice':'#7C3AED','Spinach & Garlic':'#16A34A','Banana & Cinnamon':'#F59E0B' };
+      function flavourColour(f){ const r=recipes.value.find(x=>x.flavour===f); if(r&&r.pack_colour) return r.pack_colour; return packColourDefaults[f]||'#64748B'; }
+      function textOn(hex){ if(!hex||hex.length<7) return '#111'; const h=hex.replace('#',''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return (0.299*r+0.587*g+0.114*b)>150?'#111':'#fff'; }
+      const calendarWeeks=computed(()=>{
+        const dates=[]; runs.value.forEach(r=>{ if(r.run_date) dates.push(r.run_date); }); plans.value.forEach(p=>{ if(p.plan_date) dates.push(p.plan_date); });
+        const curSat=saturdayOf(new Date());
+        const latest=new Date(curSat); latest.setDate(curSat.getDate()+6*7);
+        let earliest=new Date(curSat); earliest.setDate(curSat.getDate()-8*7);
+        if(dates.length){ const minD=dates.reduce((a,b)=>a<b?a:b); const es=saturdayOf(new Date(minD+'T00:00:00')); if(es<earliest) earliest=es; }
+        const weeks=[];
+        for(let ws=new Date(latest); ws>=earliest; ws.setDate(ws.getDate()-7)){
+          const wkStart=new Date(ws); const days=[];
+          for(let dd=0; dd<7; dd++){ const dt=new Date(wkStart); dt.setDate(wkStart.getDate()+dd); const ds=ymd(dt); const isPast= ds<todayLocal;
+            const acc={}; runs.value.filter(r=>r.run_date===ds).forEach(r=>{ acc[r.flavour]=(acc[r.flavour]||0)+(r.output_packs||0); });
+            const actual=Object.entries(acc).map(([fl,p])=>({flavour:fl,packs:p}));
+            const plan=plans.value.filter(p=>p.plan_date===ds);
+            days.push({ date:ds, dayNum:dt.getDate(), isPast, isToday:ds===todayLocal, actual, plan });
+          }
+          const fri=new Date(wkStart); fri.setDate(wkStart.getDate()+6);
+          weeks.push({ start:ymd(wkStart), label:fri.toLocaleDateString('en-NZ',{day:'2-digit',month:'short'}), days });
+        }
+        return weeks;
+      });
       async function placeOnDay(day){ if(!isSupervisor.value || day.isPast || !selPlan.value) return; if(day.plan.some(p=>p.flavour===selPlan.value)){ flash('Already on that day'); return; } const packs= specialFlavour(selPlan.value)?0:(placeQty.value||100); try{ await callData({action:'save_plan', plan_date:day.date, flavour:selPlan.value, planned_packs:packs, notes:placeNote.value||null}); await loadPlans(); }catch(e){ flash('Failed: '+e.message); } }
 
       async function saveRate(rt){ try{ await callData({action:'save_rate',key:rt.key,value:rt.value}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
@@ -442,7 +467,7 @@
       async function saveNutrition(nt){ try{ await callData({action:'save_nutrition', ingredient:nt.ingredient, energy_kj:nt.energy_kj, protein_g:nt.protein_g, fat_g:nt.fat_g, satfat_g:nt.satfat_g, carb_g:nt.carb_g, sugar_g:nt.sugar_g, fibre_g:nt.fibre_g, sodium_mg:nt.sodium_mg}); flash('Saved'); }catch(e){ flash('Save failed'); } }
       async function saveIngredient(ic){ try{ await callData({action:'save_ingredient',ingredient:ic.ingredient,cost_per_kg:ic.cost_per_kg,supplier:ic.supplier,unit_size_kg:ic.unit_size_kg}); flash('Saved'); await loadSupervisor(); }catch(e){ flash('Save failed'); } }
 
-      async function loadRecipes(){ const { data:recs }=await sb.from('recipe').select('id,sku,flavour,short_code,version_label,cook_sec,blend_min,viscosity_sec,g_per_waffle,moisture_pct').eq('active',true).eq('is_current',true).order('sku'); recipes.value=recs||[]; const ids=(recs||[]).map(r=>r.id); let ings=[]; if(ids.length){ const { data }=await sb.from('recipe_ingredient').select('recipe_id,ingredient,batch_g,sort').in('recipe_id',ids).order('sort'); ings=data||[]; } const map={}; ings.forEach(i=>{ (map[i.recipe_id]=map[i.recipe_id]||[]).push(i); }); recipeIngs.value=map; }
+      async function loadRecipes(){ const { data:recs }=await sb.from('recipe').select('id,sku,flavour,short_code,version_label,cook_sec,blend_min,viscosity_sec,g_per_waffle,moisture_pct,pack_colour').eq('active',true).eq('is_current',true).order('sku'); recipes.value=recs||[]; const ids=(recs||[]).map(r=>r.id); let ings=[]; if(ids.length){ const { data }=await sb.from('recipe_ingredient').select('recipe_id,ingredient,batch_g,sort').in('recipe_id',ids).order('sort'); ings=data||[]; } const map={}; ings.forEach(i=>{ (map[i.recipe_id]=map[i.recipe_id]||[]).push(i); }); recipeIngs.value=map; }
       async function loadRuns(){ const { data }=await sb.from('production_run').select('*').order('run_date',{ascending:false}); runs.value=data||[]; }
       async function loadPlans(){ const { data }=await sb.from('production_plan').select('*').order('plan_date'); plans.value=data||[]; }
       async function loadSupervisor(){ if(!isSupervisor.value) return; supErr.value=''; try{ const p=await callData({action:'get_pricing'}); ingredients.value=(p.ingredients||[]).map(ic=>({...ic, cost_per_kg: ic.cost_per_kg==null?ic.cost_per_kg:Number(ic.cost_per_kg).toFixed(3)})); rates.value=(p.rates||[]).map(rt=>({...rt, value:Number(rt.value).toFixed(3)})); nutrition.value=(p.nutrition||[]).map(nx=>({...nx})); { const _rk={}; (p.rates||[]).forEach(r=>_rk[r.key]=Number(r.value)); if(_rk.serves_per_pack!=null)serveCfg.serves_per_pack=_rk.serves_per_pack; if(_rk.wopples_per_serving!=null)serveCfg.wopples_per_serving=_rk.wopples_per_serving; if(_rk.wopple_finished_g!=null)serveCfg.wopple_finished_g=_rk.wopple_finished_g; } const c=await callData({action:'get_recipe_costs'}); const m={}; (c.recipes||[]).forEach(x=>{ m[x.id]=x; }); recipeCosts.value=m; initWeekly(); }catch(e){ supErr.value=e.message; } }
@@ -570,7 +595,7 @@
       return { ready,gateError,me,isAdmin,role,isSupervisor,roleLabel,screen,tabs,msg,supErr,checkDefs,photoKinds,ingredientNames,usedIn,abbr,settingsRows,
         recipes,runs,plans,ingredients,rates,printRec,printIngs,today,cap,capSaving,capErr,planForm,detail,aiText,aiLoading,detailPhotos,scanBusy,scanFlags,editRec,
         fmtDate,num,money,ingsFor,verLabel,recCost,costKg,rateLabel,effYield,yieldClass,vget,flagClass,util,mmss,
-        openDetail,printRecipeSheet,onScan,addPhoto,rmPhoto,resetCap,saveCapture,openRecipeEdit,saveRecipeEdit,saveRecipeInPlace,planActual,addPlan,savePlanRow,delPlan,weekWindowStart,selPlan,placeQty,placeNote,paletteFlavours,calendarWeeks,fShort,specialFlavour,placeOnDay,saveRate,saveIngredient,nutrition,saveNutrition,coreRates,weekly,weeklyKg,fmtKg,saveWeekly,d1,captureFromPhoto,dEdit,dForm,startEditRun,saveRunEdit,deleteRun,printCustom,printCustomG,printAskRec,printScale,doPrint,recipeTotalG,showNips,recipeNips,nipPrint,nipMeta,serveCfg,nzNipRows,nipShow,loadRecipeNips,printAllNips,saveServeCfg,nipById,saveMoisture,nipCell,calStr,downloadNipSvg,copyNipRows,npdView,npdProjects,npdP,npdVer,npdIngs,npdHistory,npdCmp,npdBusy,npdShowNew,npdNew,npdSensory,npdDraftNote,npdScaleTo,npdStatuses,nipRows,npdTotalG,npdPhotos,npdPrint,srcLabel,nextNpd,dsign,npdStart,npdStartNum,npdStartNipNum,loadNpd,computeNpd,openNpd,createNpd,applyScale,saveNpdMeta,saveNpdCurrent,saveNpdVersion,addNpdPhoto,printNpdSheet };
+        openDetail,printRecipeSheet,onScan,addPhoto,rmPhoto,resetCap,saveCapture,openRecipeEdit,saveRecipeEdit,saveRecipeInPlace,planActual,addPlan,savePlanRow,delPlan,weekWindowStart,selPlan,placeQty,placeNote,paletteFlavours,calendarWeeks,fShort,specialFlavour,placeOnDay,flavourColour,textOn,saveRate,saveIngredient,nutrition,saveNutrition,coreRates,weekly,weeklyKg,fmtKg,saveWeekly,d1,captureFromPhoto,dEdit,dForm,startEditRun,saveRunEdit,deleteRun,printCustom,printCustomG,printAskRec,printScale,doPrint,recipeTotalG,showNips,recipeNips,nipPrint,nipMeta,serveCfg,nzNipRows,nipShow,loadRecipeNips,printAllNips,saveServeCfg,nipById,saveMoisture,nipCell,calStr,downloadNipSvg,copyNipRows,npdView,npdProjects,npdP,npdVer,npdIngs,npdHistory,npdCmp,npdBusy,npdShowNew,npdNew,npdSensory,npdDraftNote,npdScaleTo,npdStatuses,nipRows,npdTotalG,npdPhotos,npdPrint,srcLabel,nextNpd,dsign,npdStart,npdStartNum,npdStartNipNum,loadNpd,computeNpd,openNpd,createNpd,applyScale,saveNpdMeta,saveNpdCurrent,saveNpdVersion,addNpdPhoto,printNpdSheet };
     }
   }).mount('#app');
 </script>
