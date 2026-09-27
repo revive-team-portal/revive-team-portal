@@ -241,6 +241,7 @@ async function abAuctions() {
 }
 
 // ---------------------------------------------------------------- Trade Me (official API, app-only auth)
+// DISABLED 28 Sep 2026: Trade Me declined API access (no longer supports Marketplace integrations except In-Trade sellers). Kept for reference only, not in SITES.
 // Keys: ads.config trademe_consumer_key / trademe_consumer_secret (Revive Apps), or env
 // TRADEME_CONSUMER_KEY / TRADEME_CONSUMER_SECRET. Dormant (returns []) until keys exist.
 const TM_TERMS = ['upright freezer', 'commercial freezer', 'freezer 2 door', 'blast chiller', 'blast freezer', 'shock freezer',
@@ -281,7 +282,7 @@ async function trademe() {
   return out;
 }
 
-const SITES = { trademe, thorntons, mainland, allAbout, silverchef, brianMillen, skylarc, federal, tiger, abAuctions };
+const SITES = { thorntons, mainland, allAbout, silverchef, brianMillen, skylarc, federal, tiger, abAuctions };
 
 async function fetchAll(only) {
   const names = only ? only.split(',') : Object.keys(SITES);
