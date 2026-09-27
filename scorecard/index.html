@@ -126,9 +126,11 @@ td.susp:after{content:' ~'}
     tbody td.man input.gcell{width:100%;border:0;background:transparent;font-family:var(--mono);font-size:10.5px;text-align:right;padding:4px 4px;color:#7A5B00;font-weight:700;outline:none;box-sizing:border-box}
     tbody td.man input.gcell::placeholder{color:#C9A94E;font-weight:400}
     tbody td.man input.gcell:focus{background:#FFF4BF;box-shadow:inset 0 0 0 2px var(--warn)}
-    tbody td.notecell{background:transparent;padding:0;vertical-align:top;height:34px}
-    tbody td.notecell textarea.gnote{width:100%;min-width:80px;border:0;background:transparent;font-family:var(--body);font-size:10px;line-height:1.3;resize:none;height:34px;color:var(--ink);outline:none;padding:4px 6px;box-sizing:border-box;font-weight:400}
-    tbody td.notecell textarea.gnote:focus{background:#F4F7F9}
+    tr.noterow td{height:auto;line-height:1.3;vertical-align:top}
+    tr.noterow td.mname{padding-top:4px;font-size:11px}
+    tbody td.notecell{background:transparent;padding:0;vertical-align:top;height:auto}
+    tbody td.notecell textarea.gnote{display:block;width:100%;min-width:80px;border:0;background:transparent;font-family:var(--body);font-size:10.5px;line-height:1.3;resize:none;height:47px;color:var(--ink);outline:none;padding:3px 6px;box-sizing:border-box;font-weight:400;overflow:hidden}   /* 3 lines */
+    tbody td.notecell textarea.gnote:focus{background:#F4F7F9;height:92px;overflow:auto}
 .mname .src{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;padding:1px 4px;border-radius:2px;margin-left:6px;vertical-align:1px}
 .src.a{background:#E4EFF6;color:#2A6285}.src.m{background:#F0EDF6;color:#5B4A85}.src.d{background:var(--line-2);color:var(--steel)}
 .cand{border-bottom:1px dotted var(--info)}
