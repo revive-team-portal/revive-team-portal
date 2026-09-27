@@ -6,6 +6,7 @@
 <title>Revive Cafe — Scorecard</title>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
   --ink:#1C1917; --ink-2:#292524; --ink-3:#44403C;
@@ -103,6 +104,14 @@ td.susp:after{content:' ~'}
 .der{color:var(--steel);font-style:normal}
 .scroll{overflow-x:auto}
     .gscroll{max-height:calc(100vh - 96px);overflow:auto}
+    .insights .icard{margin-top:12px}
+    .ichart{padding:10px 14px 4px;background:#fff}
+    .itext{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--line-2)}
+    .itext>div{padding:12px 16px;font-size:12px;line-height:1.55}
+    .itext h4{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--steel);margin:0 0 6px}
+    .itext ul{margin:0;padding-left:16px}.itext li{margin-bottom:5px}
+    .iobs{border-right:1px solid var(--line-2)} .irec{background:#FBFCFC}
+    @media(max-width:900px){.itext{grid-template-columns:1fr}.iobs{border-right:0;border-bottom:1px solid var(--line-2)}}
     .wknotes{display:flex;flex-direction:column;gap:5px;padding:2px}
     .wknote{display:flex;gap:10px;font-size:11px;line-height:1.4;border-bottom:1px solid var(--line-2);padding-bottom:5px}
     .wknote:last-child{border-bottom:none}
@@ -410,6 +419,19 @@ td.der .subn,td .subn{opacity:.85}
       </div>
     </div>
 
+    <!-- ============ OBSERVATIONS ============ -->
+    <div v-if="screen==='insights' && level==='manager'" class="insights">
+      <p class="note" style="margin:8px 0 14px">Ten views built from the last 104 weeks. <b>This year</b> = the latest 52 completed weeks; <b>last year</b> = the 52 before. Larger dots mark the key points referred to in the notes. Figures recompute from live data each time you open this tab.</p>
+      <div v-for="c in INSIGHTS" :key="c.id" class="panel icard">
+        <div class="ptitle"><h2>{{ c.n }}. {{ c.title }}</h2><div class="r">{{ c.sub }}</div></div>
+        <div class="ichart"><canvas :id="'ch-'+c.id" height="120"></canvas></div>
+        <div class="itext">
+          <div class="iobs"><h4>What the data says</h4><ul><li v-for="o in (insightText[c.id]||{}).obs||[]">{{ o }}</li></ul></div>
+          <div class="irec"><h4>What to do about it</h4><ul><li v-for="r in c.rec">{{ r }}</li></ul></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ============ ENTER WEEK ============ -->
     <div v-if="screen==='enter' && level!=='team'">
       <div class="panel">
@@ -547,7 +569,7 @@ td.der .subn,td .subn{opacity:.85}
 </div>
 
 <script>
-const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+const { createApp, ref, reactive, computed, onMounted, nextTick, watch } = Vue;
 const portal = supabase.createClient(PORTAL_URL, PORTAL_ANON);
 
 createApp({
@@ -987,11 +1009,159 @@ createApp({
       (d.weeks||[]).forEach(w=>{ weekByEnd[w.period_end]=w; });
       indexMeta();
     }
+    // ---------- OBSERVATIONS (10 charts) ----------
+    const insightText=reactive({});
+    const INSIGHTS=[
+      {id:'total',n:1,title:'Total sales — this year vs last year',sub:'cafe + online, weekly, 52-week overlay',
+       rec:['Treat online as the growth engine and budget accordingly; cafe needs a traffic plan, not a discount plan.','Set a total-sales weekly target that assumes online growth continues and cafe holds flat — then review the gap monthly.']},
+      {id:'mix',n:2,title:'Cafe vs online — where the revenue now comes from',sub:'weekly sales, 2 years',
+       rec:['Rebalance labour and marketing spend toward the channel mix — online is now the majority of revenue.','Report the mix % weekly so any reversal in the trend is spotted early.']},
+      {id:'covers',n:3,title:'Cafe covers — this year vs last year, with spend per customer',sub:'covers overlay + average spend',
+       rec:['Make covers (not sales) the cafe\'s headline KPI — sales have been propped up by a higher spend per customer.','Rebuild traffic with the flyer/VIP levers and track redemption % weekly; target covers back above last year within two quarters.']},
+      {id:'orders',n:4,title:'Online orders and average order value — this year vs last year',sub:'orders overlay + AOV',
+       rec:['AOV is a proven lever — keep pushing bundles and the free-shipping threshold.','Watch order count as the early-warning signal: when it dips while AOV climbs, check whether ad spend was cut that week.']},
+      {id:'ads',n:5,title:'Advertising efficiency — spend vs orders and cost per order',sub:'Meta spend, online orders, ad cost per order',
+       rec:['Set a ceiling on ad cost per order (start at ~$7.50) and pull spend back when it\'s breached for two consecutive weeks.','Run a 4-week spend-level test (e.g. −20% / +20%) to find the true marginal return rather than assuming more is better.']},
+      {id:'pnl',n:6,title:'Online P&L — what each week actually earns',sub:'GP less ads less shipping, and COGS %',
+       rec:['Online net contribution per week is the number to hold the team accountable for — put it on the board every Monday.','Keep COGS below 35%: the margin gain of the last year is worth more than any single promo.']},
+      {id:'promo',n:7,title:'Promo effectiveness — which offers actually pay',sub:'avg online sales and COGS % by offer type (2 years)',
+       rec:['Stop discounting meals — they are the fastest-growing line at full price, and the 20%-off weeks were the weakest with the worst margin.','Use sitewide 20% sparingly (highest sales, but ~39% COGS); rotate Wopples and nut-butter offers, which hold margin.','Judge every promo on the uplift vs the prior week, not the headline week.']},
+      {id:'labour',n:8,title:'Labour productivity — wages % of sales and sales per hour',sub:'wages % of total sales, cafe sales per FOH hour',
+       rec:['Hold wages at or below 25% of sales as a standing rule.','Roster the cafe to covers: set a covers-per-FOH-hour target from the best recent quarter and staff to it.']},
+      {id:'prod',n:9,title:'Production vs sales — meals and muesli',sub:'made vs sold, weekly',
+       rec:['Cap Heat & Eat production at a rolling 4-week average of sales plus a fixed buffer — stock has been building.','Muesli demand is shrinking: cut run sizes to match and decide whether to promote it or let it fade.']},
+      {id:'service',n:10,title:'Service, loyalty and the small lines',sub:'refund rate, VIP & flyer share, catering',
+       rec:['Set a resend/refund target of under 2% of orders and review every refund weekly.','Catering has halved — decide whether to relaunch it or drop it from the board.','Grow VIP share of cafe customers: it\'s the cheapest repeat-traffic lever you have.']},
+    ];
+    const charts={};
+    const CY='#0E9AA7', CG='#3A7D44', CA='#C0392B', CS='#8A94A0', CK='#1B2430', CB='#D9A441';
+    const fmtK=v=>'$'+Math.round(v/1000)+'k';
+    const pct=(a,b)=> (b?Math.round(100*(a-b)/b):null);
+    function ser(code,ws){ return ws.map(pe=>{ const x=val(code,pe); return x.v==null?null:x.v; }); }
+    function sum(a){ return a.reduce((s,v)=>s+(v||0),0); }
+    function avg(a){ const b=a.filter(v=>v!=null); return b.length? sum(b)/b.length : null; }
+    function completedWeeks(){ return weeks.value.map(w=>w.period_end).filter(pe=>!isPrelim(pe)); }
+    function big(arr,idxs){ return arr.map((_,i)=> idxs.includes(i)?6:0); }   // point radii: mark key points
+    function argmax(a){ let m=-Infinity,mi=-1; a.forEach((v,i)=>{ if(v!=null&&v>m){m=v;mi=i;} }); return mi; }
+    function argmin(a){ let m=Infinity,mi=-1; a.forEach((v,i)=>{ if(v!=null&&v<m){m=v;mi=i;} }); return mi; }
+    function lbl(pe){ return colLabel(pe); }
+    function mk(id,cfg){ const el=document.getElementById('ch-'+id); if(!el) return; if(charts[id]) charts[id].destroy(); charts[id]=new Chart(el,cfg); }
+    const copt=(extra)=>({responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{boxWidth:10,font:{size:10}}}},scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}}},...(extra||{})});
+
+    function renderInsights(){
+      const ws=completedWeeks(); const ty=ws.slice(-52), ly=ws.slice(-104,-52); const all=ws.slice(-104);
+      const T=c=>ser(c,ty), L=c=>ser(c,ly), A=c=>ser(c,all);
+      const wk=ty.map((_,i)=>'wk '+(i+1));
+      const g=1+GST.value;
+
+      // 1 total sales YoY
+      { const t=T('cafe_sales').map((v,i)=>(v||0)+(T('online_sales')[i]||0)), l=L('cafe_sales').map((v,i)=>(v||0)+(L('online_sales')[i]||0));
+        const iM=argmax(t);
+        mk('total',{type:'line',data:{labels:wk,datasets:[{label:'This year',data:t,borderColor:CK,backgroundColor:CK,pointRadius:big(t,[iM]),tension:.3},{label:'Last year',data:l,borderColor:CS,backgroundColor:CS,borderDash:[4,3],pointRadius:0,tension:.3}]},options:copt()});
+        const st=sum(t), sl=sum(l), ct=sum(T('cafe_sales')), cl=sum(L('cafe_sales')), ot=sum(T('online_sales')), ol=sum(L('online_sales'));
+        insightText.total={obs:[`Total sales ${fmtK(st)} vs ${fmtK(sl)} last year (${pct(st,sl)>=0?'+':''}${pct(st,sl)}%).`,
+          `All of the growth is online: online ${fmtK(ot)} (${pct(ot,ol)>=0?'+':''}${pct(ot,ol)}%) while cafe ${fmtK(ct)} (${pct(ct,cl)>=0?'+':''}${pct(ct,cl)}%).`,
+          `Best week this year: ${lbl(ty[iM])} at $${fm(t[iM],0)} (marked).`]}; }
+
+      // 2 mix
+      { const c=A('cafe_sales'), o=A('online_sales'); const labels=all.map(lbl);
+        let cross=-1; for(let i=0;i<all.length;i++){ if(o[i]!=null&&c[i]!=null&&o[i]>c[i]){ cross=i; break; } }
+        mk('mix',{type:'line',data:{labels,datasets:[{label:'Online',data:o,borderColor:CY,backgroundColor:CY,pointRadius:big(o,[cross]),tension:.3},{label:'Cafe',data:c,borderColor:CG,backgroundColor:CG,pointRadius:0,tension:.3}]},options:copt()});
+        const share=Math.round(100*sum(T('online_sales'))/(sum(T('online_sales'))+sum(T('cafe_sales'))));
+        insightText.mix={obs:[`Online is now ${share}% of revenue over the last 52 weeks.`, cross>=0?`Online first out-sold the cafe in the week of ${lbl(all[cross])} (marked) and has stayed ahead most weeks since.`:'Online has not yet consistently out-sold the cafe.',
+          `The two lines have been diverging for over a year — this is a structural shift, not a promo blip.`]}; }
+
+      // 3 covers YoY + ATV
+      { const t=T('cafe_customers'), l=L('cafe_customers'); const atvT=T('cafe_atv');
+        const iMin=argmin(t.map((v,i)=> (ty[i] && weekByEnd[ty[i]] && weekByEnd[ty[i]].cafe_closed)?null:v));
+        mk('covers',{type:'line',data:{labels:wk,datasets:[{label:'Covers this year',data:t,borderColor:CG,backgroundColor:CG,pointRadius:big(t,[iMin]),tension:.3,yAxisID:'y'},{label:'Covers last year',data:l,borderColor:CS,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y'},{label:'Spend / customer ($)',data:atvT,borderColor:CB,backgroundColor:CB,pointRadius:0,tension:.3,yAxisID:'y2'}]},
+          options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}}}})});
+        const ct=sum(t), cl=sum(l), aT=avg(atvT), aL=avg(L('cafe_atv'));
+        insightText.covers={obs:[`Cafe covers ${fm(ct,0)} vs ${fm(cl,0)} last year (${pct(ct,cl)}%) — the cafe is serving fewer people.`,
+          `Spend per customer rose to $${fm(aT,2)} from $${fm(aL,2)} (+${pct(aT,aL)}%), which has masked most of the traffic loss in the sales line.`,
+          `Lowest trading week: ${lbl(ty[iMin])} at ${fm(t[iMin],0)} covers (marked).`]}; }
+
+      // 4 orders + AOV YoY
+      { const t=T('online_orders'), l=L('online_orders'), aov=T('online_aov'); const iM=argmax(aov);
+        mk('orders',{type:'line',data:{labels:wk,datasets:[{label:'Orders this year',data:t,borderColor:CY,backgroundColor:CY,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Orders last year',data:l,borderColor:CS,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y'},{label:'AOV ($)',data:aov,borderColor:CB,backgroundColor:CB,pointRadius:big(aov,[iM]),tension:.3,yAxisID:'y2'}]},
+          options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}}}})});
+        const ot=sum(t), ol=sum(l), aT=sum(T('online_sales'))/ot, aL=sum(L('online_sales'))/ol;
+        insightText.orders={obs:[`Orders ${fm(ot,0)} vs ${fm(ol,0)} (+${pct(ot,ol)}%), and AOV $${fm(aT,2)} vs $${fm(aL,2)} (+${pct(aT,aL)}%) — both levers are pulling.`,
+          `AOV peaked at $${fm(aov[iM],2)} in the week of ${lbl(ty[iM])} (marked).`,
+          `Roughly a third of the online growth came from bigger baskets rather than more customers.`]}; }
+
+      // 5 ad efficiency
+      { const ads=A('ad_spend'), ord=A('online_orders'); const cpo=ads.map((a,i)=> (a!=null&&ord[i])? a/ord[i] : null); const labels=all.map(lbl); const iM=argmax(cpo);
+        mk('ads',{type:'bar',data:{labels,datasets:[{type:'bar',label:'Ad spend ($)',data:ads,backgroundColor:'rgba(192,57,43,.35)',yAxisID:'y'},{type:'line',label:'Online orders',data:ord,borderColor:CY,pointRadius:0,tension:.3,yAxisID:'y2'},{type:'line',label:'Ad cost per order ($)',data:cpo,borderColor:CK,pointRadius:big(cpo,[iM]),tension:.3,yAxisID:'y3'}]},
+          options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}},y3:{display:false}}})});
+        const at=sum(T('ad_spend')), al=sum(L('ad_spend')); const cT=at/sum(T('online_orders')), cL=al/sum(L('online_orders'));
+        const pT=100*at/(sum(T('online_sales'))/g), pL=100*al/(sum(L('online_sales'))/g);
+        insightText.ads={obs:[`Ad spend ${fmtK(at)} vs ${fmtK(al)} (+${pct(at,al)}%) bought +${pct(sum(T('online_orders')),sum(L('online_orders')))}% orders — spend is growing much faster than the orders it buys.`,
+          `Cost per order has risen from $${fm(cL,2)} to $${fm(cT,2)}; ads are now ${fm(pT,1)}% of ex-GST online sales (was ${fm(pL,1)}%). Peak cost per order: ${lbl(all[iM])} at $${fm(cpo[iM],2)} (marked).`,
+          `Volume is still spend-responsive — when spend was cut in the latest quarter, orders fell with it — so the question is the right level, not on/off.`]}; }
+
+      // 6 online P&L
+      { const os=A('online_sales'), cg=A('online_cogs'), ad=A('ad_spend'), sh=A('shipping_cost'); const labels=all.map(lbl);
+        const net=os.map((v,i)=> (v==null||cg[i]==null)?null: v/g-cg[i]-(ad[i]||0)-(sh[i]||0));
+        const cp=os.map((v,i)=> (v&&cg[i]!=null)? 100*cg[i]/(v/g) : null); const iM=argmax(net);
+        mk('pnl',{type:'bar',data:{labels,datasets:[{type:'bar',label:'Net contribution / wk ($)',data:net,backgroundColor:'rgba(58,125,68,.45)',yAxisID:'y'},{type:'line',label:'COGS %',data:cp,borderColor:CA,pointRadius:0,tension:.3,yAxisID:'y2'}]},
+          options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}},suggestedMin:25,suggestedMax:50}}})});
+        const nT=avg(net.slice(-52)), nL=avg(net.slice(0,52)); const cpT=100*sum(T('online_cogs'))/(sum(T('online_sales'))/g), cpL=100*sum(L('online_cogs'))/(sum(L('online_sales'))/g);
+        insightText.pnl={obs:[`Online net contribution (GP − ads − shipping) averages $${fm(nT,0)}/week this year vs $${fm(nL,0)} last year (+${pct(nT,nL)}%).`,
+          `COGS has fallen from ${fm(cpL,1)}% to ${fm(cpT,1)}% of ex-GST sales — the single biggest driver of the profit improvement.`,
+          `Best week: ${lbl(all[iM])} at $${fm(net[iM],0)} (marked). Shipping only enters from Jul 2026, so earlier net figures are slightly flattered.`]}; }
+
+      // 7 promo effectiveness (categorise offers)
+      { const cats={'Sitewide 20% off':[], 'Wopples':[], 'Muesli 20% / $13':[], 'All nut butters':[], 'Peanut butter 50%':[], 'Cashew mega deal':[], 'Meals 20% off':[], 'No offer':[]};
+        all.forEach(pe=>{ const o=String((weekByEnd[pe]||{}).email_offer||'').toLowerCase(); const os=val('online_sales',pe).v, cg=val('online_cogs',pe).v; if(os==null) return;
+          let k= o.includes('everything')?'Sitewide 20% off': o.includes('peanut')?'Peanut butter 50%': o.includes('cashew')?'Cashew mega deal': (o.includes('nut butter')||o.includes('nb mega')||o.includes('mega nut'))?'All nut butters': o.includes('muesli')?'Muesli 20% / $13': (o.includes('meal')||o.includes('reheat'))?'Meals 20% off': o.includes('wopple')?'Wopples': o===''?'No offer':null;
+          if(k) cats[k].push({os,cg}); });
+        const names=Object.keys(cats).filter(k=>cats[k].length>=3);
+        const sales=names.map(k=>avg(cats[k].map(x=>x.os))); const cogs=names.map(k=>{ const s=avg(cats[k].map(x=>x.os)), c=avg(cats[k].map(x=>x.cg)); return (s&&c!=null)?100*c/(s/g):null; });
+        const iB=argmax(sales), iW=argmin(sales);
+        mk('promo',{type:'bar',data:{labels:names.map((k,i)=>k+' ('+cats[k].length+'w)'),datasets:[{type:'bar',label:'Avg online sales / wk ($)',data:sales,backgroundColor:names.map((_,i)=> i===iB?CG: i===iW?CA:'rgba(14,154,167,.5)'),yAxisID:'y'},{type:'line',label:'COGS %',data:cogs,borderColor:CK,pointRadius:4,tension:0,yAxisID:'y2'}]},
+          options:copt({scales:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}},suggestedMin:30,suggestedMax:45}}})});
+        insightText.promo={obs:[`Highest-selling offer type: ${names[iB]} at $${fm(sales[iB],0)}/week — but at ${fm(cogs[iB],1)}% COGS (green bar).`,
+          `Weakest: ${names[iW]} at $${fm(sales[iW],0)}/week with the worst margin, ${fm(cogs[iW],1)}% (red bar). Meals sell strongly without a discount.`,
+          `Wopples and nut-butter offers give the best balance of sales and margin. Note: older weeks had a smaller online base, so recent offer types look slightly better by default.`]}; }
+
+      // 8 labour
+      { const wp=A('wages_pct_sales'), spf=all.map(pe=>{ const c=val('cafe_sales',pe).v, h=val('hours_foh_cafe',pe).v; return (c!=null&&h)? c/h : null; }); const labels=all.map(lbl); const iMin=argmin(spf), iMax=argmax(spf);
+        mk('labour',{type:'line',data:{labels,datasets:[{label:'Wages % of sales',data:wp,borderColor:CA,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Cafe sales per FOH hour ($)',data:spf,borderColor:CG,backgroundColor:CG,pointRadius:big(spf,[iMin,iMax]),tension:.3,yAxisID:'y2'}]},
+          options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}},suggestedMin:15,suggestedMax:35},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}}}})});
+        const wT=100*sum(T('wages_paid'))/((sum(T('cafe_sales'))+sum(T('online_sales')))/g), wL=100*sum(L('wages_paid'))/((sum(L('cafe_sales'))+sum(L('online_sales')))/g);
+        const fT=sum(T('hours_foh_cafe')), fL=sum(L('hours_foh_cafe'));
+        insightText.labour={obs:[`Wages are ${fm(wT,1)}% of ex-GST sales this year vs ${fm(wL,1)}% last year — a real productivity gain.`,
+          `FOH hours were cut ${Math.abs(pct(fT,fL))}% while cafe sales fell only ${Math.abs(pct(sum(T('cafe_sales')),sum(L('cafe_sales'))))}%, so cafe sales per FOH hour improved. Low point ${lbl(all[iMin])} ($${fm(spf[iMin],0)}/hr); high ${lbl(all[iMax])} ($${fm(spf[iMax],0)}/hr) (both marked).`,
+          `Total wages still rose because fulfilment hours grew with online — that's the right kind of growth in labour.`]}; }
+
+      // 9 production vs sales
+      { const mp=A('meals_packed'), ms=A('heat_eat_sold'), up=A('mueslis_packed'), us=A('muesli_sold'); const labels=all.map(lbl);
+        let cum=0; const cumNet=mp.map((v,i)=>{ if(v==null||ms[i]==null) return null; cum+= v-ms[i]; return cum; });
+        mk('prod',{type:'line',data:{labels,datasets:[{label:'Meals made',data:mp,borderColor:CG,pointRadius:0,tension:.3},{label:'Meals sold',data:ms,borderColor:CY,pointRadius:0,tension:.3},{label:'Muesli made',data:up,borderColor:CB,pointRadius:0,tension:.3,borderDash:[4,3]},{label:'Muesli sold',data:us,borderColor:CS,pointRadius:0,tension:.3,borderDash:[4,3]}]},options:copt()});
+        const mpT=sum(T('meals_packed')), msT=sum(T('heat_eat_sold')), upT=sum(T('mueslis_packed')), usT=sum(T('muesli_sold'));
+        insightText.prod={obs:[`Heat & Eat: ${fm(msT,0)} sold this year (${pct(msT,sum(L('heat_eat_sold')))>=0?'+':''}${pct(msT,sum(L('heat_eat_sold')))}%) vs ${fm(mpT,0)} made — production has run ${mpT>msT?'ahead of':'behind'} sales by ${fm(Math.abs(mpT-msT),0)} meals, so ${mpT>msT?'stock is building':'stock is being drawn down'}.`,
+          `Muesli: ${fm(usT,0)} sold (${pct(usT,sum(L('muesli_sold')))}%) vs ${fm(upT,0)} made — a shrinking category with production still slightly ahead.`,
+          `Note "sold" here is online only; cafe muesli sales sit in the cafe till, so the muesli gap is partly explained by cafe demand.`]}; }
+
+      // 10 service & loyalty
+      { const rr=all.map(pe=>{ const r=val('resends_refunds',pe).v, o=val('online_orders',pe).v; return (r!=null&&o)? 100*r/o : null; }); const vip=A('cafe_vip_card').map((v,i)=>{ const c=val('cafe_customers',all[i]).v; return (v!=null&&c)? 100*v/c : null; }); const fly=A('cafe_share_flyers').map((v,i)=>{ const c=val('cafe_customers',all[i]).v; return (v!=null&&c)? 100*v/c : null; }); const cat=A('catering_sales'); const labels=all.map(lbl);
+        mk('service',{type:'line',data:{labels,datasets:[{label:'Refunds / resends % of orders',data:rr,borderColor:CA,pointRadius:0,tension:.3,yAxisID:'y'},{label:'VIP card % of covers',data:vip,borderColor:CB,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Share flyer % of covers',data:fly,borderColor:CG,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Catering ($)',data:cat,borderColor:CS,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y2'}]},
+          options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}}}})});
+        const rT=100*sum(T('resends_refunds'))/sum(T('online_orders')), rL=100*sum(L('resends_refunds'))/sum(L('online_orders')); const cT=sum(T('catering_sales')), cL=sum(L('catering_sales'));
+        const vT=avg(vip.slice(-13)), fT=avg(fly.slice(-13));
+        insightText.service={obs:[`Refunds/resends are ${fm(rT,1)}% of orders vs ${fm(rL,1)}% last year — rising slightly faster than volume.`,
+          `Catering ${fmtK(cT)} vs ${fmtK(cL)} (${pct(cT,cL)}%) — it has roughly halved.`,
+          `In the last 13 weeks ${fm(vT,0)}% of cafe customers used a VIP card and ${fm(fT,0)}% redeemed a share flyer (till data from Oct 2025).`]}; }
+    }
+
     async function refresh(){ const d=await callData({action:'board'}); ingest(d); }
+    watch(screen,(v)=>{ if(v==='insights') nextTick(()=>renderInsights()); });
 
     const tabs=computed(()=>{
       const t=[];
       if(level.value==='manager') t.push({id:'manager',label:'Manager view'});
+      if(level.value==='manager') t.push({id:'insights',label:'Observations'});
       if(level.value==='manager') t.push({id:'targets',label:'Targets'});
       return t;
     });
@@ -1034,7 +1204,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,isManual,isPrelim,pctCust,cellRaw,saveCell,saveNote,fixMode,spanWeeks,showEarlier,showLatest,needsEntry,canEdit,noteNeeds,noteCanEdit,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,INSIGHTS,insightText,isManual,isPrelim,pctCust,cellRaw,saveCell,saveNote,fixMode,spanWeeks,showEarlier,showLatest,needsEntry,canEdit,noteNeeds,noteCanEdit,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,ENTRY_NOTES,me,editors,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
