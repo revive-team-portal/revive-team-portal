@@ -49,11 +49,12 @@ async function syncCatering(start, end) {
   const weekRows = await appsDb('week?select=period_end');
   const exist = new Set((weekRows || []).map(x => x.period_end));
   const today = new Date().toISOString().slice(0, 10);
+  const curFri = weekEndFri(today);
   const ov = await appsDb("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(catering_sales)");
   const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
   const rows = []; const written = [];
   for (const we of Object.keys(wk)) {
-    if (!exist.has(we) || we > today || we < start) continue;
+    if (!exist.has(we) || we > curFri || we < start) continue;
     if (!ovSet.has('catering_sales|' + we)) rows.push({ metric_code: 'catering_sales', period_type: 'week', period_end: we, value: Math.round(wk[we] * 100) / 100, source: 'shopify', quality: 'ok', entered_at: new Date().toISOString() });
     written.push(we);
   }

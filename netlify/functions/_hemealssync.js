@@ -53,20 +53,21 @@ async function syncHeatEat(start, end) {
   const weekRows = await appsDb('week?select=period_end');
   const exist = new Set((weekRows || []).map(x => x.period_end));
   const today = new Date().toISOString().slice(0, 10);
+  const curFri = weekEndFri(today);
   const ov = await appsDb("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(heat_eat_sold,muesli_sold,online_cogs)");
   const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
   const rows = []; const written = [];
   for (const we of Object.keys(wk)) {
-    if (!exist.has(we) || we > today || we < start) continue;
+    if (!exist.has(we) || we > curFri || we < start) continue;
     if (!ovSet.has('heat_eat_sold|' + we)) rows.push({ metric_code: 'heat_eat_sold', period_type: 'week', period_end: we, value: wk[we], source: 'shopify', quality: 'ok', entered_at: new Date().toISOString() });
     written.push(we);
   }
   for (const we of Object.keys(mu)) {
-    if (!exist.has(we) || we > today || we < start) continue;
+    if (!exist.has(we) || we > curFri || we < start) continue;
     if (!ovSet.has('muesli_sold|' + we)) rows.push({ metric_code: 'muesli_sold', period_type: 'week', period_end: we, value: mu[we], source: 'shopify', quality: 'ok', entered_at: new Date().toISOString() });
   }
   for (const we of Object.keys(cogsWk)) {
-    if (!exist.has(we) || we > today || we < start) continue;
+    if (!exist.has(we) || we > curFri || we < start) continue;
     if (!ovSet.has('online_cogs|' + we)) rows.push({ metric_code: 'online_cogs', period_type: 'week', period_end: we, value: Math.round(cogsWk[we] * 100) / 100, source: 'shopify', quality: 'ok', entered_at: new Date().toISOString() });
   }
   for (let i = 0; i < rows.length; i += 400) await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 400)) });

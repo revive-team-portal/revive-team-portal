@@ -74,7 +74,7 @@ function parseTSV(text) {
   return { cols: lines[0].split('\t'), rows: lines.slice(1).map(l => l.split('\t')) };
 }
 async function ingest(note, result) {
-  const cut70 = new Date(Date.now() - 70 * 86400000).toISOString().slice(0, 10); // only write weeks fully inside the fetched window
+  const cut70 = new Date(Date.now() - 70 * 86400000).toISOString().slice(0, 10);
   if (!note) return;
   if (note.indexOf('cafe-today') === 0) {
     const { cols, rows } = parseTSV(result); const r = rows[0] || []; const ix = c => cols.indexOf(c);
@@ -98,10 +98,11 @@ async function ingest(note, result) {
     const ov = await db("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(cafe_sales,cafe_customers,sweets_sold,drinks_sold,shop_sold)");
     const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
     const today = new Date().toISOString().slice(0, 10); const now = new Date().toISOString();
+    const _cf = new Date(today + 'T00:00:00Z'); _cf.setUTCDate(_cf.getUTCDate() + ((5 - _cf.getUTCDay() + 7) % 7)); const curFri = _cf.toISOString().slice(0, 10);
     const map = { cafe_sales: 'cafe_sales', cafe_customers: 'customers', sweets_sold: 'sweets', drinks_sold: 'drinks', shop_sold: 'shop' };
     const facts = [];
     for (const r of rows) {
-      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > today || wk < cut70) continue;
+      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > curFri || wk < cut70) continue;
       for (const metric in map) {
         const v = Number(r[ix(map[metric])] || 0);
         if (!ovSet.has(metric + '|' + wk)) facts.push({ metric_code: metric, period_type: 'week', period_end: wk, value: metric === 'cafe_sales' ? Math.round(v * 100) / 100 : v, source: 'swiftpos', quality: 'ok', entered_at: now });
@@ -116,8 +117,9 @@ async function ingest(note, result) {
     const ov = await db("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(uber_total,uber_txns,uber_covers)");
     const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
     const today = new Date().toISOString().slice(0, 10); const now = new Date().toISOString(); const facts = [];
+    const _cf = new Date(today + 'T00:00:00Z'); _cf.setUTCDate(_cf.getUTCDate() + ((5 - _cf.getUTCDay() + 7) % 7)); const curFri = _cf.toISOString().slice(0, 10);
     for (const r of rows) {
-      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > today || wk < cut70) continue;
+      const wk = r[ix('week_end')]; if (!wk || !exist.has(wk) || wk > curFri || wk < cut70) continue;
       const sales = Math.round((Number(r[ix('uber_sales')] || 0)) * 100) / 100;
       const txns = Math.round(Number(r[ix('uber_txns')] || 0));
       const covers = Math.round(Number(r[ix('uber_covers')] || 0));
