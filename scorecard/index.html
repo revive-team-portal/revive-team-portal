@@ -719,7 +719,7 @@ createApp({
       {sec:'Service'},
       'resends_refunds','secret_shopper_score',
       {sec:'Labour'},
-      'wages_paid','wages_wopples','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour','labour_per_sweet',
+      'wages_paid','wages_wopples','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','orders_per_fulfil_hour','labour_per_sweet',
       {sec:'Online P&L'},
       'online_sales','online_cogs','online_gross_profit','ad_spend','shipping_cost','online_net_profit',
       {sec:'Shipping'},
@@ -746,7 +746,7 @@ createApp({
     function cellObj(code,pe){ return val(code,pe); }
     const nzTodayStr=new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     function isPrelim(pe){ return pe>nzTodayStr; }   // in-progress week (not yet finished)
-    function isManual(code){ return SRC[code]==='m'; }
+    function isManual(code){ return SRC[code]==='manual'; }
     function needsEntry(code,pe){ return isManual(code) && cellRaw(code,pe)===''; }
     function canEdit(code,pe){ return isManual(code) && (cellRaw(code,pe)==='' || fixMode.value); }
     function noteNeeds(key,pe){ const w=weekByEnd[pe]; return !(w && w[key]); }
