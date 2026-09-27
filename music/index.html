@@ -385,6 +385,15 @@ let idx = 0, shuffle = false, repeat = 'off', scrubbing = false, lyricsOn = true
 /* true whenever the listener wants sound. A phone call pauses the element without
    clearing this, which is how we know to pick things back up afterwards. */
 let wantPlaying = false;
+/* playback mode state — see the playback section below */
+const HLS_OK = !!(audio.canPlayType && audio.canPlayType('application/vnd.apple.mpegurl'));
+const FORCE_MODE = new URLSearchParams(location.search).get('mode');   // ?mode=classic to compare
+let MODE = 'classic';                 // decided at boot
+let streamBroken = false;             // the stream errored this session: stay classic
+const CYCLES = 3;                     // each playlist lists every song this many times (~3 hours)
+let ENT = [], curEntry = -1;          // stream entries: {song, start, end} in stream seconds
+let jumpLock = 0;                     // ignore stale timeupdates just after a programmatic jump
+let boundTimer = null;
 
 const fmt = s => (!isFinite(s) || s < 0) ? '0:00'
   : Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
@@ -594,6 +603,7 @@ const ICON_GRID = '<svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3
 /* Lyric times are stored against each song's true length. If the audio file that
    loads is a different length, scale so the words still land in the right place. */
 function scale(){
+  if(MODE === 'stream') return 1;
   const s = SONGS[idx];
   if(!s || !s.duration || !audio.duration || !isFinite(audio.duration)) return 1;
   return audio.duration / s.duration;
@@ -608,6 +618,7 @@ function paint(){
   $('title').textContent = s.title;
   $('sub').textContent = ARTIST;
   $('meta').textContent = fmt(s.duration) + (s.created ? ' · ' + fmtDate(s.created) : '');
+  $('dur').textContent = fmt(s.duration);
   $('note').textContent = s.note || '';
   $('note').style.display = s.note ? '' : 'none';
   if(s.verse && s.verse.ref){
@@ -682,7 +693,7 @@ function buildGrid(){
     ? shown.length + (shown.length === 1 ? ' new song' : ' new songs')
     : favOnly
     ? shown.length + (shown.length === 1 ? ' favourite' : ' favourites')
-    : SONGS.length + ' songs';
+    : SONGS.length + ' songs' + (MODE === 'stream' ? ' · gapless' : '');
   if(!shown.length){
     g.innerHTML = newOnly ? '<p class="emptyfav">Nothing new in the last two weeks.</p>'
       : '<p class="emptyfav">No favourites yet.<br>Tap the heart on a song to keep it here.</p>';
@@ -724,7 +735,7 @@ function buildGrid(){
 function runLyrics(){
   const s = SONGS[idx], lines = sung(s);
   if(!lines.length) return;
-  const k = scale(), t = audio.currentTime;
+  const k = scale(), t = songTime();
   let n = -1;
   for(let i=0;i<lines.length;i++){ if(t >= lines[i].t * k) n = i; else break; }
 
@@ -752,15 +763,128 @@ function runLyrics(){
 }
 
 /* ─────────── playback ─────────── */
+/* Two playback modes.
+   stream  — Safari/iOS, online. Every song is one segment of a single HLS
+             playlist (netlify/functions/music-playlist.js), so the <audio>
+             element plays ONE continuous stream. Between songs nothing ends and
+             nothing restarts, which is what Bluetooth car units (2016 GM MyLink
+             especially) were reading as "Paused" — there is no longer a moment
+             where iOS reports "not playing".
+   classic — one file per song, swapped when each ends. Used on Android/desktop
+             Chrome (no native HLS), when offline (the download cache can't feed
+             the native HLS player), or if the stream fails. */
+
+function canStream(){ return HLS_OK && navigator.onLine !== false && !streamBroken && FORCE_MODE !== 'classic'; }
+/* seconds into the CURRENT SONG, whichever mode we're in */
+function songTime(){
+  if(MODE === 'stream' && curEntry >= 0) return Math.max(0, audio.currentTime - ENT[curEntry].start);
+  return audio.currentTime;
+}
+function seekSong(t){
+  try {
+    if(MODE === 'stream' && curEntry >= 0){
+      const e = ENT[curEntry];
+      audio.currentTime = e.start + Math.max(0, Math.min(t, e.end - e.start - 0.05));
+    } else audio.currentTime = t;
+  } catch(err){}
+  live = -1;
+}
 /* iOS sometimes reports NaN/Infinity for the element's duration (after a call, on a
-   partially loaded file, or over Bluetooth). Fall back to the length we know. */
-function dur(){ const d = audio.duration; return (d && isFinite(d)) ? d : (SONGS[idx] && SONGS[idx].duration) || 0; }
-/* ── gapless-ish: the NEXT song is downloaded into memory while this one plays,
-   so the swap at the end is instant instead of a network fetch (a 2016 GM head
-   unit reads that fetch gap as a pause). ── */
+   partially loaded file, or over Bluetooth). Fall back to the length we know.
+   In stream mode the element's duration is the whole playlist, so always use ours. */
+function dur(){
+  if(MODE === 'stream') return (SONGS[idx] && SONGS[idx].duration) || 0;
+  const d = audio.duration; return (d && isFinite(d)) ? d : (SONGS[idx] && SONGS[idx].duration) || 0;
+}
+
+function shuffled(avoidFirst){
+  const a = SONGS.map((_, i) => i), n = a.length;
+  for(let i = n - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  if(n > 1 && a[0] === avoidFirst){ const k = 1 + Math.floor(Math.random() * (n - 1)); [a[0], a[k]] = [a[k], a[0]]; }
+  return a;
+}
+function buildEntries(first){
+  const n = SONGS.length, out = [];
+  for(let c = 0; c < CYCLES; c++){
+    let cyc;
+    if(shuffle){
+      cyc = shuffled(out.length ? out[out.length - 1] : -1);      // fresh order every cycle
+      if(c === 0){ const k = cyc.indexOf(first); [cyc[0], cyc[k]] = [cyc[k], cyc[0]]; }
+    } else cyc = SONGS.map((_, i) => (first + i) % n);           // list order, starting here
+    out.push(...cyc);
+  }
+  let t = 0;
+  ENT = out.map(song => { const d = Number(SONGS[song].duration) || 0.1; const e = {song, start: t, end: t + d}; t += d; return e; });
+}
+function entryAt(t){
+  for(let i = 0; i < ENT.length; i++) if(t < ENT[i].end) return i;
+  return ENT.length - 1;
+}
+/* the stream just crossed into the next song: switch title, art, lyrics, lock screen */
+function syncEntry(){
+  if(MODE !== 'stream' || !ENT.length) return;
+  const e = entryAt(audio.currentTime);
+  if(jumpLock){ if(e === curEntry || Date.now() > jumpLock) jumpLock = 0; else return; }
+  if(e !== curEntry){
+    curEntry = e; idx = ENT[e].song; live = -1;
+    paint(); position();
+  }
+  armBoundary();
+}
+/* a timer fired at the exact boundary, so the car/lock screen gets the new title
+   at once instead of on the next timeupdate (~250ms later). Also handles repeat-one. */
+function armBoundary(){
+  clearTimeout(boundTimer); boundTimer = null;
+  if(MODE !== 'stream' || audio.paused || curEntry < 0) return;
+  const left = ENT[curEntry].end - audio.currentTime;
+  if(repeat === 'one'){ boundTimer = setTimeout(()=>{ seekSong(0); armBoundary(); }, Math.max(0, (left - 0.15) * 1000)); return; }
+  boundTimer = setTimeout(syncEntry, Math.max(0, left * 1000) + 60);
+}
+function loadStream(first, t, autoplay){
+  MODE = 'stream';
+  buildEntries(first);
+  curEntry = 0; idx = first; live = -1; jumpLock = 0;
+  lastPos = t || 0;
+  const url = '/.netlify/functions/music-playlist?o=' + ENT.map(e => e.song).join(',') + (t > 0.05 ? '&t=' + t.toFixed(2) : '');
+  audio.src = url;
+  if(t > 0.05) audio.addEventListener('loadedmetadata', ()=>{ if(Math.abs(audio.currentTime - t) > 2){ try { audio.currentTime = t; } catch(e){} } }, {once:true});
+  if(autoplay){
+    wantPlaying = true;
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+    audio.play().catch(()=>{});
+  }
+  paint(); position(t || 0);
+}
+function jumpEntry(e, autoplay){
+  curEntry = e; idx = ENT[e].song; live = -1;
+  jumpLock = Date.now() + 4000;
+  try { audio.currentTime = ENT[e].start + 0.02; } catch(err){}
+  if(autoplay){
+    wantPlaying = true;
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+    audio.play().catch(()=>{});
+  }
+  paint(); position(0); armBoundary();
+}
+/* drop out of the stream (offline, or it failed) and carry on from the same place */
+function fallbackClassic(reason){
+  if(MODE !== 'stream') return;
+  const t = songTime(), playing = wantPlaying;
+  clearTimeout(boundTimer); boundTimer = null;
+  MODE = 'classic'; curEntry = -1; ENT = []; jumpLock = 0;
+  lastPos = t;
+  if(reason === 'error' && navigator.onLine !== false) streamBroken = true;
+  audio.src = SONGS[idx].src;
+  if(t > 1) audio.addEventListener('loadedmetadata', ()=>{ try { audio.currentTime = t; } catch(e){} }, {once:true});
+  if(playing) audio.play().catch(()=>{});
+  buildGrid();
+}
+
+/* ── classic mode only: the NEXT song is downloaded into memory while this one
+   plays, so the swap at the end is instant instead of a network fetch. ── */
 const pre = { idx: -1, url: null, busy: false };
 function prefetch(){
-  if(SONGS.length < 2 || pre.busy) return;
+  if(MODE === 'stream' || SONGS.length < 2 || pre.busy) return;
   const n = (shuffle ? step(1) : (idx + 1) % SONGS.length);
   if(pre.idx === n && pre.url) return;
   if(pre.url){ try { URL.revokeObjectURL(pre.url); } catch(e){} }
@@ -771,6 +895,18 @@ function prefetch(){
     .finally(()=>{ pre.busy = false; });
 }
 function select(i, autoplay = true){
+  if(MODE === 'stream'){
+    if(audio.readyState === 0 || !ENT.length){ loadStream(i, 0, autoplay); return; }   // nothing loaded yet
+    let e = -1;
+    if(i === idx && curEntry >= 0) e = curEntry;                                       // tapped the playing song: restart it
+    else {
+      for(let k = curEntry + 1; k < ENT.length; k++) if(ENT[k].song === i){ e = k; break; }   // next time it comes round
+      if(e < 0) e = ENT.findIndex(x => x.song === i);
+    }
+    if(e < 0){ loadStream(i, 0, autoplay); return; }
+    jumpEntry(e, autoplay);
+    return;
+  }
   idx = i;
   if(pre.playing){ try { URL.revokeObjectURL(pre.playing); } catch(e){} pre.playing = null; }
   if(pre.idx === i && pre.url){ audio.src = pre.playing = pre.url; pre.idx = -1; pre.url = null; }
@@ -788,29 +924,45 @@ function select(i, autoplay = true){
 }
 function step(d){
   if(shuffle && SONGS.length > 1){
-    if(d === 1 && pre.idx >= 0 && pre.idx !== idx) return pre.idx;
+    if(MODE !== 'stream' && d === 1 && pre.idx >= 0 && pre.idx !== idx) return pre.idx;
     let n; do { n = Math.floor(Math.random()*SONGS.length); } while(n === idx);
     return n;
   }
   return (idx + d + SONGS.length) % SONGS.length;
+}
+function goNext(){
+  if(MODE === 'stream' && ENT.length && audio.readyState > 0){
+    if(curEntry + 1 < ENT.length) jumpEntry(curEntry + 1, true);
+    else loadStream(step(1), 0, true);
+    return;
+  }
+  select(step(1));
+}
+function goPrev(){
+  if(songTime() > 3){ seekSong(0); return; }
+  if(MODE === 'stream' && ENT.length && audio.readyState > 0){
+    if(curEntry > 0) jumpEntry(curEntry - 1, true); else seekSong(0);
+    return;
+  }
+  select(step(-1));
 }
 
 $('play').addEventListener('click', ()=>{
   if(audio.paused){ wantPlaying = true; audio.play().catch(()=>{}); }
   else { wantPlaying = false; audio.pause(); }
 });
-$('next').addEventListener('click', ()=> select(step(1)));
-$('prev').addEventListener('click', ()=>{
-  if(audio.currentTime > 3){ audio.currentTime = 0; live = -1; return; }
-  select(step(-1));
-});
+$('next').addEventListener('click', goNext);
+$('prev').addEventListener('click', goPrev);
 $('shuffle').addEventListener('click', e=>{
   shuffle = !shuffle; pre.idx = -1; setTimeout(prefetch, 300);
+  /* the stream is a fixed order, so a new order means a new playlist — resume from the same second */
+  if(MODE === 'stream' && ENT.length && audio.readyState > 0) loadStream(idx, songTime(), wantPlaying && !audio.paused);
   e.currentTarget.classList.toggle('on', shuffle);
   e.currentTarget.setAttribute('aria-pressed', shuffle);
 });
 $('repeat').addEventListener('click', e=>{
   repeat = repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off';
+  armBoundary();
   e.currentTarget.classList.toggle('on', repeat !== 'off');
   e.currentTarget.classList.toggle('one-on', repeat === 'one');
 });
@@ -833,7 +985,9 @@ audio.addEventListener('pause', ()=>{
 });
 audio.addEventListener('ended', ()=>{
   if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';  // we're not done, just between songs
+  if(MODE === 'stream'){ loadStream(step(1), 0, true); return; }   // ~3 hours in: start a fresh playlist
   if(repeat === 'one'){ audio.currentTime = 0; live = -1; wantPlaying = true; audio.play().catch(()=>{}); return; }
+  if(canStream()){ loadStream(step(1), 0, true); return; }        // back online: rejoin the stream at a natural boundary
   select(step(1));               // wraps past the last song, so playback never stops
 });
 
@@ -844,22 +998,27 @@ function skipBroken(){
   skips++;
   setTimeout(()=>select(step(1)), 600);
 }
-audio.addEventListener('error', skipBroken);
+audio.addEventListener('error', ()=>{ if(MODE === 'stream') fallbackClassic('error'); else skipBroken(); });
 audio.addEventListener('stalled', ()=>{
-  if(audio.readyState < 2 && !audio.paused) audio.load(), audio.play().catch(()=>{});
+  if(MODE !== 'stream' && audio.readyState < 2 && !audio.paused) audio.load(), audio.play().catch(()=>{});
 });
 audio.addEventListener('playing', ()=>{ skips = 0; setTimeout(prefetch, 1500); });
 audio.addEventListener('loadedmetadata', ()=>{ $('dur').textContent = fmt(SONGS[idx].duration); });
 audio.addEventListener('timeupdate', ()=>{
+  if(MODE === 'stream') syncEntry();
   if(!scrubbing && dur()){
-    const pct = audio.currentTime / dur() * 1000;
+    const st = songTime();
+    const pct = st / dur() * 1000;
     $('seek').value = pct;
     $('seek').style.setProperty('--pct', (pct/10)+'%');
-    $('cur').textContent = fmt(audio.currentTime / (scale() || 1));
+    $('cur').textContent = fmt(st / (scale() || 1));
   }
   runLyrics();
   position();
 });
+audio.addEventListener('seeked', syncEntry);
+audio.addEventListener('play', armBoundary);
+audio.addEventListener('pause', ()=>{ clearTimeout(boundTimer); boundTimer = null; });
 
 const seek = $('seek');
 ['mousedown','touchstart'].forEach(e => seek.addEventListener(e, ()=>{ scrubbing = true; }, {passive:true}));
@@ -868,7 +1027,7 @@ seek.addEventListener('input', ()=>{
   if(dur()) $('cur').textContent = fmt(seek.value/1000 * dur() / (scale() || 1));
 });
 seek.addEventListener('change', ()=>{
-  if(dur()) audio.currentTime = seek.value/1000 * dur();
+  if(dur()) seekSong(seek.value/1000 * dur());
   scrubbing = false; live = -1;
 });
 
@@ -883,12 +1042,12 @@ function mediaSession(){
   const set = (a, fn) => { try { navigator.mediaSession.setActionHandler(a, fn); } catch(e){} };
   set('play', ()=>{ wantPlaying = true; audio.play().catch(()=>{}); });
   set('pause', ()=>{ wantPlaying = false; audio.pause(); });
-  set('previoustrack', ()=>{ if(audio.currentTime>3){ audio.currentTime=0; live=-1; } else select(step(-1)); });
-  set('nexttrack', ()=>select(step(1)));
-  set('seekbackward', d=>{ audio.currentTime = Math.max(0, audio.currentTime-((d&&d.seekOffset)||10)); live=-1; });
-  set('seekforward', d=>{ audio.currentTime = Math.min(dur(), audio.currentTime+((d&&d.seekOffset)||10)); live=-1; });
-  set('seekto', d=>{ audio.currentTime = d.seekTime; live=-1; });
-  set('stop', ()=>{ wantPlaying = false; audio.pause(); audio.currentTime = 0; });
+  set('previoustrack', goPrev);
+  set('nexttrack', goNext);
+  set('seekbackward', d=>seekSong(Math.max(0, songTime()-((d&&d.seekOffset)||10))));
+  set('seekforward', d=>seekSong(Math.min(dur(), songTime()+((d&&d.seekOffset)||10))));
+  set('seekto', d=>seekSong(d.seekTime));
+  set('stop', ()=>{ wantPlaying = false; audio.pause(); seekSong(0); });
 }
 function position(pos){
   if(!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
@@ -896,7 +1055,7 @@ function position(pos){
   try{
     navigator.mediaSession.setPositionState({
       duration: d, playbackRate: audio.playbackRate || 1,
-      position: Math.min(pos == null ? audio.currentTime : pos, d)
+      position: Math.min(pos == null ? songTime() : pos, d)
     });
   }catch(e){}
 }
@@ -1089,6 +1248,16 @@ window.addEventListener('pageshow', startChasing);
 audio.addEventListener('canplay',  ()=> setTimeout(()=>{ if(wantPlaying && audio.paused) startChasing(); }, 100));
 /* a slow backstop for the times no event fires at all */
 setInterval(()=>{ if(wantPlaying && audio.paused && !audio.ended && !chaseTimer) startChasing(); }, 4000);
+/* stream stuck (no progress while supposedly playing): offline → the download cache can only feed
+   classic mode, so switch; online → give the native player 20s to sort itself out, then switch */
+let lastTick = -1, stuckSince = 0;
+setInterval(()=>{
+  if(MODE !== 'stream' || !wantPlaying || audio.paused){ lastTick = -1; stuckSince = 0; return; }
+  if(audio.currentTime !== lastTick){ lastTick = audio.currentTime; stuckSince = 0; return; }
+  stuckSince = stuckSince || Date.now();
+  const stuck = Date.now() - stuckSince;
+  if((navigator.onLine === false && stuck > 8000) || stuck > 20000) fallbackClassic('stall');
+}, 2000);
 
 /* ─────────── boot ─────────── */
 fetch('songs.json', {cache:'no-cache'})
@@ -1099,7 +1268,7 @@ fetch('songs.json', {cache:'no-cache'})
     ALBUM = d.album || ALBUM;
     if(!SONGS.length) throw new Error('no songs');
     idx = Math.floor(Math.random() * SONGS.length);
-    audio.src = SONGS[idx].src;
+    if(canStream()) loadStream(idx, 0, false); else audio.src = SONGS[idx].src;
     $('dur').textContent = fmt(SONGS[idx].duration);
     paint();
     requestAnimationFrame(measureLib);
