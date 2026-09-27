@@ -77,3 +77,8 @@
 # Daily Meta ads analysis email to Jeremy, 07:30 NZ (18:30 UTC in NZDT).
 [functions."ads-daily-cron"]
   schedule = "30 18 * * *"
+
+# Equipment watch: second-hand/auction sites for upright freezers, blast chillers,
+# packaging machinery. Every 3rd day of the month at 19:00 UTC (8am NZDT). Emails only new hits.
+[functions."equip-watch-cron"]
+  schedule = "0 19 */3 * *"
