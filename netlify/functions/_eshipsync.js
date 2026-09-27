@@ -35,7 +35,8 @@ async function syncShipping(sinceShipDate, maxOrders) {
     (pg || []).forEach(r => known.add(String(r.order_id)));
     if (!pg || pg.length < 1000) break;
   }
-  const rows = []; let page = 1; let skipped = 0;
+  const rows = []; let page = 1; let skipped = 0; let errors = 0; let flushed = 0;
+  const flush = async () => { for (let i = flushed; i < rows.length; i += 200) { await appsDb('order_shipping?on_conflict=order_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 200)) }); } flushed = rows.length; };
   while (rows.length < maxOrders && page <= 200) {
     // Starshipit only returns a tiny recent window unless since_last_updated is passed —
     // without it nightly captures were incomplete and history was unreachable.
@@ -48,7 +49,9 @@ async function syncShipping(sinceShipDate, maxOrders) {
       if (sinceShipDate && shipNz && shipNz < sinceShipDate) continue;
       allOld = false;
       if (known.has(String(o.order_id))) { skipped++; continue; }
-      const det = (await esGet('/api/orders?order_id=' + o.order_id)).order || {};
+      let det = null;
+      try { det = (await esGet('/api/orders?order_id=' + o.order_id)).order || {}; }
+      catch (e) { errors++; if (errors > 25) throw e; await new Promise(r => setTimeout(r, 3000)); continue; }   // one bad order never sinks the batch
       const pkg = (det.packages && det.packages[0]) || {};
       const cost = num(det.total_shipping_price);
       const freight = num(det.shipping_freight_value);
@@ -62,17 +65,16 @@ async function syncShipping(sinceShipDate, maxOrders) {
         delivered: (o.tracking_short_status === 'Delivered'), delivery_status: o.tracking_short_status || null, updated_at: new Date().toISOString(),
       });
       if (rows.length >= maxOrders) break;
+      if (rows.length - flushed >= 100) await flush();   // persist progress as we go
     }
     if (sinceShipDate && allOld) break;   // page fully older than window
     if (orders.length < 50) break;
     page++;
   }
-  for (let i = 0; i < rows.length; i += 200) {
-    await appsDb('order_shipping?on_conflict=order_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 200)) });
-  }
+  await flush();
   const rolled = await rollupWeeks();
   const withCost = rows.filter(r => r.actual_cost != null);
-  return { processed: rows.length, skippedKnown: skipped, withCost: withCost.length, rolledFacts: rolled, sample: rows[0] || null };
+  return { processed: rows.length, skippedKnown: skipped, errors, withCost: withCost.length, rolledFacts: rolled, sample: rows[0] || null };
 }
 
 // Aggregate order_shipping -> weekly facts. Cost & subsidy attributed to the SALE
