@@ -47,11 +47,19 @@ async function runSync(nWeeks, daysOnly, range) {
     : await appsDb('week?select=period_end,trading_days,holiday&order=period_end.desc&limit=' + nWeeks);
   const fridays = (weeks || []).map(w => w.period_end);
 
-  const fetched = await Promise.all(fridays.map(async F => {
+  // Sequential with a small gap + one retry: TimeKeeper 429s when weeks are fetched in parallel.
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const fetched = [];
+  for (const F of fridays) {
     const start = addDays(F, -6);
-    try { return { F, start, entries: await fetchWeekEntries(start, F) }; }
-    catch (e) { return { F, start, error: String(e.message || e) }; }
-  }));
+    let entries = null, err = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try { entries = await fetchWeekEntries(start, F); err = null; break; }
+      catch (e) { err = String(e.message || e); if (/429/.test(err)) { await sleep(1500 * (attempt + 1)); continue; } break; }
+    }
+    fetched.push(err ? { F, start, error: err } : { F, start, entries });
+    await sleep(250);
+  }
 
   const summary = [];
   for (const w of fetched) {
