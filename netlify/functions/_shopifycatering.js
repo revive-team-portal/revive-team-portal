@@ -53,9 +53,12 @@ async function syncCatering(start, end) {
   const ov = await appsDb("fact?select=period_end,metric_code&period_type=eq.week&is_override=eq.true&metric_code=in.(catering_sales)");
   const ovSet = new Set((ov || []).map(r => r.metric_code + '|' + r.period_end));
   const rows = []; const written = [];
-  for (const we of Object.keys(wk)) {
-    if (!exist.has(we) || we > curFri || we < start) continue;
-    if (!ovSet.has('catering_sales|' + we)) rows.push({ metric_code: 'catering_sales', period_type: 'week', period_end: we, value: Math.round(wk[we] * 100) / 100, source: 'shopify', quality: 'ok', entered_at: new Date().toISOString() });
+  // Write EVERY existing week in range — 0 when there were no catering sales — so a
+  // blank never has to mean "no data" vs "no catering".
+  for (const we of exist) {
+    if (we > curFri || we < start || we > end) continue;
+    const v = Math.round((wk[we] || 0) * 100) / 100;
+    if (!ovSet.has('catering_sales|' + we)) rows.push({ metric_code: 'catering_sales', period_type: 'week', period_end: we, value: v, source: 'shopify', quality: 'ok', entered_at: new Date().toISOString() });
     written.push(we);
   }
   for (let i = 0; i < rows.length; i += 400) await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 400)) });

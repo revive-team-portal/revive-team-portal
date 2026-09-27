@@ -76,12 +76,12 @@ a{color:inherit}
 .ptitle h2{font-family:var(--disp);font-size:19px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
 .ptitle .r{font-family:var(--mono);font-size:11px;color:var(--steel)}
 table{width:100%;border-collapse:collapse}
-th,td{padding:0;text-align:right;font-family:var(--mono);font-size:11.5px;white-space:nowrap}
-thead th{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--steel);font-weight:500;padding:9px 7px;border-bottom:1px solid var(--line);background:#FBFCFC;position:sticky;top:0;z-index:3}
-thead th.mname,tbody td.mname{text-align:left;font-family:var(--body);font-size:12.5px;padding-left:16px;min-width:230px;position:sticky;left:0;background:var(--paper-2);z-index:2}
+th,td{padding:0;text-align:right;font-family:var(--mono);font-size:10.5px;white-space:nowrap}
+thead th{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--steel);font-weight:500;padding:6px 3px;border-bottom:1px solid var(--line);background:#FBFCFC;position:sticky;top:0;z-index:3}
+thead th.mname,tbody td.mname{text-align:left;font-family:var(--body);font-size:11.5px;padding-left:10px;min-width:170px;max-width:190px;white-space:normal;line-height:1.2;position:sticky;left:0;background:var(--paper-2);z-index:2}
 thead th.mname{background:#FBFCFC;z-index:4}
 thead th.tgt,tbody td.tgt{border-right:2px solid var(--line);color:var(--info)}
-tbody td{padding:7px;border-bottom:1px solid var(--line-2);position:relative;font-weight:700}
+tbody td{padding:4px 4px;border-bottom:1px solid var(--line-2);position:relative;font-weight:700}
 tbody td.mname{font-weight:400}
 tbody tr.sec td{background:var(--ink);color:#fff;font-family:var(--disp);font-size:12px;letter-spacing:.13em;text-transform:uppercase;text-align:left;padding:5px 16px;font-weight:600}
 tbody tr.sec td.mname{background:var(--ink);color:#fff}
@@ -92,7 +92,7 @@ tbody tr:hover td.mname{background:#F4F7F9}
 tbody tr.sec:hover td,tbody tr.sec:hover td.mname{background:var(--ink)}
 tbody tr.sec.ad:hover td,tbody tr.sec.ad:hover td.mname{background:#3a2d12}
 .notecell{white-space:normal!important;text-align:left;vertical-align:top;padding:4px 7px!important;font-family:var(--body)!important;font-size:10px!important}
-.noteclip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.32;max-width:150px;word-break:break-word;color:var(--ink)}
+.noteclip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.32;max-width:110px;word-break:break-word;color:var(--ink)}
 tr.noterow td.mname{font-size:11px;color:var(--steel);font-weight:500}
 td.ok{color:#0C6B47}
 td.warn{color:#8A5E10}
@@ -110,11 +110,11 @@ td.susp:after{content:' ~'}
     .wkt{flex:1;color:var(--ink)} .wkt b{color:var(--steel);font-weight:600}
     tbody td.prelim{color:var(--steel-lt)!important;background:#FAFAF8;font-style:italic}
     tbody td.man{background:#FEFBEA;padding:0}
-    tbody td.man input.gcell{width:100%;border:0;background:transparent;font-family:var(--mono);font-size:11.5px;text-align:right;padding:7px 6px;color:#7A5B00;font-weight:700;outline:none;box-sizing:border-box}
+    tbody td.man input.gcell{width:100%;border:0;background:transparent;font-family:var(--mono);font-size:10.5px;text-align:right;padding:4px 4px;color:#7A5B00;font-weight:700;outline:none;box-sizing:border-box}
     tbody td.man input.gcell::placeholder{color:#C9A94E;font-weight:400}
     tbody td.man input.gcell:focus{background:#FFF4BF;box-shadow:inset 0 0 0 2px var(--warn)}
     tbody td.notecell.man{background:#FEFBEA;padding:0;vertical-align:top}
-    tbody td.notecell.man textarea.gnote{width:100%;min-width:130px;border:0;background:transparent;font-family:var(--body);font-size:10px;line-height:1.3;resize:none;height:34px;color:var(--ink);outline:none;padding:4px 6px;box-sizing:border-box}
+    tbody td.notecell.man textarea.gnote{width:100%;min-width:80px;border:0;background:transparent;font-family:var(--body);font-size:10px;line-height:1.3;resize:none;height:34px;color:var(--ink);outline:none;padding:4px 6px;box-sizing:border-box}
     tbody td.notecell.man textarea.gnote:focus{background:#FFF4BF;height:60px}
 .mname .src{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;padding:1px 4px;border-radius:2px;margin-left:6px;vertical-align:1px}
 .src.a{background:#E4EFF6;color:#2A6285}.src.m{background:#F0EDF6;color:#5B4A85}.src.d{background:var(--line-2);color:var(--steel)}
@@ -186,7 +186,7 @@ table.tg input{width:90px;font-family:var(--mono);font-size:12px;padding:6px 8px
 .tl-out.tl-total{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
 .tl-out.tl-total b{color:var(--ok)}
 @media(max-width:760px){.tlgrid{grid-template-columns:1fr}.tlcol{border-right:0;border-bottom:1px solid var(--line)}}
-thead th.avg10,tbody td.avg10{border-left:2px solid var(--line);text-align:right;padding-right:14px;padding-left:10px;font-weight:700;color:var(--ink);background:#FBFAF9}
+thead th.avg10,tbody td.avg10{border-left:2px solid var(--line);text-align:right;padding-right:8px;padding-left:6px;font-weight:700;color:var(--ink);background:#FBFAF9}
 thead th.avg10{background:#FBFCFC;color:var(--steel)}
 tbody tr:hover td.avg10{background:#F2F0EE}
 .daybadge{position:absolute;top:1px;right:1px;min-width:12px;height:12px;padding:0 2px;border-radius:7px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:8px;font-weight:600;line-height:12px;text-align:center;box-shadow:0 0 0 1px #fff}
@@ -711,7 +711,7 @@ createApp({
       {sec:'Customers & orders'},
       'cafe_customers','cafe_share_flyers','cafe_vip_card','cafe_atv','online_orders','online_aov','perfect_order_rate',
       {sec:'Service'},
-      'orders_missed_cutoff','orders_not_sent','resends_refunds','support_first_response','secret_shopper_score','secret_shopper_count',
+      'resends_refunds','secret_shopper_score',
       {sec:'Labour'},
       'wages_paid','wages_wopples','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour','labour_per_sweet',
       {sec:'Margin'},

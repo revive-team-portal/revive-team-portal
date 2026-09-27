@@ -19,9 +19,11 @@ async function ensureWeeks() {
 exports.handler = async () => {
   try {
     const created = await ensureWeeks();
+    // Secret shopper (Pulse) lives in the same DB — roll it up via RPC every day.
+    let pulse = null; try { pulse = await db('rpc/sync_secret_shopper', { method: 'POST', body: '{}' }); } catch (e) { pulse = 'err ' + String(e.message || e).slice(0, 80); }
     const a = await queueJob('weekly-feed', WEEKLY_SQL);
     const b = await queueJob('dept-feed', DEPT_SQL);
     const c = await queueJob('uber-feed', UBER_SQL);
-    return { statusCode: 200, body: JSON.stringify({ created, weekly: a, dept: b, uber: c }) };
+    return { statusCode: 200, body: JSON.stringify({ created, pulse, weekly: a, dept: b, uber: c }) };
   } catch (e) { return { statusCode: 500, body: String(e) }; }
 };

@@ -54,7 +54,7 @@ async function runSync(nWeeks, daysOnly) {
   const summary = [];
   for (const w of fetched) {
     if (w.error) { summary.push({ week: w.F, error: w.error }); continue; }
-    const per = {};
+    const per = {}; Object.values(jobMetric).forEach(mc => { per[mc] = 0; });   // every mapped area gets a row (0 if no hours)
     for (const e of w.entries) {
       const mc = jobMetric[e.job_id]; if (!mc) continue;
       const nz = nzDate(e.start_time); if (nz < w.start || nz > w.F) continue;
