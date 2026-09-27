@@ -63,9 +63,8 @@ async function thorntons() {
   return out;
 }
 
-// ---------------------------------------------------------------- Mainland Auctions (Auction Mobility)
-async function mainland() {
-  const base = 'https://live.mainlandauctions.nz';
+// ---------------------------------------------------------------- Auction Mobility sites (Mainland, All About Auctions)
+async function auctionMobility(base, site, prefix, defaultLoc) {
   const html = await get(base + '/');
   const m = html.match(/viewVars\s*=\s*(\{[\s\S]*?\});\s*\n/);
   if (!m) throw new Error('no viewVars');
@@ -73,7 +72,9 @@ async function mainland() {
   const aucs = (vv.upcomingAuctions && vv.upcomingAuctions.result_page) || [];
   const out = [];
   for (const au of aucs) {
-    const bp = premium(au.truncated_description || au.description || '');
+    const adesc = au.truncated_description || au.description || '';
+    const bp = premium(adesc);
+    const loc = (((au.title || '').match(/\bat\s+(.+)$/i) || [])[1] || ((strip(adesc).match(/LOCATION:?\s*(.{5,120})/i) || [])[1]) || defaultLoc).split(/\s+IF YOU|\s{2,}|\.\s/)[0];
     for (let o = 0; o < 3000; o += 100) {
       const d = await get(`${base}/ajax/lots/?auctionId=${au.row_id}&limit=100&o=${o}&order_by=lot_number&order=asc&fieldset=timed-auction+summary`, { json: true, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const lots = d.result_page || [];
@@ -81,11 +82,11 @@ async function mainland() {
         if (l.status && !/active|upcoming|open/.test(l.status)) continue;
         const bid = l.timed_auction_bid && l.timed_auction_bid.amount;
         out.push({
-          key: 'mainland:' + l.row_id, site: 'Mainland Auctions', title: l.title,
+          key: prefix + ':' + l.row_id, site, title: l.title,
           url: `${base}/lots/view/${l.row_id}`, image: l.cover_thumbnail || null,
           price: bid ? money(bid) + ' current bid' : (l.starting_price ? 'Opens ' + money(l.starting_price) : 'No bids yet'),
-          closes_at: l.extended_end_time || null, location: 'Christchurch (see auction for collection address)',
-          how: `Timed online auction "${au.title}", lot ${l.lot_number}` + (bp ? ', ' + bp : '') + '. As-is-where-is; buyer arranges collection/freight.',
+          closes_at: l.extended_end_time || null, location: String(loc).trim().slice(0, 120),
+          how: `Auction "${String(au.title || '').slice(0, 140)}", lot ${l.lot_number}` + (bp ? ', ' + bp : '') + '. As-is-where-is; buyer arranges collection/freight.',
           desc: strip(l.truncated_description).slice(0, 300),
         });
       }
@@ -95,6 +96,8 @@ async function mainland() {
   }
   return out;
 }
+const mainland = () => auctionMobility('https://live.mainlandauctions.nz', 'Mainland Auctions', 'mainland', 'Christchurch');
+const allAbout = () => auctionMobility('https://auctions.allaboutauctions.co.nz', 'All About Auctions', 'allabout', 'Onehunga, Auckland');
 
 // ---------------------------------------------------------------- SilverChef Certified Used (Shopify)
 async function silverchef() {
@@ -237,7 +240,7 @@ async function abAuctions() {
     desc: strip(p.excerpt && p.excerpt.rendered).slice(0, 400), force: true }));
 }
 
-const SITES = { thorntons, mainland, silverchef, brianMillen, skylarc, federal, tiger, abAuctions };
+const SITES = { thorntons, mainland, allAbout, silverchef, brianMillen, skylarc, federal, tiger, abAuctions };
 
 async function fetchAll(only) {
   const names = only ? only.split(',') : Object.keys(SITES);
@@ -252,6 +255,6 @@ async function fetchAll(only) {
 // Cheap keyword gate before the Claude relevance check (title; strong words in description).
 const STRONG = /freez|blast.?chill|shock.?chill|cold.?room|cool.?room|coolroom|flow.?wrap|tray.?seal|band.?seal|heat.?seal|vacuum.?pack|label(l)?er|packaging machine|packing machine/i;
 const isMatch = (i) => !!(i.force || KEYWORDS.test(i.title || '') || STRONG.test(i.desc || ''));
-const KEYWORDS = /freez|blast|shock.?chill|chiller|cold.?room|cool.?room|chiller room|walk.?in|coolroom|refrigerat|sealer|sealing|flow.?wrap|wrapper|wrapping|label|packag|packing machine|vacuum pack|vac pack|shrink|bagg|bag.?filler|filler|filling machine|date.?cod|inkjet|thermal transfer|tray seal|heat seal|band seal|induction seal|cartoner|carton|check.?weigh|metal detect/i;
+const KEYWORDS = /freez|blast|shock.?chill|chiller|cold.?room|cool.?room|chiller room|walk.?in|coolroom|refrigerat|sealer|sealing|flow.?wrap|wrapper|wrapping|label(l)?er|labelling|label printer|packaging machine|packing machine|packing machine|vacuum pack|vac pack|shrink|bagg|bag.?filler|filler|filling machine|date.?cod|inkjet|thermal transfer|tray seal|heat seal|band seal|induction seal|cartoner|carton|check.?weigh|metal detect/i;
 
 module.exports = { fetchAll, KEYWORDS, STRONG, isMatch, SITES, strip };
