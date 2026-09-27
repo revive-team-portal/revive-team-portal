@@ -37,7 +37,9 @@ async function syncShipping(sinceShipDate, maxOrders) {
   }
   const rows = []; let page = 1; let skipped = 0;
   while (rows.length < maxOrders && page <= 200) {
-    const list = await esGet('/api/orders/shipped?limit=50&page=' + page);
+    // Starshipit only returns a tiny recent window unless since_last_updated is passed —
+    // without it nightly captures were incomplete and history was unreachable.
+    const list = await esGet('/api/orders/shipped?limit=50&page=' + page + (sinceShipDate ? '&since_last_updated=' + encodeURIComponent(sinceShipDate + 'T00:00:00Z') : ''));
     const orders = list.orders || [];
     if (!orders.length) break;
     let allOld = true;
