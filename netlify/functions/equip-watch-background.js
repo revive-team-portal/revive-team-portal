@@ -19,7 +19,7 @@ const BRIEF = `Jeremy runs a NZ plant-based food manufacturer (frozen waffles "W
 - Food packaging machinery: tray/heat/band/vacuum sealers, flow wrappers, labellers and label printers for packaging, date coders, bagging/filling machines, shrink wrappers, cartoners, checkweighers, metal detectors.
 - An auction NOTICE (a whole sale) whose description suggests it contains the above (e.g. a food factory, cafe, bakery or restaurant liquidation).
 In NZ trade listings a "chiller" is a FRIDGE: a title saying chiller with no mention of blast/shock/freezer/freezing is NOT relevant. Judge by the title's own words - do not guess that a plain fridge or chiller might be a freezer.
-NOT relevant: chest freezers, undercounter/drawer units of any kind including dual-temp, ice-cream/display freezers, bar/undercounter/underbench freezers or fridges, fridges and chillers without freezing, display cabinets, packaging supplies/consumables (boxes, film, labels themselves), items merely "in original packaging", cars, furniture, tools, anything unrelated.`;
+NOT relevant: shelving, racking, trolleys and other accessories for cool/freezer rooms (only the room, panels or refrigeration plant count), chest freezers, undercounter/drawer units of any kind including dual-temp, ice-cream/display freezers, bar/undercounter/underbench freezers or fridges, fridges and chillers without freezing, display cabinets, packaging supplies/consumables (boxes, film, labels themselves), items merely "in original packaging", cars, furniture, tools, anything unrelated.`;
 
 async function classify(items) {
   if (!items.length) return {};
