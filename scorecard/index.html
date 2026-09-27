@@ -109,11 +109,15 @@ td.susp:after{content:' ~'}
     .wkd{flex:0 0 58px;font-family:var(--mono);font-size:9.5px;color:var(--steel);text-transform:uppercase;letter-spacing:.03em;padding-top:1px}
     .wkt{flex:1;color:var(--ink)} .wkt b{color:var(--steel);font-weight:600}
     tbody td.prelim{color:var(--steel-lt)!important;background:#FAFAF8;font-style:italic}
-    tbody td.man{background:#FEFBEA;padding:0}
+    tbody td.man{background:#FDF3DC;padding:0}           /* unlocked for correction (FIX ENTRY) */
+    tbody td.man.need{background:#FFF3A8}                /* needs entry — the ones to fill */
+    tbody td.man.need input.gcell{color:#5C4400}
+    tbody td.fixed span{color:var(--ink)}
     tbody td.man input.gcell{width:100%;border:0;background:transparent;font-family:var(--mono);font-size:10.5px;text-align:right;padding:4px 4px;color:#7A5B00;font-weight:700;outline:none;box-sizing:border-box}
     tbody td.man input.gcell::placeholder{color:#C9A94E;font-weight:400}
     tbody td.man input.gcell:focus{background:#FFF4BF;box-shadow:inset 0 0 0 2px var(--warn)}
-    tbody td.notecell.man{background:#FEFBEA;padding:0;vertical-align:top}
+    tbody td.notecell.man{background:#FDF3DC;padding:0;vertical-align:top}
+    tbody td.notecell.man.need{background:#FFF3A8}
     tbody td.notecell.man textarea.gnote{width:100%;min-width:80px;border:0;background:transparent;font-family:var(--body);font-size:10px;line-height:1.3;resize:none;height:34px;color:var(--ink);outline:none;padding:4px 6px;box-sizing:border-box}
     tbody td.notecell.man textarea.gnote:focus{background:#FFF4BF;height:60px}
 .mname .src{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;padding:1px 4px;border-radius:2px;margin-left:6px;vertical-align:1px}
@@ -323,7 +327,7 @@ td.der .subn,td .subn{opacity:.85}
     <!-- ============ MANAGER VIEW ============ -->
     <div v-if="screen==='manager' && level==='manager'">
       <div class="panel">
-        <div class="ptitle"><h2>Weekly grid</h2><div class="r">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</div></div>
+        <div class="ptitle"><h2>Weekly grid</h2><div class="r"><button class="mini" :class="{pri:fixMode}" @click="fixMode=!fixMode" :title="fixMode?'Editing existing entries — click to lock again':'Unlock cells that already have an entry so you can correct them'">{{ fixMode?'✓ DONE FIXING':'FIX ENTRY' }}</button> <span style="margin-left:10px">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</span></div></div>
         <div class="scroll gscroll"><table>
           <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w" :class="{prelim:isPrelim(w)}"><span class="dhdr"><span class="circslot"><span v-if="dayNum(w)" class="daycirc">{{ dayNum(w) }}</span></span>{{ colLabel(w) }}</span><span v-if="isPrelim(w)" class="shortcell" style="color:var(--info)">preliminary</span><span v-else-if="holidayName(w)" class="shortcell">{{ holidayName(w) }}</span></th><th class="avg10">10-wk avg</th></tr></thead>
           <tbody>
@@ -333,7 +337,7 @@ td.der .subn,td .subn{opacity:.85}
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
-                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect', man:isManual(row.key), prelim:isPrelim(w)&&!isManual(row.key)}]"><template v-if="isManual(row.key)"><input class="gcell" :value="cellRaw(row.key,w)" @change="saveCell(row.key,w,$event.target.value)" inputmode="decimal" placeholder="—"><span v-if="(row.key==='cafe_share_flyers'||row.key==='cafe_vip_card') && pctCust(row.key,w)" class="subn" :title="pctCust(row.key,w)+' of cafe customers'">{{ pctCust(row.key,w) }}</span></template><template v-else><span>{{ cellText(row,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span><span v-if="row.key==='secret_shopper_score' && cellObj('secret_shopper_count',w).v!=null" class="subn" :title="fm(cellObj('secret_shopper_count',w).v,0)+' surveys'">{{ fm(cellObj('secret_shopper_count',w).v,0) }}</span></template></td>
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect', man:canEdit(row.key,w), need:needsEntry(row.key,w), fixed:isManual(row.key)&&!canEdit(row.key,w), prelim:isPrelim(w)&&!isManual(row.key)}]"><template v-if="canEdit(row.key,w)"><input class="gcell" :value="cellRaw(row.key,w)" @change="saveCell(row.key,w,$event.target.value)" inputmode="decimal" placeholder="—"></template><template v-else><span>{{ cellText(row,w) }}</span><span v-if="(row.key==='cafe_share_flyers'||row.key==='cafe_vip_card') && pctCust(row.key,w)" class="subn" :title="pctCust(row.key,w)+' of cafe customers'">{{ pctCust(row.key,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span><span v-if="row.key==='secret_shopper_score' && cellObj('secret_shopper_count',w).v!=null" class="subn" :title="fm(cellObj('secret_shopper_count',w).v,0)+' surveys'">{{ fm(cellObj('secret_shopper_count',w).v,0) }}</span></template></td>
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
@@ -341,7 +345,7 @@ td.der .subn,td .subn{opacity:.85}
             <tr v-for="nf in NOTE_FIELDS" :key="'note-'+nf.key" class="noterow">
               <td class="mname">{{ nf.label }}</td>
               <td class="tgt"></td>
-              <td v-for="w in windowWeeks" :key="w" class="notecell man" :class="{now:w===currentWeek}"><textarea class="gnote" :value="(weekByEnd[w]&&weekByEnd[w][nf.key])||''" @change="saveNote(nf.key,w,$event.target.value)" :title="(weekByEnd[w]&&weekByEnd[w][nf.key])||''" placeholder="—"></textarea></td>
+              <td v-for="w in windowWeeks" :key="w" class="notecell" :class="{now:w===currentWeek, man:noteCanEdit(nf.key,w), need:noteNeeds(nf.key,w)}"><textarea v-if="noteCanEdit(nf.key,w)" class="gnote" :value="(weekByEnd[w]&&weekByEnd[w][nf.key])||''" @change="saveNote(nf.key,w,$event.target.value)" :title="(weekByEnd[w]&&weekByEnd[w][nf.key])||''" placeholder="—"></textarea><div v-else class="noteclip" :title="(weekByEnd[w]&&weekByEnd[w][nf.key])||''">{{ (weekByEnd[w]&&weekByEnd[w][nf.key])||'' }}</div></td>
               <td class="avg10"></td>
             </tr>
           </tbody>
@@ -556,7 +560,7 @@ createApp({
     // raw data
     const metrics=ref([]), weeks=ref([]), targets=ref([]), rates=ref([]);
     const factMap=reactive({});   // code -> { period_end -> {v,q} }
-    const me=ref(''); const editors=reactive({});
+    const me=ref(''); const editors=reactive({}); const fixMode=ref(false);
     const deptData=ref([]);
     const weekByEnd=reactive({});
 
@@ -743,6 +747,10 @@ createApp({
     const nzTodayStr=new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     function isPrelim(pe){ return pe>nzTodayStr; }   // in-progress week (not yet finished)
     function isManual(code){ return SRC[code]==='m'; }
+    function needsEntry(code,pe){ return isManual(code) && cellRaw(code,pe)===''; }
+    function canEdit(code,pe){ return isManual(code) && (cellRaw(code,pe)==='' || fixMode.value); }
+    function noteNeeds(key,pe){ const w=weekByEnd[pe]; return !(w && w[key]); }
+    function noteCanEdit(key,pe){ return noteNeeds(key,pe) || fixMode.value; }
     function pctCust(code,pe){ const a=base(code,pe), c=base('cafe_customers',pe); if(a.v==null||!c.v) return ''; return Math.round(a.v/c.v*100)+'%'; }
     function cellRaw(code,pe){ const f=base(code,pe); return f.v==null?'':String(f.v); }
     async function saveCell(code,pe,raw){
@@ -1023,7 +1031,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,isManual,isPrelim,pctCust,cellRaw,saveCell,saveNote,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,isManual,isPrelim,pctCust,cellRaw,saveCell,saveNote,fixMode,needsEntry,canEdit,noteNeeds,noteCanEdit,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,ENTRY_NOTES,me,editors,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
