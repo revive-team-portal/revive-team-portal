@@ -327,7 +327,7 @@ td.der .subn,td .subn{opacity:.85}
     <!-- ============ MANAGER VIEW ============ -->
     <div v-if="screen==='manager' && level==='manager'">
       <div class="panel">
-        <div class="ptitle"><h2>Weekly grid</h2><div class="r"><button class="mini" :class="{pri:fixMode}" @click="fixMode=!fixMode" :title="fixMode?'Editing existing entries — click to lock again':'Unlock cells that already have an entry so you can correct them'">{{ fixMode?'✓ DONE FIXING':'FIX ENTRY' }}</button> <span style="margin-left:10px">13 weeks to {{ shortDate(currentWeek) }} · Revive Cafe</span></div></div>
+        <div class="ptitle"><h2>Weekly grid</h2><div class="r"><button class="mini" @click="showEarlier" :disabled="windowWeeks.length>=weeks.length" title="Show 13 earlier weeks">◀ Earlier</button> <button v-if="spanWeeks>13" class="mini" @click="showLatest" title="Back to the latest 13 weeks">Latest 13</button> <button class="mini" :class="{pri:fixMode}" @click="fixMode=!fixMode" :title="fixMode?'Editing existing entries — click to lock again':'Unlock cells that already have an entry so you can correct them'">{{ fixMode?'✓ DONE FIXING':'FIX ENTRY' }}</button> <span style="margin-left:10px">{{ windowWeeks.length }} weeks to {{ shortDate(currentWeek) }} · Revive Cafe</span></div></div>
         <div class="scroll gscroll"><table>
           <thead><tr><th class="mname">Metric</th><th class="tgt">Target</th><th v-for="w in windowWeeks" :key="w" :class="{prelim:isPrelim(w)}"><span class="dhdr"><span class="circslot"><span v-if="dayNum(w)" class="daycirc">{{ dayNum(w) }}</span></span>{{ colLabel(w) }}</span><span v-if="holidayName(w)" class="shortcell">{{ holidayName(w) }}</span></th><th class="avg10">10-wk avg</th></tr></thead>
           <tbody>
@@ -618,7 +618,10 @@ createApp({
     const currentWeek=computed(()=> weeks.value.length? weeks.value[weeks.value.length-1].period_end : null);
     const vw=ref(typeof window!=='undefined'?window.innerWidth:1200);
     if(typeof window!=='undefined') window.addEventListener('resize',()=>{ vw.value=window.innerWidth; });
-    const windowWeeks=computed(()=> weeks.value.slice(vw.value<640?-6:-13).map(w=>w.period_end));
+    const spanWeeks=ref(13);   // how many weeks the grid shows; 'Earlier' adds 13 at a time
+    const windowWeeks=computed(()=> weeks.value.slice(-(vw.value<640?Math.min(6,spanWeeks.value):spanWeeks.value)).map(w=>w.period_end));
+    function showEarlier(){ spanWeeks.value=Math.min(spanWeeks.value+13, weeks.value.length); nextTick(()=>{ const g=document.querySelector('.gscroll'); if(g) g.scrollLeft=0; }); }
+    function showLatest(){ spanWeeks.value=13; nextTick(()=>{ const g=document.querySelector('.gscroll'); if(g) g.scrollLeft=g.scrollWidth; }); }
     const curWeekObj=computed(()=> currentWeek.value? weekByEnd[currentWeek.value] : null);
     const weekNotesList=computed(()=> [...windowWeeks.value].reverse().map(w=>({w,label:colLabel(w),n:weekByEnd[w]||{}})).filter(x=> x.n.email_offer||x.n.promo_comments||x.n.npd||x.n.other_comments||x.n.wages_exceptions||x.n.days_note));
 
@@ -1031,7 +1034,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,isManual,isPrelim,pctCust,cellRaw,saveCell,saveNote,fixMode,needsEntry,canEdit,noteNeeds,noteCanEdit,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,isManual,isPrelim,pctCust,cellRaw,saveCell,saveNote,fixMode,spanWeeks,showEarlier,showLatest,needsEntry,canEdit,noteNeeds,noteCanEdit,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,ENTRY_NOTES,me,editors,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
