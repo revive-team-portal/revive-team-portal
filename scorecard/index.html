@@ -333,7 +333,7 @@ td.der .subn,td .subn{opacity:.85}
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
-                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect', man:isManual(row.key), prelim:isPrelim(w)&&!isManual(row.key)}]"><input v-if="isManual(row.key)" class="gcell" :value="cellRaw(row.key,w)" @change="saveCell(row.key,w,$event.target.value)" inputmode="decimal" placeholder="—"><template v-else><span>{{ cellText(row,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span><span v-if="row.key==='secret_shopper_score' && cellObj('secret_shopper_count',w).v!=null" class="subn" :title="fm(cellObj('secret_shopper_count',w).v,0)+' surveys'">{{ fm(cellObj('secret_shopper_count',w).v,0) }}</span></template></td>
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect', man:isManual(row.key), prelim:isPrelim(w)&&!isManual(row.key)}]"><template v-if="isManual(row.key)"><input class="gcell" :value="cellRaw(row.key,w)" @change="saveCell(row.key,w,$event.target.value)" inputmode="decimal" placeholder="—"><span v-if="(row.key==='cafe_share_flyers'||row.key==='cafe_vip_card') && pctCust(row.key,w)" class="subn" :title="pctCust(row.key,w)+' of cafe customers'">{{ pctCust(row.key,w) }}</span></template><template v-else><span>{{ cellText(row,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span><span v-if="row.key==='secret_shopper_score' && cellObj('secret_shopper_count',w).v!=null" class="subn" :title="fm(cellObj('secret_shopper_count',w).v,0)+' surveys'">{{ fm(cellObj('secret_shopper_count',w).v,0) }}</span></template></td>
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
@@ -709,7 +709,7 @@ createApp({
       {sec:'Sales'},
       'cafe_sales','online_sales','total_sales','catering_sales','uber_total',
       {sec:'Customers & orders'},
-      'cafe_customers','cafe_atv','online_orders','online_aov','perfect_order_rate',
+      'cafe_customers','cafe_share_flyers','cafe_vip_card','cafe_atv','online_orders','online_aov','perfect_order_rate',
       {sec:'Service'},
       'orders_missed_cutoff','orders_not_sent','resends_refunds','support_first_response','secret_shopper_score','secret_shopper_count',
       {sec:'Labour'},
@@ -743,6 +743,7 @@ createApp({
     const nzTodayStr=new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     function isPrelim(pe){ return pe>nzTodayStr; }   // in-progress week (not yet finished)
     function isManual(code){ return SRC[code]==='m'; }
+    function pctCust(code,pe){ const a=base(code,pe), c=base('cafe_customers',pe); if(a.v==null||!c.v) return ''; return Math.round(a.v/c.v*100)+'%'; }
     function cellRaw(code,pe){ const f=base(code,pe); return f.v==null?'':String(f.v); }
     async function saveCell(code,pe,raw){
       const clean=String(raw==null?'':raw).replace(/[^0-9.\-]/g,'');
@@ -1022,7 +1023,7 @@ createApp({
 
     return { ready,gateError,level,email,screen,msg,tabs,levelLabel,
       publicTiles,streak,currentWeekLabel,weekOfLabel,currentDayFlag,anyCandidate,
-      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,isManual,isPrelim,cellRaw,saveCell,saveNote,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
+      windowWeeks,currentWeek,curWeekObj,weekByEnd,NOTE_FIELDS,gridRows,isManual,isPrelim,pctCust,cellRaw,saveCell,saveNote,srcName,srcLabel,deptRows,deptCell,hoursRows:HOURS_ROWS,hoursCell,cellObj,cellText,cellRag,cellTarget,tgtLabel,avg10Text,dayBadge,dayNum,holidayName,autoIssues,
       entryWeek,entryIdx,weeks,entryRows,ENTRY_NOTES,me,editors,entryVals,entryNotes,saving,entryMsg,loadEntry,stepWeek,entryCellClass,entryPlaceholder,derivedDisplay,saveWeek,receiptBusy,receiptMsg,onReceiptFiles,feedsBusy,feedList,feedIn,getFeeds,newWeek,reportOpen,reportBusy,reportErr,reportRange,reportStart,reportEnd,reportData,reportEmails,reportEmailMsg,REPORT_PRESETS,setPreset,runReport,openReport,saveReportEmails,sendReportNow,
       targetRows,targetForm,saveOneTarget,seedCandidates,
       topline,tlCafeCustWeek,tlCafeSalesWeek,tlOnlineOrdWeek,tlOnlineSalesWeek,tlTotalSalesWeek,saveTopline,
