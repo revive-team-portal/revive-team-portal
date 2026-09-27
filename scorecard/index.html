@@ -214,7 +214,8 @@ tbody tr:hover td.avg10{background:#F2F0EE}
 .dcell{display:inline-flex;flex-direction:column;line-height:1.02;align-items:flex-end}
 .dcell b{font-family:var(--disp);font-size:14px;letter-spacing:0}
 .dcell small{font-size:9.5px;color:var(--steel-lt);margin-top:1px}
-.subn{font-size:8.5px;color:var(--steel-lt);vertical-align:super;margin-left:3px;font-family:var(--mono)}
+.subn{font-size:8.5px;color:var(--steel-lt);vertical-align:super;margin-right:4px;font-family:var(--mono)}
+.mainv{display:inline-block;min-width:3.2em;text-align:right}
 td.der .subn,td .subn{opacity:.85}
 .rov{position:fixed;inset:0;background:rgba(20,30,25,.55);display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;z-index:50;overflow:auto}
 .rmodal{background:var(--paper);border:1px solid var(--line);border-radius:14px;max-width:640px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:18px 20px}
@@ -337,7 +338,7 @@ td.der .subn,td .subn{opacity:.85}
                 <td class="mname">{{ row.label }}<span class="src" :class="row.src">{{ srcLabel(row) }}</span></td>
                 <td class="tgt"><span :class="{cand:cellTarget(row.key).candidate}">{{ tgtLabel(row) }}</span></td>
                 <td v-for="w in windowWeeks" :key="w"
-                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect', man:canEdit(row.key,w), need:needsEntry(row.key,w), fixed:isManual(row.key)&&!canEdit(row.key,w), prelim:isPrelim(w)&&!isManual(row.key)}]"><template v-if="canEdit(row.key,w)"><input class="gcell" :value="cellRaw(row.key,w)" @change="saveCell(row.key,w,$event.target.value)" inputmode="decimal" placeholder="—"></template><template v-else><span>{{ cellText(row,w) }}</span><span v-if="(row.key==='cafe_share_flyers'||row.key==='cafe_vip_card') && pctCust(row.key,w)" class="subn" :title="pctCust(row.key,w)+' of cafe customers'">{{ pctCust(row.key,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span><span v-if="row.key==='secret_shopper_score' && cellObj('secret_shopper_count',w).v!=null" class="subn" :title="fm(cellObj('secret_shopper_count',w).v,0)+' surveys'">{{ fm(cellObj('secret_shopper_count',w).v,0) }}</span></template></td>
+                    :class="[cellRag(row,w), {now:w===currentWeek, der:row.src==='d', susp:cellObj(row.key,w).q==='suspect', man:canEdit(row.key,w), need:needsEntry(row.key,w), fixed:isManual(row.key)&&!canEdit(row.key,w), prelim:isPrelim(w)&&!isManual(row.key)}]"><template v-if="canEdit(row.key,w)"><input class="gcell" :value="cellRaw(row.key,w)" @change="saveCell(row.key,w,$event.target.value)" inputmode="decimal" placeholder="—"></template><template v-else><span v-if="(row.key==='cafe_share_flyers'||row.key==='cafe_vip_card') && pctCust(row.key,w)" class="subn" :title="pctCust(row.key,w)+' of cafe customers'">{{ pctCust(row.key,w) }}</span><span v-if="row.key==='uber_total' && cellObj('uber_covers',w).v!=null" class="subn" :title="fm(cellObj('uber_covers',w).v,0)+' Uber covers'">{{ fm(cellObj('uber_covers',w).v,0) }}</span><span v-if="row.key==='secret_shopper_score' && cellObj('secret_shopper_count',w).v!=null" class="subn" :title="fm(cellObj('secret_shopper_count',w).v,0)+' surveys'">{{ fm(cellObj('secret_shopper_count',w).v,0) }}</span><span v-if="row.key==='online_cogs' && cellObj('online_cogs_pct',w).v!=null" class="subn" title="COGS as % of ex-GST online sales">{{ fm(cellObj('online_cogs_pct',w).v,0) }}%</span><span v-if="row.key==='ad_spend' && cellObj('ad_pct_online',w).v!=null" class="subn" title="Ad spend as % of ex-GST online sales">{{ fm(cellObj('ad_pct_online',w).v,0) }}%</span><span class="mainv">{{ cellText(row,w) }}</span></template></td>
                 <td class="avg10">{{ avg10Text(row) }}</td>
               </tr>
             </template>
@@ -607,6 +608,7 @@ createApp({
         case 'heat_eat_net':{ const a=B('meals_packed'),b=B('heat_eat_sold'); if(a.v==null&&b.v==null) return {v:null,q:null}; return {v:(a.v||0)-(b.v||0),q:worst([a.q,b.q])}; }
         case 'muesli_net':{ const a=B('mueslis_packed'),b=B('muesli_sold'); if(a.v==null&&b.v==null) return {v:null,q:null}; return {v:(a.v||0)-(b.v||0),q:worst([a.q,b.q])}; }
         case 'online_gross_profit':{ const a=B('online_sales'),b=B('online_cogs'); if(a.v==null||b.v==null) return {v:null,q:null}; return {v:a.v/g-b.v,q:worst([a.q,b.q])}; }
+        case 'online_net_profit':{ const gp=val('online_gross_profit',pe),ad=B('ad_spend'),sh=B('shipping_cost'); if(gp.v==null) return {v:null,q:null}; return {v:gp.v-(ad.v||0)-(sh.v||0),q:worst([gp.q,ad.q,sh.q, (ad.v==null||sh.v==null)?'partial':'ok'])}; }
         default: return base(code,pe);
       }
     }
@@ -713,17 +715,15 @@ createApp({
       {sec:'Sales'},
       'cafe_sales','online_sales','total_sales','catering_sales','uber_total',
       {sec:'Customers & orders'},
-      'cafe_customers','cafe_share_flyers','cafe_vip_card','cafe_atv','online_orders','online_aov','perfect_order_rate',
+      'cafe_customers','cafe_share_flyers','share_flyer_bundles','cafe_vip_card','cafe_atv','online_orders','online_aov','perfect_order_rate',
       {sec:'Service'},
       'resends_refunds','secret_shopper_score',
       {sec:'Labour'},
       'wages_paid','wages_wopples','wage_budget','wages_pct_sales','total_hours','sales_per_labour_hour','gross_profit_per_labour_hour','orders_per_fulfil_hour','labour_per_sweet',
-      {sec:'Margin'},
-      'online_cogs','online_cogs_pct','online_gross_profit','cafe_waste_value','cafe_waste_pct',
-      {ad:true,sec:'Advertising'},
-      'ad_spend','ad_pct_online','ad_cost_per_order','share_flyer_bundles',
+      {sec:'Online P&L'},
+      'online_sales','online_cogs','online_gross_profit','ad_spend','shipping_cost','online_net_profit',
       {sec:'Shipping'},
-      'shipping_cost','shipping_subsidy','ship_cost_per_order','parcels_sent',
+      'ship_cost_per_order','parcels_sent',
       {sec:'Heat & Eat Meals'},
       'meals_packed','heat_eat_sold','heat_eat_net',
       {sec:'Muesli'},
@@ -811,11 +811,11 @@ createApp({
     const entryWeek=ref(null);
     const entryIdx=computed(()=> weeks.value.findIndex(w=>w.period_end===entryWeek.value));
     const entryVals=reactive({}), entryNotes=reactive({}), entryNotesOrig=reactive({}), saving=ref(false), entryMsg=ref('');
-    const ENTRY_INPUTS=['mueslis_packed','ingredients_packed','meals_packed','wages_paid','wages_wopples','wage_budget','cafe_waste_value','resends_refunds'];
+    const ENTRY_INPUTS=['mueslis_packed','ingredients_packed','meals_packed','wages_paid','wages_wopples','wage_budget','resends_refunds'];
     const ENTRY=[
       {sec:'Produced this week'},'mueslis_packed','ingredients_packed','meals_packed',
       {sec:'Wages (actual, from payroll)'},'wages_paid','wages_wopples','wage_budget',
-      {sec:'Other'},'cafe_waste_value','resends_refunds',
+      {sec:'Other'},'resends_refunds',
     ];
     const ENTRY_NOTES=[
       {key:'days_note',label:'Days note',type:'text'},

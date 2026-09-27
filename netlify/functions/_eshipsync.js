@@ -27,8 +27,16 @@ function nzDate(iso) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Paci
 function weekEndFri(ymd) { const d = new Date(ymd + 'T00:00:00Z'); const add = (5 - d.getUTCDay() + 7) % 7; d.setUTCDate(d.getUTCDate() + add); return d.toISOString().slice(0, 10); }
 
 async function syncShipping(sinceShipDate, maxOrders) {
-  const rows = []; let page = 1;
-  while (rows.length < maxOrders && page <= 60) {
+  // Already-captured order ids: skip their slow per-order detail fetch so a history
+  // backfill only pays for what's actually missing.
+  const known = new Set();
+  for (let off = 0; ; off += 1000) {
+    const pg = await appsDb('order_shipping?select=order_id&order=order_id.asc&limit=1000&offset=' + off);
+    (pg || []).forEach(r => known.add(String(r.order_id)));
+    if (!pg || pg.length < 1000) break;
+  }
+  const rows = []; let page = 1; let skipped = 0;
+  while (rows.length < maxOrders && page <= 200) {
     const list = await esGet('/api/orders/shipped?limit=50&page=' + page);
     const orders = list.orders || [];
     if (!orders.length) break;
@@ -37,6 +45,7 @@ async function syncShipping(sinceShipDate, maxOrders) {
       const shipNz = o.shipped_date ? nzDate(o.shipped_date) : null;
       if (sinceShipDate && shipNz && shipNz < sinceShipDate) continue;
       allOld = false;
+      if (known.has(String(o.order_id))) { skipped++; continue; }
       const det = (await esGet('/api/orders?order_id=' + o.order_id)).order || {};
       const pkg = (det.packages && det.packages[0]) || {};
       const cost = num(det.total_shipping_price);
@@ -61,7 +70,7 @@ async function syncShipping(sinceShipDate, maxOrders) {
   }
   const rolled = await rollupWeeks();
   const withCost = rows.filter(r => r.actual_cost != null);
-  return { processed: rows.length, withCost: withCost.length, rolledFacts: rolled, sample: rows[0] || null };
+  return { processed: rows.length, skippedKnown: skipped, withCost: withCost.length, rolledFacts: rolled, sample: rows[0] || null };
 }
 
 // Aggregate order_shipping -> weekly facts. Cost & subsidy attributed to the SALE
