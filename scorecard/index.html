@@ -386,12 +386,13 @@ td.der .subn,td .subn{opacity:.85}
           <div class="softnote" v-if="curWeekObj">
             <p v-if="curWeekObj.days_note"><b>Days:</b> {{ curWeekObj.days_note }}</p>
             <p v-if="curWeekObj.holiday"><b>Holiday:</b> {{ curWeekObj.holiday }}</p>
-            <p v-if="curWeekObj.email_offer"><b>Offer:</b> {{ curWeekObj.email_offer }}</p>
+            <p v-if="curWeekObj.online_offer||curWeekObj.email_offer"><b>Online offer:</b> {{ curWeekObj.online_offer||curWeekObj.email_offer }}</p>
+            <p v-if="curWeekObj.cafe_offer"><b>Cafe offer:</b> {{ curWeekObj.cafe_offer }}</p>
             <p v-if="curWeekObj.promo_comments"><b>Promo:</b> {{ curWeekObj.promo_comments }}</p>
             <p v-if="curWeekObj.wages_exceptions"><b>Wages:</b> {{ curWeekObj.wages_exceptions }}</p>
             <p v-if="curWeekObj.npd"><b>NPD:</b> {{ curWeekObj.npd }}</p>
             <p v-if="curWeekObj.other_comments"><b>Other:</b> {{ curWeekObj.other_comments }}</p>
-            <p v-if="!curWeekObj.days_note && !curWeekObj.holiday && !curWeekObj.email_offer && !curWeekObj.promo_comments && !curWeekObj.other_comments" style="color:var(--steel-lt)">No notes recorded for this week.</p>
+            <p v-if="!curWeekObj.days_note && !curWeekObj.holiday && !curWeekObj.email_offer && !curWeekObj.online_offer && !curWeekObj.cafe_offer && !curWeekObj.promo_comments && !curWeekObj.other_comments" style="color:var(--steel-lt)">No notes recorded for this week.</p>
           </div>
         </div>
       </div>
@@ -650,7 +651,7 @@ createApp({
     function showEarlier(){ spanWeeks.value=Math.min(spanWeeks.value+13, weeks.value.length); nextTick(()=>{ const g=document.querySelector('.gscroll'); if(g) g.scrollLeft=0; }); }
     function showLatest(){ spanWeeks.value=13; nextTick(()=>{ const g=document.querySelector('.gscroll'); if(g) g.scrollLeft=g.scrollWidth; }); }
     const curWeekObj=computed(()=> currentWeek.value? weekByEnd[currentWeek.value] : null);
-    const weekNotesList=computed(()=> [...windowWeeks.value].reverse().map(w=>({w,label:colLabel(w),n:weekByEnd[w]||{}})).filter(x=> x.n.email_offer||x.n.promo_comments||x.n.npd||x.n.other_comments||x.n.wages_exceptions||x.n.days_note));
+    const weekNotesList=computed(()=> [...windowWeeks.value].reverse().map(w=>({w,label:colLabel(w),n:weekByEnd[w]||{}})).filter(x=> x.n.email_offer||x.n.online_offer||x.n.cafe_offer||x.n.promo_comments||x.n.npd||x.n.other_comments||x.n.wages_exceptions||x.n.days_note));
 
     // ---------- targets ----------
     function storedTarget(code,pe){
@@ -760,7 +761,7 @@ createApp({
       {sec:'Production'},
       'ingredients_packed',
     ];
-    const NOTE_FIELDS=[{key:'email_offer',label:'Offer'},{key:'promo_comments',label:'Promo'},{key:'npd',label:'NPD'},{key:'wages_exceptions',label:'Wages note'},{key:'other_comments',label:'Other'}];
+    const NOTE_FIELDS=[{key:'online_offer',label:'Online offer'},{key:'cafe_offer',label:'Cafe offer'},{key:'promo_comments',label:'Promo'},{key:'npd',label:'NPD'},{key:'wages_exceptions',label:'Wages note'},{key:'other_comments',label:'Other'}];
     // ---- department breakdown matrices (bottom of manager panel) ----
     const DEPT_ROWS=[{grp:1,label:'Salads'},{grp:2,label:'Meals'},{grp:4,label:'Sweets'},{grp:5,label:'Drinks'},{grp:6,label:'Shop'},{grp:3,label:'Other'}];
     const deptRows=computed(()=> DEPT_ROWS.concat([{grp:0,label:'Total'}]));
@@ -850,7 +851,8 @@ createApp({
       {key:'days_note',label:'Days note',type:'text'},
       {key:'trading_days',label:'Trading days',type:'num'},
       {key:'holiday',label:'Public holiday',type:'text'},
-      {key:'email_offer',label:'Email offer sent',type:'text'},
+      {key:'online_offer',label:'Online offer',type:'text'},
+      {key:'cafe_offer',label:'Cafe offer',type:'text'},
       {key:'promo_comments',label:'Promo detail / channel',type:'long'},
       {key:'npd',label:'New product / NPD',type:'text'},
       {key:'wages_exceptions',label:'Wages exceptions',type:'text'},
@@ -862,9 +864,9 @@ createApp({
       Object.keys(entryVals).forEach(k=>delete entryVals[k]);
       ENTRY_INPUTS.forEach(code=>{ const f=base(code,pe); entryVals[code]= f.v==null?'':String(f.v); });
       const w=weekByEnd[pe]||{};
-      ['days_note','holiday','trading_days','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ entryNotes[k]= w[k]==null?'':w[k]; });
+      ['days_note','holiday','trading_days','email_offer','email_offer_detail','online_offer','cafe_offer','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ entryNotes[k]= w[k]==null?'':w[k]; });
       Object.keys(entryNotesOrig).forEach(k=>delete entryNotesOrig[k]);
-      ['days_note','holiday','trading_days','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ entryNotesOrig[k]=entryNotes[k]; });
+      ['days_note','holiday','trading_days','email_offer','email_offer_detail','online_offer','cafe_offer','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ entryNotesOrig[k]=entryNotes[k]; });
       entryMsg.value='Week loaded — edit any value and Save.';
     }
     function stepWeek(d){ const i=entryIdx.value+d; if(i>=0&&i<weeks.value.length) loadEntry(weeks.value[i].period_end); }
@@ -947,7 +949,7 @@ createApp({
         const values={};
         ENTRY_INPUTS.forEach(code=>{ const raw=entryVals[code]; if(raw===''||raw==null){ values[code]=null; } else { const n=Number(String(raw).replace(/[^0-9.\-]/g,'')); values[code]=isNaN(n)?null:n; } });
         const notes={};
-        ['days_note','holiday','email_offer','email_offer_detail','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ const cur=entryNotes[k]===''?null:entryNotes[k]; const orig=(entryNotesOrig[k]===''||entryNotesOrig[k]==null)?null:entryNotesOrig[k]; if(cur!==orig) notes[k]=cur; });
+        ['days_note','holiday','email_offer','email_offer_detail','online_offer','cafe_offer','promo_comments','npd','wages_exceptions','other_comments'].forEach(k=>{ const cur=entryNotes[k]===''?null:entryNotes[k]; const orig=(entryNotesOrig[k]===''||entryNotesOrig[k]==null)?null:entryNotesOrig[k]; if(cur!==orig) notes[k]=cur; });
         if(String(entryNotes.trading_days??'')!==String(entryNotesOrig.trading_days??'')){ if(entryNotes.trading_days!==''&&entryNotes.trading_days!=null){ const _td=Number(String(entryNotes.trading_days).replace(/[^0-9.\-]/g,'')); notes.trading_days=isNaN(_td)?null:_td; } else { notes.trading_days=null; } }
         const r=await callData({action:'save_week',period_end:entryWeek.value,values,notes});
         await refresh(); loadEntry(entryWeek.value);
@@ -1126,7 +1128,7 @@ createApp({
 
       // 7 promo effectiveness (categorise offers)
       try { const cats={'Sitewide 20% off':[], 'Wopples':[], 'Muesli 20% / $13':[], 'All nut butters':[], 'Peanut butter 50%':[], 'Cashew mega deal':[], 'Meals 20% off':[], 'No offer':[]};
-        all.forEach(pe=>{ const o=String((weekByEnd[pe]||{}).email_offer||'').toLowerCase(); const os=val('online_sales',pe).v, cg=val('online_cogs',pe).v; if(os==null) return;
+        all.forEach(pe=>{ const _w=weekByEnd[pe]||{}; const o=String(_w.online_offer||_w.email_offer||'').toLowerCase(); const os=val('online_sales',pe).v, cg=val('online_cogs',pe).v; if(os==null) return;
           let k= o.includes('everything')?'Sitewide 20% off': o.includes('peanut')?'Peanut butter 50%': o.includes('cashew')?'Cashew mega deal': (o.includes('nut butter')||o.includes('nb mega')||o.includes('mega nut'))?'All nut butters': o.includes('muesli')?'Muesli 20% / $13': (o.includes('meal')||o.includes('reheat'))?'Meals 20% off': o.includes('wopple')?'Wopples': o===''?'No offer':null;
           if(k) cats[k].push({os,cg}); });
         const names=Object.keys(cats).filter(k=>cats[k].length>=3);
