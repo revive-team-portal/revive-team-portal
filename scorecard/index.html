@@ -1055,53 +1055,53 @@ createApp({
       const g=1+GST.value;
 
       // 1 total sales YoY
-      { const t=T('cafe_sales').map((v,i)=>(v||0)+(T('online_sales')[i]||0)), l=L('cafe_sales').map((v,i)=>(v||0)+(L('online_sales')[i]||0));
+      try { const t=T('cafe_sales').map((v,i)=>(v||0)+(T('online_sales')[i]||0)), l=L('cafe_sales').map((v,i)=>(v||0)+(L('online_sales')[i]||0));
         const iM=argmax(t);
         mk('total',{type:'line',data:{labels:wk,datasets:[{label:'This year',data:t,borderColor:CK,backgroundColor:CK,pointRadius:big(t,[iM]),tension:.3},{label:'Last year',data:l,borderColor:CS,backgroundColor:CS,borderDash:[4,3],pointRadius:0,tension:.3}]},options:copt()});
         const st=sum(t), sl=sum(l), ct=sum(T('cafe_sales')), cl=sum(L('cafe_sales')), ot=sum(T('online_sales')), ol=sum(L('online_sales'));
         insightText.total={obs:[`Total sales ${fmtK(st)} vs ${fmtK(sl)} last year (${pct(st,sl)>=0?'+':''}${pct(st,sl)}%).`,
           `All of the growth is online: online ${fmtK(ot)} (${pct(ot,ol)>=0?'+':''}${pct(ot,ol)}%) while cafe ${fmtK(ct)} (${pct(ct,cl)>=0?'+':''}${pct(ct,cl)}%).`,
-          `Best week this year: ${lbl(ty[iM])} at $${fm(t[iM],0)} (marked).`]}; }
+          `Best week this year: ${lbl(ty[iM])} at $${fm(t[iM],0)} (marked).`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 2 mix
-      { const c=A('cafe_sales'), o=A('online_sales'); const labels=all.map(lbl);
+      try { const c=A('cafe_sales'), o=A('online_sales'); const labels=all.map(lbl);
         let cross=-1; for(let i=0;i<all.length;i++){ if(o[i]!=null&&c[i]!=null&&o[i]>c[i]){ cross=i; break; } }
         mk('mix',{type:'line',data:{labels,datasets:[{label:'Online',data:o,borderColor:CY,backgroundColor:CY,pointRadius:big(o,[cross]),tension:.3},{label:'Cafe',data:c,borderColor:CG,backgroundColor:CG,pointRadius:0,tension:.3}]},options:copt()});
         const share=Math.round(100*sum(T('online_sales'))/(sum(T('online_sales'))+sum(T('cafe_sales'))));
         insightText.mix={obs:[`Online is now ${share}% of revenue over the last 52 weeks.`, cross>=0?`Online first out-sold the cafe in the week of ${lbl(all[cross])} (marked) and has stayed ahead most weeks since.`:'Online has not yet consistently out-sold the cafe.',
-          `The two lines have been diverging for over a year — this is a structural shift, not a promo blip.`]}; }
+          `The two lines have been diverging for over a year — this is a structural shift, not a promo blip.`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 3 covers YoY + ATV
-      { const t=T('cafe_customers'), l=L('cafe_customers'); const atvT=T('cafe_atv');
+      try { const t=T('cafe_customers'), l=L('cafe_customers'); const atvT=T('cafe_atv');
         const iMin=argmin(t.map((v,i)=> (ty[i] && weekByEnd[ty[i]] && weekByEnd[ty[i]].cafe_closed)?null:v));
         mk('covers',{type:'line',data:{labels:wk,datasets:[{label:'Covers this year',data:t,borderColor:CG,backgroundColor:CG,pointRadius:big(t,[iMin]),tension:.3,yAxisID:'y'},{label:'Covers last year',data:l,borderColor:CS,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y'},{label:'Spend / customer ($)',data:atvT,borderColor:CB,backgroundColor:CB,pointRadius:0,tension:.3,yAxisID:'y2'}]},
           options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}}}})});
         const ct=sum(t), cl=sum(l), aT=avg(atvT), aL=avg(L('cafe_atv'));
         insightText.covers={obs:[`Cafe covers ${fm(ct,0)} vs ${fm(cl,0)} last year (${pct(ct,cl)}%) — the cafe is serving fewer people.`,
           `Spend per customer rose to $${fm(aT,2)} from $${fm(aL,2)} (+${pct(aT,aL)}%), which has masked most of the traffic loss in the sales line.`,
-          `Lowest trading week: ${lbl(ty[iMin])} at ${fm(t[iMin],0)} covers (marked).`]}; }
+          `Lowest trading week: ${lbl(ty[iMin])} at ${fm(t[iMin],0)} covers (marked).`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 4 orders + AOV YoY
-      { const t=T('online_orders'), l=L('online_orders'), aov=T('online_aov'); const iM=argmax(aov);
+      try { const t=T('online_orders'), l=L('online_orders'), aov=T('online_aov'); const iM=argmax(aov);
         mk('orders',{type:'line',data:{labels:wk,datasets:[{label:'Orders this year',data:t,borderColor:CY,backgroundColor:CY,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Orders last year',data:l,borderColor:CS,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y'},{label:'AOV ($)',data:aov,borderColor:CB,backgroundColor:CB,pointRadius:big(aov,[iM]),tension:.3,yAxisID:'y2'}]},
           options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}}}})});
         const ot=sum(t), ol=sum(l), aT=sum(T('online_sales'))/ot, aL=sum(L('online_sales'))/ol;
         insightText.orders={obs:[`Orders ${fm(ot,0)} vs ${fm(ol,0)} (+${pct(ot,ol)}%), and AOV $${fm(aT,2)} vs $${fm(aL,2)} (+${pct(aT,aL)}%) — both levers are pulling.`,
           `AOV peaked at $${fm(aov[iM],2)} in the week of ${lbl(ty[iM])} (marked).`,
-          `Roughly a third of the online growth came from bigger baskets rather than more customers.`]}; }
+          `Roughly a third of the online growth came from bigger baskets rather than more customers.`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 5 ad efficiency
-      { const ads=A('ad_spend'), ord=A('online_orders'); const cpo=ads.map((a,i)=> (a!=null&&ord[i])? a/ord[i] : null); const labels=all.map(lbl); const iM=argmax(cpo);
+      try { const ads=A('ad_spend'), ord=A('online_orders'); const cpo=ads.map((a,i)=> (a!=null&&ord[i])? a/ord[i] : null); const labels=all.map(lbl); const iM=argmax(cpo);
         mk('ads',{type:'bar',data:{labels,datasets:[{type:'bar',label:'Ad spend ($)',data:ads,backgroundColor:'rgba(192,57,43,.35)',yAxisID:'y'},{type:'line',label:'Online orders',data:ord,borderColor:CY,pointRadius:0,tension:.3,yAxisID:'y2'},{type:'line',label:'Ad cost per order ($)',data:cpo,borderColor:CK,pointRadius:big(cpo,[iM]),tension:.3,yAxisID:'y3'}]},
           options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}},y3:{display:false}}})});
         const at=sum(T('ad_spend')), al=sum(L('ad_spend')); const cT=at/sum(T('online_orders')), cL=al/sum(L('online_orders'));
         const pT=100*at/(sum(T('online_sales'))/g), pL=100*al/(sum(L('online_sales'))/g);
         insightText.ads={obs:[`Ad spend ${fmtK(at)} vs ${fmtK(al)} (+${pct(at,al)}%) bought +${pct(sum(T('online_orders')),sum(L('online_orders')))}% orders — spend is growing much faster than the orders it buys.`,
           `Cost per order has risen from $${fm(cL,2)} to $${fm(cT,2)}; ads are now ${fm(pT,1)}% of ex-GST online sales (was ${fm(pL,1)}%). Peak cost per order: ${lbl(all[iM])} at $${fm(cpo[iM],2)} (marked).`,
-          `Volume is still spend-responsive — when spend was cut in the latest quarter, orders fell with it — so the question is the right level, not on/off.`]}; }
+          `Volume is still spend-responsive — when spend was cut in the latest quarter, orders fell with it — so the question is the right level, not on/off.`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 6 online P&L
-      { const os=A('online_sales'), cg=A('online_cogs'), ad=A('ad_spend'), sh=A('shipping_cost'); const labels=all.map(lbl);
+      try { const os=A('online_sales'), cg=A('online_cogs'), ad=A('ad_spend'), sh=A('shipping_cost'); const labels=all.map(lbl);
         const net=os.map((v,i)=> (v==null||cg[i]==null)?null: v/g-cg[i]-(ad[i]||0)-(sh[i]||0));
         const cp=os.map((v,i)=> (v&&cg[i]!=null)? 100*cg[i]/(v/g) : null); const iM=argmax(net);
         mk('pnl',{type:'bar',data:{labels,datasets:[{type:'bar',label:'Net contribution / wk ($)',data:net,backgroundColor:'rgba(58,125,68,.45)',yAxisID:'y'},{type:'line',label:'COGS %',data:cp,borderColor:CA,pointRadius:0,tension:.3,yAxisID:'y2'}]},
@@ -1109,10 +1109,10 @@ createApp({
         const nT=avg(net.slice(-52)), nL=avg(net.slice(0,52)); const cpT=100*sum(T('online_cogs'))/(sum(T('online_sales'))/g), cpL=100*sum(L('online_cogs'))/(sum(L('online_sales'))/g);
         insightText.pnl={obs:[`Online net contribution (GP − ads − shipping) averages $${fm(nT,0)}/week this year vs $${fm(nL,0)} last year (+${pct(nT,nL)}%).`,
           `COGS has fallen from ${fm(cpL,1)}% to ${fm(cpT,1)}% of ex-GST sales — the single biggest driver of the profit improvement.`,
-          `Best week: ${lbl(all[iM])} at $${fm(net[iM],0)} (marked). Shipping only enters from Jul 2026, so earlier net figures are slightly flattered.`]}; }
+          `Best week: ${lbl(all[iM])} at $${fm(net[iM],0)} (marked). Shipping only enters from Jul 2026, so earlier net figures are slightly flattered.`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 7 promo effectiveness (categorise offers)
-      { const cats={'Sitewide 20% off':[], 'Wopples':[], 'Muesli 20% / $13':[], 'All nut butters':[], 'Peanut butter 50%':[], 'Cashew mega deal':[], 'Meals 20% off':[], 'No offer':[]};
+      try { const cats={'Sitewide 20% off':[], 'Wopples':[], 'Muesli 20% / $13':[], 'All nut butters':[], 'Peanut butter 50%':[], 'Cashew mega deal':[], 'Meals 20% off':[], 'No offer':[]};
         all.forEach(pe=>{ const o=String((weekByEnd[pe]||{}).email_offer||'').toLowerCase(); const os=val('online_sales',pe).v, cg=val('online_cogs',pe).v; if(os==null) return;
           let k= o.includes('everything')?'Sitewide 20% off': o.includes('peanut')?'Peanut butter 50%': o.includes('cashew')?'Cashew mega deal': (o.includes('nut butter')||o.includes('nb mega')||o.includes('mega nut'))?'All nut butters': o.includes('muesli')?'Muesli 20% / $13': (o.includes('meal')||o.includes('reheat'))?'Meals 20% off': o.includes('wopple')?'Wopples': o===''?'No offer':null;
           if(k) cats[k].push({os,cg}); });
@@ -1123,36 +1123,36 @@ createApp({
           options:copt({scales:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}},suggestedMin:30,suggestedMax:45}}})});
         insightText.promo={obs:[`Highest-selling offer type: ${names[iB]} at $${fm(sales[iB],0)}/week — but at ${fm(cogs[iB],1)}% COGS (green bar).`,
           `Weakest: ${names[iW]} at $${fm(sales[iW],0)}/week with the worst margin, ${fm(cogs[iW],1)}% (red bar). Meals sell strongly without a discount.`,
-          `Wopples and nut-butter offers give the best balance of sales and margin. Note: older weeks had a smaller online base, so recent offer types look slightly better by default.`]}; }
+          `Wopples and nut-butter offers give the best balance of sales and margin. Note: older weeks had a smaller online base, so recent offer types look slightly better by default.`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 8 labour
-      { const wp=A('wages_pct_sales'), spf=all.map(pe=>{ const c=val('cafe_sales',pe).v, h=val('hours_foh_cafe',pe).v; return (c!=null&&h)? c/h : null; }); const labels=all.map(lbl); const iMin=argmin(spf), iMax=argmax(spf);
+      try { const wp=A('wages_pct_sales'), spf=all.map(pe=>{ const c=val('cafe_sales',pe).v, h=val('hours_foh_cafe',pe).v; return (c!=null&&h)? c/h : null; }); const labels=all.map(lbl); const iMin=argmin(spf), iMax=argmax(spf);
         mk('labour',{type:'line',data:{labels,datasets:[{label:'Wages % of sales',data:wp,borderColor:CA,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Cafe sales per FOH hour ($)',data:spf,borderColor:CG,backgroundColor:CG,pointRadius:big(spf,[iMin,iMax]),tension:.3,yAxisID:'y2'}]},
           options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}},suggestedMin:15,suggestedMax:35},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}}}})});
         const wT=100*sum(T('wages_paid'))/((sum(T('cafe_sales'))+sum(T('online_sales')))/g), wL=100*sum(L('wages_paid'))/((sum(L('cafe_sales'))+sum(L('online_sales')))/g);
         const fT=sum(T('hours_foh_cafe')), fL=sum(L('hours_foh_cafe'));
         insightText.labour={obs:[`Wages are ${fm(wT,1)}% of ex-GST sales this year vs ${fm(wL,1)}% last year — a real productivity gain.`,
           `FOH hours were cut ${Math.abs(pct(fT,fL))}% while cafe sales fell only ${Math.abs(pct(sum(T('cafe_sales')),sum(L('cafe_sales'))))}%, so cafe sales per FOH hour improved. Low point ${lbl(all[iMin])} ($${fm(spf[iMin],0)}/hr); high ${lbl(all[iMax])} ($${fm(spf[iMax],0)}/hr) (both marked).`,
-          `Total wages still rose because fulfilment hours grew with online — that's the right kind of growth in labour.`]}; }
+          `Total wages still rose because fulfilment hours grew with online — that's the right kind of growth in labour.`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 9 production vs sales
-      { const mp=A('meals_packed'), ms=A('heat_eat_sold'), up=A('mueslis_packed'), us=A('muesli_sold'); const labels=all.map(lbl);
+      try { const mp=A('meals_packed'), ms=A('heat_eat_sold'), up=A('mueslis_packed'), us=A('muesli_sold'); const labels=all.map(lbl);
         let cum=0; const cumNet=mp.map((v,i)=>{ if(v==null||ms[i]==null) return null; cum+= v-ms[i]; return cum; });
         mk('prod',{type:'line',data:{labels,datasets:[{label:'Meals made',data:mp,borderColor:CG,pointRadius:0,tension:.3},{label:'Meals sold',data:ms,borderColor:CY,pointRadius:0,tension:.3},{label:'Muesli made',data:up,borderColor:CB,pointRadius:0,tension:.3,borderDash:[4,3]},{label:'Muesli sold',data:us,borderColor:CS,pointRadius:0,tension:.3,borderDash:[4,3]}]},options:copt()});
         const mpT=sum(T('meals_packed')), msT=sum(T('heat_eat_sold')), upT=sum(T('mueslis_packed')), usT=sum(T('muesli_sold'));
         insightText.prod={obs:[`Heat & Eat: ${fm(msT,0)} sold this year (${pct(msT,sum(L('heat_eat_sold')))>=0?'+':''}${pct(msT,sum(L('heat_eat_sold')))}%) vs ${fm(mpT,0)} made — production has run ${mpT>msT?'ahead of':'behind'} sales by ${fm(Math.abs(mpT-msT),0)} meals, so ${mpT>msT?'stock is building':'stock is being drawn down'}.`,
           `Muesli: ${fm(usT,0)} sold (${pct(usT,sum(L('muesli_sold')))}%) vs ${fm(upT,0)} made — a shrinking category with production still slightly ahead.`,
-          `Note "sold" here is online only; cafe muesli sales sit in the cafe till, so the muesli gap is partly explained by cafe demand.`]}; }
+          `Note "sold" here is online only; cafe muesli sales sit in the cafe till, so the muesli gap is partly explained by cafe demand.`]}; } catch(e){ console.warn('insight chart failed', e); }
 
       // 10 service & loyalty
-      { const rr=all.map(pe=>{ const r=val('resends_refunds',pe).v, o=val('online_orders',pe).v; return (r!=null&&o)? 100*r/o : null; }); const vip=A('cafe_vip_card').map((v,i)=>{ const c=val('cafe_customers',all[i]).v; return (v!=null&&c)? 100*v/c : null; }); const fly=A('cafe_share_flyers').map((v,i)=>{ const c=val('cafe_customers',all[i]).v; return (v!=null&&c)? 100*v/c : null; }); const cat=A('catering_sales'); const labels=all.map(lbl);
+      try { const rr=all.map(pe=>{ const r=val('resends_refunds',pe).v, o=val('online_orders',pe).v; return (r!=null&&o)? 100*r/o : null; }); const vip=A('cafe_vip_card').map((v,i)=>{ const c=val('cafe_customers',all[i]).v; return (v!=null&&c)? 100*v/c : null; }); const fly=A('cafe_share_flyers').map((v,i)=>{ const c=val('cafe_customers',all[i]).v; return (v!=null&&c)? 100*v/c : null; }); const cat=A('catering_sales'); const labels=all.map(lbl);
         mk('service',{type:'line',data:{labels,datasets:[{label:'Refunds / resends % of orders',data:rr,borderColor:CA,pointRadius:0,tension:.3,yAxisID:'y'},{label:'VIP card % of covers',data:vip,borderColor:CB,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Share flyer % of covers',data:fly,borderColor:CG,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Catering ($)',data:cat,borderColor:CS,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y2'}]},
           options:copt({scales:{x:{ticks:{font:{size:9},maxTicksLimit:14}},y:{ticks:{font:{size:9}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:9}}}}})});
         const rT=100*sum(T('resends_refunds'))/sum(T('online_orders')), rL=100*sum(L('resends_refunds'))/sum(L('online_orders')); const cT=sum(T('catering_sales')), cL=sum(L('catering_sales'));
         const vT=avg(vip.slice(-13)), fT=avg(fly.slice(-13));
         insightText.service={obs:[`Refunds/resends are ${fm(rT,1)}% of orders vs ${fm(rL,1)}% last year — rising slightly faster than volume.`,
           `Catering ${fmtK(cT)} vs ${fmtK(cL)} (${pct(cT,cL)}%) — it has roughly halved.`,
-          `In the last 13 weeks ${fm(vT,0)}% of cafe customers used a VIP card and ${fm(fT,0)}% redeemed a share flyer (till data from Oct 2025).`]}; }
+          `In the last 13 weeks ${fm(vT,0)}% of cafe customers used a VIP card and ${fm(fT,0)}% redeemed a share flyer (till data from Oct 2025).`]}; } catch(e){ console.warn('insight chart failed', e); }
     }
 
     async function refresh(){ const d=await callData({action:'board'}); ingest(d); }
