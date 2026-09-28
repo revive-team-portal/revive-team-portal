@@ -54,6 +54,7 @@
         <button @click="openNewStore" class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">+ Store</button>
         <button @click="showImport=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">↑ Import</button>
         <button @click="openDocs" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Docs</button>
+        <button @click="openVoicemails" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap">📞 Voicemails<span v-if="vmToMatch" class="ml-1 bg-red-500 text-white rounded-full px-1.5 font-bold">{{ vmToMatch }}</span></button>
         <button @click="showMotivation=true" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">★ Motivation</button>
         <button v-if="isAdmin" @click="openAdmin" class="border border-white/40 hover:border-white text-white text-xs px-3 py-1.5 rounded-lg">Admin</button>
         <span class="text-white/80 text-xs hidden md:inline ml-1">{{ me }}</span>
@@ -717,6 +718,46 @@
     </div>
   </div>
 
+  <!-- ================= VOICEMAILS MODAL ================= -->
+  <div v-if="showVoicemails" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto">
+      <div class="flex justify-between items-center px-5 py-3 border-b border-stone-200 sticky top-0 bg-white z-10">
+        <h3 class="font-bold">📞 Voicemails <span class="text-xs font-normal text-stone-400">(2talk)</span></h3>
+        <div class="flex items-center gap-2">
+          <button @click="vmFilter='to_match'" class="text-xs px-2.5 py-1 rounded-full border font-medium" :class="vmFilter==='to_match'?'bg-red-600 text-white border-red-600':'bg-stone-100 text-stone-500 border-stone-200'">To match {{ vmToMatch }}</button>
+          <button @click="vmFilter='all'" class="text-xs px-2.5 py-1 rounded-full border font-medium" :class="vmFilter==='all'?'bg-stone-800 text-white border-stone-800':'bg-stone-100 text-stone-500 border-stone-200'">All</button>
+          <button @click="showVoicemails=false" class="text-stone-400 hover:text-stone-700 ml-1">✕</button>
+        </div>
+      </div>
+      <div class="p-4 space-y-3">
+        <div v-if="!vmShown.length" class="text-center text-stone-400 text-sm py-8">{{ vmFilter==='to_match'?'Nothing to match — all voicemails are assigned. 🎉':'No voicemails yet.' }}</div>
+        <div v-for="vm in vmShown" :key="vm.id" class="border rounded-xl p-3" :class="vm.store_id?'border-emerald-200 bg-emerald-50/40':'border-orange-300 bg-orange-50/40'">
+          <div class="flex flex-wrap items-center gap-2 text-xs text-stone-500">
+            <span class="font-semibold text-stone-700">{{ vm.caller || 'Unknown' }}</span>
+            <span>· {{ fmtDateTime(vm.occurred_at) }}</span>
+            <span v-if="vm.duration">· {{ vm.duration }}</span>
+            <span v-if="vm.store_id" class="ml-auto inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 rounded-full px-2 py-0.5 font-medium">✓ {{ storeNameById(vm.store_id) }}</span>
+            <span v-else class="ml-auto inline-flex items-center gap-1 bg-orange-100 text-orange-800 rounded-full px-2 py-0.5 font-medium">To be matched</span>
+          </div>
+          <p class="text-[13px] text-stone-800 whitespace-pre-wrap mt-2">{{ vm.transcript || '(no transcript)' }}</p>
+          <div class="flex flex-wrap items-center gap-2 mt-2">
+            <button @click="playVoicemail(vm)" class="text-xs text-sky-700 border border-sky-300 rounded px-2 py-0.5 hover:bg-sky-50">▶ Play</button>
+            <audio v-if="vmAudio[vm.id]" :src="vmAudio[vm.id]" controls class="h-8 align-middle" style="max-width:15rem"></audio>
+            <template v-if="!vm.store_id">
+              <select v-model="vmAssign[vm.id]" class="text-xs border border-stone-300 rounded px-1.5 py-1 bg-white max-w-[14rem]">
+                <option value="">Assign to store…</option>
+                <option v-for="s in storesSorted" :key="s.id" :value="s.id">{{ s.store_name }}</option>
+              </select>
+              <button @click="assignVoicemail(vm)" :disabled="!vmAssign[vm.id]" class="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded px-2 py-1">Assign</button>
+            </template>
+            <button v-else @click="unassignVoicemail(vm)" class="text-xs text-stone-500 border border-stone-300 rounded px-2 py-0.5 hover:bg-stone-100">Unassign</button>
+            <button @click="deleteVoicemail(vm)" class="text-xs text-stone-300 hover:text-red-500 ml-auto">✕ delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= ANALYTICS MODAL ================= -->
   <div v-if="showAnalytics" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-y-auto">
@@ -1165,6 +1206,23 @@
       const emailLists=ref([]);
       async function loadEmailLists(){ try{ const r=await sb.from('email_lists').select('list_name,email').order('list_name'); const g={}; (r.data||[]).forEach(x=>{ (g[x.list_name]=g[x.list_name]||[]).push(x.email); }); emailLists.value=Object.keys(g).sort().map(n=>({name:n,emails:g[n]})); }catch(e){} }
       function copyList(g){ const t=g.emails.join(', '); try{ navigator.clipboard.writeText(t); flash('Copied '+g.emails.length+' addresses'); }catch(e){ flash('Copy failed — select and copy manually'); } }
+
+      // ===== Voicemails =====
+      const showVoicemails=ref(false), voicemails=ref([]), vmFilter=ref('to_match');
+      const vmAudio=reactive({}), vmAssign=reactive({});
+      const storesSorted=computed(()=> stores.value.slice().sort((a,b)=>(a.store_name||'').localeCompare(b.store_name||'')));
+      function storeNameById(id){ const s=stores.value.find(x=>x.id===id); return s? s.store_name : '(store)'; }
+      const vmToMatch=computed(()=> voicemails.value.filter(v=>!v.store_id).length);
+      const vmShown=computed(()=> vmFilter.value==='to_match'? voicemails.value.filter(v=>!v.store_id) : voicemails.value);
+      async function loadVoicemails(){ try{ const r=await sb.from('voicemails').select('id,gmail_id,caller,for_number,occurred_at,duration,transcript,store_id,status').order('occurred_at',{ascending:false}); voicemails.value=r.data||[]; }catch(e){} }
+      function openVoicemails(){ showVoicemails.value=true; loadVoicemails(); }
+      async function playVoicemail(vm){ if(vmAudio[vm.id]) return; try{ const r=await sb.from('voicemails').select('audio_b64,audio_mime').eq('id',vm.id).single(); if(r.data&&r.data.audio_b64){ vmAudio[vm.id]='data:'+(r.data.audio_mime||'audio/wav')+';base64,'+r.data.audio_b64; } else { flash('No audio stored for this voicemail'); } }catch(e){ flash('Could not load audio'); } }
+      async function assignVoicemail(vm){ const sid=vmAssign[vm.id]; if(!sid) return; const { error }=await sb.from('voicemails').update({store_id:sid,status:'matched'}).eq('id',vm.id); if(error){ flash('Assign failed: '+error.message); return; }
+        const st=stores.value.find(x=>x.id===sid); const res='📞 Voicemail'+(vm.duration?(' ('+vm.duration+')'):'')+' from '+(vm.caller||'unknown')+(vm.transcript?(': '+vm.transcript):'');
+        await sb.from('activities').insert({store_id:sid,type:'phone_in',result:res,created_by:'Voicemail',occurred_at:vm.occurred_at||new Date().toISOString()});
+        vm.store_id=sid; vm.status='matched'; flash('Assigned to '+(st?st.store_name:'store')+' ✓'); await loadAll(); }
+      async function unassignVoicemail(vm){ const { error }=await sb.from('voicemails').update({store_id:null,status:'to_match'}).eq('id',vm.id); if(error){ flash('Failed: '+error.message); return; } vm.store_id=null; vm.status='to_match'; flash('Moved back to To-match'); }
+      async function deleteVoicemail(vm){ if(!confirm('Delete this voicemail record?')) return; await sb.from('voicemails').delete().eq('id',vm.id); voicemails.value=voicemails.value.filter(v=>v.id!==vm.id); }
       const selectedIds=ref([]); const bulk=reactive({status:'',next:'',tag:''});
 
       // ---- modals ----
@@ -1338,6 +1396,7 @@
         savedQuotes.value=mq.data||[];
         await loadSales();
         loadEmailLists();
+        loadVoicemails();
         loading.value=false;
       }
 
@@ -1742,7 +1801,7 @@
         filedIds,fileEmail,
         showMotivation,savedQuotes,quoteOfHour,saveQuote,deleteQuote,nextQuote,prevQuote,
         typeLabel,noteTypeLabel,salesPrompts,promptsOpen,savePrompts,showAnalytics,analyticsPreset,analyticsUser,analyticsRange,setRange,dashMetrics,dashTotal,popupMetrics,analyticsUsers,metricsByType,mbtTotals,touchedStores,
-        openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,emailLists,copyList,
+        openAdmin,saveSettings,exportDatabase,newTemplate,saveTemplate,saveAsTemplate,delTemplate,uploadBanner,bannerBusy,emailLists,copyList,showVoicemails,voicemails,vmFilter,vmAudio,vmAssign,vmShown,vmToMatch,storesSorted,storeNameById,openVoicemails,playVoicemail,assignVoicemail,unassignVoicemail,deleteVoicemail,
         storeSales,fmtMoney,salesDateLabel,daysBetween,daysSinceOrder,orgShort,curSales,syncSales,salesBusy,salesSync,salesSyncLabel,salesSyncTitle,salesUnmatched,
         toast };
     }
