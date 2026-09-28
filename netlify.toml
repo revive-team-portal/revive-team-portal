@@ -6,6 +6,11 @@
   node_bundler = "esbuild"
 
 # Server-side inbox sync + reconcile every 5 minutes
+# Sends job emails that overflowed the Resend daily cap, via Gmail, so they
+# go out the same day instead of waiting until tomorrow.
+[functions."jobs-mail-overflow"]
+  schedule = "*/10 * * * *"
+
 [functions."scheduled-sync"]
   schedule = "*/5 * * * *"
 
