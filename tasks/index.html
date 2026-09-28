@@ -10,22 +10,19 @@
   <style>
     [v-cloak]{display:none}
     ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
-    .tile-body{max-height:26rem;overflow-y:auto}
-    .drop-on{outline:2px dashed #15803d;outline-offset:-3px;background:#f0fdf4}
+    .tile-body{max-height:30rem;overflow-y:auto}
+    .drop-on{outline:2px dashed #15803d;outline-offset:-3px}
     .drag-me{cursor:grab}
     .strike{text-decoration:line-through}
     @media print{
       @page{size:A4 portrait;margin:12mm}
       body{background:#fff !important}
       .no-print{display:none !important}
-      .print-block{break-inside:avoid}
       .tile-body{max-height:none;overflow:visible}
     }
   </style>
-<link rel="stylesheet" href="/chrome.css">
 </head>
 <body class="bg-stone-100 font-sans text-stone-900">
-<script src="/today-bar.js" defer></script>
 
 <script>
   const PORTAL_URL='https://zpcbtfdjcsbdeqnizrpr.supabase.co';
@@ -34,29 +31,28 @@
 
 <!-- Tailwind CDN safelist: these classes are built at runtime, so they must appear literally somewhere in the DOM. -->
 <div class="hidden
-  bg-stone-700 bg-stone-200 bg-stone-100 bg-stone-50 bg-stone-400 text-stone-700 border-stone-200
-  bg-amber-700 bg-amber-200 bg-amber-100 bg-amber-50 bg-amber-400 text-amber-700 border-amber-200
-  bg-sky-700 bg-sky-200 bg-sky-100 bg-sky-50 bg-sky-400 text-sky-700 border-sky-200
-  bg-rose-700 bg-rose-200 bg-rose-100 bg-rose-50 bg-rose-400 text-rose-700 border-rose-200
-  bg-green-700 bg-green-200 bg-green-100 bg-green-50 bg-green-400 text-green-700 border-green-200
-  bg-violet-700 bg-violet-200 bg-violet-100 bg-violet-50 bg-violet-400 text-violet-700 border-violet-200
-  bg-emerald-700 bg-emerald-200 bg-emerald-100 bg-emerald-50 bg-emerald-400 text-emerald-700 border-emerald-200
-  bg-slate-700 bg-slate-200 bg-slate-100 bg-slate-50 bg-slate-400 text-slate-700 border-slate-200
-  bg-indigo-700 bg-indigo-200 bg-indigo-100 bg-indigo-50 bg-indigo-400 text-indigo-700 border-indigo-200
-  bg-teal-700 bg-teal-200 bg-teal-100 bg-teal-50 bg-teal-400 text-teal-700 border-teal-200
-  bg-orange-700 bg-orange-200 bg-orange-100 bg-orange-50 bg-orange-400 text-orange-700 border-orange-200
-  bg-red-700 bg-red-200 bg-red-100 bg-red-50 bg-red-400 text-red-700 border-red-200
+  bg-stone-700 bg-stone-200 bg-stone-100 bg-stone-50 bg-stone-400
+  bg-amber-700 bg-amber-200 bg-amber-100 bg-amber-50 bg-amber-400
+  bg-sky-700 bg-sky-200 bg-sky-100 bg-sky-50 bg-sky-400
+  bg-rose-700 bg-rose-200 bg-rose-100 bg-rose-50 bg-rose-400
+  bg-green-700 bg-green-200 bg-green-100 bg-green-50 bg-green-400
+  bg-violet-700 bg-violet-200 bg-violet-100 bg-violet-50 bg-violet-400
+  bg-emerald-700 bg-emerald-200 bg-emerald-100 bg-emerald-50 bg-emerald-400
+  bg-slate-700 bg-slate-200 bg-slate-100 bg-slate-50 bg-slate-400
+  bg-indigo-700 bg-indigo-200 bg-indigo-100 bg-indigo-50 bg-indigo-400
+  bg-teal-700 bg-teal-200 bg-teal-100 bg-teal-50 bg-teal-400
+  bg-orange-700 bg-orange-200 bg-orange-100 bg-orange-50 bg-orange-400
+  bg-red-700 bg-red-200 bg-red-100 bg-red-50 bg-red-400
   text-red-800 text-amber-800 text-green-800 text-stone-600 bg-white"></div>
 
 <div id="app" v-cloak>
 
   <!-- ================= GATE ================= -->
-  <div v-if="!ready" class="rv-load">
-    <div class="rv-load__scrim"></div>
-    <div class="rv-load__box">
-      <img class="rv-load__logo" src="/assets/revive-logo.png" alt="Revive Cafe">
-      <p v-if="!gateError" class="rv-load__text">Loading Tasks</p>
-      <div v-if="!gateError" class="rv-load__bar"><i></i></div>
+  <div v-if="!ready" class="min-h-screen flex items-center justify-center relative overflow-hidden" style="background-image:url('https://cdn.shopify.com/s/files/1/0181/2735/files/Wopples_4x2_banner.jpg?v=1742107130');background-size:cover;background-position:center">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="text-center relative z-10">
+      <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="w-64 max-w-[70vw] mx-auto mb-5" alt="Revivealicious Foods">
+      <p v-if="!gateError" class="text-white/90 text-sm">Loading Tasks…</p>
       <div v-else class="bg-white rounded-2xl shadow p-6 max-w-sm mx-auto"><p class="text-red-600 text-sm mb-3">{{ gateError }}</p><a href="/" class="text-emerald-700 underline text-sm">&larr; Back to portal</a></div>
     </div>
   </div>
@@ -64,110 +60,89 @@
   <!-- ================= APP ================= -->
   <div v-else class="min-h-screen flex flex-col">
 
-    <nav class="rv-nav no-print">
+    <nav class="text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow no-print" style="background:#15803d">
       <div class="flex items-center gap-2">
-        <a href="/" class="rv-portal rv-back">&larr; Portal</a><img class="rv-logo" src="/assets/revive-logo.png" alt="Revive Cafe">
-        <span class="rv-appname">Tasks</span>
+        <img src="https://revivealicious.com/cdn/shop/files/revivealicious-foods-logo-white-rgb-900px-w-72ppi.png" class="h-6" alt="Revivealicious Foods">
+        <span class="text-white/90 text-sm hidden sm:inline font-medium">Tasks</span>
       </div>
       <div class="flex items-center gap-3">
         <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="isManager ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'">{{ isManager ? 'Manager' : 'Team' }}</span>
         <span class="text-white/80 text-xs hidden md:inline">{{ myName }}</span>
-        
+        <a href="/" class="text-white/80 hover:text-white text-xs">Portal</a>
       </div>
     </nav>
 
-    <!-- tabs + person picker -->
+    <!-- SHEET TABS -->
     <div class="bg-white border-b border-stone-200 px-3 py-2 flex flex-wrap items-center gap-2 no-print sticky top-[44px] z-30">
-      <button v-for="t in tabs" :key="t.id" @click="screen=t.id"
+      <span class="text-xs text-stone-400 hidden sm:inline mr-1">Sheet</span>
+      <button v-for="s in sheets" :key="s.id" @click="screen='board'; sheetId=s.id"
         class="text-sm font-medium px-3 py-1.5 rounded-lg border"
-        :class="screen===t.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">{{ t.label }}</button>
-      <div class="ml-auto flex items-center gap-1 flex-wrap">
-        <div class="flex rounded-lg border border-stone-300 overflow-hidden">
-          <button @click="scope='team'" class="text-sm font-medium px-3 py-1.5"
-            :class="scope==='team' ? 'bg-green-700 text-white' : 'bg-white text-stone-600 hover:bg-stone-50'">Team</button>
-          <button @click="scope='personal'" class="text-sm font-medium px-3 py-1.5 border-l border-stone-300"
-            :class="scope==='personal' ? 'bg-green-700 text-white' : 'bg-white text-stone-600 hover:bg-stone-50'">{{ viewPersonName.split(' ')[0] }}</button>
-        </div>
-        <template v-if="isManager && people.length>1">
-          <span class="w-px h-6 bg-stone-200 mx-1"></span>
-          <button v-for="p in people" :key="p.id" @click="viewPerson=p.id"
-            class="text-sm font-medium pl-1.5 pr-3 py-1 rounded-lg border flex items-center gap-1.5"
-            :class="viewPerson===p.id ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">
-            <span class="w-6 h-6 rounded-full text-[10px] font-semibold flex items-center justify-center"
-              :class="viewPerson===p.id ? 'bg-white/25 text-white' : 'bg-stone-200 text-stone-600'">{{ initials(p.full_name) }}</span>
-            {{ p.full_name.split(' ')[0] }}
-          </button>
-        </template>
-      </div>
+        :class="(screen==='board' && sheetId===s.id) ? 'bg-green-700 text-white border-green-700' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">{{ s.name }}</button>
+      <button v-if="isManager" @click="screen='admin'"
+        class="text-sm font-medium px-3 py-1.5 rounded-lg border ml-auto"
+        :class="screen==='admin' ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'">⚙ Admin</button>
     </div>
 
     <main class="flex-1 max-w-[110rem] mx-auto w-full px-3 py-4">
 
-      <!-- ============ BOARD ============ -->
+      <!-- ============ SHEET ============ -->
       <section v-if="screen==='board'">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3 no-print">
           <div>
-            <h1 class="text-lg font-bold text-stone-800">Board</h1>
-            <p class="text-xs text-stone-500">{{ openCount }} open · {{ weekCount }} in current · add straight into any band, or drag tasks between them</p>
+            <h1 class="text-lg font-bold text-stone-800">{{ sheetName }}</h1>
             <p class="text-[11px] text-stone-400 mt-1 flex items-center gap-1.5">
-              <span class="inline-block w-3 h-3 rounded-sm bg-stone-200 align-middle"></span> current
-              <span class="inline-block w-3 h-3 rounded-sm bg-stone-100 align-middle ml-2"></span> future
-              <span class="inline-block w-3 h-3 rounded-sm bg-stone-50 border border-stone-200 align-middle ml-2"></span> park
+              {{ openCount }} open ·
+              <span class="inline-block w-3 h-3 rounded-sm bg-stone-200"></span> current
+              <span class="inline-block w-3 h-3 rounded-sm bg-stone-100 ml-1"></span> future
+              <span class="inline-block w-3 h-3 rounded-sm bg-stone-50 border border-stone-200 ml-1"></span> park
             </p>
           </div>
           <div class="flex items-center gap-2">
             <label class="text-xs text-stone-500 flex items-center gap-1"><input type="checkbox" v-model="showDone"> show done</label>
-            <button @click="openCategory(null)" class="text-xs border border-green-700 text-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">+ Board</button>
-            <button @click="openTask(null)" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Task</button>
+            <button @click="openBoard(null)" class="text-xs border border-green-700 text-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">+ Board</button>
           </div>
         </div>
 
         <!-- quick add -->
-        <div class="bg-white border border-stone-200 rounded-xl p-2.5 mb-4 flex flex-wrap gap-2 items-center no-print">
+        <div v-if="myBoards.length" class="bg-white border border-stone-200 rounded-xl p-2.5 mb-4 flex flex-wrap gap-2 items-center no-print">
           <input v-model="quick.title" @keyup.enter="addQuick" type="text" placeholder="Add a task and press Enter…" class="flex-1 min-w-[12rem] border border-stone-300 rounded-lg px-3 py-1.5 text-sm">
           <select v-model="quick.category_id" class="border border-stone-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-            <option v-for="c in myCategories" :key="c.id" :value="c.id">{{ c.icon }} {{ c.name }}</option>
+            <option v-for="b in myBoards" :key="b.id" :value="b.id">{{ b.icon }} {{ b.name }}</option>
           </select>
-          <select v-if="isManager" v-model="quick.owner_id" class="border border-stone-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+          <select v-model="quick.owner_id" class="border border-stone-300 rounded-lg px-2 py-1.5 text-sm bg-white">
             <option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option>
           </select>
-          <label class="text-xs text-stone-500 flex items-center gap-1 px-1"><input type="checkbox" v-model="quick.thisWeek"> this week</label>
+          <label class="text-xs text-stone-500 flex items-center gap-1 px-1"><input type="checkbox" v-model="quick.current"> current</label>
           <button @click="addQuick" class="text-sm bg-green-700 text-white rounded-lg px-3 py-1.5">Add</button>
         </div>
 
-        <div v-if="!boardTiles.length" class="bg-white border border-dashed border-stone-300 rounded-2xl p-10 text-center">
+        <div v-if="!myBoards.length" class="bg-white border border-dashed border-stone-300 rounded-2xl p-10 text-center">
           <div class="text-3xl mb-2">🗂</div>
-          <p v-if="scope==='team'" class="font-medium text-stone-700">No team boards yet.</p>
-          <p v-else class="font-medium text-stone-700">{{ viewPersonName.split(' ')[0] }} has no personal boards yet.</p>
-          <p class="text-xs text-stone-500 mt-1">Team boards are shared by everyone; personal boards are private unless shared. Add one now.</p>
-          <button @click="openCategory(null)" class="mt-3 text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Board</button>
+          <p class="font-medium text-stone-700">No boards on this sheet yet.</p>
+          <button @click="openBoard(null)" class="mt-3 text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Board</button>
         </div>
 
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          <div v-for="c in boardTiles" :key="c.key"
-            class="bg-white border rounded-2xl shadow-sm flex flex-col overflow-hidden"
-            :class="[dragOver===c.key ? 'drop-on' : 'border-stone-200']">
+          <div v-for="c in boardTiles" :key="c.id" class="bg-white border border-stone-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
 
             <div class="flex items-center gap-2 px-3 py-2.5 text-white" :class="tint(c.colour,'head')">
               <span class="text-base leading-none">{{ c.icon }}</span>
               <div class="flex-1 min-w-0">
                 <h3 class="font-semibold text-sm truncate">{{ c.name }}</h3>
-                <p class="text-[11px] text-white/70 truncate">{{ c.tasks.filter(t=>!t.done).length }} open{{ boardLabel(c) }}</p>
+                <p class="text-[11px] text-white/70">{{ c.tasks.filter(t=>!t.done).length }} open</p>
               </div>
-              <span v-if="c.shareNames" class="text-[10px] bg-white/20 rounded px-1.5 py-px flex-none" :title="'Shared with ' + c.shareNames">⇄ {{ c.shareNames }}</span>
-              <button v-if="c.id" @click="openCategory(c)" class="text-white/60 hover:text-white text-sm no-print" title="Edit board">✎</button>
+              <button @click="openBoard(c)" class="text-white/60 hover:text-white text-sm no-print" title="Edit board">✎</button>
             </div>
 
             <div class="tile-body flex-1">
-              <div v-for="s in sections" :key="s.key" class="px-2 py-1.5 min-h-[2.5rem]"
-                :title="s.label"
-                @dragover.prevent.stop="dragOver=c.key+'|'+s.key" @dragleave.stop="dragOver=null" @drop.prevent.stop="dropOn(c,s.key)"
-                :class="[tint(c.colour,s.key), dragOver===c.key+'|'+s.key ? 'drop-on' : '']">
+              <div v-for="s in bands" :key="s.key" class="px-2 py-1.5 min-h-[2.75rem]"
+                @dragover.prevent.stop="dragOver=c.id+'|'+s.key" @dragleave.stop="dragOver=null" @drop.prevent.stop="dropOn(c,s.key)"
+                :class="[tint(c.colour,s.key), dragOver===c.id+'|'+s.key ? 'drop-on' : '']">
 
                 <p class="text-[9px] uppercase tracking-widest font-semibold text-stone-500/70 px-0.5 mb-0.5 select-none">{{ s.short }}</p>
 
-                <div v-for="t in c.sections[s.key]" :key="t.id"
-                  :draggable="canEdit(t)" @dragstart="dragStart(t,$event)" @dragend="dragOver=null"
+                <div v-for="t in c.bands[s.key]" :key="t.id"
+                  draggable="true" @dragstart="dragStart(t,$event)" @dragend="dragOver=null"
                   class="group flex items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/60 drag-me">
                   <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px] bg-white/70"
                     :class="t.done ? 'bg-green-600 border-green-600 text-white' : (t.priority===1 ? 'border-red-400' : 'border-stone-400')">{{ t.done ? '✓' : '' }}</button>
@@ -179,14 +154,13 @@
                       <span v-if="t.priority===2" class="text-[10px] bg-amber-100 text-amber-800 rounded px-1.5 py-px">Should</span>
                       <span v-if="t.carry_count>0 && !t.done" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">carried ×{{ t.carry_count }}</span>
                       <span v-if="t.due_date" class="text-[10px] rounded px-1.5 py-px" :class="dueClass(t)">{{ shortDate(t.due_date) }}</span>
-                      <span v-if="t.goal_id" class="text-[10px] bg-violet-50 text-violet-700 rounded px-1.5 py-px">🎯 {{ goalTitle(t.goal_id) }}</span>
-                      <span v-if="showOwner(t)" class="text-[10px] text-stone-500">{{ personName(t.owner_id) }}</span>
+                      <span v-if="t.owner_id!==me" class="text-[10px] text-stone-500">{{ personName(t.owner_id) }}</span>
                     </div>
                   </div>
-                  <button @click="commitToggle(t)" class="opacity-0 group-hover:opacity-100 text-xs flex-none no-print" :title="t.horizon==='week' ? 'Move to future' : 'Move to current'">{{ t.horizon==='week' ? '📌' : '📍' }}</button>
+                  <button @click="bandToggle(t)" class="opacity-0 group-hover:opacity-100 text-xs flex-none no-print" :title="t.horizon==='week' ? 'Move to future' : 'Move to current'">{{ t.horizon==='week' ? '📌' : '📍' }}</button>
                 </div>
 
-                <input v-model="inlineAdd[c.key+'|'+s.key]" @keyup.enter="addInline(c,s.key)" type="text" :placeholder="'+ add to ' + s.short"
+                <input v-model="inlineAdd[c.id+'|'+s.key]" @keyup.enter="addInline(c,s.key)" type="text" :placeholder="'+ add to ' + s.short"
                   class="w-full text-[13px] border border-white/70 hover:border-white focus:border-stone-400 rounded-lg px-2 py-1 mt-0.5 bg-white/80 focus:bg-white outline-none placeholder:text-stone-400 no-print">
               </div>
             </div>
@@ -194,180 +168,36 @@
         </div>
       </section>
 
-      <!-- ============ THIS WEEK / 1:1 ============ -->
-      <section v-if="screen==='week'">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 no-print">
+      <!-- ============ ADMIN ============ -->
+      <section v-if="screen==='admin' && isManager">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
-            <h1 class="text-lg font-bold text-stone-800">This week &amp; 1:1</h1>
-            <p class="text-xs text-stone-500">Week of {{ longDate(week) }} — the agenda for your one-on-ones</p>
+            <h1 class="text-lg font-bold text-stone-800">Sheets</h1>
+            <p class="text-xs text-stone-500">Who can see each sheet, and which sheets a new person starts with.</p>
           </div>
-          <button @click="window.print()" class="text-xs border border-stone-300 rounded-lg px-3 py-1.5 hover:bg-stone-50">🖨 Print</button>
+          <button @click="openSheet(null)" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Sheet</button>
         </div>
 
-        <div v-for="p in oneOnOnePeople" :key="p.id" class="mb-6 print-block">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="w-7 h-7 rounded-full bg-green-700 text-white text-xs flex items-center justify-center font-semibold">{{ initials(p.full_name) }}</span>
-            <h2 class="font-bold text-stone-800">{{ p.full_name }}</h2>
-            <span class="text-xs px-2 py-0.5 rounded-full" :class="hitRate(p.id).cls">{{ hitRate(p.id).label }}</span>
-          </div>
-
-          <!-- goals strip -->
-          <div class="mb-3">
-            <p class="text-[11px] uppercase tracking-wide text-stone-400 mb-1">Quarterly goals — {{ quarter }}</p>
-            <div v-if="!goalsFor(p.id).length" class="text-xs text-stone-400 bg-white border border-dashed border-stone-300 rounded-xl p-3">No goals set for this quarter. <button @click="screen='goals'" class="text-green-700 underline no-print">Add one</button></div>
-            <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <div v-for="g in goalsFor(p.id)" :key="g.id" class="bg-white border border-stone-200 rounded-xl p-2.5">
-                <div class="flex items-start justify-between gap-2">
-                  <p class="text-sm font-medium text-stone-800 leading-snug">{{ g.title }}</p>
-                  <span class="text-[10px] rounded px-1.5 py-px flex-none font-semibold" :class="goalCls(g.status)">{{ goalLabel(g.status) }}</span>
-                </div>
-                <div class="mt-2 h-1.5 bg-stone-100 rounded-full overflow-hidden"><div class="h-full bg-green-600" :style="{width:(g.progress||0)+'%'}"></div></div>
-                <div class="flex items-center justify-between mt-1"><span class="text-[10px] text-stone-400">{{ g.progress||0 }}%</span><span v-if="g.due_date" class="text-[10px] text-stone-400">{{ shortDate(g.due_date) }}</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            <!-- committed -->
-            <div class="lg:col-span-2 bg-white border border-stone-200 rounded-2xl p-3">
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="text-sm font-semibold text-stone-700">Committed this week</h3>
-                <span class="text-xs text-stone-400">{{ weekTasks(p.id).filter(t=>t.done).length }}/{{ weekTasks(p.id).length }} done</span>
-              </div>
-              <p v-if="!weekTasks(p.id).length" class="text-xs text-stone-400 py-3">Nothing committed yet. Pin tasks from the Board.</p>
-              <div v-for="t in weekTasks(p.id)" :key="t.id" class="flex items-start gap-2 py-1.5 border-t border-stone-50 first:border-0">
-                <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px]" :class="t.done ? 'bg-green-600 border-green-600 text-white' : (t.carry_count>0 ? 'border-red-400' : 'border-stone-300')">{{ t.done ? '✓' : '' }}</button>
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm" :class="t.done ? 'text-stone-400 strike' : 'text-stone-800'">{{ t.title }}</p>
-                  <div class="flex flex-wrap gap-1 mt-0.5">
-                    <span class="text-[10px] text-stone-400">{{ catName(t.category_id) }}</span>
-                    <span v-if="t.carry_count>0 && !t.done" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold">carried ×{{ t.carry_count }}</span>
-                    <span v-if="t.priority===1" class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px">Must</span>
-                  </div>
-                </div>
-                <button @click="openTask(t)" class="text-stone-300 hover:text-stone-600 text-xs no-print">✎</button>
-              </div>
-            </div>
-
-            <!-- GM actions + notes -->
-            <div class="space-y-3">
-              <div class="bg-white border border-stone-200 rounded-2xl p-3">
-                <h3 class="text-sm font-semibold text-stone-700 mb-1">What I owe {{ p.full_name.split(' ')[0] }}</h3>
-                <p class="text-[11px] text-stone-400 mb-2">Blockers and decisions the GM has to clear.</p>
-                <div v-for="t in gmActions(p.id)" :key="t.id" class="flex items-start gap-2 py-1">
-                  <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px]" :class="t.done ? 'bg-green-600 border-green-600 text-white' : 'border-stone-300'">{{ t.done ? '✓' : '' }}</button>
-                  <p class="text-sm flex-1" :class="t.done ? 'text-stone-400 strike' : 'text-stone-800'">{{ t.title }}</p>
-                </div>
-                <input v-if="isManager" v-model="gmAdd[p.id]" @keyup.enter="addGm(p)" type="text" placeholder="+ something I need to do" class="w-full text-sm mt-2 border border-stone-200 rounded-lg px-2 py-1.5 bg-stone-50 outline-none no-print">
-              </div>
-
-              <div class="bg-white border border-stone-200 rounded-2xl p-3">
-                <h3 class="text-sm font-semibold text-stone-700 mb-2">1:1 notes</h3>
-                <textarea v-model="notes[p.id]" @blur="saveNotes(p)" rows="5" placeholder="What was discussed, decisions, follow-ups…" class="w-full text-sm border border-stone-300 rounded-lg px-2 py-1.5"></textarea>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============ GOALS ============ -->
-      <section v-if="screen==='goals'">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 no-print">
-          <div>
-            <h1 class="text-lg font-bold text-stone-800">Quarterly goals</h1>
-            <p class="text-xs text-stone-500">3–5 per person per quarter. Reviewed on-track / off-track every week.</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <select v-model="quarterFilter" class="text-sm border border-stone-300 rounded-lg px-2 py-1.5 bg-white">
-              <option v-for="q in quarterOptions" :key="q" :value="q">{{ q }}</option>
-            </select>
-            <button @click="openGoal(null)" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Goal</button>
-          </div>
-        </div>
-
-        <div v-for="p in oneOnOnePeople" :key="p.id" class="mb-5">
-          <h2 class="text-sm font-semibold text-stone-600 mb-2">{{ p.full_name }} <span class="text-stone-400 font-normal">· {{ goalsFor(p.id).length }} goal(s)</span></h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            <div v-for="g in goalsFor(p.id)" :key="g.id" class="bg-white border border-stone-200 rounded-2xl p-3">
-              <div class="flex items-start justify-between gap-2 mb-1">
-                <p class="font-medium text-stone-800 text-sm leading-snug">{{ g.title }}</p>
-                <button @click="openGoal(g)" class="text-stone-300 hover:text-stone-600 text-xs no-print">✎</button>
-              </div>
-              <p v-if="g.detail" class="text-xs text-stone-500 mb-2">{{ g.detail }}</p>
-              <div class="flex items-center gap-1.5 mb-2 no-print">
-                <button v-for="s in ['on_track','off_track','done']" :key="s" @click="setGoalStatus(g,s)" class="text-[10px] rounded px-2 py-0.5 border" :class="g.status===s ? goalCls(s)+' border-transparent font-semibold' : 'border-stone-200 text-stone-400'">{{ goalLabel(s) }}</button>
-              </div>
-              <input type="range" min="0" max="100" step="5" v-model.number="g.progress" @change="saveGoalProgress(g)" class="w-full accent-green-700 no-print">
-              <div class="flex items-center justify-between"><span class="text-[11px] text-stone-400">{{ g.progress||0 }}% complete</span><span class="text-[11px] text-stone-400">{{ goalTaskCount(g.id) }} linked task(s)</span></div>
-            </div>
-            <div v-if="!goalsFor(p.id).length" class="text-xs text-stone-400 bg-white border border-dashed border-stone-300 rounded-2xl p-5 text-center">No goals for {{ quarterFilter }}.</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============ FUTURE ============ -->
-      <section v-if="screen==='future'">
-        <h1 class="text-lg font-bold text-stone-800 mb-1">Future &amp; someday</h1>
-        <p class="text-xs text-stone-500 mb-3">Everything in the Future band, plus what you've parked.</p>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <div class="bg-white border border-stone-200 rounded-2xl p-3">
-            <h3 class="text-sm font-semibold text-stone-700 mb-2">Scheduled ahead</h3>
-            <p v-if="!futureTasks.length" class="text-xs text-stone-400 py-3">Nothing in Future.</p>
-            <div v-for="grp in futureGrouped" :key="grp.label" class="mb-3">
-              <p class="text-[11px] uppercase tracking-wide text-stone-400 mb-1">{{ grp.label }}</p>
-              <div v-for="t in grp.items" :key="t.id" class="flex items-start gap-2 py-1 border-t border-stone-50 first:border-0">
-                <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 border-stone-300 flex-none"></button>
-                <div class="flex-1 min-w-0 cursor-pointer" @click="openTask(t)">
-                  <p class="text-sm text-stone-800">{{ t.title }}</p>
-                  <span class="text-[10px] text-stone-400">{{ catName(t.category_id) }} · {{ personName(t.owner_id) }} · {{ shortDate(t.due_date) }}</span>
-                </div>
-                <button @click="commitToggle(t)" class="text-xs no-print" title="Pull into this week">📍</button>
-              </div>
-            </div>
-          </div>
-          <div class="bg-white border border-stone-200 rounded-2xl p-3">
-            <h3 class="text-sm font-semibold text-stone-700 mb-2">Park</h3>
-            <p v-if="!somedayTasks.length" class="text-xs text-stone-400 py-3">Nothing parked.</p>
-            <div v-for="t in somedayTasks" :key="t.id" class="flex items-start gap-2 py-1 border-t border-stone-50 first:border-0">
-              <div class="flex-1 min-w-0 cursor-pointer" @click="openTask(t)">
-                <p class="text-sm text-stone-800">{{ t.title }}</p>
-                <span class="text-[10px] text-stone-400">{{ catName(t.category_id) }} · {{ personName(t.owner_id) }}</span>
-              </div>
-              <button @click="commitToggle(t)" class="text-xs no-print" title="Pull into this week">📍</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============ REVIEW ============ -->
-      <section v-if="screen==='review'">
-        <h1 class="text-lg font-bold text-stone-800 mb-1">Review</h1>
-        <p class="text-xs text-stone-500 mb-3">Committed vs completed by week. The benchmark for a healthy team is 90%.</p>
         <div class="bg-white border border-stone-200 rounded-2xl overflow-x-auto">
           <table class="w-full text-sm" style="min-width:640px">
             <thead class="bg-stone-50 text-stone-500 text-xs uppercase">
-              <tr><th class="text-left px-3 py-2">Person</th><th v-for="w in reviewWeeks" :key="w" class="px-3 py-2 text-center whitespace-nowrap">{{ shortDate(w) }}</th></tr>
+              <tr><th class="text-left px-3 py-2">Sheet</th><th class="text-left px-3 py-2">Boards</th><th class="text-left px-3 py-2">Who can access</th><th class="text-center px-3 py-2">New users</th><th></th></tr>
             </thead>
             <tbody>
-              <tr v-for="p in oneOnOnePeople" :key="p.id" class="border-t border-stone-100">
-                <td class="px-3 py-2 font-medium text-stone-700 whitespace-nowrap">{{ p.full_name }}</td>
-                <td v-for="w in reviewWeeks" :key="w" class="px-3 py-2 text-center">
-                  <span v-if="stat(p.id,w).total" class="text-xs rounded px-2 py-0.5 font-semibold" :class="stat(p.id,w).cls">{{ stat(p.id,w).done }}/{{ stat(p.id,w).total }}</span>
+              <tr v-for="s in allSheets" :key="s.id" class="border-t border-stone-100">
+                <td class="px-3 py-2 font-medium text-stone-800">{{ s.name }}</td>
+                <td class="px-3 py-2 text-stone-500">{{ boardCount(s.id) }}</td>
+                <td class="px-3 py-2 text-stone-600">{{ accessNames(s.id) || '—' }}</td>
+                <td class="px-3 py-2 text-center">
+                  <span v-if="s.is_default" class="text-[10px] bg-green-100 text-green-800 rounded px-2 py-0.5 font-semibold">default</span>
                   <span v-else class="text-stone-300">—</span>
                 </td>
+                <td class="px-3 py-2 text-right"><button @click="openSheet(s)" class="text-xs border border-stone-300 rounded-lg px-2.5 py-1 hover:bg-stone-50">Edit</button></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="bg-white border border-stone-200 rounded-2xl p-3 mt-3">
-          <h3 class="text-sm font-semibold text-stone-700 mb-2">Longest carried</h3>
-          <p v-if="!carriedList.length" class="text-xs text-stone-400">Nothing is being carried. Good week.</p>
-          <div v-for="t in carriedList" :key="t.id" class="flex items-center gap-2 py-1 border-t border-stone-50 first:border-0">
-            <span class="text-[10px] bg-red-100 text-red-800 rounded px-1.5 py-px font-semibold flex-none">×{{ t.carry_count }}</span>
-            <p class="text-sm flex-1 truncate cursor-pointer" @click="openTask(t)">{{ t.title }}</p>
-            <span class="text-[11px] text-stone-400 flex-none">{{ personName(t.owner_id) }}</span>
-          </div>
-        </div>
+        <p class="text-xs text-stone-400 mt-2">Anyone marked <b>default</b> is granted to every new person who gets access to the Tasks app. Managers see every sheet regardless.</p>
       </section>
 
       <p v-if="msg" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow z-50 no-print">{{ msg }}</p>
@@ -383,17 +213,14 @@
         <div class="p-5 space-y-3">
           <label class="text-sm block">Task<input v-model="edit.title" type="text" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
           <div class="grid grid-cols-2 gap-3">
-            <label class="text-sm">Category<select v-model="edit.category_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="c in myCategories" :key="c.id" :value="c.id">{{ c.icon }} {{ c.name }}</option></select></label>
-            <label class="text-sm">Owner<select v-model="edit.owner_id" :disabled="!isManager" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white disabled:bg-stone-100"><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
+            <label class="text-sm">Board<select v-model="edit.category_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="b in myBoards" :key="b.id" :value="b.id">{{ b.icon }} {{ b.name }}</option></select></label>
+            <label class="text-sm">Owner<select v-model="edit.owner_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
             <label class="text-sm">Priority<select v-model.number="edit.priority" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="1">Must do</option><option :value="2">Should do</option><option :value="3">Normal</option></select></label>
-            <label class="text-sm">Band<select v-model="edit.horizon" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="week">Current (this week)</option><option value="future">Future</option><option value="someday">Park</option></select></label>
-            <label class="text-sm">Due date<input v-model="edit.due_date" type="date" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
-            <label class="text-sm">Linked goal<select v-model="edit.goal_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="null">None</option><option v-for="g in goalsFor(edit.owner_id)" :key="g.id" :value="g.id">{{ g.title }}</option></select></label>
+            <label class="text-sm">Band<select v-model="edit.horizon" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="week">Current</option><option value="future">Future</option><option value="someday">Park</option></select></label>
+            <label class="text-sm col-span-2">Due date<input v-model="edit.due_date" type="date" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
           </div>
-          <label v-if="isManager" class="text-sm flex items-center gap-2"><input type="checkbox" v-model="edit.is_gm_action"> This is something <b>I</b> owe them (shows in their 1:1)</label>
-          <label v-if="isManager && edit.is_gm_action" class="text-sm block">For<select v-model="edit.for_person_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="null">—</option><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
           <label class="text-sm block">Notes<textarea v-model="edit.notes" rows="3" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></textarea></label>
-          <p v-if="edit.carry_count>0" class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">This task has been carried over {{ edit.carry_count }} week(s). Worth asking why in the 1:1 — is it too big, blocked, or not actually a priority?</p>
+          <p v-if="edit.carry_count>0" class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">Carried over {{ edit.carry_count }} week(s) — worth asking whether it's too big, blocked, or not really a priority.</p>
           <p v-if="edit.err" class="text-sm text-red-600">{{ edit.err }}</p>
           <div class="flex justify-between pt-1">
             <button v-if="edit.id" @click="removeTask" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
@@ -406,78 +233,71 @@
       </div>
     </div>
 
-    <!-- ============ CATEGORY MODAL ============ -->
-    <div v-if="cat.open" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto no-print" @click.self="cat.open=false">
+    <!-- ============ BOARD MODAL ============ -->
+    <div v-if="bd.open" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto no-print" @click.self="bd.open=false">
       <div class="bg-white rounded-2xl shadow-xl max-w-md w-full my-10">
         <div class="flex items-center justify-between px-5 py-3 border-b border-stone-100">
-          <h2 class="font-bold text-stone-800">{{ cat.id ? 'Edit category' : 'New category' }}</h2>
-          <button @click="cat.open=false" class="text-stone-400 hover:text-stone-700 text-xl">×</button>
+          <h2 class="font-bold text-stone-800">{{ bd.id ? 'Edit board' : 'New board' }}</h2>
+          <button @click="bd.open=false" class="text-stone-400 hover:text-stone-700 text-xl">×</button>
         </div>
         <div class="p-5 space-y-3">
-          <label class="text-sm block">Name<input v-model="cat.name" type="text" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
+          <label class="text-sm block">Name<input v-model="bd.name" type="text" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
+          <label class="text-sm block">Sheet<select v-model="bd.sheet_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="s in sheets" :key="s.id" :value="s.id">{{ s.name }}</option></select></label>
           <div>
             <p class="text-sm mb-1">Icon</p>
             <div class="flex flex-wrap gap-1">
-              <button v-for="i in iconChoices" :key="i" @click="cat.icon=i" class="w-9 h-9 rounded-lg border text-lg" :class="cat.icon===i ? 'border-green-700 bg-green-50' : 'border-stone-200'">{{ i }}</button>
+              <button v-for="i in iconChoices" :key="i" @click="bd.icon=i" class="w-9 h-9 rounded-lg border text-lg" :class="bd.icon===i ? 'border-green-700 bg-green-50' : 'border-stone-200'">{{ i }}</button>
             </div>
           </div>
           <div>
             <p class="text-sm mb-1">Colour</p>
             <div class="flex flex-wrap gap-1.5">
-              <button v-for="c in colourChoices" :key="c" @click="cat.colour=c" class="w-7 h-7 rounded-full border-2" :class="[tint(c,'dot'), cat.colour===c ? 'border-stone-800' : 'border-transparent']"></button>
+              <button v-for="c in colourChoices" :key="c" @click="bd.colour=c" class="w-7 h-7 rounded-full border-2" :class="[tint(c,'dot'), bd.colour===c ? 'border-stone-800' : 'border-transparent']"></button>
             </div>
           </div>
-          <div>
-            <p v-if="cat.isTeam" class="text-sm bg-sky-50 border border-sky-200 text-sky-800 rounded-lg px-2.5 py-2">
-              <b>Team board.</b> Everyone sees this board; each person sees only their own tasks in it.
-            </p>
-            <template v-else>
-            <p class="text-sm mb-1">Shared with</p>
-            <p class="text-xs text-stone-500 mb-1.5">The board appears on their screen too, and you can both add, edit and tick off anything on it. Leave all unticked to keep it private.</p>
-            <div v-if="shareCandidates.length" class="flex flex-wrap gap-1.5">
-              <label v-for="p in shareCandidates" :key="p.id" class="text-sm border rounded-lg px-2.5 py-1.5 cursor-pointer flex items-center gap-2"
-                :class="cat.share_with.includes(p.id) ? 'border-green-600 bg-green-50' : 'border-stone-200'">
-                <input type="checkbox" :value="p.id" v-model="cat.share_with" class="pointer-events-none">
-                {{ p.full_name }}
-              </label>
-            </div>
-            <p v-else class="text-xs text-stone-400">Nobody else has access to Tasks yet.</p>
-            </template>
-          </div>
-          <p v-if="cat.err" class="text-sm text-red-600">{{ cat.err }}</p>
+          <p v-if="bd.err" class="text-sm text-red-600">{{ bd.err }}</p>
           <div class="flex justify-between pt-1">
-            <button v-if="cat.id" @click="removeCategory" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
+            <button v-if="bd.id" @click="removeBoard" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
             <div class="flex gap-2">
-              <button @click="cat.open=false" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5">Cancel</button>
-              <button @click="saveCategory" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Save</button>
+              <button @click="bd.open=false" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5">Cancel</button>
+              <button @click="saveBoard" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Save</button>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ============ GOAL MODAL ============ -->
-    <div v-if="gm.open" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto no-print" @click.self="gm.open=false">
+    <!-- ============ SHEET MODAL (admin) ============ -->
+    <div v-if="sh.open" class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto no-print" @click.self="sh.open=false">
       <div class="bg-white rounded-2xl shadow-xl max-w-md w-full my-10">
         <div class="flex items-center justify-between px-5 py-3 border-b border-stone-100">
-          <h2 class="font-bold text-stone-800">{{ gm.id ? 'Edit goal' : 'New quarterly goal' }}</h2>
-          <button @click="gm.open=false" class="text-stone-400 hover:text-stone-700 text-xl">×</button>
+          <h2 class="font-bold text-stone-800">{{ sh.id ? 'Edit sheet' : 'New sheet' }}</h2>
+          <button @click="sh.open=false" class="text-stone-400 hover:text-stone-700 text-xl">×</button>
         </div>
         <div class="p-5 space-y-3">
-          <label class="text-sm block">Goal<input v-model="gm.title" type="text" placeholder="e.g. Lift wholesale accounts from 18 to 25" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
-          <label class="text-sm block">What "done" looks like<textarea v-model="gm.detail" rows="3" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></textarea></label>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="text-sm">Owner<select v-model="gm.owner_id" :disabled="!isManager" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white disabled:bg-stone-100"><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
-            <label class="text-sm">Quarter<select v-model="gm.quarter" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="q in quarterOptions" :key="q" :value="q">{{ q }}</option></select></label>
-            <label class="text-sm">Due<input v-model="gm.due_date" type="date" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
-            <label class="text-sm">Status<select v-model="gm.status" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="on_track">On track</option><option value="off_track">Off track</option><option value="done">Done</option><option value="dropped">Dropped</option></select></label>
+          <label class="text-sm block">Name<input v-model="sh.name" type="text" placeholder="e.g. Kitchen Shared" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
+          <div>
+            <p class="text-sm mb-1">Who can access</p>
+            <p class="text-xs text-stone-500 mb-1.5">Everyone ticked sees this sheet and can add, edit and tick off anything on it.</p>
+            <div class="flex flex-wrap gap-1.5">
+              <label v-for="p in people" :key="p.id" class="text-sm border rounded-lg px-2.5 py-1.5 cursor-pointer flex items-center gap-2"
+                :class="sh.access.includes(p.id) ? 'border-green-600 bg-green-50' : 'border-stone-200'">
+                <input type="checkbox" :value="p.id" v-model="sh.access" class="pointer-events-none">
+                {{ p.full_name }}
+              </label>
+            </div>
           </div>
-          <p v-if="gm.err" class="text-sm text-red-600">{{ gm.err }}</p>
+          <label class="text-sm flex items-start gap-2 border rounded-lg px-2.5 py-2" :class="sh.is_default ? 'border-green-600 bg-green-50' : 'border-stone-200'">
+            <input type="checkbox" v-model="sh.is_default" class="mt-1">
+            <span><b>Give this to every new person</b><br><span class="text-xs text-stone-500">Anyone newly granted the Tasks app starts with access to this sheet.</span></span>
+          </label>
+          <p v-if="!sh.id" class="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-lg p-2">A new sheet starts with two placeholder boards, General and Projects.</p>
+          <p v-if="sh.err" class="text-sm text-red-600">{{ sh.err }}</p>
           <div class="flex justify-between pt-1">
-            <button v-if="gm.id" @click="removeGoal" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
+            <button v-if="sh.id" @click="removeSheet" class="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5">Delete</button><span v-else></span>
             <div class="flex gap-2">
-              <button @click="gm.open=false" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5">Cancel</button>
-              <button @click="saveGoal" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Save</button>
+              <button @click="sh.open=false" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5">Cancel</button>
+              <button @click="saveSheet" class="text-sm bg-green-700 text-white rounded-lg px-4 py-1.5">Save</button>
             </div>
           </div>
         </div>
@@ -495,52 +315,45 @@ const portal = createClient(PORTAL_URL, PORTAL_ANON);
 const COLOURS=['stone','amber','sky','rose','green','violet','emerald','slate','indigo','teal','orange','red'];
 const TINTS={};
 COLOURS.forEach(c=>{ TINTS[c]={
-  head:'bg-'+c+'-700',      // solid header, white text
-  week:'bg-'+c+'-200',      // Current — darkest band
-  future:'bg-'+c+'-100',    // Future  — mid band
-  park:'bg-'+c+'-50',       // Park    — lightest band
-  dot:'bg-'+c+'-400', soft:'bg-'+c+'-50 text-'+c+'-700', border:'border-'+c+'-200',
+  head:'bg-'+c+'-700',   // solid header, white text
+  week:'bg-'+c+'-200',   // Current — darkest band
+  future:'bg-'+c+'-100', // Future  — mid band
+  park:'bg-'+c+'-50',    // Park    — lightest band
+  dot:'bg-'+c+'-400',
 }; });
+
 createApp({
   setup(){
     const ready=ref(false), gateError=ref(''), msg=ref('');
-    const screen=ref('board'), showDone=ref(false), scope=ref('team');
-    const me=ref(''), level=ref('team'), today=ref(''), week=ref(''), quarter=ref('');
-    const people=ref([]), categories=ref([]), shares=ref([]), tasks=ref([]), goals=ref([]), logs=ref([]), checkins=ref([]);
-    const viewPerson=ref('me'), quarterFilter=ref('');
+    const screen=ref('board'), showDone=ref(false), sheetId=ref('');
+    const me=ref(''), level=ref('team'), today=ref(''), week=ref('');
+    const people=ref([]), sheets=ref([]), allSheets=ref([]), access=ref([]), boards=ref([]), tasks=ref([]);
     const dragging=ref(null), dragOver=ref(null);
-    const inlineAdd=reactive({}), gmAdd=reactive({}), notes=reactive({});
-    const quick=reactive({title:'',category_id:null,owner_id:'',thisWeek:false});
+    const inlineAdd=reactive({});
+    const quick=reactive({title:'',category_id:'',owner_id:'',current:false});
     const edit=reactive({open:false,busy:false,err:''});
-    const cat=reactive({open:false,err:''});
-    const gm=reactive({open:false,err:''});
+    const bd=reactive({open:false,err:''});
+    const sh=reactive({open:false,err:'',access:[]});
 
-    const iconChoices=['📌','☕','📊','📣','🧇','👥','💰','⚙️','🚚','🧾','📦','🎯','🛠','🌱','🧹','📞','💡','🔥','✅','🗓'];
-    const colourChoices=Object.keys(TINTS);
+    const iconChoices=['📋','🚀','☕','📊','📣','🧇','👥','💰','⚙️','🚚','🧾','📦','🎯','🛠','🌱','🧹','📞','💡','🔥','🗓'];
+    const colourChoices=COLOURS;
+    const bands=[{key:'week',label:'Current',short:'current'},{key:'future',label:'Future',short:'future'},{key:'park',label:'Park',short:'park'}];
+    const HORIZON={week:'week',future:'future',park:'someday'};
+    function bandOf(t){ return t.horizon==='week' ? 'week' : (t.horizon==='someday' ? 'park' : 'future'); }
 
     const isManager=computed(()=> level.value==='manager');
-    const viewPersonName=computed(()=>{ const p=people.value.find(x=>x.id===personFilter.value); return p?p.full_name:'them'; });
     const myName=computed(()=> (people.value.find(p=>p.id===me.value)||{}).full_name || '');
-    const tabs=computed(()=>[{id:'board',label:'Board'},{id:'week',label:'This week'},{id:'goals',label:'Goals'},{id:'future',label:'Future'},{id:'review',label:'Review'}]);
+    const sheetName=computed(()=> (sheets.value.find(s=>s.id===sheetId.value)||{}).name || '');
+    const myBoards=computed(()=> boards.value.filter(b=>b.sheet_id===sheetId.value));
 
     function tint(c,k){ return (TINTS[c]||TINTS.stone)[k]; }
     function personName(id){ const p=people.value.find(x=>x.id===id); return p?p.full_name.split(' ')[0]:''; }
-    function initials(n){ return String(n||'').split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase(); }
-    function catName(id){ const c=categories.value.find(x=>x.id===id); return c?c.name:'—'; }
-    function goalTitle(id){ const g=goals.value.find(x=>x.id===id); return g?(g.title.length>22?g.title.slice(0,22)+'…':g.title):''; }
-    function goalTaskCount(id){ return tasks.value.filter(t=>t.goal_id===id).length; }
     function shortDate(d){ return d ? new Date(d+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'}) : ''; }
-    function longDate(d){ return d ? new Date(d+'T00:00:00').toLocaleDateString('en-NZ',{weekday:'long',day:'numeric',month:'long'}) : ''; }
     function addDays(iso,n){ const d=new Date(iso+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
     function flash(t){ msg.value=t; setTimeout(()=>msg.value='',2200); }
     function dueClass(t){ if(!t.due_date) return 'bg-stone-100 text-stone-600'; if(t.due_date < today.value) return 'bg-red-100 text-red-800'; if(t.due_date <= addDays(today.value,2)) return 'bg-amber-100 text-amber-800'; return 'bg-stone-100 text-stone-600'; }
-    function goalLabel(s){ return ({on_track:'On track',off_track:'Off track',done:'Done',dropped:'Dropped'})[s]||s; }
-    function goalCls(s){ return ({on_track:'bg-green-100 text-green-800',off_track:'bg-red-100 text-red-800',done:'bg-stone-100 text-stone-600',dropped:'bg-stone-100 text-stone-600'})[s]||'bg-stone-100 text-stone-600'; }
-    const editableBoards=computed(()=> new Set(boardsFor(me.value).map(c=>c.id)));
-    function canEdit(t){ return isManager.value || t.owner_id===me.value || (t.category_id && editableBoards.value.has(t.category_id)); }
-    function showOwner(t){ return t.owner_id!==personFilter.value; }
-    function firstBoardId(){ const c=myCategories.value[0]; return c?c.id:null; }
-    const shareCandidates=computed(()=> people.value.filter(p=>p.id!==(cat.owner_id||me.value)));
+    function boardCount(sid){ return boards.value.filter(b=>b.sheet_id===sid).length; }
+    function accessNames(sid){ return access.value.filter(a=>a.sheet_id===sid).map(a=>personName(a.person_id)).filter(Boolean).sort().join(', '); }
 
     async function token(){ const { data:{ session } }=await portal.auth.getSession(); return session?session.access_token:''; }
     async function call(payload){
@@ -549,187 +362,82 @@ createApp({
       if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
       return j;
     }
-
-    // ---- filtering ----------------------------------------------------------
-    const personFilter=computed(()=> viewPerson.value==='me' ? me.value : viewPerson.value);
-    // Every board belongs to one person. A board ticked as shared shows everyone's
-    // tasks; a private board shows only its owner's work.
-    // Who a board is shared with, and which boards are visible on a given person's screen.
-    function shareIds(catId){ return shares.value.filter(x=>x.category_id===catId).map(x=>x.person_id); }
-    function boardsFor(pid){ return categories.value.filter(c=> c.owner_id && (c.owner_id===pid || shareIds(c.id).includes(pid))); }
-    // Accountability views (1:1, Future, Review) stay strictly about who owns the work.
-    function mine(list){ return list.filter(t=>t.owner_id===personFilter.value); }
-    const visibleTasks=computed(()=> mine(tasks.value).filter(t=> showDone.value || !t.done));
-    const openCount=computed(()=> mine(tasks.value).filter(t=>!t.done).length);
-    const weekCount=computed(()=> mine(tasks.value).filter(t=>!t.done && t.horizon==='week').length);
-
-    // Every category belongs to one person. On screen you get the categories of
-    // whoever's board you're looking at, plus anything anyone has ticked as shared.
-    // Team boards have no owner; personal boards belong to someone and may be shared.
-    function teamBoards(){ return categories.value.filter(c=> !c.owner_id); }
-    function personalBoards(pid){ return categories.value.filter(c=> c.owner_id && (c.owner_id===pid || shareIds(c.id).includes(pid))); }
-    const myCategories=computed(()=> scope.value==='team' ? teamBoards() : personalBoards(personFilter.value));
-
-    function boardLabel(c){
-      if(!c.owner_id) return '';
-      return c.owner_id===me.value ? '' : ' · ' + personName(c.owner_id) + "'s board";
-    }
-    function shareNamesFor(c){ return shareIds(c.id).map(personName).filter(Boolean).join(', '); }
-
-    // Each tile is split into the three bands Jeremy works to.
-    const sections=[
-      {key:'week',   label:'Current (this week)', short:'current'},
-      {key:'future', label:'Future',              short:'future'},
-      {key:'park',   label:'Park',                short:'park'},
-    ];
-    function sectionOf(t){ return t.horizon==='week' ? 'week' : (t.horizon==='someday' ? 'park' : 'future'); }
-    const HORIZON_FOR={week:'week',future:'future',park:'someday'};
-
-    const boardTiles=computed(()=>{
-      const byCat={};
-      tasks.value.filter(t=> showDone.value || !t.done).forEach(t=>{ const k=t.category_id||'none'; (byCat[k]=byCat[k]||[]).push(t); });
-      const sortT=(a,b)=> (a.done-b.done) || (b.carry_count-a.carry_count) || (a.priority-b.priority) || (a.sort_order-b.sort_order);
-      const split=list=>{
-        const out={week:[],future:[],park:[]};
-        (list||[]).sort(sortT).forEach(t=>out[sectionOf(t)].push(t));
-        return out;
-      };
-      const tiles=myCategories.value.map(c=>{
-        const all=byCat[c.id]||[];
-        // Team board -> just the selected person's work. Shared personal board -> everyone's.
-        // Private personal board -> its owner's.
-        const list = !c.owner_id ? all.filter(t=>t.owner_id===personFilter.value)
-                   : (c.shared ? all : all.filter(t=>t.owner_id===c.owner_id));
-        return {key:c.id,id:c.id,name:c.name,icon:c.icon||'📌',colour:c.colour||'stone',owner_id:c.owner_id,
-                shared:c.shared,shareNames:shareNamesFor(c),tasks:list,sections:split(list)};
-      });
-      return tiles;
-    });
-
-    const oneOnOnePeople=computed(()=>{
-      if(!isManager.value) return people.value.filter(p=>p.id===me.value);
-      return people.value.filter(p=>p.id===personFilter.value);
-    });
-
-    function weekTasks(pid){ return tasks.value.filter(t=>t.owner_id===pid && t.horizon==='week' && !t.is_gm_action && (t.committed_week===week.value || (!t.done && !t.committed_week))).sort((a,b)=>(a.done-b.done)||(b.carry_count-a.carry_count)||(a.priority-b.priority)); }
-    function gmActions(pid){ return tasks.value.filter(t=>t.is_gm_action && t.for_person_id===pid && (!t.done || showDone.value)); }
-    function goalsFor(pid){ return goals.value.filter(g=>g.owner_id===pid && g.quarter===quarterFilter.value && g.status!=='dropped'); }
-
-    const futureTasks=computed(()=> mine(tasks.value).filter(t=>!t.done && t.horizon==='future').sort((a,b)=>String(a.due_date||'9999').localeCompare(String(b.due_date||'9999'))));
-    const somedayTasks=computed(()=> mine(tasks.value).filter(t=>!t.done && t.horizon==='someday'));
-    const futureGrouped=computed(()=>{
-      const g={}; futureTasks.value.forEach(t=>{ const k=t.due_date? t.due_date.slice(0,7) : 'No date'; (g[k]=g[k]||[]).push(t); });
-      return Object.keys(g).sort().map(k=>({label: k==='No date'?'No date':new Date(k+'-01T00:00:00').toLocaleDateString('en-NZ',{month:'long',year:'numeric'}), items:g[k]}));
-    });
-
-    const reviewWeeks=computed(()=>{ const out=[]; for(let i=7;i>=0;i--) out.push(addDays(week.value,-7*i)); return out; });
-    function stat(pid,w){
-      const rows=logs.value.filter(l=>l.person_id===pid && l.week_start===w);
-      const total=rows.length, done=rows.filter(r=>r.completed).length;
-      const pct= total? done/total : 0;
-      return {total,done,cls: !total?'':(pct>=0.9?'bg-green-100 text-green-800':(pct>=0.6?'bg-amber-100 text-amber-800':'bg-red-100 text-red-800'))};
-    }
-    function hitRate(pid){
-      const last=addDays(week.value,-7);
-      const s=stat(pid,last);
-      if(!s.total) return {label:'No history yet',cls:'bg-stone-100 text-stone-600'};
-      const pct=Math.round(s.done/s.total*100);
-      return {label:'Last week '+pct+'%',cls:s.cls};
-    }
-    const carriedList=computed(()=> mine(tasks.value).filter(t=>!t.done && t.carry_count>0).sort((a,b)=>b.carry_count-a.carry_count).slice(0,10));
-
-    const quarterOptions=computed(()=>{
-      const d=today.value||new Date().toISOString().slice(0,10);
-      const y=Number(d.slice(0,4)), q=Math.ceil(Number(d.slice(5,7))/3);
-      const out=[]; for(let i=-2;i<=2;i++){ let qq=q+i, yy=y; while(qq<1){qq+=4;yy--;} while(qq>4){qq-=4;yy++;} out.push(yy+'-Q'+qq); }
-      return [...new Set(out)].sort();
-    });
-
-    // ---- actions ------------------------------------------------------------
     function upsertLocal(list,row){ const i=list.value.findIndex(x=>x.id===row.id); if(i>=0) list.value[i]=row; else list.value.push(row); }
 
+    const visibleTasks=computed(()=> tasks.value.filter(t=> showDone.value || !t.done));
+    const openCount=computed(()=>{ const ids=myBoards.value.map(b=>b.id); return tasks.value.filter(t=>!t.done && ids.includes(t.category_id)).length; });
+
+    const boardTiles=computed(()=>{
+      const byBoard={};
+      visibleTasks.value.forEach(t=>{ (byBoard[t.category_id]=byBoard[t.category_id]||[]).push(t); });
+      const sortT=(a,b)=> (a.done-b.done) || (b.carry_count-a.carry_count) || (a.priority-b.priority) || (a.sort_order-b.sort_order);
+      return myBoards.value.map(b=>{
+        const list=(byBoard[b.id]||[]).sort(sortT);
+        const grouped={week:[],future:[],park:[]};
+        list.forEach(t=>grouped[bandOf(t)].push(t));
+        return {...b, tasks:list, bands:grouped};
+      });
+    });
+
+    // ---- tasks ----------------------------------------------------------------
     async function toggle(t){
-      if(!canEdit(t)){ flash('That task belongs to someone else.'); return; }
       const was=t.done; t.done=!was; t.done_at=t.done?new Date().toISOString():null;
-      noteLog(t,{completed:t.done});
       try{ const j=await call({action:'toggle_task',id:t.id,done:t.done}); if(j.task) upsertLocal(tasks,j.task); }
       catch(e){ t.done=was; flash('Could not save: '+e.message); }
     }
-
-    async function commitToggle(t){
-      if(!canEdit(t)){ flash('That task belongs to someone else.'); return; }
+    async function bandToggle(t){
       const to = t.horizon==='week' ? 'future' : 'week';
-      try{
-        await call({action:'move_tasks',items:[{id:t.id,horizon:to,committed_week: to==='week'?week.value:null}]});
-        t.horizon=to; t.committed_week = to==='week'?week.value:null;
-        if(to==='week') noteLog(t,{completed:t.done});
-        flash(to==='week'?'Moved to current':'Moved to future');
-      }catch(e){ flash('Could not save: '+e.message); }
+      const prev={horizon:t.horizon,committed_week:t.committed_week};
+      t.horizon=to; t.committed_week = to==='week'?week.value:null;
+      try{ await call({action:'move_tasks',items:[{id:t.id,horizon:to,committed_week:t.committed_week}]}); }
+      catch(e){ Object.assign(t,prev); flash('Could not save: '+e.message); }
     }
-
-    function dragStart(t,e){ if(!canEdit(t)){ e.preventDefault(); return; } dragging.value=t; e.dataTransfer.effectAllowed='move'; }
-    // Dropping sets both the category and the band, so you can drag straight from
-    // Park in one tile to Current in another.
-    async function dropOn(tile,section){
+    function dragStart(t,e){ dragging.value=t; e.dataTransfer.effectAllowed='move'; }
+    async function dropOn(tile,band){
       dragOver.value=null;
       const t=dragging.value; dragging.value=null;
       if(!t) return;
-      const horizon=HORIZON_FOR[section]||t.horizon;
+      const horizon=HORIZON[band]||t.horizon;
       if(t.category_id===tile.id && t.horizon===horizon) return;
       const prev={category_id:t.category_id,horizon:t.horizon,committed_week:t.committed_week};
       t.category_id=tile.id; t.horizon=horizon; t.committed_week = horizon==='week'?week.value:null;
-      try{
-        await call({action:'move_tasks',items:[{id:t.id,category_id:tile.id,horizon,committed_week:t.committed_week}]});
-        flash('Moved to '+tile.name+' · '+(sections.find(s=>s.key===section)||{}).short);
-      }catch(e){ Object.assign(t,prev); flash('Could not move: '+e.message); }
+      try{ await call({action:'move_tasks',items:[{id:t.id,category_id:tile.id,horizon,committed_week:t.committed_week}]}); }
+      catch(e){ Object.assign(t,prev); flash('Could not move: '+e.message); }
     }
-
-    async function addTaskRaw(row){
-      const j=await call({action:'save_task',task:row});
-      if(j.task) tasks.value.push(j.task);
-      return j.task;
-    }
+    async function addTaskRaw(row){ const j=await call({action:'save_task',task:row}); if(j.task) tasks.value.push(j.task); return j.task; }
     async function addQuick(){
       if(!quick.title.trim()) return;
       try{
-        await addTaskRaw({title:quick.title.trim(),category_id:quick.category_id||firstBoardId(),owner_id:quick.owner_id||me.value,horizon:quick.thisWeek?'week':'future',committed_week:quick.thisWeek?week.value:null,priority:3});
+        await addTaskRaw({title:quick.title.trim(),category_id:quick.category_id||(myBoards.value[0]||{}).id,
+          owner_id:quick.owner_id||me.value,horizon:quick.current?'week':'future',
+          committed_week:quick.current?week.value:null,priority:3});
         quick.title=''; flash('Added');
       }catch(e){ flash('Could not add: '+e.message); }
     }
-    // Everything is entered into Future, then dragged up to Current or down to Park.
-    async function addInline(tile,section){
-      const k=tile.key+'|'+section;
-      const v=(inlineAdd[k]||'').trim(); if(!v) return;
+    async function addInline(tile,band){
+      const k=tile.id+'|'+band, v=(inlineAdd[k]||'').trim();
+      if(!v) return;
       inlineAdd[k]='';
-      const horizon=HORIZON_FOR[section]||'future';
-      try{ await addTaskRaw({title:v,category_id:tile.id,owner_id:personFilter.value,horizon,
-        committed_week: horizon==='week' ? week.value : null, priority:3}); }
+      const horizon=HORIZON[band]||'future';
+      try{ await addTaskRaw({title:v,category_id:tile.id,owner_id:me.value,horizon,
+        committed_week: horizon==='week'?week.value:null,priority:3}); }
       catch(e){ flash('Could not add: '+e.message); }
     }
-    async function addGm(p){
-      const v=(gmAdd[p.id]||'').trim(); if(!v) return;
-      gmAdd[p.id]='';
-      try{ await addTaskRaw({title:v,owner_id:me.value,is_gm_action:true,for_person_id:p.id,horizon:'week',committed_week:week.value,priority:2}); flash('Added to your list'); }
-      catch(e){ flash('Could not add: '+e.message); }
-    }
-
     function openTask(t){
       Object.assign(edit,{open:true,busy:false,err:'',id:t?t.id:null,
-        title:t?t.title:'', notes:t?(t.notes||''):'', category_id:t?t.category_id:firstBoardId(),
-        owner_id:t?t.owner_id:personFilter.value,
-        goal_id:t?t.goal_id:null, priority:t?t.priority:3, horizon:t?(t.horizon==='anytime'?'future':t.horizon):'future',
-        due_date:t?(t.due_date||''):'', is_gm_action:t?!!t.is_gm_action:false,
-        for_person_id:t?t.for_person_id:null, carry_count:t?t.carry_count:0});
+        title:t?t.title:'', notes:t?(t.notes||''):'',
+        category_id:t?t.category_id:(myBoards.value[0]||{}).id,
+        owner_id:t?t.owner_id:me.value, priority:t?t.priority:3,
+        horizon:t?t.horizon:'future', due_date:t?(t.due_date||''):'', carry_count:t?t.carry_count:0});
     }
     async function saveTask(){
       if(!edit.title.trim()){ edit.err='Give the task a title.'; return; }
       edit.busy=true; edit.err='';
-      const row={title:edit.title.trim(),notes:edit.notes||null,category_id:edit.category_id||firstBoardId(),owner_id:edit.owner_id,
-        goal_id:edit.goal_id||null,priority:edit.priority,horizon:edit.horizon,due_date:edit.due_date||null,
-        committed_week: edit.horizon==='week'?week.value:null,
-        is_gm_action:!!edit.is_gm_action,for_person_id:edit.is_gm_action?(edit.for_person_id||null):null};
       try{
-        const j=await call({action:'save_task',id:edit.id,task:row});
+        const j=await call({action:'save_task',id:edit.id,task:{
+          title:edit.title.trim(),notes:edit.notes||null,category_id:edit.category_id,owner_id:edit.owner_id,
+          priority:edit.priority,horizon:edit.horizon,due_date:edit.due_date||null,
+          committed_week: edit.horizon==='week'?week.value:null}});
         if(j.task) upsertLocal(tasks,j.task);
         edit.open=false; flash('Saved');
       }catch(e){ edit.err=e.message; }
@@ -741,84 +449,61 @@ createApp({
       catch(e){ edit.err=e.message; }
     }
 
-    function openCategory(c){
-      Object.assign(cat,{open:true,err:'',id:c?c.id:null,name:c?c.name:'',icon:c?(c.icon||'📌'):'📌',
-        colour:c?(c.colour||'stone'):'sky',
-        owner_id: c ? c.owner_id : ((scope.value==='team' && isManager.value) ? null : personFilter.value),
-        isTeam: c ? !c.owner_id : (scope.value==='team' && isManager.value),
-        share_with: c ? shareIds(c.id) : []});
+    // ---- boards ---------------------------------------------------------------
+    function openBoard(b){
+      Object.assign(bd,{open:true,err:'',id:b?b.id:null,name:b?b.name:'',icon:b?(b.icon||'📋'):'📋',
+        colour:b?(b.colour||'sky'):'sky', sheet_id:b?b.sheet_id:sheetId.value});
     }
-    async function saveCategory(){
-      if(!cat.name.trim()){ cat.err='Give the category a name.'; return; }
-      const owner_id = cat.isTeam ? null : (cat.owner_id || me.value);
-      const share_with = cat.isTeam ? [] : (cat.share_with||[]).filter(id=>id!==owner_id);
+    async function saveBoard(){
+      if(!bd.name.trim()){ bd.err='Give the board a name.'; return; }
       try{
-        const j=await call({action:'save_category',id:cat.id,share_with,category:{name:cat.name.trim(),icon:cat.icon,colour:cat.colour,owner_id}});
-        if(j.category){
-          upsertLocal(categories,j.category);
-          if(j.category.owner_id && scope.value==='team') scope.value='personal';
-          shares.value=shares.value.filter(x=>x.category_id!==j.category.id).concat(share_with.map(pid=>({category_id:j.category.id,person_id:pid})));
-        }
-        categories.value=[...categories.value].sort((a,b)=>(a.sort_order-b.sort_order)||a.name.localeCompare(b.name));
-        cat.open=false; flash('Saved');
-      }catch(e){ cat.err=e.message; }
+        const j=await call({action:'save_board',id:bd.id,board:{name:bd.name.trim(),icon:bd.icon,colour:bd.colour,sheet_id:bd.sheet_id}});
+        if(j.board){ upsertLocal(boards,j.board); sheetId.value=j.board.sheet_id; }
+        bd.open=false; flash('Saved');
+      }catch(e){ bd.err=e.message; }
     }
-    async function removeCategory(){
-      if(!confirm('Delete this board? Its tasks move to your first board.')) return;
-      try{ await call({action:'delete_category',id:cat.id}); categories.value=categories.value.filter(c=>c.id!==cat.id); const home=firstBoardId(); tasks.value.forEach(t=>{ if(t.category_id===cat.id) t.category_id=home; }); cat.open=false; flash('Deleted'); }
-      catch(e){ cat.err=e.message; }
-    }
-
-    function openGoal(g){ Object.assign(gm,{open:true,err:'',id:g?g.id:null,title:g?g.title:'',detail:g?(g.detail||''):'',
-      owner_id:g?g.owner_id:personFilter.value,quarter:g?g.quarter:quarterFilter.value,
-      due_date:g?(g.due_date||''):'',status:g?g.status:'on_track',progress:g?g.progress:0}); }
-    async function saveGoal(){
-      if(!gm.title.trim()){ gm.err='Give the goal a title.'; return; }
+    async function removeBoard(){
+      if(!confirm('Delete this board? Its tasks move to the first board on this sheet.')) return;
       try{
-        const j=await call({action:'save_goal',id:gm.id,goal:{title:gm.title.trim(),detail:gm.detail||null,owner_id:gm.owner_id,quarter:gm.quarter,due_date:gm.due_date||null,status:gm.status,progress:gm.progress||0}});
-        if(j.goal) upsertLocal(goals,j.goal);
-        gm.open=false; flash('Saved');
-      }catch(e){ gm.err=e.message; }
-    }
-    async function removeGoal(){
-      if(!confirm('Delete this goal? Linked tasks stay but lose the link.')) return;
-      try{ await call({action:'delete_goal',id:gm.id}); goals.value=goals.value.filter(g=>g.id!==gm.id); gm.open=false; flash('Deleted'); }
-      catch(e){ gm.err=e.message; }
-    }
-    async function setGoalStatus(g,s){ const was=g.status; g.status=s; try{ await call({action:'save_goal',id:g.id,goal:{status:s}}); }catch(e){ g.status=was; flash('Could not save'); } }
-    async function saveGoalProgress(g){ try{ await call({action:'save_goal',id:g.id,goal:{progress:g.progress}}); }catch(e){ flash('Could not save'); } }
-
-    async function saveNotes(p){
-      try{ await call({action:'save_checkin',person_id:p.id,week_start:week.value,notes:notes[p.id]||''}); }
-      catch(e){ flash('Could not save notes'); }
+        await call({action:'delete_board',id:bd.id});
+        const home=(boards.value.find(b=>b.sheet_id===bd.sheet_id && b.id!==bd.id)||{}).id;
+        tasks.value.forEach(t=>{ if(t.category_id===bd.id) t.category_id=home; });
+        boards.value=boards.value.filter(b=>b.id!==bd.id);
+        bd.open=false; flash('Deleted');
+      }catch(e){ bd.err=e.message; }
     }
 
-    // The server keeps week_log in step; mirror the same change locally so the Review
-    // tab stays accurate without refetching the entire app on every click.
-    function noteLog(t,{completed}={}){
-      if(!t.committed_week) return;
-      const i=logs.value.findIndex(l=>l.task_id===t.id && l.week_start===t.committed_week);
-      if(i>=0){ if(completed!==undefined) logs.value[i].completed=completed; }
-      else logs.value.push({task_id:t.id,person_id:t.owner_id,week_start:t.committed_week,completed:!!completed});
+    // ---- sheets (admin) -------------------------------------------------------
+    function openSheet(s){
+      Object.assign(sh,{open:true,err:'',id:s?s.id:null,name:s?s.name:'',is_default:s?!!s.is_default:false,
+        access: s ? access.value.filter(a=>a.sheet_id===s.id).map(a=>a.person_id) : []});
+    }
+    async function saveSheet(){
+      if(!sh.name.trim()){ sh.err='Give the sheet a name.'; return; }
+      try{
+        await call({action:'save_sheet',id:sh.id,sheet:{name:sh.name.trim(),is_default:sh.is_default},access:sh.access});
+        sh.open=false; flash('Saved');
+        await load();
+      }catch(e){ sh.err=e.message; }
+    }
+    async function removeSheet(){
+      if(!confirm('Delete this sheet? Every board and task on it is permanently removed.')) return;
+      try{ await call({action:'delete_sheet',id:sh.id}); sh.open=false; flash('Sheet deleted'); await load(); }
+      catch(e){ sh.err=e.message; }
     }
 
-    // ---- boot ---------------------------------------------------------------
+    // ---- boot -----------------------------------------------------------------
     async function load(){
       const j=await call({action:'bootstrap'});
-      me.value=j.me; level.value=j.level; today.value=j.today; week.value=j.week; quarter.value=j.quarter;
-      people.value=j.people||[]; categories.value=j.categories||[]; shares.value=j.shares||[]; tasks.value=j.tasks||[];
-      goals.value=j.goals||[]; logs.value=j.logs||[]; checkins.value=j.checkins||[];
-      if(!quarterFilter.value) quarterFilter.value=j.quarter;
-      if(viewPerson.value==='me') viewPerson.value=j.me;
+      me.value=j.me; level.value=j.level; today.value=j.today; week.value=j.week;
+      people.value=j.people||[]; sheets.value=j.sheets||[]; allSheets.value=j.allSheets||[];
+      access.value=j.access||[]; boards.value=j.boards||[]; tasks.value=j.tasks||[];
+      if(!sheets.value.some(s=>s.id===sheetId.value)) sheetId.value=(sheets.value[0]||{}).id||'';
       quick.owner_id=j.me;
-      if(!quick.category_id) quick.category_id=firstBoardId();
-      (j.checkins||[]).forEach(c=>{ if(c.week_start===j.week) notes[c.person_id]=c.notes||''; });
+      quick.category_id=(myBoards.value[0]||{}).id||'';
       if(j.carried) flash(j.carried+' unfinished task(s) rolled into this week');
     }
-
-    // Switching to someone's board should also aim the quick-add box at them.
-    watch(viewPerson, v=>{ quick.owner_id = (v==='me') ? me.value : v; quick.category_id = firstBoardId(); });
-    watch(scope, ()=>{ quick.category_id = firstBoardId(); });
+    watch(sheetId, ()=>{ quick.category_id=(myBoards.value[0]||{}).id||''; });
 
     onMounted(async()=>{
       const { data:{ session:p } }=await portal.auth.getSession();
@@ -839,15 +524,12 @@ createApp({
       }
     });
 
-    return { ready,gateError,msg,screen,tabs,showDone,me,level,isManager,myName,today,week,quarter,
-      people,categories,tasks,goals,logs,viewPerson,quarterFilter,quarterOptions,
-      inlineAdd,gmAdd,notes,quick,edit,cat,gm,iconChoices,colourChoices,dragOver,
-      tint,personName,initials,catName,goalTitle,goalTaskCount,shortDate,longDate,dueClass,goalLabel,goalCls,canEdit,showOwner,boardLabel,
-      boardTiles,myCategories,sections,shares,shareCandidates,viewPersonName,firstBoardId,scope,openCount,weekCount,oneOnOnePeople,weekTasks,gmActions,goalsFor,
-      futureTasks,futureGrouped,somedayTasks,reviewWeeks,stat,hitRate,carriedList,
-      toggle,commitToggle,dragStart,dropOn,addQuick,addInline,addGm,
-      openTask,saveTask,removeTask,openCategory,saveCategory,removeCategory,
-      openGoal,saveGoal,removeGoal,setGoalStatus,saveGoalProgress,saveNotes,window };
+    return { ready,gateError,msg,screen,showDone,me,level,isManager,myName,today,week,
+      people,sheets,allSheets,access,boards,tasks,sheetId,sheetName,myBoards,boardTiles,openCount,
+      bands,inlineAdd,quick,edit,bd,sh,iconChoices,colourChoices,dragOver,
+      tint,personName,shortDate,dueClass,boardCount,accessNames,
+      toggle,bandToggle,dragStart,dropOn,addQuick,addInline,
+      openTask,saveTask,removeTask,openBoard,saveBoard,removeBoard,openSheet,saveSheet,removeSheet };
   }
 }).mount('#app');
 </script>

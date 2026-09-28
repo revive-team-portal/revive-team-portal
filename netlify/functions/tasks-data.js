@@ -1,12 +1,15 @@
 // Data API for the Revive Tasks app.
 //
-// The `tasks` schema has RLS enabled with ZERO policies for `authenticated`, so the
-// browser can read nothing directly — every read and write goes through here, gated
-// on a portal user plus an access level, using the apps-project service-role key.
+// Structure: SHEET -> BOARD -> TASK.
+//   sheet  – a workspace people are granted access to (Jeremy Cafe, Cafe Shared, …)
+//   board  – a coloured tile inside a sheet (General, Projects, …)
+//   task   – sits on a board, in one of three bands: current / future / park
 //
-// Access levels:
-//   manager – portal admin, or user_app_access.role='manager' → sees and edits everyone
-//   team    – any other granted user                          → own tasks + shared categories
+// Everyone with access to a sheet sees and can edit everything in it. A manager
+// (portal admin, or user_app_access.role='manager') sees every sheet and runs Admin.
+//
+// The `tasks` schema has RLS on with ZERO policies for `authenticated`, so the browser
+// reads nothing directly — every read and write comes through here on the service key.
 
 const { json, validatePortalUser } = require('./_portal');
 
@@ -33,18 +36,12 @@ function portalRest(path) {
   }).then(r => r.json()).catch(() => []);
 }
 
-// ---------------------------------------------------------------------------
-// Week helpers. Weeks run Monday → Sunday, in NZ local time.
-// ---------------------------------------------------------------------------
-function nzToday() {
-  // en-CA gives YYYY-MM-DD
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' });
-}
+// --------------------------------------------------------------------------- dates
+function nzToday() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' }); }
 function mondayOf(iso) {
   const d = new Date(iso + 'T00:00:00Z');
-  const dow = d.getUTCDay();                 // 0=Sun … 6=Sat
-  const back = dow === 0 ? 6 : dow - 1;      // Monday-based
-  d.setUTCDate(d.getUTCDate() - back);
+  const dow = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() - (dow === 0 ? 6 : dow - 1));
   return d.toISOString().slice(0, 10);
 }
 function addDays(iso, n) {
@@ -52,14 +49,8 @@ function addDays(iso, n) {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
-function quarterOf(iso) {
-  const y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7));
-  return y + '-Q' + Math.ceil(m / 3);
-}
 
-// ---------------------------------------------------------------------------
-// Who is calling
-// ---------------------------------------------------------------------------
+// --------------------------------------------------------------------------- who
 async function accessLevel(userId, profile) {
   if (profile && profile.is_admin) return 'manager';
   if (!profile) {
@@ -73,90 +64,64 @@ async function accessLevel(userId, profile) {
   return null;
 }
 
-// Keep tasks.person in step with the portal automatically, so nobody has to
-// maintain a second user list. Runs on every bootstrap; cheap at this team size.
+// Keeps tasks.person in step with the portal, and grants any brand-new person the
+// default sheets (Cafe Shared) exactly once — so revoking it later actually sticks.
 async function syncPeople() {
-  const [profiles, access] = await Promise.all([
+  const [profiles, access, existing] = await Promise.all([
     portalRest('profiles?select=id,email,full_name,is_admin,active'),
     portalRest('user_app_access?app_id=eq.tasks&select=user_id,role'),
+    db('person?select=id,access_seeded'),
   ]);
   if (!Array.isArray(profiles) || !profiles.length) return [];
+
   const roleBy = {};
   (Array.isArray(access) ? access : []).forEach(a => { roleBy[a.user_id] = a.role || 'team'; });
-
   const granted = profiles.filter(p => p.is_admin || roleBy[p.id]);
-  if (granted.length) {
-    const rows = granted.map(p => ({
+  if (!granted.length) return [];
+
+  const seeded = new Set((existing || []).filter(p => p.access_seeded).map(p => p.id));
+
+  await db('person?on_conflict=id', {
+    method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(granted.map(p => ({
       id: p.id,
       full_name: p.full_name || (p.email || '').split('@')[0],
       email: p.email || null,
       is_manager: !!p.is_admin || roleBy[p.id] === 'manager',
       active: p.active !== false,
-    }));
-    await db('person?on_conflict=id', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(rows),
+    }))),
+  });
+
+  const fresh = granted.filter(p => !seeded.has(p.id));
+  if (fresh.length) {
+    const defaults = await db('sheet?select=id&is_default=eq.true');
+    if (defaults && defaults.length) {
+      const rows = [];
+      fresh.forEach(p => defaults.forEach(s => rows.push({ sheet_id: s.id, person_id: p.id })));
+      await db('sheet_access?on_conflict=sheet_id,person_id', {
+        method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows),
+      });
+    }
+    await db('person?id=in.(' + fresh.map(p => p.id).join(',') + ')', {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ access_seeded: true }),
     });
   }
+
   return db('person?select=*&active=eq.true&order=is_manager.desc,full_name.asc');
 }
 
-// Categories belong to one person, so a new user starts with their own copy of a
-// sensible default set rather than an empty screen. Runs once — the moment they
-// own at least one board (even after deleting the rest) it never fires again.
-const DEFAULT_BOARDS = [
-  { name: 'Cafe',              icon: '☕',  colour: 'amber',   sort_order: 10 },
-  { name: 'Wholesale & Sales', icon: '📊', colour: 'sky',     sort_order: 20 },
-  { name: 'Marketing',         icon: '📣', colour: 'rose',    sort_order: 30 },
-  { name: 'Production',        icon: '🧇', colour: 'green',   sort_order: 40 },
-  { name: 'People & Team',     icon: '👥', colour: 'violet',  sort_order: 50 },
-  { name: 'Finance & Admin',   icon: '💰', colour: 'emerald', sort_order: 60 },
-  { name: 'Systems & IT',      icon: '⚙️', colour: 'slate',   sort_order: 70 },
-];
-// Two kinds of board:
-//   owner_id IS NULL -> Team board. Everyone sees the board; each person sees only
-//                       their own tasks inside it.
-//   owner_id set     -> that person's own board, optionally shared with named people.
-// The seven defaults are the Team set. Personal boards start empty — people build
-// their own.
-// Only seeds when there is no Team board at all, so a board you delete stays deleted
-// and the common case costs zero extra queries.
-async function ensureTeamBoards(categories) {
-  if ((categories || []).some(c => !c.owner_id)) return 0;
-  await db('category', {
-    method: 'POST', headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify(DEFAULT_BOARDS.map(b => ({ ...b, owner_id: null, shared: false }))),
-  });
-  return DEFAULT_BOARDS.length;
-}
-
-// The board a new task falls into when none was chosen.
-async function firstBoardOf(userId, excludeId) {
-  const skip = excludeId ? '&id=neq.' + excludeId : '';
-  const own = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=eq.' + userId + skip);
-  if (own && own[0]) return own[0].id;
-  const team = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&owner_id=is.null' + skip);
-  return team && team[0] ? team[0].id : null;
-}
-
-// ---------------------------------------------------------------------------
-// Weekly rollover. Any task still committed to a week before this one, and not
-// done, rolls forward and its carry counter ticks up — that visible number is
-// the accountability signal in the 1:1.
-// ---------------------------------------------------------------------------
+// --------------------------------------------------------------------------- rollover
+// Anything still sitting in Current from a previous week rolls forward and its carry
+// counter ticks up — the visible "carried x3" that makes a stalled task obvious.
 async function rollover(weekStart, stale) {
   if (!Array.isArray(stale) || !stale.length) return 0;
   const now = new Date().toISOString();
-  const logUpsert = (rows) => db('week_log?on_conflict=task_id,week_start', {
+  const logUpsert = rows => db('week_log?on_conflict=task_id,week_start', {
     method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows),
   });
   await Promise.all([
-    // close out last week's rows as not completed …
     logUpsert(stale.map(t => ({ task_id: t.id, person_id: t.owner_id, week_start: t.committed_week, completed: false, closed_at: now }))),
-    // … open this week's …
     logUpsert(stale.map(t => ({ task_id: t.id, person_id: t.owner_id, week_start: weekStart }))),
-    // … and carry each task forward, all at once rather than one at a time.
     ...stale.map(t => db('task?id=eq.' + t.id, {
       method: 'PATCH', headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({ committed_week: weekStart, carry_count: (t.carry_count || 0) + 1, updated_at: now }),
@@ -166,10 +131,9 @@ async function rollover(weekStart, stale) {
 }
 
 // ---------------------------------------------------------------------------
-const TASK_FIELDS = ['title', 'notes', 'owner_id', 'category_id', 'goal_id', 'priority',
-  'horizon', 'committed_week', 'due_date', 'done', 'sort_order', 'is_gm_action', 'for_person_id'];
-const GOAL_FIELDS = ['title', 'detail', 'owner_id', 'quarter', 'due_date', 'status', 'progress', 'sort_order'];
-const CAT_FIELDS  = ['name', 'icon', 'colour', 'owner_id', 'shared', 'sort_order', 'archived'];
+const TASK_FIELDS  = ['title', 'notes', 'owner_id', 'category_id', 'priority', 'horizon',
+  'committed_week', 'due_date', 'done', 'sort_order'];
+const BOARD_FIELDS = ['name', 'icon', 'colour', 'sheet_id', 'sort_order', 'archived'];
 
 function pick(src, fields) {
   const out = {};
@@ -193,93 +157,83 @@ exports.handler = async (event) => {
   let body; try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Bad request.' }); }
   const action = body.action;
 
-  // Boards the caller can work inside: their own, plus any shared with them.
-  // Everyone on a shared board can edit every task in it — that was the point of sharing.
-  let _boardsCache = null;
-  async function myBoardIds() {
-    if (_boardsCache) return _boardsCache;
-    const [own, shared] = await Promise.all([
-      db('category?select=id&owner_id=eq.' + me),
-      db('category_share?select=category_id&person_id=eq.' + me),
-    ]);
-    _boardsCache = new Set([].concat(
-      (own || []).map(c => c.id),
-      (shared || []).map(s => s.category_id),
-    ));
-    return _boardsCache;
+  // Sheets the caller may touch. A manager may touch all of them.
+  let _sheets = null;
+  async function mySheetIds() {
+    if (_sheets) return _sheets;
+    if (isManager) {
+      const all = await db('sheet?select=id');
+      _sheets = new Set((all || []).map(s => s.id));
+    } else {
+      const mine = await db('sheet_access?select=sheet_id&person_id=eq.' + me);
+      _sheets = new Set((mine || []).map(s => s.sheet_id));
+    }
+    return _sheets;
   }
-
-  // A non-manager may touch their own rows, and anything sitting on a board they share.
-  const ownGuard = async (table, id) => {
+  async function canUseBoard(boardId) {
     if (isManager) return true;
-    const cols = table === 'task' ? 'owner_id,for_person_id,category_id' : 'owner_id';
-    const rows = await db(table + '?select=' + cols + '&id=eq.' + id);
-    const r = rows && rows[0];
-    if (!r) return false;
-    if (r.owner_id === me || r.for_person_id === me) return true;
-    if (table === 'task' && r.category_id) return (await myBoardIds()).has(r.category_id);
-    return false;
-  };
+    if (!boardId) return false;
+    const rows = await db('category?select=sheet_id&id=eq.' + boardId);
+    return !!(rows && rows[0]) && (await mySheetIds()).has(rows[0].sheet_id);
+  }
+  async function canUseTask(taskId) {
+    if (isManager) return true;
+    const rows = await db('task?select=category_id,owner_id&id=eq.' + taskId);
+    const t = rows && rows[0];
+    if (!t) return false;
+    if (t.owner_id === me) return true;
+    return canUseBoard(t.category_id);
+  }
+  function requireManager() { return isManager ? null : json(403, { error: 'Manager access required.' }); }
 
   try {
-    // ---------------------------------------------------------------- bootstrap
+    // ------------------------------------------------------------- bootstrap
     if (action === 'bootstrap') {
       const today = nzToday();
-      const week = mondayOf(today);
-      const CATS = 'category?select=*&archived=eq.false&order=sort_order.asc,name.asc';
+      const week  = mondayOf(today);
 
-      // Phase 1 — everything that depends on nothing, in one burst.
-      let [people, shares, cats, stale] = await Promise.all([
+      const [people, sheets, myAccess, stale] = await Promise.all([
         syncPeople(),
-        db('category_share?select=category_id,person_id'),
-        db(CATS),
+        db('sheet?select=*&order=sort_order.asc,name.asc'),
+        db('sheet_access?select=sheet_id,person_id'),
         db('task?select=id,carry_count,owner_id,committed_week&done=eq.false&horizon=eq.week&committed_week=lt.' + week),
       ]);
-
-      // Phase 2 — only fires when there is actually something to do.
       const carried = await rollover(week, stale);
-      if (await ensureTeamBoards(cats)) cats = await db(CATS);
 
-      const sharedWithMe = (shares || []).filter(s => s.person_id === me).map(s => s.category_id);
+      const mineIds = isManager
+        ? (sheets || []).map(s => s.id)
+        : (myAccess || []).filter(a => a.person_id === me).map(a => a.sheet_id);
+      const visibleSheets = (sheets || []).filter(s => mineIds.includes(s.id));
 
-      // Everyone gets the Team boards, their own boards, and anything shared with them.
-      // The full list is already in hand; a non-manager just sees less of it.
-      const visible = (c) => !c.owner_id || c.owner_id === me || sharedWithMe.includes(c.id);
-      const categories = isManager ? (cats || []) : (cats || []).filter(visible);
-
-      // A shared personal board shows every task in it to the people it's shared with.
-      // Team boards never do — there, you see only your own work.
-      const openBoards = (categories || []).filter(c => c.owner_id && c.shared).map(c => c.id);
-      let taskFilter = '';
-      if (!isManager) {
-        const clauses = ['owner_id.eq.' + me, 'for_person_id.eq.' + me];
-        if (openBoards.length) clauses.push('category_id.in.(' + openBoards.join(',') + ')');
-        taskFilter = '&or=(' + clauses.join(',') + ')';
+      if (!visibleSheets.length) {
+        return json(200, { me, level, today, week, carried: 0, people, sheets: [], access: [], boards: [], tasks: [] });
       }
-      const goalFilter = isManager ? '' : '&owner_id=eq.' + me;
 
-      // Done tasks older than 60 days stay in the database but out of the payload.
-      const cutoff = addDays(today, -60);
+      const sheetIn = '(' + visibleSheets.map(s => s.id).join(',') + ')';
+      const boards = await db('category?select=*&archived=eq.false&sheet_id=in.' + sheetIn + '&order=sort_order.asc,name.asc');
+      const boardIds = (boards || []).map(b => b.id);
 
-      const [tasksOpen, tasksDone, goals, checkins, logs] = await Promise.all([
-        db('task?select=*&done=eq.false' + taskFilter + '&order=sort_order.asc,created_at.asc'),
-        db('task?select=*&done=eq.true&done_at=gte.' + cutoff + 'T00:00:00Z' + taskFilter + '&order=done_at.desc'),
-        db('goal?select=*' + goalFilter + '&order=sort_order.asc,created_at.asc'),
-        db('checkin?select=*&week_start=gte.' + addDays(week, -56) + (isManager ? '' : '&person_id=eq.' + me)),
-        db('week_log?select=*&week_start=gte.' + addDays(week, -56) + (isManager ? '' : '&person_id=eq.' + me)),
-      ]);
+      let tasks = [];
+      if (boardIds.length) {
+        const inB = '(' + boardIds.join(',') + ')';
+        const cutoff = addDays(today, -60);
+        const [open, done] = await Promise.all([
+          db('task?select=*&done=eq.false&category_id=in.' + inB + '&order=sort_order.asc,created_at.asc'),
+          db('task?select=*&done=eq.true&done_at=gte.' + cutoff + 'T00:00:00Z&category_id=in.' + inB + '&order=done_at.desc'),
+        ]);
+        tasks = [].concat(open || [], done || []);
+      }
 
       return json(200, {
-        me, level, today, week, quarter: quarterOf(today), carried,
-        people, categories, shares, goals, checkins, logs,
-        tasks: [].concat(tasksOpen || [], tasksDone || []),
+        me, level, today, week, carried,
+        people, sheets: visibleSheets, allSheets: isManager ? (sheets || []) : [],
+        access: isManager ? (myAccess || []) : [], boards: boards || [], tasks,
       });
     }
 
-    // ---------------------------------------------------------------- tasks
+    // ------------------------------------------------------------- tasks
     if (action === 'save_task') {
       const row = pick(body.task || {}, TASK_FIELDS);
-      if (!isManager) { row.owner_id = me; delete row.is_gm_action; delete row.for_person_id; }
       if (!body.id || 'title' in row) {
         if (!row.title || !String(row.title).trim()) return json(400, { error: 'A task needs a title.' });
         row.title = String(row.title).slice(0, 500);
@@ -287,15 +241,13 @@ exports.handler = async (event) => {
       row.updated_at = new Date().toISOString();
 
       if (body.id) {
-        if (!(await ownGuard('task', body.id))) return json(403, { error: 'Not your task.' });
-        const out = await db('task?id=eq.' + body.id, {
-          method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row),
-        });
+        if (!(await canUseTask(body.id))) return json(403, { error: 'That task is on a sheet you cannot access.' });
+        const out = await db('task?id=eq.' + body.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
         return json(200, { task: out && out[0] });
       }
+      if (!(await canUseBoard(row.category_id))) return json(403, { error: 'That board is on a sheet you cannot access.' });
       row.created_by = me;
       if (!row.owner_id) row.owner_id = me;
-      if (!row.category_id) row.category_id = await firstBoardOf(row.owner_id);
       const out = await db('task', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
       const t = out && out[0];
       if (t && t.horizon === 'week' && t.committed_week) {
@@ -308,7 +260,7 @@ exports.handler = async (event) => {
     }
 
     if (action === 'toggle_task') {
-      if (!(await ownGuard('task', body.id))) return json(403, { error: 'Not your task.' });
+      if (!(await canUseTask(body.id))) return json(403, { error: 'That task is on a sheet you cannot access.' });
       const done = !!body.done;
       const out = await db('task?id=eq.' + body.id, {
         method: 'PATCH', headers: { Prefer: 'return=representation' },
@@ -328,22 +280,21 @@ exports.handler = async (event) => {
     }
 
     if (action === 'delete_task') {
-      if (!(await ownGuard('task', body.id))) return json(403, { error: 'Not your task.' });
+      if (!(await canUseTask(body.id))) return json(403, { error: 'That task is on a sheet you cannot access.' });
       await db('task?id=eq.' + body.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
       return json(200, { ok: true });
     }
 
-    // Bulk reorder / re-home after a drag.
+    // Bulk move after a drag: board and/or band.
     if (action === 'move_tasks') {
       const items = Array.isArray(body.items) ? body.items.slice(0, 300) : [];
       for (const it of items) {
-        if (!(await ownGuard('task', it.id))) continue;
+        if (!(await canUseTask(it.id))) continue;
+        if ('category_id' in it && !(await canUseBoard(it.category_id))) continue;
         const patch = { updated_at: new Date().toISOString() };
-        if ('category_id' in it) patch.category_id = it.category_id;
-        if ('horizon' in it) patch.horizon = it.horizon;
-        if ('committed_week' in it) patch.committed_week = it.committed_week;
-        if ('sort_order' in it) patch.sort_order = it.sort_order;
-        if ('priority' in it) patch.priority = it.priority;
+        ['category_id', 'horizon', 'committed_week', 'sort_order', 'priority'].forEach(k => {
+          if (k in it) patch[k] = it[k];
+        });
         await db('task?id=eq.' + it.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
         if (patch.horizon === 'week' && patch.committed_week) {
           const rows = await db('task?select=owner_id&id=eq.' + it.id);
@@ -358,111 +309,92 @@ exports.handler = async (event) => {
       return json(200, { ok: true, moved: items.length });
     }
 
-    // ---------------------------------------------------------------- categories
-    if (action === 'save_category') {
-      const row = pick(body.category || {}, CAT_FIELDS);
-      if (!row.name || !String(row.name).trim()) return json(400, { error: 'A category needs a name.' });
-      row.name = String(row.name).slice(0, 80);
-      // Every board has exactly one owner. Only a manager may create one for someone else.
-      // owner_id null = Team board, and only a manager may make one.
-      const wantsTeam = isManager && Object.prototype.hasOwnProperty.call(row, 'owner_id') && row.owner_id === null;
-      if (!wantsTeam) row.owner_id = isManager ? (row.owner_id || me) : me;
-
-      // share_with: the people this board is visible to and editable by, besides the owner.
-      const shareWith = (!wantsTeam && Array.isArray(body.share_with))
-        ? [...new Set(body.share_with.filter(Boolean))].filter(id => id !== row.owner_id)
-        : null;
-      if (shareWith) row.shared = shareWith.length > 0;
-
-      let saved;
+    // ------------------------------------------------------------- boards
+    if (action === 'save_board') {
+      const row = pick(body.board || {}, BOARD_FIELDS);
+      if (!body.id || 'name' in row) {
+        if (!row.name || !String(row.name).trim()) return json(400, { error: 'A board needs a name.' });
+        row.name = String(row.name).slice(0, 80);
+      }
       if (body.id) {
-        if (!isManager) {
-          const rows = await db('category?select=owner_id&id=eq.' + body.id);
-          if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: 'That board belongs to someone else.' });
-        }
+        if (!(await canUseBoard(body.id))) return json(403, { error: 'That board is on a sheet you cannot access.' });
         const out = await db('category?id=eq.' + body.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
-        saved = out && out[0];
-      } else {
-        const out = await db('category', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
-        saved = out && out[0];
+        return json(200, { board: out && out[0] });
       }
-
-      if (saved && shareWith) {
-        await db('category_share?category_id=eq.' + saved.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
-        if (shareWith.length) {
-          await db('category_share', {
-            method: 'POST', headers: { Prefer: 'return=minimal' },
-            body: JSON.stringify(shareWith.map(pid => ({ category_id: saved.id, person_id: pid }))),
-          });
-        }
-      }
-      return json(200, { category: saved, share_with: shareWith });
+      if (!row.sheet_id || !(await mySheetIds()).has(row.sheet_id)) return json(403, { error: 'Pick a sheet you have access to.' });
+      const out = await db('category', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
+      return json(200, { board: out && out[0] });
     }
 
-    if (action === 'delete_category') {
-      if (!isManager) {
-        const rows = await db('category?select=owner_id&id=eq.' + body.id);
-        if (!rows || !rows[0] || rows[0].owner_id !== me) return json(403, { error: "That board belongs to someone else." });
-      }
-      // Move the tasks somewhere real first — there is no Uncategorised tile to catch them.
-      const rows = await db('category?select=owner_id&id=eq.' + body.id);
-      const home = await firstBoardOf((rows && rows[0] && rows[0].owner_id) || me, body.id);
-      if (home) {
-        await db('task?category_id=eq.' + body.id, {
-          method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ category_id: home }),
-        });
+    if (action === 'delete_board') {
+      if (!(await canUseBoard(body.id))) return json(403, { error: 'That board is on a sheet you cannot access.' });
+      // Move the tasks to another board on the same sheet so nothing goes invisible.
+      const rows = await db('category?select=sheet_id&id=eq.' + body.id);
+      const sid = rows && rows[0] ? rows[0].sheet_id : null;
+      if (sid) {
+        const sibs = await db('category?select=id&archived=eq.false&limit=1&order=sort_order.asc&sheet_id=eq.' + sid + '&id=neq.' + body.id);
+        if (sibs && sibs[0]) {
+          await db('task?category_id=eq.' + body.id, {
+            method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ category_id: sibs[0].id }),
+          });
+        } else {
+          return json(400, { error: 'This is the only board on the sheet — add another before deleting this one.' });
+        }
       }
       await db('category?id=eq.' + body.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
       return json(200, { ok: true });
     }
 
-    if (action === 'reorder_categories') {
-      const items = Array.isArray(body.items) ? body.items.slice(0, 200) : [];
-      for (const it of items) {
-        await db('category?id=eq.' + it.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ sort_order: it.sort_order }) });
-      }
-      return json(200, { ok: true });
-    }
+    // ------------------------------------------------------------- sheets (admin)
+    if (action === 'save_sheet') {
+      const deny = requireManager(); if (deny) return deny;
+      const name = String((body.sheet || {}).name || '').trim();
+      if (!name) return json(400, { error: 'A sheet needs a name.' });
+      const row = { name: name.slice(0, 80), is_default: !!(body.sheet || {}).is_default };
+      if ('sort_order' in (body.sheet || {})) row.sort_order = body.sheet.sort_order;
 
-    // ---------------------------------------------------------------- goals
-    if (action === 'save_goal') {
-      const row = pick(body.goal || {}, GOAL_FIELDS);
-      if (!isManager && !body.id) row.owner_id = me;
-      // Partial updates (status flip, progress slider) send only the changed field,
-      // so only insist on a title when one was supplied or the goal is new.
-      if (!body.id || 'title' in row) {
-        if (!row.title || !String(row.title).trim()) return json(400, { error: 'A goal needs a title.' });
-        row.title = String(row.title).slice(0, 300);
-      }
-      row.updated_at = new Date().toISOString();
+      let saved;
       if (body.id) {
-        if (!(await ownGuard('goal', body.id))) return json(403, { error: 'Not your goal.' });
-        const out = await db('goal?id=eq.' + body.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
-        return json(200, { goal: out && out[0] });
+        const out = await db('sheet?id=eq.' + body.id, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
+        saved = out && out[0];
+      } else {
+        const out = await db('sheet', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
+        saved = out && out[0];
+        // A brand-new sheet starts with two placeholder boards so it is never blank.
+        if (saved) {
+          await db('category', {
+            method: 'POST', headers: { Prefer: 'return=minimal' },
+            body: JSON.stringify([
+              { sheet_id: saved.id, name: 'General',  icon: '📋', colour: 'sky',    sort_order: 10 },
+              { sheet_id: saved.id, name: 'Projects', icon: '🚀', colour: 'violet', sort_order: 20 },
+            ]),
+          });
+        }
       }
-      if (!row.owner_id) row.owner_id = me;
-      if (!row.quarter) row.quarter = quarterOf(nzToday());
-      const out = await db('goal', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(row) });
-      return json(200, { goal: out && out[0] });
+
+      if (saved && Array.isArray(body.access)) {
+        const ids = [...new Set(body.access.filter(Boolean))];
+        await db('sheet_access?sheet_id=eq.' + saved.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+        if (ids.length) {
+          await db('sheet_access', {
+            method: 'POST', headers: { Prefer: 'return=minimal' },
+            body: JSON.stringify(ids.map(pid => ({ sheet_id: saved.id, person_id: pid }))),
+          });
+        }
+      }
+      return json(200, { sheet: saved });
     }
 
-    if (action === 'delete_goal') {
-      if (!(await ownGuard('goal', body.id))) return json(403, { error: 'Not your goal.' });
-      await db('goal?id=eq.' + body.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+    if (action === 'delete_sheet') {
+      const deny = requireManager(); if (deny) return deny;
+      // Boards cascade with the sheet, but tasks would be left orphaned (the FK only
+      // nulls their board), so clear them out first.
+      const bs = await db('category?select=id&sheet_id=eq.' + body.id);
+      if (bs && bs.length) {
+        await db('task?category_id=in.(' + bs.map(b => b.id).join(',') + ')', { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      }
+      await db('sheet?id=eq.' + body.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
       return json(200, { ok: true });
-    }
-
-    // ---------------------------------------------------------------- 1:1 notes
-    if (action === 'save_checkin') {
-      const person_id = isManager ? (body.person_id || me) : me;
-      const out = await db('checkin?on_conflict=person_id,week_start', {
-        method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-        body: JSON.stringify({
-          person_id, week_start: body.week_start || mondayOf(nzToday()),
-          notes: String(body.notes || '').slice(0, 20000), updated_at: new Date().toISOString(),
-        }),
-      });
-      return json(200, { checkin: out && out[0] });
     }
 
     return json(400, { error: 'Unknown action.' });
