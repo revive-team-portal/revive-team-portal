@@ -90,3 +90,8 @@
 # packaging machinery. Every 3rd day of the month at 19:00 UTC (8am NZDT). Emails only new hits.
 [functions."equip-watch-cron"]
   schedule = "0 19 */3 * *"
+
+# Voicemail: 2talk voicemails -> transcript + auto-match into the Sales CRM.
+# UTC times = 8am,10am,12pm,2pm NZDT (NZ daylight time). ~1h earlier in NZ winter.
+[functions."voicemail-cron"]
+  schedule = "0 19,21,23,1 * * *"
