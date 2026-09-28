@@ -548,18 +548,18 @@
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-1.5">Start Date</label>
                   <div class="flex gap-1.5 mb-1.5">
-                    <button type="button" @click="editingJob.start_date = 'ASAP'"
+                    <button type="button" @click="editingJob.start_asap = true; editingJob.start_date = ''"
                       class="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors"
-                      :class="editingJob.start_date === 'ASAP' ? 'bg-brand text-white border-brand' : 'bg-white text-gray-600 border-gray-300 hover:border-brand'">
+                      :class="editingJob.start_asap ? 'bg-brand text-white border-brand' : 'bg-white text-gray-600 border-gray-300 hover:border-brand'">
                       ASAP
                     </button>
-                    <button type="button" @click="editingJob.start_date = ''"
+                    <button type="button" @click="editingJob.start_asap = false"
                       class="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors"
-                      :class="editingJob.start_date !== 'ASAP' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'">
+                      :class="!editingJob.start_asap ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'">
                       Pick a date
                     </button>
                   </div>
-                  <input v-if="editingJob.start_date !== 'ASAP'" v-model="editingJob.start_date" type="date"
+                  <input v-if="!editingJob.start_asap" v-model="editingJob.start_date" type="date"
                     class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent">
                   <p v-else class="text-sm text-gray-500 px-1 py-2.5">Shown to applicants as <strong>ASAP</strong>.</p>
                 </div>
@@ -1899,7 +1899,8 @@ const app = createApp({
           description: editingJob.value.description,
           employer_name: editingJob.value.employer_name,
           employer_email: editingJob.value.employer_email,
-          start_date: editingJob.value.start_date || null,
+          start_asap: !!editingJob.value.start_asap,
+          start_date: (!editingJob.value.start_asap && editingJob.value.start_date) ? editingJob.value.start_date : null,
           hourly_rate: editingJob.value.hourly_rate || null,
           min_hours: editingJob.value.min_hours || null,
           questions: editingJob.value.questions || [],
