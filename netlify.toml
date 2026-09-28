@@ -36,8 +36,10 @@
 [functions."meta-sync"]
   schedule = "40 18 * * *"
 
+# Monthly Cafe POS report emails LAST month, so it must fire in the first days of the month
+# (18:00 UTC = 6/7am NZ on the 2nd–5th; sends once, retries on later days if the till was offline).
 [functions."monthly-pos-report"]
-  schedule = "0 18 28-31 * *"
+  schedule = "0 18 1-4 * *"
 
 [functions."timeclock-cleanup"]
   schedule = "0 2 * * *"
