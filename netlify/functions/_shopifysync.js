@@ -41,7 +41,7 @@ async function syncShopify(start, end, full) {
     const we = weekEndFri(nzDate(o.createdAt));
     if (we < start || we > end) continue;
     const b = wk[we] || (wk[we] = { sales: 0, orders: 0, codes: {} });
-    for (const c of (o.discountCodes || [])) { const k = String(c).trim().toUpperCase(); if (k) b.codes[k] = (b.codes[k] || 0) + 1; }
+    for (const c of (o.discountCodes || [])) { const k = String(c).trim().toUpperCase(); if (k && !/CUSTOM|STAFF/.test(k)) b.codes[k] = (b.codes[k] || 0) + 1; }
     b.sales += Number((o.currentTotalPriceSet && o.currentTotalPriceSet.shopMoney && o.currentTotalPriceSet.shopMoney.amount) || 0);
     b.orders += 1;
   }
