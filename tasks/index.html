@@ -90,15 +90,18 @@
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3 no-print">
           <div>
             <h1 class="text-lg font-bold text-stone-800">{{ sheetName }}</h1>
-            <p class="text-[11px] text-stone-400 mt-1 flex items-center gap-1.5">
-              {{ openCount }} open ·
-              <span class="inline-block w-3 h-3 rounded-sm bg-stone-200"></span> current
-              <span class="inline-block w-3 h-3 rounded-sm bg-stone-100 ml-1"></span> future
-              <span class="inline-block w-3 h-3 rounded-sm bg-stone-50 border border-stone-200 ml-1"></span> park
-            </p>
+            <p class="text-[11px] text-stone-400 mt-1">{{ openCount }} open</p>
           </div>
-          <div class="flex items-center gap-2">
-            <label class="text-xs text-stone-500 flex items-center gap-1"><input type="checkbox" v-model="showDone"> show done</label>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex rounded-lg border border-stone-300 overflow-hidden">
+              <button v-for="(s,i) in bands" :key="s.key" @click="show[s.key]=!show[s.key]"
+                class="text-xs font-medium px-3 py-1.5 flex items-center gap-1.5" :class="[i ? 'border-l border-stone-300' : '', show[s.key] ? 'bg-stone-800 text-white' : 'bg-white text-stone-400 hover:bg-stone-50']">
+                <span class="inline-block w-2.5 h-2.5 rounded-sm" :class="show[s.key] ? 'bg-white/70' : 'bg-stone-300'"></span>{{ s.label }}
+              </button>
+            </div>
+            <button @click="starOnly=!starOnly" class="text-xs font-medium px-3 py-1.5 rounded-lg border"
+              :class="starOnly ? 'bg-amber-400 text-white border-amber-400' : 'bg-white text-stone-500 border-stone-300 hover:bg-stone-50'">★ starred</button>
+            <label class="text-xs text-stone-500 flex items-center gap-1"><input type="checkbox" v-model="showDone"> done</label>
             <button @click="openBoard(null)" class="text-xs border border-green-700 text-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">+ Board</button>
           </div>
         </div>
@@ -135,7 +138,7 @@
             </div>
 
             <div class="tile-body flex-1">
-              <div v-for="s in bands" :key="s.key" class="px-2 py-1.5 min-h-[2.75rem]"
+              <div v-for="s in bands" :key="s.key" v-show="show[s.key]" class="px-2 py-1.5 min-h-[2.75rem]"
                 @dragover.prevent.stop="dragOver=c.id+'|'+s.key" @dragleave.stop="dragOver=null" @drop.prevent.stop="dropOn(c,s.key)"
                 :class="[tint(c.colour,s.key), dragOver===c.id+'|'+s.key ? 'drop-on' : '']">
 
@@ -146,6 +149,9 @@
                   class="group flex items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/60 drag-me">
                   <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px] bg-white/70"
                     :class="t.done ? 'bg-green-600 border-green-600 text-white' : (t.priority===1 ? 'border-red-400' : 'border-stone-400')">{{ t.done ? '✓' : '' }}</button>
+                  <button @click="star(t)" class="mt-0.5 text-sm leading-none flex-none no-print"
+                    :class="t.starred ? 'text-amber-500' : 'text-stone-300 opacity-0 group-hover:opacity-100'"
+                    :title="t.starred ? 'Unstar' : 'Star'">{{ t.starred ? '★' : '☆' }}</button>
                   <div class="flex-1 min-w-0" @click="openTask(t)">
                     <p class="text-sm leading-snug cursor-pointer" :class="t.done ? 'text-stone-400 strike' : 'text-stone-800'">{{ t.title }}</p>
                     <p v-if="t.notes" class="text-[11px] leading-snug text-stone-600/80 mt-0.5 whitespace-pre-line line-clamp-3">{{ t.notes }}</p>
@@ -157,11 +163,31 @@
                       <span v-if="t.owner_id!==me" class="text-[10px] text-stone-500">{{ personName(t.owner_id) }}</span>
                     </div>
                   </div>
-                  <button @click="bandToggle(t)" class="opacity-0 group-hover:opacity-100 text-xs flex-none no-print" :title="t.horizon==='week' ? 'Move to future' : 'Move to current'">{{ t.horizon==='week' ? '📌' : '📍' }}</button>
                 </div>
 
                 <input v-model="inlineAdd[c.id+'|'+s.key]" @keyup.enter="addInline(c,s.key)" type="text" :placeholder="'+ add to ' + s.short"
                   class="w-full text-[13px] border border-white/70 hover:border-white focus:border-stone-400 rounded-lg px-2 py-1 mt-0.5 bg-white/80 focus:bg-white outline-none placeholder:text-stone-400 no-print">
+              </div>
+            </div>
+
+            <!-- AI suggestions: drafts you drag up into a band -->
+            <div class="border-t border-stone-100 bg-stone-50 px-2 py-2 no-print">
+              <div v-if="(sugg[c.id]||[]).length" class="space-y-1 mb-2">
+                <div v-for="(x,i) in sugg[c.id]" :key="i" draggable="true" @dragstart="dragSuggestion(c,i,$event)"
+                  class="bg-white border border-dashed border-indigo-300 rounded-lg px-2 py-1.5 drag-me">
+                  <p class="text-sm text-stone-800 leading-snug">{{ x.title }}</p>
+                  <p v-if="x.notes" class="text-[11px] text-indigo-700/80 leading-snug mt-0.5">{{ x.notes }}</p>
+                </div>
+                <p class="text-[10px] text-stone-400 px-0.5">Drag one up into a band to keep it.</p>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button @click="suggest(c)" :disabled="suggBusy[c.id]"
+                  class="text-xs border border-indigo-300 text-indigo-700 rounded-lg px-2.5 py-1 hover:bg-indigo-50 disabled:opacity-50">
+                  {{ suggBusy[c.id] ? 'Thinking…' : ((sugg[c.id]||[]).length ? '↻ Regenerate' : '✨ AI suggest tasks') }}
+                </button>
+                <button v-if="(sugg[c.id]||[]).length" @click="sugg[c.id]=[]" class="text-xs border border-stone-300 text-stone-500 rounded-lg px-2.5 py-1 hover:bg-white">Clear</button>
+                <span v-if="c.objective" class="text-[10px] text-stone-400 truncate ml-auto" :title="c.objective">🎯 {{ c.objective }}</span>
+                <button v-else @click="openBoard(c)" class="text-[10px] text-stone-400 hover:text-stone-600 ml-auto">+ set objective</button>
               </div>
             </div>
           </div>
@@ -220,6 +246,7 @@
             <label class="text-sm col-span-2">Due date<input v-model="edit.due_date" type="date" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
           </div>
           <label class="text-sm block">Notes<textarea v-model="edit.notes" rows="3" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></textarea></label>
+          <label class="text-sm flex items-center gap-2"><input type="checkbox" v-model="edit.starred"> <span class="text-amber-500">★</span> Starred</label>
           <p v-if="edit.carry_count>0" class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">Carried over {{ edit.carry_count }} week(s) — worth asking whether it's too big, blocked, or not really a priority.</p>
           <p v-if="edit.err" class="text-sm text-red-600">{{ edit.err }}</p>
           <div class="flex justify-between pt-1">
@@ -243,6 +270,10 @@
         <div class="p-5 space-y-3">
           <label class="text-sm block">Name<input v-model="bd.name" type="text" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
           <label class="text-sm block">Sheet<select v-model="bd.sheet_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="s in sheets" :key="s.id" :value="s.id">{{ s.name }}</option></select></label>
+          <label class="text-sm block">Objective <span class="text-stone-400 font-normal">(optional)</span>
+            <textarea v-model="bd.objective" rows="2" placeholder="e.g. Get Wopples ranged in 40 more stores by Christmas" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></textarea>
+            <span class="text-xs text-stone-500">Steers the AI suggestions for this board.</span>
+          </label>
           <div>
             <p class="text-sm mb-1">Icon</p>
             <div class="flex flex-wrap gap-1">
@@ -330,6 +361,9 @@ createApp({
     const people=ref([]), sheets=ref([]), allSheets=ref([]), access=ref([]), boards=ref([]), tasks=ref([]);
     const dragging=ref(null), dragOver=ref(null);
     const inlineAdd=reactive({});
+    const show=reactive({week:true,future:true,park:true});
+    const starOnly=ref(false);
+    const sugg=reactive({}), suggBusy=reactive({});
     const quick=reactive({title:'',category_id:'',owner_id:'',current:false});
     const edit=reactive({open:false,busy:false,err:''});
     const bd=reactive({open:false,err:''});
@@ -364,7 +398,9 @@ createApp({
     }
     function upsertLocal(list,row){ const i=list.value.findIndex(x=>x.id===row.id); if(i>=0) list.value[i]=row; else list.value.push(row); }
 
-    const visibleTasks=computed(()=> tasks.value.filter(t=> showDone.value || !t.done));
+    const visibleTasks=computed(()=> tasks.value.filter(t=>
+      (showDone.value || !t.done) && (!starOnly.value || t.starred)
+    ));
     const openCount=computed(()=>{ const ids=myBoards.value.map(b=>b.id); return tasks.value.filter(t=>!t.done && ids.includes(t.category_id)).length; });
 
     const boardTiles=computed(()=>{
@@ -385,18 +421,43 @@ createApp({
       try{ const j=await call({action:'toggle_task',id:t.id,done:t.done}); if(j.task) upsertLocal(tasks,j.task); }
       catch(e){ t.done=was; flash('Could not save: '+e.message); }
     }
-    async function bandToggle(t){
-      const to = t.horizon==='week' ? 'future' : 'week';
-      const prev={horizon:t.horizon,committed_week:t.committed_week};
-      t.horizon=to; t.committed_week = to==='week'?week.value:null;
-      try{ await call({action:'move_tasks',items:[{id:t.id,horizon:to,committed_week:t.committed_week}]}); }
-      catch(e){ Object.assign(t,prev); flash('Could not save: '+e.message); }
+    async function star(t){
+      if(String(t.id).startsWith('tmp_')) return;
+      const was=!!t.starred; t.starred=!was;
+      try{ await call({action:'save_task',id:t.id,task:{starred:t.starred}}); }
+      catch(e){ t.starred=was; flash('Could not save: '+e.message); }
     }
     function dragStart(t,e){ dragging.value=t; e.dataTransfer.effectAllowed='move'; }
+    function dragSuggestion(tile,i,e){
+      dragging.value={__suggest:true, boardId:tile.id, index:i, ...(sugg[tile.id]||[])[i]};
+      e.dataTransfer.effectAllowed='copy';
+    }
+    async function suggest(tile){
+      suggBusy[tile.id]=true;
+      try{
+        const existing=tasks.value.filter(t=>t.category_id===tile.id).map(t=>t.title);
+        const r=await fetch('/.netlify/functions/tasks-ai',{method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+await token()},
+          body:JSON.stringify({sheet:sheetName.value,board:tile.name,objective:tile.objective||'',existing})});
+        const j=await r.json().catch(()=>({error:'Unexpected response'}));
+        if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+        sugg[tile.id]=j.suggestions||[];
+        if(!sugg[tile.id].length) flash('No suggestions came back — try again.');
+      }catch(e){ flash('Suggestions failed: '+e.message); }
+      suggBusy[tile.id]=false;
+    }
     async function dropOn(tile,band){
       dragOver.value=null;
       const t=dragging.value; dragging.value=null;
       if(!t) return;
+      if(t.__suggest){
+        const list=sugg[t.boardId]||[];
+        sugg[t.boardId]=list.filter((_,i)=>i!==t.index);
+        const h=HORIZON[band]||'future';
+        addTaskRaw({title:t.title,notes:t.notes||null,category_id:tile.id,owner_id:me.value,
+          horizon:h, committed_week: h==='week'?week.value:null, priority:3});
+        return;
+      }
       const horizon=HORIZON[band]||t.horizon;
       if(t.category_id===tile.id && t.horizon===horizon) return;
       const prev={category_id:t.category_id,horizon:t.horizon,committed_week:t.committed_week};
@@ -404,31 +465,46 @@ createApp({
       try{ await call({action:'move_tasks',items:[{id:t.id,category_id:tile.id,horizon,committed_week:t.committed_week}]}); }
       catch(e){ Object.assign(t,prev); flash('Could not move: '+e.message); }
     }
-    async function addTaskRaw(row){ const j=await call({action:'save_task',task:row}); if(j.task) tasks.value.push(j.task); return j.task; }
+    // Optimistic: the task appears the moment you hit Enter, then swaps for the saved
+    // row when the server answers. A failed save removes it again and says so.
+    async function addTaskRaw(row){
+      const tmp={id:'tmp_'+Math.random().toString(36).slice(2),
+        title:row.title, notes:row.notes||null, category_id:row.category_id, owner_id:row.owner_id,
+        priority:row.priority||3, horizon:row.horizon||'future', committed_week:row.committed_week||null,
+        due_date:null, done:false, starred:false, carry_count:0, sort_order:9999};
+      tasks.value.push(tmp);
+      try{
+        const j=await call({action:'save_task',task:row});
+        const i=tasks.value.findIndex(t=>t.id===tmp.id);
+        if(i>=0){ if(j.task) tasks.value[i]=j.task; else tasks.value.splice(i,1); }
+        return j.task;
+      }catch(e){
+        tasks.value=tasks.value.filter(t=>t.id!==tmp.id);
+        flash('Could not add: '+e.message);
+      }
+    }
     async function addQuick(){
       if(!quick.title.trim()) return;
-      try{
-        await addTaskRaw({title:quick.title.trim(),category_id:quick.category_id||(myBoards.value[0]||{}).id,
-          owner_id:quick.owner_id||me.value,horizon:quick.current?'week':'future',
-          committed_week:quick.current?week.value:null,priority:3});
-        quick.title=''; flash('Added');
-      }catch(e){ flash('Could not add: '+e.message); }
+      const row={title:quick.title.trim(),category_id:quick.category_id||(myBoards.value[0]||{}).id,
+        owner_id:quick.owner_id||me.value,horizon:quick.current?'week':'future',
+        committed_week:quick.current?week.value:null,priority:3};
+      quick.title='';
+      addTaskRaw(row);
     }
     async function addInline(tile,band){
       const k=tile.id+'|'+band, v=(inlineAdd[k]||'').trim();
       if(!v) return;
       inlineAdd[k]='';
       const horizon=HORIZON[band]||'future';
-      try{ await addTaskRaw({title:v,category_id:tile.id,owner_id:me.value,horizon,
-        committed_week: horizon==='week'?week.value:null,priority:3}); }
-      catch(e){ flash('Could not add: '+e.message); }
+      addTaskRaw({title:v,category_id:tile.id,owner_id:me.value,horizon,
+        committed_week: horizon==='week'?week.value:null,priority:3});
     }
     function openTask(t){
       Object.assign(edit,{open:true,busy:false,err:'',id:t?t.id:null,
         title:t?t.title:'', notes:t?(t.notes||''):'',
         category_id:t?t.category_id:(myBoards.value[0]||{}).id,
         owner_id:t?t.owner_id:me.value, priority:t?t.priority:3,
-        horizon:t?t.horizon:'future', due_date:t?(t.due_date||''):'', carry_count:t?t.carry_count:0});
+        horizon:t?t.horizon:'future', due_date:t?(t.due_date||''):'', starred:t?!!t.starred:false, carry_count:t?t.carry_count:0});
     }
     async function saveTask(){
       if(!edit.title.trim()){ edit.err='Give the task a title.'; return; }
@@ -436,7 +512,7 @@ createApp({
       try{
         const j=await call({action:'save_task',id:edit.id,task:{
           title:edit.title.trim(),notes:edit.notes||null,category_id:edit.category_id,owner_id:edit.owner_id,
-          priority:edit.priority,horizon:edit.horizon,due_date:edit.due_date||null,
+          priority:edit.priority,horizon:edit.horizon,due_date:edit.due_date||null,starred:!!edit.starred,
           committed_week: edit.horizon==='week'?week.value:null}});
         if(j.task) upsertLocal(tasks,j.task);
         edit.open=false; flash('Saved');
@@ -452,12 +528,12 @@ createApp({
     // ---- boards ---------------------------------------------------------------
     function openBoard(b){
       Object.assign(bd,{open:true,err:'',id:b?b.id:null,name:b?b.name:'',icon:b?(b.icon||'📋'):'📋',
-        colour:b?(b.colour||'sky'):'sky', sheet_id:b?b.sheet_id:sheetId.value});
+        colour:b?(b.colour||'sky'):'sky', objective:b?(b.objective||''):'', sheet_id:b?b.sheet_id:sheetId.value});
     }
     async function saveBoard(){
       if(!bd.name.trim()){ bd.err='Give the board a name.'; return; }
       try{
-        const j=await call({action:'save_board',id:bd.id,board:{name:bd.name.trim(),icon:bd.icon,colour:bd.colour,sheet_id:bd.sheet_id}});
+        const j=await call({action:'save_board',id:bd.id,board:{name:bd.name.trim(),icon:bd.icon,colour:bd.colour,objective:bd.objective||null,sheet_id:bd.sheet_id}});
         if(j.board){ upsertLocal(boards,j.board); sheetId.value=j.board.sheet_id; }
         bd.open=false; flash('Saved');
       }catch(e){ bd.err=e.message; }
@@ -526,9 +602,9 @@ createApp({
 
     return { ready,gateError,msg,screen,showDone,me,level,isManager,myName,today,week,
       people,sheets,allSheets,access,boards,tasks,sheetId,sheetName,myBoards,boardTiles,openCount,
-      bands,inlineAdd,quick,edit,bd,sh,iconChoices,colourChoices,dragOver,
+      bands,inlineAdd,quick,edit,bd,sh,iconChoices,colourChoices,dragOver,show,starOnly,sugg,suggBusy,
       tint,personName,shortDate,dueClass,boardCount,accessNames,
-      toggle,bandToggle,dragStart,dropOn,addQuick,addInline,
+      toggle,star,dragStart,dragSuggestion,suggest,dropOn,addQuick,addInline,
       openTask,saveTask,removeTask,openBoard,saveBoard,removeBoard,openSheet,saveSheet,removeSheet };
   }
 }).mount('#app');

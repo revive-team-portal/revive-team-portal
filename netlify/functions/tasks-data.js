@@ -132,8 +132,8 @@ async function rollover(weekStart, stale) {
 
 // ---------------------------------------------------------------------------
 const TASK_FIELDS  = ['title', 'notes', 'owner_id', 'category_id', 'priority', 'horizon',
-  'committed_week', 'due_date', 'done', 'sort_order'];
-const BOARD_FIELDS = ['name', 'icon', 'colour', 'sheet_id', 'sort_order', 'archived'];
+  'committed_week', 'due_date', 'done', 'starred', 'sort_order'];
+const BOARD_FIELDS = ['name', 'icon', 'colour', 'sheet_id', 'objective', 'sort_order', 'archived'];
 
 function pick(src, fields) {
   const out = {};
