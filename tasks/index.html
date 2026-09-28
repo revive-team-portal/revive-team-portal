@@ -31,18 +31,18 @@
 
 <!-- Tailwind CDN safelist: these classes are built at runtime, so they must appear literally somewhere in the DOM. -->
 <div class="hidden
-  bg-stone-700 bg-stone-200 bg-stone-100 bg-stone-50 bg-stone-400
-  bg-amber-700 bg-amber-200 bg-amber-100 bg-amber-50 bg-amber-400
-  bg-sky-700 bg-sky-200 bg-sky-100 bg-sky-50 bg-sky-400
-  bg-rose-700 bg-rose-200 bg-rose-100 bg-rose-50 bg-rose-400
-  bg-green-700 bg-green-200 bg-green-100 bg-green-50 bg-green-400
-  bg-violet-700 bg-violet-200 bg-violet-100 bg-violet-50 bg-violet-400
-  bg-emerald-700 bg-emerald-200 bg-emerald-100 bg-emerald-50 bg-emerald-400
-  bg-slate-700 bg-slate-200 bg-slate-100 bg-slate-50 bg-slate-400
-  bg-indigo-700 bg-indigo-200 bg-indigo-100 bg-indigo-50 bg-indigo-400
-  bg-teal-700 bg-teal-200 bg-teal-100 bg-teal-50 bg-teal-400
-  bg-orange-700 bg-orange-200 bg-orange-100 bg-orange-50 bg-orange-400
-  bg-red-700 bg-red-200 bg-red-100 bg-red-50 bg-red-400
+  bg-stone-700 bg-stone-300 bg-stone-200 bg-stone-100 bg-stone-50 bg-stone-400
+  bg-amber-700 bg-amber-300 bg-amber-200 bg-amber-100 bg-amber-50 bg-amber-400
+  bg-sky-700 bg-sky-300 bg-sky-200 bg-sky-100 bg-sky-50 bg-sky-400
+  bg-rose-700 bg-rose-300 bg-rose-200 bg-rose-100 bg-rose-50 bg-rose-400
+  bg-green-700 bg-green-300 bg-green-200 bg-green-100 bg-green-50 bg-green-400
+  bg-violet-700 bg-violet-300 bg-violet-200 bg-violet-100 bg-violet-50 bg-violet-400
+  bg-emerald-700 bg-emerald-300 bg-emerald-200 bg-emerald-100 bg-emerald-50 bg-emerald-400
+  bg-slate-700 bg-slate-300 bg-slate-200 bg-slate-100 bg-slate-50 bg-slate-400
+  bg-indigo-700 bg-indigo-300 bg-indigo-200 bg-indigo-100 bg-indigo-50 bg-indigo-400
+  bg-teal-700 bg-teal-300 bg-teal-200 bg-teal-100 bg-teal-50 bg-teal-400
+  bg-orange-700 bg-orange-300 bg-orange-200 bg-orange-100 bg-orange-50 bg-orange-400
+  bg-red-700 bg-red-300 bg-red-200 bg-red-100 bg-red-50 bg-red-400
   text-red-800 text-amber-800 text-green-800 text-stone-600 bg-white"></div>
 
 <div id="app" v-cloak>
@@ -242,7 +242,7 @@
             <label class="text-sm">Board<select v-model="edit.category_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="b in myBoards" :key="b.id" :value="b.id">{{ b.icon }} {{ b.name }}</option></select></label>
             <label class="text-sm">Owner<select v-model="edit.owner_id" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option v-for="p in people" :key="p.id" :value="p.id">{{ p.full_name }}</option></select></label>
             <label class="text-sm">Priority<select v-model.number="edit.priority" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option :value="1">Must do</option><option :value="2">Should do</option><option :value="3">Normal</option></select></label>
-            <label class="text-sm">Band<select v-model="edit.horizon" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="week">Current</option><option value="future">Future</option><option value="someday">Park</option></select></label>
+            <label class="text-sm">Band<select v-model="edit.horizon" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5 bg-white"><option value="week">Current</option><option value="waiting">Waiting</option><option value="future">Future</option><option value="someday">Park</option></select></label>
             <label class="text-sm col-span-2">Due date<input v-model="edit.due_date" type="date" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></label>
           </div>
           <label class="text-sm block">Notes<textarea v-model="edit.notes" rows="3" class="mt-1 w-full border border-stone-300 rounded-lg px-2 py-1.5"></textarea></label>
@@ -347,9 +347,10 @@ const COLOURS=['stone','amber','sky','rose','green','violet','emerald','slate','
 const TINTS={};
 COLOURS.forEach(c=>{ TINTS[c]={
   head:'bg-'+c+'-700',   // solid header, white text
-  week:'bg-'+c+'-200',   // Current — darkest band
-  future:'bg-'+c+'-100', // Future  — mid band
-  park:'bg-'+c+'-50',    // Park    — lightest band
+  week:'bg-'+c+'-300',    // Current — darkest band
+  waiting:'bg-'+c+'-200', // Waiting — on someone else, needs chasing
+  future:'bg-'+c+'-100',  // Future
+  park:'bg-'+c+'-50',     // Park    — lightest band
   dot:'bg-'+c+'-400',
 }; });
 
@@ -361,7 +362,7 @@ createApp({
     const people=ref([]), sheets=ref([]), allSheets=ref([]), access=ref([]), boards=ref([]), tasks=ref([]);
     const dragging=ref(null), dragOver=ref(null);
     const inlineAdd=reactive({});
-    const show=reactive({week:true,future:true,park:true});
+    const show=reactive({week:true,waiting:true,future:true,park:true});
     const starOnly=ref(false);
     const sugg=reactive({}), suggBusy=reactive({});
     const quick=reactive({title:'',category_id:'',owner_id:'',current:false});
@@ -371,9 +372,19 @@ createApp({
 
     const iconChoices=['📋','🚀','☕','📊','📣','🧇','👥','💰','⚙️','🚚','🧾','📦','🎯','🛠','🌱','🧹','📞','💡','🔥','🗓'];
     const colourChoices=COLOURS;
-    const bands=[{key:'week',label:'Current',short:'current'},{key:'future',label:'Future',short:'future'},{key:'park',label:'Park',short:'park'}];
-    const HORIZON={week:'week',future:'future',park:'someday'};
-    function bandOf(t){ return t.horizon==='week' ? 'week' : (t.horizon==='someday' ? 'park' : 'future'); }
+    const bands=[
+      {key:'week',    label:'Current', short:'current'},
+      {key:'waiting', label:'Waiting', short:'waiting'},  // no action needed, but needs chasing
+      {key:'future',  label:'Future',  short:'future'},
+      {key:'park',    label:'Park',    short:'park'},
+    ];
+    const HORIZON={week:'week',waiting:'waiting',future:'future',park:'someday'};
+    function bandOf(t){
+      if(t.horizon==='week') return 'week';
+      if(t.horizon==='waiting') return 'waiting';
+      if(t.horizon==='someday') return 'park';
+      return 'future';
+    }
 
     const isManager=computed(()=> level.value==='manager');
     const myName=computed(()=> (people.value.find(p=>p.id===me.value)||{}).full_name || '');
@@ -409,7 +420,7 @@ createApp({
       const sortT=(a,b)=> (a.done-b.done) || (b.carry_count-a.carry_count) || (a.priority-b.priority) || (a.sort_order-b.sort_order);
       return myBoards.value.map(b=>{
         const list=(byBoard[b.id]||[]).sort(sortT);
-        const grouped={week:[],future:[],park:[]};
+        const grouped={week:[],waiting:[],future:[],park:[]};
         list.forEach(t=>grouped[bandOf(t)].push(t));
         return {...b, tasks:list, bands:grouped};
       });
