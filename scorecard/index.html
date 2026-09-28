@@ -354,6 +354,12 @@ td.der .subn,td .subn{opacity:.85}
               </tr>
             </template>
             <tr class="sec"><td class="mname">Weekly notes</td><td :colspan="windowWeeks.length+2"></td></tr>
+            <tr>
+              <td class="mname" title="Most-used Shopify discount code this week (grey) and how many orders used it">Coupon uses<span class="src a">✨ Shopify</span></td>
+              <td class="tgt"></td>
+              <td v-for="w in windowWeeks" :key="'cp-'+w" :class="{now:w===currentWeek, prelim:isPrelim(w)}"><span v-if="weekByEnd[w]&&weekByEnd[w].coupon_code" class="subn" :title="weekByEnd[w].coupon_code">{{ weekByEnd[w].coupon_code }}</span><span class="mainv">{{ cellObj('coupon_uses',w).v==null?'':fm(cellObj('coupon_uses',w).v,0) }}</span></td>
+              <td class="avg10"></td>
+            </tr>
             <tr v-for="nf in NOTE_FIELDS" :key="'note-'+nf.key" class="noterow">
               <td class="mname">{{ nf.label }}</td>
               <td class="tgt"></td>

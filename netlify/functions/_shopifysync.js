@@ -17,7 +17,7 @@ function addDays(ymd, n) { const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(
 function nzDate(iso) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)); }
 function weekEndFri(ymd) { const d = new Date(ymd + 'T00:00:00Z'); const add = (5 - d.getUTCDay() + 7) % 7; d.setUTCDate(d.getUTCDate() + add); return d.toISOString().slice(0, 10); }
 
-const ORDERS_Q = `query($q:String!,$after:String){ orders(first:250, query:$q, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ createdAt currentTotalPriceSet{ shopMoney{ amount } } } } }`;
+const ORDERS_Q = `query($q:String!,$after:String){ orders(first:250, query:$q, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ createdAt discountCodes currentTotalPriceSet{ shopMoney{ amount } } } } }`;
 
 async function fetchOrders(startUTC, endUTC) {
   let after = null, all = [];
@@ -40,7 +40,8 @@ async function syncShopify(start, end, full) {
   for (const o of orders) {
     const we = weekEndFri(nzDate(o.createdAt));
     if (we < start || we > end) continue;
-    const b = wk[we] || (wk[we] = { sales: 0, orders: 0 });
+    const b = wk[we] || (wk[we] = { sales: 0, orders: 0, codes: {} });
+    for (const c of (o.discountCodes || [])) { const k = String(c).trim().toUpperCase(); if (k) b.codes[k] = (b.codes[k] || 0) + 1; }
     b.sales += Number((o.currentTotalPriceSet && o.currentTotalPriceSet.shopMoney && o.currentTotalPriceSet.shopMoney.amount) || 0);
     b.orders += 1;
   }
@@ -55,14 +56,19 @@ async function syncShopify(start, end, full) {
   // be undercounted. Never overwrite a week whose oldest day could fall outside that
   // window — leave the correct historical figure in place.
   const cutoff = new Date(Date.now() - 50 * 86400000).toISOString().slice(0, 10);
-  const rows = []; const written = [];
+  const rows = []; const written = []; const codeRows = [];
   for (const we of Object.keys(wk)) {
     if (!exist.has(we) || we > curFri || (!full && we < cutoff)) continue;   // full=true: deliberate history backfill (app now has read_all_orders)
     const now = new Date().toISOString();
     if (!ovSet.has('online_sales|' + we)) rows.push({ metric_code: 'online_sales', period_type: 'week', period_end: we, value: Math.round(wk[we].sales * 100) / 100, source: 'shopify', quality: 'ok', entered_at: now });
     if (!ovSet.has('online_orders|' + we)) rows.push({ metric_code: 'online_orders', period_type: 'week', period_end: we, value: wk[we].orders, source: 'shopify', quality: 'ok', entered_at: now });
+    // Coupon: most-used discount code this week -> week.coupon_code, its uses -> coupon_uses
+    const top = Object.entries(wk[we].codes).sort((a, b) => b[1] - a[1])[0];
+    rows.push({ metric_code: 'coupon_uses', period_type: 'week', period_end: we, value: top ? top[1] : 0, source: 'shopify', quality: 'ok', entered_at: now });
+    codeRows.push({ we, code: top ? top[0] : null });
     written.push(we);
   }
+  for (const c of codeRows) await appsDb('week?period_end=eq.' + c.we, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ coupon_code: c.code }) }).catch(() => {});
   for (let i = 0; i < rows.length; i += 400) await appsDb('fact?on_conflict=metric_code,period_type,period_end', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.slice(i, i + 400)) });
   await appsDb("integration?name=eq.Shopify", { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ last_success: new Date().toISOString(), last_error: null, note: 'sync ' + new Date().toISOString() + ' weeks=' + written.length }) }).catch(() => {});
   return { orders: orders.length, weeks: written.length, sample: wk[weekEndFri(nzDate(endUTC))] };

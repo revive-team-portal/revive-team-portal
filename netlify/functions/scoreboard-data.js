@@ -86,7 +86,7 @@ exports.handler = async (event) => {
       const isMgr = level === 'manager' || level === 'supervisor';
       const [metrics, weeks, targets, rates] = await Promise.all([
         appsDb('metric?select=code,name,category,grain,unit,higher_better,source_type,source_system,formula,is_public,public_order,is_hero,active,sort_order&order=sort_order.asc'),
-        appsDb('week?select=period_end,trading_days,cafe_closed,cutoff_at,days_note,holiday,email_offer,email_offer_detail,online_offer,cafe_offer,promo_comments,npd,wages_exceptions,other_comments,status&order=period_end.asc'),
+        appsDb('week?select=period_end,trading_days,cafe_closed,cutoff_at,days_note,holiday,email_offer,email_offer_detail,online_offer,cafe_offer,coupon_code,promo_comments,npd,wages_exceptions,other_comments,status&order=period_end.asc'),
         appsDb('metric_target?select=metric_code,effective_from,target_value,amber_pct,amber_abs,red_abs,note&order=effective_from.asc'),
         appsDb('rate_setting?select=key,value,effective_from&order=key.asc'),
       ]);
