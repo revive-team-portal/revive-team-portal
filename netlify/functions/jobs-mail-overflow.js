@@ -17,9 +17,10 @@ const APPS_KEY = process.env.APPS_SERVICE_ROLE_KEY;
 
 // The mailbox the overflow is sent from, and the address we would prefer
 // to appear as. Gmail only allows a "send as" address that has been
-// verified on that account.
+// verified on that account, so until operations@ is verified on the cafe
+// mailbox this falls back to cafe@revive.co.nz and nothing breaks.
 const MAILBOX = 'cafe';
-const PREFERRED_FROM = 'noreply@revive.co.nz';
+const PREFERRED_FROM = 'operations@revive.co.nz';
 const FROM_NAME = 'Revive Cafe Jobs';
 
 const BATCH = 40;   // per run; Workspace allows far more per day than Resend

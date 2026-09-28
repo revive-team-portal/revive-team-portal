@@ -1,5 +1,5 @@
 // Reports which addresses the cafe mailbox is allowed to send as, so we know
-// whether job overflow email can go out as noreply@revive.co.nz.
+// whether job overflow email can go out as operations@revive.co.nz.
 // Read-only: it sends nothing.
 const { getAccessToken } = require('./_gmail');
 
@@ -19,11 +19,11 @@ exports.handler = async () => {
     verification: a.verificationStatus || (a.isPrimary ? 'primary' : 'unknown')
   }));
   const wanted = aliases.find(a =>
-    (a.email || '').toLowerCase() === 'noreply@revive.co.nz' &&
+    (a.email || '').toLowerCase() === 'operations@revive.co.nz' &&
     (a.verification === 'accepted' || a.primary));
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mailbox: at.email, canSendAsNoreply: !!wanted, aliases }, null, 2)
+    body: JSON.stringify({ mailbox: at.email, canSendAsPreferred: !!wanted, aliases }, null, 2)
   };
 };
