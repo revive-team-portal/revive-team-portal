@@ -149,7 +149,7 @@
                   class="group flex items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/60 drag-me">
                   <button @click="toggle(t)" class="mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex-none flex items-center justify-center text-[10px] bg-white/70"
                     :class="t.done ? 'bg-green-600 border-green-600 text-white' : (t.priority===1 ? 'border-red-400' : 'border-stone-400')">{{ t.done ? '✓' : '' }}</button>
-                  <button @click="star(t)" class="mt-0.5 text-sm leading-none flex-none no-print"
+                  <button @click="star(t)" class="mt-0.5 text-sm leading-none flex-none w-4 text-center no-print"
                     :class="t.starred ? 'text-amber-500' : 'text-stone-300 opacity-0 group-hover:opacity-100'"
                     :title="t.starred ? 'Unstar' : 'Star'">{{ t.starred ? '★' : '☆' }}</button>
                   <div class="flex-1 min-w-0" @click="openTask(t)">
@@ -165,8 +165,12 @@
                   </div>
                 </div>
 
-                <input v-model="inlineAdd[c.id+'|'+s.key]" @keyup.enter="addInline(c,s.key)" type="text" :placeholder="'+ add to ' + s.short"
-                  class="w-full text-[13px] border border-white/70 hover:border-white focus:border-stone-400 rounded-lg px-2 py-1 mt-0.5 bg-white/80 focus:bg-white outline-none placeholder:text-stone-400 no-print">
+                <div class="flex items-start gap-2 px-1.5 py-1 mt-0.5 no-print">
+                  <span class="w-[18px] flex-none"></span>
+                  <span class="w-4 flex-none"></span>
+                  <input v-model="inlineAdd[c.id+'|'+s.key]" @keyup.enter="addInline(c,s.key)" type="text"
+                    class="flex-1 min-w-0 text-sm leading-snug bg-white/25 hover:bg-white/45 focus:bg-white/90 rounded px-1 py-0.5 border-0 outline-none">
+                </div>
               </div>
             </div>
 
