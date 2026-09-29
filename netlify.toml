@@ -95,3 +95,17 @@
 # UTC times = 8am,10am,12pm,2pm NZDT (NZ daylight time). ~1h earlier in NZ winter.
 [functions."voicemail-cron"]
   schedule = "0 19,21,23,1 * * *"
+
+# PWA assets for the Tasks app: the manifest needs its proper media type, and the
+# service worker must never be served stale or it can pin an old build.
+[[headers]]
+  for = "/tasks/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json; charset=utf-8"
+
+[[headers]]
+  for = "/tasks/sw.js"
+  [headers.values]
+    Content-Type = "text/javascript; charset=utf-8"
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/tasks/"
