@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Revive — Tasks</title>
+  <link rel="manifest" href="/tasks/manifest.webmanifest">
+  <meta name="theme-color" content="#15803d">
+  <link rel="apple-touch-icon" href="/tasks/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tasks">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -72,6 +79,12 @@
       </div>
     </nav>
 
+    <div v-if="offline" class="bg-amber-100 border-b border-amber-300 text-amber-900 px-4 py-2 text-xs flex flex-wrap items-center gap-2 no-print">
+      <span class="font-semibold">Offline — view only.</span>
+      <span>Showing your tasks as they were {{ cachedAt }}.</span>
+      <button @click="retry" class="ml-auto border border-amber-400 rounded-lg px-2.5 py-1 hover:bg-amber-200">Try again</button>
+    </div>
+
     <!-- SHEET TABS -->
     <div class="bg-white border-b border-stone-200 px-3 py-2 flex flex-wrap items-center gap-2 no-print sticky top-[44px] z-30">
       <span class="text-xs text-stone-400 hidden sm:inline mr-1">Sheet</span>
@@ -102,12 +115,12 @@
             <button @click="starOnly=!starOnly" class="text-xs font-medium px-3 py-1.5 rounded-lg border"
               :class="starOnly ? 'bg-amber-400 text-white border-amber-400' : 'bg-white text-stone-500 border-stone-300 hover:bg-stone-50'">★ starred</button>
             <label class="text-xs text-stone-500 flex items-center gap-1"><input type="checkbox" v-model="showDone"> done</label>
-            <button @click="openBoard(null)" class="text-xs border border-green-700 text-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">+ Board</button>
+            <button v-if="!offline" @click="openBoard(null)" class="text-xs border border-green-700 text-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">+ Board</button>
           </div>
         </div>
 
         <!-- quick add -->
-        <div v-if="myBoards.length" class="bg-white border border-stone-200 rounded-xl p-2.5 mb-4 flex flex-wrap gap-2 items-center no-print">
+        <div v-if="myBoards.length && !offline" class="bg-white border border-stone-200 rounded-xl p-2.5 mb-4 flex flex-wrap gap-2 items-center no-print">
           <input v-model="quick.title" @keyup.enter="addQuick" type="text" placeholder="Add a task and press Enter…" class="flex-1 min-w-[12rem] border border-stone-300 rounded-lg px-3 py-1.5 text-sm">
           <select v-model="quick.category_id" class="border border-stone-300 rounded-lg px-2 py-1.5 text-sm bg-white">
             <option v-for="b in myBoards" :key="b.id" :value="b.id">{{ b.icon }} {{ b.name }}</option>
@@ -134,7 +147,7 @@
                 <h3 class="font-semibold text-sm truncate">{{ c.name }}</h3>
                 <p class="text-[11px] text-white/70">{{ c.tasks.filter(t=>!t.done).length }} open</p>
               </div>
-              <button @click="openBoard(c)" class="text-white/60 hover:text-white text-sm no-print" title="Edit board">✎</button>
+              <button v-if="!offline" @click="openBoard(c)" class="text-white/60 hover:text-white text-sm no-print" title="Edit board">✎</button>
             </div>
 
             <div class="tile-body flex-1">
@@ -165,7 +178,7 @@
                   </div>
                 </div>
 
-                <div class="flex items-start gap-2 px-1.5 py-1 mt-0.5 no-print">
+                <div v-if="!offline" class="flex items-start gap-2 px-1.5 py-1 mt-0.5 no-print">
                   <span class="w-[18px] flex-none"></span>
                   <span class="w-4 flex-none"></span>
                   <input v-model="inlineAdd[c.id+'|'+s.key]" @keyup.enter="addInline(c,s.key)" type="text"
@@ -175,7 +188,7 @@
             </div>
 
             <!-- AI suggestions: drafts you drag up into a band -->
-            <div class="border-t border-stone-100 bg-stone-50 px-2 py-2 no-print">
+            <div v-if="!offline" class="border-t border-stone-100 bg-stone-50 px-2 py-2 no-print">
               <div v-if="(sugg[c.id]||[]).length" class="space-y-1 mb-2">
                 <div v-for="(x,i) in sugg[c.id]" :key="i" draggable="true" @dragstart="dragSuggestion(c,i,$event)"
                   class="bg-white border border-dashed border-indigo-300 rounded-lg px-2 py-1.5 drag-me">
@@ -205,7 +218,7 @@
             <h1 class="text-lg font-bold text-stone-800">Sheets</h1>
             <p class="text-xs text-stone-500">Who can see each sheet, and which sheets a new person starts with.</p>
           </div>
-          <button @click="openSheet(null)" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Sheet</button>
+          <button v-if="!offline" @click="openSheet(null)" class="text-xs bg-green-700 text-white rounded-lg px-3 py-1.5">+ Sheet</button>
         </div>
 
         <div class="bg-white border border-stone-200 rounded-2xl overflow-x-auto">
@@ -222,7 +235,7 @@
                   <span v-if="s.is_default" class="text-[10px] bg-green-100 text-green-800 rounded px-2 py-0.5 font-semibold">default</span>
                   <span v-else class="text-stone-300">—</span>
                 </td>
-                <td class="px-3 py-2 text-right"><button @click="openSheet(s)" class="text-xs border border-stone-300 rounded-lg px-2.5 py-1 hover:bg-stone-50">Edit</button></td>
+                <td class="px-3 py-2 text-right"><button v-if="!offline" @click="openSheet(s)" class="text-xs border border-stone-300 rounded-lg px-2.5 py-1 hover:bg-stone-50">Edit</button></td>
               </tr>
             </tbody>
           </table>
@@ -369,6 +382,14 @@ createApp({
     const show=reactive({week:true,waiting:true,future:true,park:true});
     const starOnly=ref(false);
     const sugg=reactive({}), suggBusy=reactive({});
+    const offline=ref(false), cachedAt=ref('');
+    const SNAPSHOT='revive_tasks_snapshot_v1';
+
+    // Read-only offline: every write goes through this first.
+    function blocked(){
+      if(offline.value){ flash('Offline — view only until you reconnect'); return true; }
+      return false;
+    }
     const quick=reactive({title:'',category_id:'',owner_id:'',current:false});
     const edit=reactive({open:false,busy:false,err:''});
     const bd=reactive({open:false,err:''});
@@ -432,11 +453,13 @@ createApp({
 
     // ---- tasks ----------------------------------------------------------------
     async function toggle(t){
+      if(blocked()) return;
       const was=t.done; t.done=!was; t.done_at=t.done?new Date().toISOString():null;
       try{ const j=await call({action:'toggle_task',id:t.id,done:t.done}); if(j.task) upsertLocal(tasks,j.task); }
       catch(e){ t.done=was; flash('Could not save: '+e.message); }
     }
     async function star(t){
+      if(blocked()) return;
       if(String(t.id).startsWith('tmp_')) return;
       const was=!!t.starred; t.starred=!was;
       try{ await call({action:'save_task',id:t.id,task:{starred:t.starred}}); }
@@ -448,6 +471,7 @@ createApp({
       e.dataTransfer.effectAllowed='copy';
     }
     async function suggest(tile){
+      if(blocked()) return;
       suggBusy[tile.id]=true;
       try{
         const existing=tasks.value.filter(t=>t.category_id===tile.id).map(t=>t.title);
@@ -463,6 +487,7 @@ createApp({
     }
     async function dropOn(tile,band){
       dragOver.value=null;
+      if(blocked()){ dragging.value=null; return; }
       const t=dragging.value; dragging.value=null;
       if(!t) return;
       if(t.__suggest){
@@ -483,6 +508,7 @@ createApp({
     // Optimistic: the task appears the moment you hit Enter, then swaps for the saved
     // row when the server answers. A failed save removes it again and says so.
     async function addTaskRaw(row){
+      if(blocked()) return;
       const tmp={id:'tmp_'+Math.random().toString(36).slice(2),
         title:row.title, notes:row.notes||null, category_id:row.category_id, owner_id:row.owner_id,
         priority:row.priority||3, horizon:row.horizon||'future', committed_week:row.committed_week||null,
@@ -522,6 +548,7 @@ createApp({
         horizon:t?t.horizon:'future', due_date:t?(t.due_date||''):'', starred:t?!!t.starred:false, carry_count:t?t.carry_count:0});
     }
     async function saveTask(){
+      if(blocked()) return;
       if(!edit.title.trim()){ edit.err='Give the task a title.'; return; }
       edit.busy=true; edit.err='';
       try{
@@ -535,6 +562,7 @@ createApp({
       edit.busy=false;
     }
     async function removeTask(){
+      if(blocked()) return;
       if(!confirm('Delete this task?')) return;
       try{ await call({action:'delete_task',id:edit.id}); tasks.value=tasks.value.filter(t=>t.id!==edit.id); edit.open=false; flash('Deleted'); }
       catch(e){ edit.err=e.message; }
@@ -546,6 +574,7 @@ createApp({
         colour:b?(b.colour||'sky'):'sky', objective:b?(b.objective||''):'', sheet_id:b?b.sheet_id:sheetId.value});
     }
     async function saveBoard(){
+      if(blocked()) return;
       if(!bd.name.trim()){ bd.err='Give the board a name.'; return; }
       try{
         const j=await call({action:'save_board',id:bd.id,board:{name:bd.name.trim(),icon:bd.icon,colour:bd.colour,objective:bd.objective||null,sheet_id:bd.sheet_id}});
@@ -554,6 +583,7 @@ createApp({
       }catch(e){ bd.err=e.message; }
     }
     async function removeBoard(){
+      if(blocked()) return;
       if(!confirm('Delete this board? Its tasks move to the first board on this sheet.')) return;
       try{
         await call({action:'delete_board',id:bd.id});
@@ -570,6 +600,7 @@ createApp({
         access: s ? access.value.filter(a=>a.sheet_id===s.id).map(a=>a.person_id) : []});
     }
     async function saveSheet(){
+      if(blocked()) return;
       if(!sh.name.trim()){ sh.err='Give the sheet a name.'; return; }
       try{
         await call({action:'save_sheet',id:sh.id,sheet:{name:sh.name.trim(),is_default:sh.is_default},access:sh.access});
@@ -578,27 +609,60 @@ createApp({
       }catch(e){ sh.err=e.message; }
     }
     async function removeSheet(){
+      if(blocked()) return;
       if(!confirm('Delete this sheet? Every board and task on it is permanently removed.')) return;
       try{ await call({action:'delete_sheet',id:sh.id}); sh.open=false; flash('Sheet deleted'); await load(); }
       catch(e){ sh.err=e.message; }
     }
 
     // ---- boot -----------------------------------------------------------------
-    async function load(){
-      const j=await call({action:'bootstrap'});
+    function apply(j){
       me.value=j.me; level.value=j.level; today.value=j.today; week.value=j.week;
       people.value=j.people||[]; sheets.value=j.sheets||[]; allSheets.value=j.allSheets||[];
       access.value=j.access||[]; boards.value=j.boards||[]; tasks.value=j.tasks||[];
       if(!sheets.value.some(s=>s.id===sheetId.value)) sheetId.value=(sheets.value[0]||{}).id||'';
       quick.owner_id=j.me;
       quick.category_id=(myBoards.value[0]||{}).id||'';
+    }
+    function whenStr(ms){
+      const d=new Date(ms), now=new Date();
+      const sameDay=d.toDateString()===now.toDateString();
+      return sameDay ? ('at '+d.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit'}))
+                     : ('on '+d.toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'})+
+                        ' at '+d.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit'}));
+    }
+    async function load(){
+      const j=await call({action:'bootstrap'});
+      apply(j);
+      offline.value=false; cachedAt.value='';
+      try{ localStorage.setItem(SNAPSHOT, JSON.stringify({at:Date.now(), data:j})); }catch(_){}
       if(j.carried) flash(j.carried+' unfinished task(s) rolled into this week');
+    }
+    // No connection: fall back to the last snapshot and lock the app to view only.
+    function loadSnapshot(){
+      let c=null;
+      try{ const r=localStorage.getItem(SNAPSHOT); c=r?JSON.parse(r):null; }catch(_){}
+      if(!c||!c.data) return false;
+      apply(c.data);
+      offline.value=true; cachedAt.value=whenStr(c.at);
+      return true;
+    }
+    async function retry(){
+      try{ await load(); flash('Back online'); }
+      catch(e){ flash('Still offline'); }
     }
     watch(sheetId, ()=>{ quick.category_id=(myBoards.value[0]||{}).id||''; });
 
     onMounted(async()=>{
+      // Keep the app shell cached so it opens with no connection.
+      if('serviceWorker' in navigator){
+        try{ navigator.serviceWorker.register('/tasks/sw.js',{scope:'/tasks/'}); }catch(_){}
+      }
+      // Coming back online re-syncs on its own.
+      window.addEventListener('online', ()=>{ if(offline.value) retry(); });
+
       const { data:{ session:p } }=await portal.auth.getSession();
-      if(!p){ window.location.href='/'; return; }
+      if(!p && navigator.onLine){ window.location.href='/'; return; }
       try{
         try{ await load(); }
         catch(e1){
@@ -609,15 +673,20 @@ createApp({
         }
         ready.value=true;
       }catch(e){
+        // A network failure (or an expired token with no way to refresh) lands here.
+        if(loadSnapshot()){ ready.value=true; return; }
         const m=e.message||'';
-        gateError.value=/access/i.test(m) ? "You don't have access to Tasks. Ask an administrator to grant it." : ('Could not load Tasks: '+m);
+        gateError.value=/access/i.test(m)
+          ? "You don't have access to Tasks. Ask an administrator to grant it."
+          : (navigator.onLine ? ('Could not load Tasks: '+m)
+                              : 'You are offline and this device has no saved copy yet. Open Tasks once with a connection.');
         ready.value=true;
       }
     });
 
     return { ready,gateError,msg,screen,showDone,me,level,isManager,myName,today,week,
       people,sheets,allSheets,access,boards,tasks,sheetId,sheetName,myBoards,boardTiles,openCount,
-      bands,inlineAdd,quick,edit,bd,sh,iconChoices,colourChoices,dragOver,show,starOnly,sugg,suggBusy,
+      bands,inlineAdd,quick,edit,bd,sh,iconChoices,colourChoices,dragOver,show,starOnly,sugg,suggBusy,offline,cachedAt,retry,
       tint,personName,shortDate,dueClass,boardCount,accessNames,
       toggle,star,dragStart,dragSuggestion,suggest,dropOn,addQuick,addInline,
       openTask,saveTask,removeTask,openBoard,saveBoard,removeBoard,openSheet,saveSheet,removeSheet };

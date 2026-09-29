@@ -1,0 +1,15 @@
+{
+  "name": "Revive Tasks",
+  "short_name": "Tasks",
+  "description": "Sheets, boards and tasks for the Revive team.",
+  "start_url": "/tasks/",
+  "scope": "/tasks/",
+  "display": "standalone",
+  "background_color": "#f5f5f4",
+  "theme_color": "#15803d",
+  "icons": [
+    { "src": "/tasks/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/tasks/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/tasks/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
