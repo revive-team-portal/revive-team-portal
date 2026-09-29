@@ -77,15 +77,19 @@ async function ensureLabel(token) {
   } catch (e) { return null; }
 }
 
-async function runVoicemailSync({ lookbackDays = 21, max = 20, doTranscribe = true } = {}) {
+async function runVoicemailSync({ lookbackDays = 21, max = 20, doTranscribe = true, onlyId = null } = {}) {
   const summary = { processed: 0, matched: 0, unmatched: 0, transcribed: 0, skipped: 0, errors: [] };
   const at = await getAccessToken('shared');
   if (!at.ok) throw new Error(at.error || 'Gmail not connected');
   const token = at.access_token;
 
-  const q = encodeURIComponent('from:pbx@2talk.co.nz newer_than:' + lookbackDays + 'd');
-  const list = await gapi(token, 'messages?maxResults=50&q=' + q);
-  const ids = (list.messages || []).map((m) => m.id);
+  let ids;
+  if (onlyId) { ids = [onlyId]; }
+  else {
+    const q = encodeURIComponent('from:pbx@2talk.co.nz newer_than:' + lookbackDays + 'd');
+    const list = await gapi(token, 'messages?maxResults=50&q=' + q);
+    ids = (list.messages || []).map((m) => m.id);
+  }
   if (!ids.length) return summary;
 
   const existing = await salesDb('voicemails?select=gmail_id');
