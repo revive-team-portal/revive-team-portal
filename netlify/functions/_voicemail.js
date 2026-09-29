@@ -77,7 +77,7 @@ async function ensureLabel(token) {
   } catch (e) { return null; }
 }
 
-async function runVoicemailSync({ lookbackDays = 21, max = 20 } = {}) {
+async function runVoicemailSync({ lookbackDays = 21, max = 20, doTranscribe = true } = {}) {
   const summary = { processed: 0, matched: 0, unmatched: 0, transcribed: 0, skipped: 0, errors: [] };
   const at = await getAccessToken('shared');
   if (!at.ok) throw new Error(at.error || 'Gmail not connected');
@@ -119,8 +119,8 @@ async function runVoicemailSync({ lookbackDays = 21, max = 20 } = {}) {
         const att = await gapi(token, 'messages/' + id + '/attachments/' + parts.audio.attachmentId);
         const buf = b64urlToBuf(att.data);
         audioB64 = buf.toString('base64');
-        const tr = await transcribe(buf, audioMime); transcript = tr.text; tnote = tr.note;
-        if (transcript) summary.transcribed++;
+        if (doTranscribe) { const tr = await transcribe(buf, audioMime); transcript = tr.text; tnote = tr.note; if (transcript) summary.transcribed++; }
+        else { tnote = 'transcribe skipped'; }
       }
 
       const storeId = matchStore(det.caller);
