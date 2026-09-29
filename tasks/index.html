@@ -10,7 +10,7 @@
   <style>
     [v-cloak]{display:none}
     ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:6px}
-    .tile-body{max-height:30rem;overflow-y:auto}
+    .tile-body{max-height:none;overflow:visible} /* no-inner-scroll: tiles grow, page scrolls */
     .drop-on{outline:2px dashed #15803d;outline-offset:-3px}
     .drag-me{cursor:grab}
     .strike{text-decoration:line-through}
